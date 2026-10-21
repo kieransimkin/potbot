@@ -46,3 +46,16 @@ Type inventory bypasses relevance ranking and revision-view deduplication. It pr
 ## Schema resolution
 
 All schemas use JSON Schema Draft 2020-12. Register their exact $id values with the validator: retrieval-request.schema.json references urn:agent-sem:schema:type-query:0.1.0. Shape-valid illustrative records do not prove live ownership, authority, parser coverage or database conformance. The validation report lists actual static checks and planned runtime work separately.
+## Runtime named-embedding schema
+
+`artifact-embedding-manifest.schema.json` adds the versioned runtime contract
+`urn:potbot:schema:artifact-embedding-manifest:1`, with a complete example in
+`example-artifact-embedding-manifest.json`. Its `named_embeddings` map contains
+source-qualified references grouped by representation name. Every reference pins an
+immutable view and encoding space; names do not replace exact data types or semantic
+predicates. Lists preserve multiple source occurrences and space generations.
+
+This additive runtime contract does not revise the published `0.1.0` vocabulary or
+its existing schemas. The original `validation-report.json` remains the historical
+design-package validation result. Current implementation tests are run by Potbot's CI.
+See [named embeddings](../docs/named-embeddings.md) for the migration and API contract.

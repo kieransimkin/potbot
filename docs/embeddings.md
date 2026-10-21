@@ -5,6 +5,11 @@ This implements the reference encoder from `Local_Embedding_Addendum.docx`:
 immutable space/source identities, budgeted indexing, and exact PostgreSQL retrieval.
 The custom internal semantic representation and learned embedding space are deferred.
 
+Embedding materializations now have explicit names. The initial view is
+`general_text`; each operation selects the name **and** an immutable space UUID.
+[Named embeddings and artifact manifests](named-embeddings.md) documents application
+migration 5, multiple views, the wire schema, and the coordinated upgrade procedure.
+
 ## Encoding identity
 
 | Setting | Reference configuration |
@@ -52,7 +57,8 @@ space registration, indexing and querying.
 
 ```bash
 uv run --locked potbot embedding register-space \
-  --workspace-id WORKSPACE_UUID --principal-id PRINCIPAL_UUID
+  --workspace-id WORKSPACE_UUID --principal-id PRINCIPAL_UUID \
+  --embedding-name general_text
 
 uv run --locked potbot embedding put \
   --workspace-id WORKSPACE_UUID --principal-id PRINCIPAL_UUID \
@@ -108,15 +114,17 @@ Then index and query:
 ```bash
 uv run --locked potbot embedding index \
   --workspace-id WORKSPACE_UUID --principal-id PRINCIPAL_UUID \
-  --episode-id TASK_UUID --space-id SPACE_UUID --source-id SOURCE_UUID
+  --episode-id TASK_UUID --space-id SPACE_UUID --source-id SOURCE_UUID \
+  --embedding-name general_text
 
 uv run --locked potbot embedding search \
   --workspace-id WORKSPACE_UUID --principal-id PRINCIPAL_UUID \
   --episode-id TASK_UUID --repository-id REPOSITORY_UUID --space-id SPACE_UUID \
+  --embedding-name general_text \
   --query "How can I ensure a database connection closes?" --limit 5
 ```
 
-Search is exact cosine distance over the selected space and repository, with row
+Search is exact cosine distance over the selected name, space and repository, with row
 security and a current-source-head join. Smaller distance is closer. No approximate
 index, cross-space score averaging, or synthetic fallback is used. Similarity locates
 potentially useful sources; it is not evidence that a source is correct or applicable.

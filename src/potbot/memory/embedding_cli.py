@@ -11,6 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
 
+from potbot.domain.embeddings import DEFAULT_EMBEDDING_NAME, SOURCE_TEXT_INPUT_FORMAT
 from potbot.domain.errors import DomainError, InvalidInputError
 from potbot.memory.embedding_profile import EmbeddingProfile
 
@@ -24,7 +25,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     smoke = sub.add_parser("smoke", help="qualify local encoding without a database")
     smoke.add_argument("--model-dir", type=Path, default=Path("models/qwen3-embedding-0.6b"))
     smoke.add_argument("--max-input-tokens", type=int, default=256)
-    for name in ("register-space", "put", "index", "search", "retire"):
+    for name in ("register-space", "put", "index", "search", "retire", "manifest"):
         command = sub.add_parser(name)
         command.add_argument("--workspace-id", type=UUID, required=True)
         command.add_argument("--principal-id", type=UUID, required=True)
@@ -32,6 +33,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         command.add_argument("--artifact-root", type=Path, default=Path("artifacts/objects"))
         command.add_argument("--model-dir", type=Path, default=Path("models/qwen3-embedding-0.6b"))
         command.add_argument("--max-input-tokens", type=int, default=2048)
+        if name in {"register-space", "index", "search"}:
+            command.add_argument(
+                "--embedding-name",
+                default=DEFAULT_EMBEDDING_NAME,
+                help="registered representation name; always paired with an exact space",
+            )
         if name in {"put", "search", "retire"}:
             command.add_argument("--repository-id", type=UUID, required=True)
         if name in {"put", "retire"}:
@@ -47,11 +54,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if name == "search":
             command.add_argument("--query", required=True)
             command.add_argument("--limit", type=int, default=5)
+        if name == "manifest":
+            command.add_argument("--artifact-id", type=UUID, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "profile":
             profile = EmbeddingProfile()
-            output: object = {"profile": profile.to_dict(), "fingerprint": profile.fingerprint}
+            output: object = {
+                "profile": profile.to_dict(),
+                "fingerprint": profile.fingerprint,
+                "default_embedding_name": DEFAULT_EMBEDDING_NAME,
+                "input_format": SOURCE_TEXT_INPUT_FORMAT,
+            }
         elif args.command == "setup":
             from potbot.memory.local_encoder import setup_local_model
 
@@ -117,7 +131,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 QwenLocalEncoder(args.model_dir, profile),
             )
             if args.command == "register-space":
-                output = service.register_space(context)
+                output = service.register_space(context, embedding_name=args.embedding_name)
             elif args.command == "put":
                 output = service.register_source(
                     context,
@@ -132,6 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.episode_id,
                     args.source_id,
                     args.space_id,
+                    embedding_name=args.embedding_name,
                     runtime_budget_ms=args.runtime_budget_ms,
                 )
             elif args.command == "search":
@@ -141,9 +156,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.repository_id,
                     args.space_id,
                     args.query,
+                    embedding_name=args.embedding_name,
                     limit=args.limit,
                     runtime_budget_ms=args.runtime_budget_ms,
                 )
+            elif args.command == "manifest":
+                output = service.artifacts.embedding_manifest(context, args.artifact_id)
             else:
                 service.retire_source(context, args.repository_id, args.source_key)
                 output = {"retired": True}

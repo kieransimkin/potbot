@@ -34,26 +34,25 @@ pytestmark = pytest.mark.postgres
 def test_migrations_repeat_without_duplicate_tables_and_detect_modified_history(
     app_env: Any,
 ) -> None:
-    assert migrate(app_env.admin_dsn) == (1, 2, 3, 4)
-    assert migrate(app_env.admin_dsn) == (1, 2, 3, 4)
     revisions = application_migrations()
+    expected_versions = tuple(item.version for item in revisions)
+    assert migrate(app_env.admin_dsn) == expected_versions
+    assert migrate(app_env.admin_dsn) == expected_versions
     changed = replace(revisions[0], statements=(*revisions[0].statements, "SELECT 1"))
     with pytest.raises(RevisionConflictError):
         migrate(app_env.admin_dsn, migrations=(changed, *revisions[1:]))
     with admin_connection(app_env.admin_dsn) as connection:
-        assert (
-            connection.execute("SELECT count(*) AS total FROM schema_migrations").fetchone()[
-                "total"
-            ]
-            == 4
-        )
+        assert connection.execute("SELECT count(*) AS total FROM schema_migrations").fetchone()[
+            "total"
+        ] == len(revisions)
 
 
 def test_migration_failure_leaves_no_schema_or_ledger_writes(app_env: Any) -> None:
     import psycopg
 
+    revisions = application_migrations()
     bad = SchemaMigration(
-        5,
+        len(revisions) + 1,
         "injected_failure",
         (
             "CREATE TABLE incomplete_migration (id integer)",
@@ -61,7 +60,7 @@ def test_migration_failure_leaves_no_schema_or_ledger_writes(app_env: Any) -> No
         ),
     )
     with pytest.raises(psycopg.errors.DivisionByZero):
-        migrate(app_env.admin_dsn, migrations=(*application_migrations(), bad))
+        migrate(app_env.admin_dsn, migrations=(*revisions, bad))
     with admin_connection(app_env.admin_dsn) as connection:
         assert (
             connection.execute("SELECT to_regclass('incomplete_migration') AS name").fetchone()[
@@ -69,12 +68,9 @@ def test_migration_failure_leaves_no_schema_or_ledger_writes(app_env: Any) -> No
             ]
             is None
         )
-        assert (
-            connection.execute("SELECT count(*) AS total FROM schema_migrations").fetchone()[
-                "total"
-            ]
-            == 4
-        )
+        assert connection.execute("SELECT count(*) AS total FROM schema_migrations").fetchone()[
+            "total"
+        ] == len(revisions)
 
 
 def test_real_role_is_restricted_and_foreign_repository_link_rolls_back(app_env: Any) -> None:
@@ -171,7 +167,9 @@ def test_default_model_catalog_is_seeded_on_creation_and_schema_upgrade(app_env:
         assert connection.execute("SELECT * FROM model_deployments").fetchall() == []
     assert migrate(app_env.admin_dsn, "upgrade", application_migrations()[:1]) == (1,)
     workspace = provision_workspace(app_env.admin_dsn, "upgrade", "existing-workspace")
-    assert migrate(app_env.admin_dsn, "upgrade") == (1, 2, 3, 4)
+    assert migrate(app_env.admin_dsn, "upgrade") == tuple(
+        item.version for item in application_migrations()
+    )
     with admin_connection(app_env.admin_dsn, "upgrade") as connection:
         assert (
             connection.execute(
@@ -314,7 +312,9 @@ def test_administrative_cli_and_app_repository_registration_share_database_bound
 
     monkeypatch.setenv("POTBOT_ADMIN_DSN", app_env.admin_dsn)
     assert main(["migrate"]) == 0
-    assert json.loads(capsys.readouterr().out)["result"]["versions"] == [1, 2, 3, 4]
+    assert json.loads(capsys.readouterr().out)["result"]["versions"] == [
+        item.version for item in application_migrations()
+    ]
     monkeypatch.setenv("POTBOT_DSN", app_env.db.dsn)
     assert (
         main(

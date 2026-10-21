@@ -1,5 +1,12 @@
 """Provider-independent immutable identities, outcomes, and reuse-policy records."""
 
+from .embeddings import (
+    DEFAULT_EMBEDDING_NAME,
+    SOURCE_TEXT_INPUT_FORMAT,
+    ArtifactEmbeddingManifest,
+    NamedEmbeddingReference,
+    validate_embedding_name,
+)
 from .errors import (
     DomainError,
     ErrorCode,
@@ -35,6 +42,9 @@ from .reuse import (
 )
 
 __all__ = [
+    "DEFAULT_EMBEDDING_NAME",
+    "SOURCE_TEXT_INPUT_FORMAT",
+    "ArtifactEmbeddingManifest",
     "ContentDigest",
     "DomainError",
     "EnvironmentRef",
@@ -42,6 +52,7 @@ __all__ = [
     "ErrorInfo",
     "IndeterminateExecutionError",
     "InvalidInputError",
+    "NamedEmbeddingReference",
     "OperationCancelledError",
     "OperationOutcome",
     "OperationTimeoutError",
@@ -62,4 +73,5 @@ __all__ = [
     "SearchEvidence",
     "SearchIntent",
     "SearchStatus",
+    "validate_embedding_name",
 ]

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "workspace_id": "00000000-0000-0000-0000-000000000001",
+  "artifact_id": "00000000-0000-0000-0000-000000000002",
+  "artifact_digest": "bf2abf5a2ee00f45607f89bfcc59f95149be9bbd7a05896860c55c2073060849",
+  "byte_length": 37,
+  "media_type": "text/plain; charset=utf-8",
+  "named_embeddings": {
+    "code_text": [
+      {
+        "embedding_name": "code_text",
+        "view_id": "00000000-0000-0000-0000-00000000002a",
+        "vector_id": "00000000-0000-0000-0000-000000000017",
+        "source_id": "00000000-0000-0000-0000-00000000000a",
+        "repository_id": "00000000-0000-0000-0000-000000000003",
+        "source_key": "workflow/cleanup",
+        "source_content_hash": "2a93e150d78e967f3ce183445ad731000cf94c160af5220d6f7d70a66ef12d01",
+        "space_id": "00000000-0000-0000-0000-00000000001e",
+        "profile_hash": "4703980dc7f3ccd91bbe136bb867aaf29ed9c2806c73e17aca4b657671d82aa9",
+        "encoding_input_hash": "bf2abf5a2ee00f45607f89bfcc59f95149be9bbd7a05896860c55c2073060849",
+        "input_format": "source_text_v1",
+        "dimensions": 1024,
+        "metric": "cosine",
+        "generation": "standard-v1",
+        "usage_origin": "synthetic"
+      }
+    ],
+    "general_text": [
+      {
+        "embedding_name": "general_text",
+        "view_id": "00000000-0000-0000-0000-000000000028",
+        "vector_id": "00000000-0000-0000-0000-000000000015",
+        "source_id": "00000000-0000-0000-0000-00000000000b",
+        "repository_id": "00000000-0000-0000-0000-000000000003",
+        "source_key": "docs/cleanup",
+        "source_content_hash": "30ef2a633ebf201814598e993b3e95ba5b4b65bcf453be2373344008e6d6f75d",
+        "space_id": "00000000-0000-0000-0000-00000000001e",
+        "profile_hash": "4703980dc7f3ccd91bbe136bb867aaf29ed9c2806c73e17aca4b657671d82aa9",
+        "encoding_input_hash": "bf2abf5a2ee00f45607f89bfcc59f95149be9bbd7a05896860c55c2073060849",
+        "input_format": "source_text_v1",
+        "dimensions": 1024,
+        "metric": "cosine",
+        "generation": "standard-v1",
+        "usage_origin": "synthetic"
+      },
+      {
+        "embedding_name": "general_text",
+        "view_id": "00000000-0000-0000-0000-000000000028",
+        "vector_id": "00000000-0000-0000-0000-000000000014",
+        "source_id": "00000000-0000-0000-0000-00000000000a",
+        "repository_id": "00000000-0000-0000-0000-000000000003",
+        "source_key": "workflow/cleanup",
+        "source_content_hash": "2a93e150d78e967f3ce183445ad731000cf94c160af5220d6f7d70a66ef12d01",
+        "space_id": "00000000-0000-0000-0000-00000000001e",
+        "profile_hash": "4703980dc7f3ccd91bbe136bb867aaf29ed9c2806c73e17aca4b657671d82aa9",
+        "encoding_input_hash": "bf2abf5a2ee00f45607f89bfcc59f95149be9bbd7a05896860c55c2073060849",
+        "input_format": "source_text_v1",
+        "dimensions": 1024,
+        "metric": "cosine",
+        "generation": "standard-v1",
+        "usage_origin": "synthetic"
+      },
+      {
+        "embedding_name": "general_text",
+        "view_id": "00000000-0000-0000-0000-000000000029",
+        "vector_id": "00000000-0000-0000-0000-000000000016",
+        "source_id": "00000000-0000-0000-0000-00000000000a",
+        "repository_id": "00000000-0000-0000-0000-000000000003",
+        "source_key": "workflow/cleanup",
+        "source_content_hash": "2a93e150d78e967f3ce183445ad731000cf94c160af5220d6f7d70a66ef12d01",
+        "space_id": "00000000-0000-0000-0000-00000000001f",
+        "profile_hash": "5ac06643b53b29a12d4372abe781b5cd834d29cb77311f6f784be1b33767a18c",
+        "encoding_input_hash": "bf2abf5a2ee00f45607f89bfcc59f95149be9bbd7a05896860c55c2073060849",
+        "input_format": "source_text_v1",
+        "dimensions": 1024,
+        "metric": "cosine",
+        "generation": "example-generation-v2",
+        "usage_origin": "synthetic"
+      }
+    ]
+  }
+}

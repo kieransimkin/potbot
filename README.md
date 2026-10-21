@@ -80,6 +80,12 @@ exact filtered search, retirement, and the opt-in live SQL test. This first inte
 uses explicit sources and exact search; automatic repository chunking, hybrid ranking,
 ANN indexes, and custom learned embeddings are later work.
 
+Vectors have **named representations**, starting with `general_text`. Indexing and
+search select both a name and an exact immutable space; artifacts expose a typed
+`named_embeddings` manifest that retains source and profile provenance. The
+[named-embedding guide](docs/named-embeddings.md) covers application migration 5,
+additional named views, the JSON schema and the coordinated upgrade procedure.
+
 ## Package boundaries
 
 | Package | Responsibility |

@@ -19,7 +19,9 @@ from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID, uuid4, uuid5
 
 from potbot.domain.auth import WorkspaceContext
+from potbot.domain.embeddings import ArtifactEmbeddingManifest, NamedEmbeddingReference
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
+from potbot.domain.serialization import content_hash
 
 if TYPE_CHECKING:
     from potbot.persistence.database import Database
@@ -201,6 +203,86 @@ class ArtifactStore:
     def metadata(self, context: WorkspaceContext, artifact_id: UUID) -> dict[str, Any]:
         with self.db.transaction(context) as connection:
             return self._metadata(connection, context, artifact_id)
+
+    def embedding_manifest(self, context: WorkspaceContext, artifact_id: UUID) -> dict[str, Any]:
+        """Describe current source-qualified vectors without changing artifact bytes.
+
+        A name may have several sources and compatible or incompatible spaces.
+        Every materialization remains a separate reference; names do not merge
+        coordinate spaces, confer authority, or claim a custom projection.
+        """
+        with self.db.transaction(context) as connection:
+            artifact = self._metadata(connection, context, artifact_id)
+            rows = connection.execute(
+                """SELECT v.id AS vector_id,v.embedding_name,v.source_id,v.space_id,
+                          v.content_hash AS source_content_hash,v.usage_origin,
+                          s.repository_id,s.source_key,s.content AS source_content,s.metadata,
+                          ev.id AS view_id,ev.input_format,
+                          p.content_hash AS profile_hash,p.content AS profile_content,
+                          p.dimensions,p.metric
+                   FROM embedding_vectors v
+                   JOIN embedding_sources s
+                     ON (s.workspace_id,s.id,s.content_hash)=
+                        (v.workspace_id,v.source_id,v.content_hash)
+                   JOIN embedding_source_heads h
+                     ON (h.workspace_id,h.repository_id,h.source_key,h.source_id)=
+                        (s.workspace_id,s.repository_id,s.source_key,s.id)
+                   JOIN embedding_views ev
+                     ON (ev.workspace_id,ev.embedding_name,ev.space_id)=
+                        (v.workspace_id,v.embedding_name,v.space_id)
+                   JOIN embedding_spaces p
+                     ON (p.workspace_id,p.id)=(v.workspace_id,v.space_id)
+                   WHERE s.workspace_id=%s AND s.artifact_id=%s AND h.active
+                   ORDER BY v.embedding_name COLLATE "C",s.repository_id,
+                            s.source_key COLLATE "C",s.id,p.id,v.id""",
+                (context.workspace_id, artifact_id),
+            ).fetchall()
+            groups: dict[str, list[NamedEmbeddingReference]] = {}
+            for row in rows:
+                if (
+                    content_hash({"text": row["source_content"], "metadata": row["metadata"]})
+                    != row["source_content_hash"]
+                    or content_hash(row["profile_content"]) != row["profile_hash"]
+                ):
+                    raise ArtifactIntegrityError("Named embedding provenance failed validation.")
+                profile = row["profile_content"]
+                if not isinstance(profile, dict) or (
+                    profile.get("dimensions") != row["dimensions"]
+                    or profile.get("metric") != row["metric"]
+                    or profile.get("document_format") != "raw"
+                ):
+                    raise ArtifactIntegrityError("Named embedding space metadata is inconsistent.")
+                generation = profile.get("generation")
+                if not isinstance(generation, str) or not generation.strip():
+                    raise ArtifactIntegrityError("Named embedding generation is unavailable.")
+                reference = NamedEmbeddingReference(
+                    embedding_name=row["embedding_name"],
+                    view_id=row["view_id"],
+                    vector_id=row["vector_id"],
+                    source_id=row["source_id"],
+                    repository_id=row["repository_id"],
+                    source_key=row["source_key"],
+                    source_content_hash=row["source_content_hash"],
+                    space_id=row["space_id"],
+                    profile_hash=row["profile_hash"],
+                    encoding_input_hash=hashlib.sha256(
+                        row["source_content"].encode("utf-8")
+                    ).hexdigest(),
+                    input_format=row["input_format"],
+                    dimensions=row["dimensions"],
+                    metric=row["metric"],
+                    generation=generation,
+                    usage_origin=row["usage_origin"],
+                )
+                groups.setdefault(reference.embedding_name, []).append(reference)
+            return ArtifactEmbeddingManifest(
+                workspace_id=context.workspace_id,
+                artifact_id=artifact["id"],
+                artifact_digest=artifact["digest"],
+                byte_length=artifact["byte_length"],
+                media_type=artifact["media_type"],
+                named_embeddings={name: tuple(references) for name, references in groups.items()},
+            ).to_dict()
 
     @staticmethod
     def _metadata(connection: Any, context: WorkspaceContext, artifact_id: UUID) -> dict[str, Any]:
