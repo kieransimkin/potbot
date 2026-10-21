@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "phase": 1,
+  "completed_at": "2026-10-21T11:25:22.312948+00:00",
+  "scope": "P001-P005 plus the requested reuse-discovery policy contracts and structural review gate.",
+  "source_plan": {
+    "filename": "Multi_Model_Coding_Agent_Implementation_Plan.docx",
+    "sha256": "7827cfcc96f44ce0f074b09b53ade8f1e70dd9a4a31336cd742da441c44795a5"
+  },
+  "environment": {
+    "os": "Linux x86_64",
+    "python": "3.12.14",
+    "uv": "0.12.23",
+    "postgresql": "17.11",
+    "pgvector": "0.8.7",
+    "locked_packages": {
+      "potbot": "0.1.0",
+      "mypy": "1.20.2",
+      "psycopg": "3.3.6",
+      "psycopg-binary": "3.3.6",
+      "pytest": "9.1.1",
+      "ruff": "0.17.1"
+    }
+  },
+  "tests": {
+    "total_passed": 154,
+    "groups": {
+      "unit-and-git": {
+        "tests": 141,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "postgres": {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "reuse_policy_cases": 49
+  },
+  "quality_and_installation_gates": {
+    "schema_version": 1,
+    "started_at": "2026-10-21T11:24:00.332142+00:00",
+    "finished_at": "2026-10-21T11:24:07.598200+00:00",
+    "postgres_requested": true,
+    "success": true,
+    "checks": [
+      {
+        "check": "lint",
+        "exit_code": 0
+      },
+      {
+        "check": "format",
+        "exit_code": 0
+      },
+      {
+        "check": "types",
+        "exit_code": 0
+      },
+      {
+        "check": "unit-and-git",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-build",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-environment",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-install",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-version",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-domain",
+        "exit_code": 0
+      },
+      {
+        "check": "db-bootstrap",
+        "exit_code": 0
+      },
+      {
+        "check": "db-create",
+        "exit_code": 0
+      },
+      {
+        "check": "db-migrate",
+        "exit_code": 0
+      },
+      {
+        "check": "db-check",
+        "exit_code": 0
+      },
+      {
+        "check": "postgres",
+        "exit_code": 0
+      },
+      {
+        "check": "db-cleanup",
+        "exit_code": 0
+      }
+    ]
+  },
+  "deliberate_failure_controls": {
+    "unreachable_database": {
+      "runner_exit_code": 1,
+      "failing_gate": "db-bootstrap",
+      "success": false,
+      "detail": "An unreachable loopback test DSN fails the shared CI runner."
+    },
+    "broken_documented_repair": {
+      "pytest_exit_code": 1,
+      "failing_test": "tests/integration/test_repository_fixture.py::test_real_faulty_baseline_fails_and_documented_repair_passes",
+      "detail": "A disposable source copy had a deliberately incorrect repair; the real behavioral test detected it."
+    }
+  },
+  "service_cleanup": {
+    "all_run_schemas_cleaned": true,
+    "no_generated_fixture_databases_remaining": true,
+    "server_stopped": true,
+    "disposable_cluster_removed": true
+  },
+  "database_validation": {
+    "real_postgresql": true,
+    "real_pgvector": true,
+    "application_driver": "psycopg",
+    "local_source_build": true,
+    "postgresql_official_source_sha256": "dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979",
+    "pgvector_download_sha256": "cac0b10c360f05b2d521200105ba3697e773d4cd3731f5a915a7e37ebe0bea85"
+  },
+  "not_executed": [
+    "GitHub-hosted workflow run",
+    "Docker Compose container launch",
+    "Windows or macOS verification",
+    "Model inference or live workflow-memory/web search adapters"
+  ],
+  "notes": [
+    "The hosted workflow invokes the same locally passing check runner.",
+    "The clean wheel installation contained only the core package and imported the domain successfully.",
+    "Reuse assessments validate supplied evidence structure, not genuine execution or source trust."
+  ]
+}

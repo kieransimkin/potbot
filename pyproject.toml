@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "potbot"
+version = "0.1.0"
+description = "Foundation for an evidence-driven, multi-model coding agent"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2,<4"]
+
+[project.scripts]
+potbot = "potbot.cli:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<10",
+  "ruff>=0.11,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/potbot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config -ra"
+markers = [
+  "postgres: requires an explicitly configured real PostgreSQL test database",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/potbot"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["psycopg", "psycopg.*"]
+ignore_missing_imports = true

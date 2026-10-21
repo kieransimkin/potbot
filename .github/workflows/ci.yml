@@ -1,0 +1,47 @@
+name: Phase 1 foundation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # Disposable fixture credentials; never a production connection string.
+      POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install locked application and development dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Start real PostgreSQL with pgvector
+        run: docker compose up --detach --wait --wait-timeout 90
+      - name: Verify application, repositories, migrations, and database isolation
+        run: uv run --locked python scripts/check.py --with-postgres
+      - name: Capture sanitized database diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          docker compose logs --no-color postgres 2>&1 | uv run --locked python -c 'import sys; from pathlib import Path; from potbot.evaluation.diagnostics import sanitize_text; Path("artifacts/postgres-service.log").write_text(sanitize_text(sys.stdin.read()), encoding="utf-8")'
+      - name: Remove disposable database service and volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans --timeout 10
+      - name: Upload sanitized failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phase-1-failure-diagnostics
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

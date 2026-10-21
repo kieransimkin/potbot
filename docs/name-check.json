@@ -1,0 +1,649 @@
+{
+  "checked_at": "2026-10-21T11:15:58.405267+00:00",
+  "chosen_name": "potbot",
+  "scope": "Exact joined lowercase potbot in PyPI, npm, public GitHub repository names; official RDAP for potbot.com, potbot.dev, potbot.ai. Read-only checks.",
+  "results": [
+    {
+      "service": "PyPI",
+      "url": "https://pypi.org/pypi/potbot/json",
+      "http_status": 404,
+      "errorCode": null,
+      "title": null
+    },
+    {
+      "service": "npm",
+      "url": "https://registry.npmjs.org/potbot",
+      "http_status": 404,
+      "errorCode": null,
+      "title": null
+    },
+    {
+      "service": "GitHub",
+      "url": "https://api.github.com/search/repositories?q=potbot+in%3Aname&per_page=100",
+      "http_status": 200,
+      "total_count": 55,
+      "incomplete_results": false,
+      "matches": [
+        {
+          "full_name": "Syptern/Potbot",
+          "name": "Potbot",
+          "html_url": "https://github.com/Syptern/Potbot",
+          "description": "voor een pot bel de potbot"
+        },
+        {
+          "full_name": "YD811/potbot-v2",
+          "name": "potbot-v2",
+          "html_url": "https://github.com/YD811/potbot-v2",
+          "description": "PotBot POTFolio: any basket of Solana assets as one liquid token. Non-custodial, Pyth-priced, redeemable any time. Anchor program + Next.js app."
+        },
+        {
+          "full_name": "Babagesh/Potbot",
+          "name": "Potbot",
+          "html_url": "https://github.com/Babagesh/Potbot",
+          "description": null
+        },
+        {
+          "full_name": "ttuhina/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/ttuhina/PotBot",
+          "description": "PotBot is a chatbot that handles restaurant discovery, menu viewing, order placement, reservation management, and order tracking. It uses Express.js + node.js for backend and bot logic, MySQL for database, and Microsoft Bot Framework for building and testing. HTML + CSS was used to design the webpage. Kittl was used to design the logo."
+        },
+        {
+          "full_name": "rolfbecker/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/rolfbecker/PotBot",
+          "description": "Chatbot for Slot Filling in Plant Production Documentation."
+        },
+        {
+          "full_name": "recalculator/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/recalculator/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "yueminm/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/yueminm/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "Gato-xDev/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/Gato-xDev/PotBot",
+          "description": "Increase specific player(s) damage dealt , received and heal on hit by other players."
+        },
+        {
+          "full_name": "Geschan/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/Geschan/potbot",
+          "description": null
+        },
+        {
+          "full_name": "adityafeb/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/adityafeb/potbot",
+          "description": "Final Project of Robotics Subject"
+        },
+        {
+          "full_name": "sdelestang/POTBot",
+          "name": "POTBot",
+          "html_url": "https://github.com/sdelestang/POTBot",
+          "description": "Smart camera systems for tracking climate change underwater"
+        },
+        {
+          "full_name": "BEagyrobot2223/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/BEagyrobot2223/potbot",
+          "description": "fixed_potcsreen"
+        },
+        {
+          "full_name": "sahilkhude117/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/sahilkhude117/potbot",
+          "description": "telegram bot for group trading (zerion cypherpunk sidetrack winner)"
+        },
+        {
+          "full_name": "thelizri/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/thelizri/PotBot",
+          "description": "II1302 VT23 Repository For Group 5"
+        },
+        {
+          "full_name": "rob-odwyer/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/rob-odwyer/potbot",
+          "description": null
+        },
+        {
+          "full_name": "Yashrajpatil22/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/Yashrajpatil22/potbot",
+          "description": null
+        },
+        {
+          "full_name": "yus-ko/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/yus-ko/potbot",
+          "description": null
+        },
+        {
+          "full_name": "ericwu17/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/ericwu17/potbot",
+          "description": null
+        },
+        {
+          "full_name": "YouwonBae/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/YouwonBae/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "ti-grunn/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/ti-grunn/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "r4dfg87/POTBOT",
+          "name": "POTBOT",
+          "html_url": "https://github.com/r4dfg87/POTBOT",
+          "description": null
+        },
+        {
+          "full_name": "joeybrown/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/joeybrown/potbot",
+          "description": null
+        },
+        {
+          "full_name": "Landtrain-Designs-LLC/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/Landtrain-Designs-LLC/potbot",
+          "description": null
+        },
+        {
+          "full_name": "ArabTej/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/ArabTej/potbot",
+          "description": null
+        },
+        {
+          "full_name": "CH3SH-LC/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/CH3SH-LC/potbot",
+          "description": "Task-based agent interaction layer for Android \u2014 kernel on device, versioned contracts, machine-checked reproducibility discipline"
+        },
+        {
+          "full_name": "yo-artyom/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/yo-artyom/potbot",
+          "description": "bot dlya druzey"
+        },
+        {
+          "full_name": "LangforGZAI/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/LangforGZAI/PotBot",
+          "description": "PlantGuard - Smart Plant Monitoring System"
+        },
+        {
+          "full_name": "mile-stojakovic/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/mile-stojakovic/potbot",
+          "description": null
+        },
+        {
+          "full_name": "dan24tor84/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/dan24tor84/potbot",
+          "description": null
+        },
+        {
+          "full_name": "moppedxyz/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/moppedxyz/potbot",
+          "description": null
+        },
+        {
+          "full_name": "vparekh44/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/vparekh44/potbot",
+          "description": null
+        },
+        {
+          "full_name": "Sins4Skins/POTBOT",
+          "name": "POTBOT",
+          "html_url": "https://github.com/Sins4Skins/POTBOT",
+          "description": null
+        },
+        {
+          "full_name": "CipherZ3r0/Potbot",
+          "name": "Potbot",
+          "html_url": "https://github.com/CipherZ3r0/Potbot",
+          "description": "An internal application for organizations to create fully local RAG AI chatbot for internal private Data."
+        },
+        {
+          "full_name": "ProudPirate/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/ProudPirate/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "nseba/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/nseba/potbot",
+          "description": "ESP32-based flower pot moisture monitor with OLED display"
+        },
+        {
+          "full_name": "pepsipu/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/pepsipu/potbot",
+          "description": "minecraft HCF and pot pvp bot"
+        },
+        {
+          "full_name": "jbates35/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/jbates35/PotBot",
+          "description": "PotBot c2000 script w rtos"
+        },
+        {
+          "full_name": "vrncndlr/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/vrncndlr/PotBot",
+          "description": "Project for course II1302 VT23 Projects and Project Methods"
+        },
+        {
+          "full_name": "mseppi/PotbotCTF",
+          "name": "PotbotCTF",
+          "html_url": "https://github.com/mseppi/PotbotCTF",
+          "description": null
+        },
+        {
+          "full_name": "jamiejefferson/POTBot-Briefing",
+          "name": "POTBot-Briefing",
+          "html_url": "https://github.com/jamiejefferson/POTBot-Briefing",
+          "description": null
+        },
+        {
+          "full_name": "fhidalgoh31/potbot_app",
+          "name": "potbot_app",
+          "html_url": "https://github.com/fhidalgoh31/potbot_app",
+          "description": null
+        },
+        {
+          "full_name": "yus-ko/potbot_core",
+          "name": "potbot_core",
+          "html_url": "https://github.com/yus-ko/potbot_core",
+          "description": null
+        },
+        {
+          "full_name": "richardiorcoin-design/DolarPotbot",
+          "name": "DolarPotbot",
+          "html_url": "https://github.com/richardiorcoin-design/DolarPotbot",
+          "description": "dolarpotbot"
+        },
+        {
+          "full_name": "dan24tor84/potbot-frontend",
+          "name": "potbot-frontend",
+          "html_url": "https://github.com/dan24tor84/potbot-frontend",
+          "description": null
+        },
+        {
+          "full_name": "Potro4/potbot-discordbot",
+          "name": "potbot-discordbot",
+          "html_url": "https://github.com/Potro4/potbot-discordbot",
+          "description": null
+        },
+        {
+          "full_name": "ProudPirate/PotBotAndroid",
+          "name": "PotBotAndroid",
+          "html_url": "https://github.com/ProudPirate/PotBotAndroid",
+          "description": null
+        },
+        {
+          "full_name": "15238972953/PotBot-HMI",
+          "name": "PotBot-HMI",
+          "html_url": "https://github.com/15238972953/PotBot-HMI",
+          "description": "\u5168\u81ea\u52a8\u6237\u5916\u82b1\u76c6\u642c\u8fd0\u673a\u5668\u4eba\u7684\u4eba\u673a\u4ea4\u4e92\u754c\u9762"
+        },
+        {
+          "full_name": "YD811/potbot-landing",
+          "name": "potbot-landing",
+          "html_url": "https://github.com/YD811/potbot-landing",
+          "description": "PotBot v2 landing page \u2014 hosted at potbot.sol.site via SNS"
+        },
+        {
+          "full_name": "yus-ko/potbot_example",
+          "name": "potbot_example",
+          "html_url": "https://github.com/yus-ko/potbot_example",
+          "description": null
+        },
+        {
+          "full_name": "fhidalgoh31/Potbot_v6",
+          "name": "Potbot_v6",
+          "html_url": "https://github.com/fhidalgoh31/Potbot_v6",
+          "description": "logging with battery not working"
+        },
+        {
+          "full_name": "42omega42/tea-potbot-gen",
+          "name": "tea-potbot-gen",
+          "html_url": "https://github.com/42omega42/tea-potbot-gen",
+          "description": "Tea Potbot Gen simplifies contract creation and deployment for tea-related projects, offering tools for generating and managing tea-specific smart contracts."
+        },
+        {
+          "full_name": "POTBOT/THE11",
+          "name": "THE11",
+          "html_url": "https://github.com/POTBOT/THE11",
+          "description": "Baghdad"
+        },
+        {
+          "full_name": "jbates35/PotBot_Test_Scripts",
+          "name": "PotBot_Test_Scripts",
+          "html_url": "https://github.com/jbates35/PotBot_Test_Scripts",
+          "description": "Scripts for testing out pot bot with no rtos"
+        },
+        {
+          "full_name": "RidaArshad/PotBot-AI-Powered-Pothole-Detection-System",
+          "name": "PotBot-AI-Powered-Pothole-Detection-System",
+          "html_url": "https://github.com/RidaArshad/PotBot-AI-Powered-Pothole-Detection-System",
+          "description": "A YOLOv8-based computer vision system for detecting potholes and road damages from dashcam footage. Logs coordinates of detected potholes for municipal reporting and prioritizes repairs based on frequency and severity. Includes model training visuals and sample detection outputs."
+        },
+        {
+          "full_name": "Rohan-Aroli/PotBot-AI-Powered-Pothole-Detection-Prototype-",
+          "name": "PotBot-AI-Powered-Pothole-Detection-Prototype-",
+          "html_url": "https://github.com/Rohan-Aroli/PotBot-AI-Powered-Pothole-Detection-Prototype-",
+          "description": "PotBot \u2013 YOLO-based pothole detection prototype featuring a custom-trained best.pt model tested on real road footage.  Serves as the initial phase of a larger smart-city solution involving depth estimation, GPS tagging, and automated reporting."
+        }
+      ],
+      "exact_name_matches": [
+        {
+          "full_name": "Syptern/Potbot",
+          "name": "Potbot",
+          "html_url": "https://github.com/Syptern/Potbot",
+          "description": "voor een pot bel de potbot"
+        },
+        {
+          "full_name": "Babagesh/Potbot",
+          "name": "Potbot",
+          "html_url": "https://github.com/Babagesh/Potbot",
+          "description": null
+        },
+        {
+          "full_name": "ttuhina/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/ttuhina/PotBot",
+          "description": "PotBot is a chatbot that handles restaurant discovery, menu viewing, order placement, reservation management, and order tracking. It uses Express.js + node.js for backend and bot logic, MySQL for database, and Microsoft Bot Framework for building and testing. HTML + CSS was used to design the webpage. Kittl was used to design the logo."
+        },
+        {
+          "full_name": "rolfbecker/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/rolfbecker/PotBot",
+          "description": "Chatbot for Slot Filling in Plant Production Documentation."
+        },
+        {
+          "full_name": "recalculator/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/recalculator/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "yueminm/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/yueminm/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "Gato-xDev/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/Gato-xDev/PotBot",
+          "description": "Increase specific player(s) damage dealt , received and heal on hit by other players."
+        },
+        {
+          "full_name": "Geschan/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/Geschan/potbot",
+          "description": null
+        },
+        {
+          "full_name": "adityafeb/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/adityafeb/potbot",
+          "description": "Final Project of Robotics Subject"
+        },
+        {
+          "full_name": "sdelestang/POTBot",
+          "name": "POTBot",
+          "html_url": "https://github.com/sdelestang/POTBot",
+          "description": "Smart camera systems for tracking climate change underwater"
+        },
+        {
+          "full_name": "BEagyrobot2223/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/BEagyrobot2223/potbot",
+          "description": "fixed_potcsreen"
+        },
+        {
+          "full_name": "sahilkhude117/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/sahilkhude117/potbot",
+          "description": "telegram bot for group trading (zerion cypherpunk sidetrack winner)"
+        },
+        {
+          "full_name": "thelizri/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/thelizri/PotBot",
+          "description": "II1302 VT23 Repository For Group 5"
+        },
+        {
+          "full_name": "rob-odwyer/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/rob-odwyer/potbot",
+          "description": null
+        },
+        {
+          "full_name": "Yashrajpatil22/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/Yashrajpatil22/potbot",
+          "description": null
+        },
+        {
+          "full_name": "yus-ko/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/yus-ko/potbot",
+          "description": null
+        },
+        {
+          "full_name": "ericwu17/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/ericwu17/potbot",
+          "description": null
+        },
+        {
+          "full_name": "YouwonBae/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/YouwonBae/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "ti-grunn/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/ti-grunn/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "r4dfg87/POTBOT",
+          "name": "POTBOT",
+          "html_url": "https://github.com/r4dfg87/POTBOT",
+          "description": null
+        },
+        {
+          "full_name": "joeybrown/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/joeybrown/potbot",
+          "description": null
+        },
+        {
+          "full_name": "Landtrain-Designs-LLC/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/Landtrain-Designs-LLC/potbot",
+          "description": null
+        },
+        {
+          "full_name": "ArabTej/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/ArabTej/potbot",
+          "description": null
+        },
+        {
+          "full_name": "CH3SH-LC/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/CH3SH-LC/potbot",
+          "description": "Task-based agent interaction layer for Android \u2014 kernel on device, versioned contracts, machine-checked reproducibility discipline"
+        },
+        {
+          "full_name": "yo-artyom/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/yo-artyom/potbot",
+          "description": "bot dlya druzey"
+        },
+        {
+          "full_name": "LangforGZAI/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/LangforGZAI/PotBot",
+          "description": "PlantGuard - Smart Plant Monitoring System"
+        },
+        {
+          "full_name": "mile-stojakovic/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/mile-stojakovic/potbot",
+          "description": null
+        },
+        {
+          "full_name": "dan24tor84/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/dan24tor84/potbot",
+          "description": null
+        },
+        {
+          "full_name": "moppedxyz/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/moppedxyz/potbot",
+          "description": null
+        },
+        {
+          "full_name": "vparekh44/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/vparekh44/potbot",
+          "description": null
+        },
+        {
+          "full_name": "Sins4Skins/POTBOT",
+          "name": "POTBOT",
+          "html_url": "https://github.com/Sins4Skins/POTBOT",
+          "description": null
+        },
+        {
+          "full_name": "CipherZ3r0/Potbot",
+          "name": "Potbot",
+          "html_url": "https://github.com/CipherZ3r0/Potbot",
+          "description": "An internal application for organizations to create fully local RAG AI chatbot for internal private Data."
+        },
+        {
+          "full_name": "ProudPirate/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/ProudPirate/PotBot",
+          "description": null
+        },
+        {
+          "full_name": "nseba/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/nseba/potbot",
+          "description": "ESP32-based flower pot moisture monitor with OLED display"
+        },
+        {
+          "full_name": "pepsipu/potbot",
+          "name": "potbot",
+          "html_url": "https://github.com/pepsipu/potbot",
+          "description": "minecraft HCF and pot pvp bot"
+        },
+        {
+          "full_name": "jbates35/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/jbates35/PotBot",
+          "description": "PotBot c2000 script w rtos"
+        },
+        {
+          "full_name": "vrncndlr/PotBot",
+          "name": "PotBot",
+          "html_url": "https://github.com/vrncndlr/PotBot",
+          "description": "Project for course II1302 VT23 Projects and Project Methods"
+        }
+      ]
+    },
+    {
+      "service": "RDAP .com",
+      "url": "https://rdap.verisign.com/com/v1/domain/potbot.com",
+      "http_status": 503
+    },
+    {
+      "service": "RDAP .dev",
+      "url": "https://pubapi.registry.google/rdap/domain/potbot.dev",
+      "http_status": 404,
+      "errorCode": 404,
+      "title": "Not Found"
+    },
+    {
+      "service": "RDAP .ai",
+      "url": "https://rdap.identitydigital.services/rdap/domain/potbot.ai",
+      "http_status": 404,
+      "errorCode": 404,
+      "title": "Object not found"
+    },
+    {
+      "service": "RDAP .com retry",
+      "url": "https://rdap.verisign.com/com/v1/domain/POTBOT.COM",
+      "http_status": 200,
+      "domain": {
+        "ldhName": "POTBOT.COM",
+        "objectClassName": "domain",
+        "status": [
+          "client delete prohibited",
+          "client renew prohibited",
+          "client transfer prohibited",
+          "client update prohibited"
+        ]
+      }
+    }
+  ],
+  "github_exact_case_insensitive_count": 37,
+  "web_check": {
+    "query": "\"PotBot\" software app",
+    "engine": "system1",
+    "material_collisions": [
+      {
+        "name": "PotBot",
+        "type": "Existing cannabis companion app",
+        "url": "https://potbot.org/",
+        "web_ref": "turn162search0"
+      },
+      {
+        "name": "PotBot Poker Suite",
+        "type": "Existing poker software",
+        "url": "https://www.potbot.net/",
+        "web_ref": "turn162search7"
+      },
+      {
+        "name": "potbot",
+        "type": "Shared-expense chat application project",
+        "url": "https://devpost.com/software/potbot-c7ojya",
+        "web_ref": "turn162search2"
+      }
+    ]
+  },
+  "interpretation": [
+    "The chosen name is already in public use by apps and many public repositories, including AI/chatbot projects. This does not block using the chosen name for this repository.",
+    "PyPI/npm404 means no current public package at the exact potbot endpoint; not a name reservation.",
+    "Official RDAP404 means no current registration record returned, not a registrar purchase guarantee.503 is inconclusive.",
+    "No trademark-register, social-handle, private-repository or account-specific GitHub availability check was performed. No registrations or external writes were made."
+  ]
+}
