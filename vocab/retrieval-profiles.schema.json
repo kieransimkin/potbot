@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-sem:schema:retrieval-profiles:0.1.0",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": "0.1.0"
+    },
+    "vocabulary_release": {
+      "const": "urn:agent-sem:vocabulary:0.1.0"
+    },
+    "status": {
+      "const": "design_baseline"
+    },
+    "common_candidate_gates": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true
+    },
+    "common_delivery_gates": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true
+    },
+    "gate_note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "ranking": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "rrf"
+        },
+        "k": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "family_total_weights": {
+          "type": "object",
+          "properties": {
+            "exact": {
+              "type": "number",
+              "minimum": 0
+            },
+            "lexical": {
+              "type": "number",
+              "minimum": 0
+            },
+            "dense": {
+              "type": "number",
+              "minimum": 0
+            },
+            "structural": {
+              "type": "number",
+              "minimum": 0
+            },
+            "relations": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "exact",
+            "lexical",
+            "dense",
+            "structural",
+            "relations"
+          ],
+          "additionalProperties": false
+        },
+        "correlated_channel_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "deduplicate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "method",
+        "k",
+        "family_total_weights",
+        "correlated_channel_rule",
+        "deduplicate"
+      ],
+      "additionalProperties": false
+    },
+    "default_limits": {
+      "type": "object",
+      "properties": {
+        "graph_max_depth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "graph_max_nodes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_limit_note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "graph_max_depth",
+        "graph_max_nodes",
+        "candidate_limit_note"
+      ],
+      "additionalProperties": false
+    },
+    "space_resolution": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "question_storage": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "result_contract": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true
+    },
+    "failure_policy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^urn:agent-sem:retrieval-profile:[a-z_]+:0\\.1\\.0$"
+          },
+          "name": {
+            "enum": [
+              "type_inventory",
+              "aboutness",
+              "same_meaning",
+              "applicable_procedure",
+              "dependency_impact",
+              "counterevidence",
+              "compliance"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "match_intents": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "required_inputs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "minItems": 1,
+            "maxItems": 12,
+            "uniqueItems": true
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "kind": {
+                  "enum": [
+                    "exact",
+                    "fts",
+                    "dense",
+                    "feature_postings",
+                    "typed_relations",
+                    "direct_enumeration"
+                  ]
+                },
+                "family": {
+                  "enum": [
+                    "exact",
+                    "lexical",
+                    "dense",
+                    "structural",
+                    "relations"
+                  ]
+                },
+                "view": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "candidate_limit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "family",
+                "view",
+                "required",
+                "candidate_limit"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 12
+          },
+          "decision": {
+            "type": "object",
+            "properties": {
+              "evaluator_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "requirements": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "minItems": 1,
+                "maxItems": 20,
+                "uniqueItems": true
+              },
+              "allowed_results": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "minItems": 1,
+                "maxItems": 16,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "evaluator_id",
+              "requirements",
+              "allowed_results"
+            ],
+            "additionalProperties": false
+          },
+          "coverage_rule": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "question",
+          "match_intents",
+          "required_inputs",
+          "channels",
+          "decision",
+          "coverage_rule",
+          "notes"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 7,
+      "maxItems": 7
+    }
+  },
+  "required": [
+    "version",
+    "vocabulary_release",
+    "status",
+    "common_candidate_gates",
+    "common_delivery_gates",
+    "gate_note",
+    "ranking",
+    "default_limits",
+    "space_resolution",
+    "question_storage",
+    "result_contract",
+    "failure_policy",
+    "profiles"
+  ],
+  "additionalProperties": false
+}

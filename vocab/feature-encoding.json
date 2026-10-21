@@ -1,0 +1,129 @@
+{
+  "version": "0.1.0",
+  "encoding_kind": "semantic_features",
+  "namespace": "urn:agent-sem:features:0.1.0",
+  "storage": "workspace-scoped canonical feature-key postings; optional numeric coordinate snapshots are derived",
+  "templates": [
+    {
+      "family": "predicate",
+      "tuple_fields": [
+        "predicate_id"
+      ],
+      "meaning": "Registered directed predicate."
+    },
+    {
+      "family": "mode_force",
+      "tuple_fields": [
+        "mode",
+        "force"
+      ],
+      "meaning": "Distinguishes assertion, requirement and preference."
+    },
+    {
+      "family": "polarity",
+      "tuple_fields": [
+        "polarity"
+      ],
+      "meaning": "Explicit positive or negative claim."
+    },
+    {
+      "family": "binding",
+      "tuple_fields": [
+        "predicate_id",
+        "role_id",
+        "canonical_term"
+      ],
+      "meaning": "Preserves the argument role and the exact typed value."
+    },
+    {
+      "family": "joint_atom",
+      "tuple_fields": [
+        "canonical_signed_atom"
+      ],
+      "meaning": "Keeps all argument bindings and polarity together."
+    },
+    {
+      "family": "conflict_slot",
+      "tuple_fields": [
+        "predicate_id",
+        "canonical_functional_key_or_all_roles"
+      ],
+      "meaning": "Omits only the declared value roles and polarity; candidate grouping, never a conflict verdict."
+    },
+    {
+      "family": "condition_tree",
+      "tuple_fields": [
+        "canonical_when_ast"
+      ],
+      "meaning": "Preserves the complete nested condition."
+    },
+    {
+      "family": "condition_atom",
+      "tuple_fields": [
+        "canonical_ast_path",
+        "field",
+        "operator",
+        "typed_operand"
+      ],
+      "meaning": "Inspectability and partial matching; path follows canonical child ordering."
+    },
+    {
+      "family": "applicability",
+      "tuple_fields": [
+        "mode",
+        "canonical_guard_ast"
+      ],
+      "meaning": "Tracks transfer conditions separately from the asserted condition."
+    },
+    {
+      "family": "scope",
+      "tuple_fields": [
+        "canonical_scope"
+      ],
+      "meaning": "Repository/time semantics; authority filtering still applies separately."
+    },
+    {
+      "family": "concept",
+      "tuple_fields": [
+        "registered_concept_id"
+      ],
+      "meaning": "Controlled topic annotation with evidence/provenance."
+    },
+    {
+      "family": "procedure_slot",
+      "tuple_fields": [
+        "slot_id",
+        "registered_concept_id"
+      ],
+      "meaning": "Role of a concept within a procedure; does not encode execution ordering by itself."
+    }
+  ],
+  "dictionary_rules": [
+    "Canonical keys are typed JSON tuples; never delimiter-concatenated strings.",
+    "Initial publication sorts canonical UTF-8 keys; subsequent publication appends new IDs without reassigning old IDs.",
+    "Every numerical vector names an immutable dictionary snapshot. Comparisons across snapshots require an explicit mapping.",
+    "Unknown keys remain in canonical postings until a new snapshot is published; they are not folded into one OTHER coordinate.",
+    "Private keys stay within the existing workspace/visibility boundary; deletion removes source-derived private keys when retention permits."
+  ],
+  "scoring": {
+    "profile": "structural-overlap-v0.1",
+    "method": "weighted_jaccard",
+    "weights": {
+      "predicate": 1,
+      "mode_force": 1,
+      "polarity": 1,
+      "binding": 1,
+      "joint_atom": 1,
+      "conflict_slot": 1,
+      "condition_tree": 1,
+      "condition_atom": 1,
+      "applicability": 1,
+      "scope": 1,
+      "concept": 1,
+      "procedure_slot": 1
+    },
+    "note": "Equal weights are an initial evaluation baseline, not an established optimum. Empty union returns no_score; scope/authorization/applicability are checked separately. Conflict search uses conflict_slot and role keys then runs the diagnostic classifier."
+  },
+  "dense_spaces": "Keep base encoder spaces independent. Learned projections declare all input-space IDs, vocabulary/dictionary revisions, feature selector, weights, training manifest, dimensions, metric and normalization.",
+  "learned_head_formula": "z_p = normalize(g_p(base_embedding, selected_structured_features)); train the query and item paths under the same declared objective."
+}

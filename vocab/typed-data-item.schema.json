@@ -1,0 +1,2252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-sem:schema:typed-data-item:0.1.0",
+  "title": "Typed data occurrence design schema 0.1.0",
+  "$comment": "Shape validation only. Check unique occurrence assignments, exact source ownership, revisions, parser results, DAG ancestry, parent locators, role-derived primary type, definition/deployment binding, generation, access and lifecycle in trusted services. No capabilities, authority, owner identity or policy can be granted by this payload.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "registry_release": {
+      "const": "urn:agent-sem:data-types:0.1.0"
+    },
+    "item_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "item_revision_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "display_label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "source_owner_ref": {
+      "$ref": "#/$defs/source_owner_ref"
+    },
+    "locator": {
+      "$ref": "#/$defs/locator"
+    },
+    "primary_type_id": {
+      "enum": [
+        "dt:unresolved",
+        "dt:file",
+        "dt:file.agents_md",
+        "dt:file.sql_declared",
+        "dt:file.json_declared",
+        "dt:bytes",
+        "dt:raw_binary_data",
+        "dt:text",
+        "dt:document.json",
+        "dt:document.sql",
+        "dt:document.markdown",
+        "dt:value.integer",
+        "dt:value.decimal",
+        "dt:value.boolean",
+        "dt:value.string",
+        "dt:value.null",
+        "dt:value.array",
+        "dt:value.object",
+        "dt:record",
+        "dt:agent.definition",
+        "dt:agent.definition.coordination",
+        "dt:agent.definition.planning",
+        "dt:agent.definition.research",
+        "dt:agent.definition.coding",
+        "dt:agent.definition.review",
+        "dt:agent.definition.verification_assistance",
+        "dt:agent.definition.memory_curation",
+        "dt:agent.definition.composite",
+        "dt:agent.deployment",
+        "dt:agent.run",
+        "dt:workflow.definition",
+        "dt:workflow.definition.coding",
+        "dt:workflow.definition.research",
+        "dt:workflow.definition.verification",
+        "dt:workflow.definition.memory_curation",
+        "dt:workflow.definition.evaluation",
+        "dt:workflow.definition.deployment",
+        "dt:workflow.definition.composite",
+        "dt:workflow.run"
+      ]
+    },
+    "classification": {
+      "$ref": "#/$defs/classification"
+    },
+    "payload": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/payload_file"
+        },
+        {
+          "$ref": "#/$defs/payload_bytes"
+        },
+        {
+          "$ref": "#/$defs/payload_text"
+        },
+        {
+          "$ref": "#/$defs/payload_json_document"
+        },
+        {
+          "$ref": "#/$defs/payload_sql_document"
+        },
+        {
+          "$ref": "#/$defs/payload_markdown_document"
+        },
+        {
+          "$ref": "#/$defs/payload_integer"
+        },
+        {
+          "$ref": "#/$defs/payload_decimal"
+        },
+        {
+          "$ref": "#/$defs/payload_boolean"
+        },
+        {
+          "$ref": "#/$defs/payload_string"
+        },
+        {
+          "$ref": "#/$defs/payload_null"
+        },
+        {
+          "$ref": "#/$defs/payload_array"
+        },
+        {
+          "$ref": "#/$defs/payload_object"
+        },
+        {
+          "$ref": "#/$defs/payload_record"
+        },
+        {
+          "$ref": "#/$defs/payload_agent_definition"
+        },
+        {
+          "$ref": "#/$defs/payload_agent_deployment"
+        },
+        {
+          "$ref": "#/$defs/payload_agent_run"
+        },
+        {
+          "$ref": "#/$defs/payload_workflow_definition"
+        },
+        {
+          "$ref": "#/$defs/payload_workflow_run"
+        },
+        {
+          "$ref": "#/$defs/payload_unresolved"
+        }
+      ]
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      },
+      "minItems": 0,
+      "maxItems": 100000,
+      "uniqueItems": true
+    },
+    "itemisation": {
+      "$ref": "#/$defs/itemisation"
+    }
+  },
+  "required": [
+    "schema_version",
+    "registry_release",
+    "item_id",
+    "item_revision_id",
+    "source_owner_ref",
+    "locator",
+    "primary_type_id",
+    "classification",
+    "payload",
+    "relations",
+    "itemisation"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "source_owner_ref": {
+      "type": "object",
+      "properties": {
+        "owner_kind": {
+          "enum": [
+            "artifact",
+            "memory_revision",
+            "source_excerpt",
+            "event",
+            "procedure_revision",
+            "model_deployment",
+            "action_run",
+            "file",
+            "need_revision",
+            "contract_revision",
+            "repository_state",
+            "environment",
+            "candidate",
+            "verification_assessment"
+          ]
+        },
+        "owner_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source_revision_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "owner_kind",
+        "owner_id",
+        "source_revision_id"
+      ],
+      "additionalProperties": false,
+      "description": "Exactly one existing checked owner. An immutable owner may use its own ID as source_revision_id; other bindings require the owner's checked immutable revision. The authenticated workspace/owner is outside this payload."
+    },
+    "item_ref": {
+      "type": "object",
+      "properties": {
+        "item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "item_revision_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "item_id",
+        "item_revision_id"
+      ],
+      "additionalProperties": false
+    },
+    "parser_binding": {
+      "type": "object",
+      "properties": {
+        "parser_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "parser_release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "parser_id",
+        "parser_release",
+        "profile_id"
+      ],
+      "additionalProperties": false
+    },
+    "locator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "whole_source"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "representation"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "json_pointer"
+            },
+            "pointer": {
+              "type": "string",
+              "pattern": "^(?:/(?:[^~]|~[01])*)*$",
+              "maxLength": 16384
+            },
+            "document_item_ref": {
+              "$ref": "#/$defs/item_ref"
+            },
+            "parent_item_ref": {
+              "$ref": "#/$defs/item_ref"
+            }
+          },
+          "required": [
+            "kind",
+            "pointer",
+            "document_item_ref",
+            "parent_item_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "record_field"
+            },
+            "field_path": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "minItems": 1,
+              "maxItems": 64
+            },
+            "parent_item_ref": {
+              "$ref": "#/$defs/item_ref"
+            }
+          },
+          "required": [
+            "kind",
+            "field_path",
+            "parent_item_ref"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "classification": {
+      "type": "object",
+      "properties": {
+        "generation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "state": {
+          "enum": [
+            "established",
+            "unresolved"
+          ]
+        },
+        "rule_id": {
+          "enum": [
+            "checked-source-kind-v1",
+            "filename-agents-md-exact-v1",
+            "declared-sql-file-v1",
+            "declared-json-file-v1",
+            "byte-view-v1",
+            "opaque-byte-payload-v1",
+            "utf8-strict-v1",
+            "json-strict-lossless-v1",
+            "json-integer-lexeme-v1",
+            "json-decimal-lexeme-v1",
+            "sql-full-parse-v1",
+            "markdown-parse-v1",
+            "checked-agent-definition-v1",
+            "checked-agent-deployment-v1",
+            "checked-agent-run-v1",
+            "checked-workflow-definition-v1",
+            "checked-workflow-run-v1",
+            "unresolved-primary-v1"
+          ]
+        },
+        "assessments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dimension": {
+                "enum": [
+                  "primary_kind",
+                  "file_role",
+                  "encoding",
+                  "format",
+                  "syntax",
+                  "definition_roles",
+                  "reference_binding"
+                ]
+              },
+              "outcome": {
+                "enum": [
+                  "established",
+                  "unresolved",
+                  "failed",
+                  "profile_rejected",
+                  "not_applicable"
+                ]
+              },
+              "rule_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "dimension",
+              "outcome",
+              "rule_ref",
+              "detail"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "generation_id",
+        "state",
+        "rule_id",
+        "assessments"
+      ],
+      "additionalProperties": false
+    },
+    "relation": {
+      "type": "object",
+      "properties": {
+        "relation": {
+          "enum": [
+            "derived_from",
+            "contains"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/item_ref"
+        }
+      },
+      "required": [
+        "relation",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "itemisation": {
+      "type": "object",
+      "properties": {
+        "policy_id": {
+          "const": "eager-registered-structured-values-v1"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "pending",
+            "failed",
+            "not_applicable"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "node_budget",
+              "depth_budget",
+              "numeric_budget",
+              "parser_failure",
+              "profile_rejection",
+              "unsupported_materializer",
+              "pending_source",
+              "partial_source",
+              "not_a_structured_payload"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "materialized_child_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "policy_id",
+        "status",
+        "reason_codes",
+        "materialized_child_count"
+      ],
+      "additionalProperties": false
+    },
+    "payload_file": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "file"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "basename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "bytes_item_ref": {
+          "$ref": "#/$defs/item_ref"
+        },
+        "declared_language": {
+          "enum": [
+            "sql"
+          ]
+        },
+        "declared_format": {
+          "enum": [
+            "json"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "path",
+        "basename"
+      ],
+      "additionalProperties": false
+    },
+    "payload_bytes": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "bytes"
+        },
+        "interpretation": {
+          "enum": [
+            "byte_view",
+            "opaque_payload"
+          ]
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inline_base64": {
+          "type": "string",
+          "maxLength": 65536,
+          "contentEncoding": "base64"
+        }
+      },
+      "required": [
+        "kind",
+        "interpretation",
+        "byte_length",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "payload_text": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "text"
+        },
+        "encoding": {
+          "const": "utf-8"
+        },
+        "decoding_rule": {
+          "const": "utf8-strict-v1"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "kind",
+        "encoding",
+        "decoding_rule",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "payload_json_document": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "json_document"
+        },
+        "parser_binding": {
+          "$ref": "#/$defs/parser_binding"
+        },
+        "profile_id": {
+          "const": "json-strict-lossless-v1"
+        },
+        "syntax_status": {
+          "const": "validated"
+        },
+        "source_text": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "root_item_ref": {
+          "$ref": "#/$defs/item_ref"
+        }
+      },
+      "required": [
+        "kind",
+        "parser_binding",
+        "profile_id",
+        "syntax_status",
+        "source_text",
+        "root_item_ref"
+      ],
+      "additionalProperties": false
+    },
+    "payload_sql_document": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "sql_document"
+        },
+        "parser_binding": {
+          "$ref": "#/$defs/parser_binding"
+        },
+        "profile_id": {
+          "const": "sql-full-parse-v1"
+        },
+        "syntax_status": {
+          "const": "validated"
+        },
+        "dialect": {
+          "type": "object",
+          "properties": {
+            "dialect_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "dialect_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "dialect_id",
+            "dialect_version"
+          ],
+          "additionalProperties": false
+        },
+        "source_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "kind",
+        "parser_binding",
+        "profile_id",
+        "syntax_status",
+        "dialect",
+        "source_text"
+      ],
+      "additionalProperties": false
+    },
+    "payload_markdown_document": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "markdown_document"
+        },
+        "parser_binding": {
+          "$ref": "#/$defs/parser_binding"
+        },
+        "source_text": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "kind",
+        "parser_binding",
+        "source_text"
+      ],
+      "additionalProperties": false
+    },
+    "payload_integer": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "integer"
+        },
+        "canonical_value": {
+          "type": "string",
+          "pattern": "^(?:0|-?[1-9][0-9]*)$",
+          "maxLength": 65536
+        },
+        "source_lexeme": {
+          "type": "string",
+          "pattern": "^-?(?:0|[1-9][0-9]*)$",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "canonical_value"
+      ],
+      "additionalProperties": false
+    },
+    "payload_decimal": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "decimal"
+        },
+        "canonical_value": {
+          "type": "string",
+          "pattern": "^(?!-0$)-?(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$",
+          "maxLength": 65536
+        },
+        "source_lexeme": {
+          "type": "string",
+          "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+(?:[eE][+-]?[0-9]+)?|[eE][+-]?[0-9]+)$",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "canonical_value"
+      ],
+      "additionalProperties": false
+    },
+    "payload_boolean": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "boolean"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "payload_string": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "string"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "payload_null": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "null"
+        },
+        "value": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "payload_array": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "array"
+        },
+        "element_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item_ref"
+          },
+          "minItems": 0,
+          "maxItems": 100000
+        }
+      },
+      "required": [
+        "kind",
+        "element_refs"
+      ],
+      "additionalProperties": false
+    },
+    "payload_object": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "object"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "item_ref": {
+                "$ref": "#/$defs/item_ref"
+              }
+            },
+            "required": [
+              "key",
+              "item_ref"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0,
+          "maxItems": 100000
+        }
+      },
+      "required": [
+        "kind",
+        "members"
+      ],
+      "additionalProperties": false
+    },
+    "payload_record": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "record"
+        },
+        "schema_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "record_ref": {
+          "$ref": "#/$defs/source_owner_ref"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_ref",
+        "record_ref"
+      ],
+      "additionalProperties": false
+    },
+    "payload_agent_definition": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "agent_definition"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "declared_roles": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "coordination",
+              "planning",
+              "research",
+              "coding",
+              "review",
+              "verification_assistance",
+              "memory_curation"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 7,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "declared_roles"
+      ],
+      "additionalProperties": false
+    },
+    "payload_agent_deployment": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "agent_deployment"
+        },
+        "defined_by": {
+          "$ref": "#/$defs/item_ref"
+        },
+        "runtime_binding_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_owner_ref"
+          },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "kind",
+        "defined_by",
+        "runtime_binding_refs"
+      ],
+      "additionalProperties": false
+    },
+    "payload_agent_run": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "agent_run"
+        },
+        "defined_by": {
+          "$ref": "#/$defs/item_ref"
+        },
+        "deployment": {
+          "$ref": "#/$defs/item_ref"
+        }
+      },
+      "required": [
+        "kind",
+        "defined_by",
+        "deployment"
+      ],
+      "additionalProperties": false
+    },
+    "payload_workflow_definition": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workflow_definition"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "declared_kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "coding",
+              "research",
+              "verification",
+              "memory_curation",
+              "evaluation",
+              "deployment"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 6,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "declared_kinds"
+      ],
+      "additionalProperties": false
+    },
+    "payload_workflow_run": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workflow_run"
+        },
+        "defined_by": {
+          "$ref": "#/$defs/item_ref"
+        }
+      },
+      "required": [
+        "kind",
+        "defined_by"
+      ],
+      "additionalProperties": false
+    },
+    "payload_unresolved": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "unresolved"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "reason"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:file",
+              "dt:file.agents_md",
+              "dt:file.sql_declared",
+              "dt:file.json_declared"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "file"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:bytes",
+              "dt:raw_binary_data"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "bytes"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:text"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "text"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:document.json"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "json_document"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:document.sql"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "sql_document"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:document.markdown"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "markdown_document"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.integer"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.decimal"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "decimal"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.boolean"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.string"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.null"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.array"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "array"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.object"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:record"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "record"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition",
+              "dt:agent.definition.coordination",
+              "dt:agent.definition.planning",
+              "dt:agent.definition.research",
+              "dt:agent.definition.coding",
+              "dt:agent.definition.review",
+              "dt:agent.definition.verification_assistance",
+              "dt:agent.definition.memory_curation",
+              "dt:agent.definition.composite"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "agent_definition"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.deployment"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "agent_deployment"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.run"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "agent_run"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition",
+              "dt:workflow.definition.coding",
+              "dt:workflow.definition.research",
+              "dt:workflow.definition.verification",
+              "dt:workflow.definition.memory_curation",
+              "dt:workflow.definition.evaluation",
+              "dt:workflow.definition.deployment",
+              "dt:workflow.definition.composite"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "workflow_definition"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.run"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "workflow_run"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:unresolved"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "kind": {
+                "const": "unresolved"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:file.agents_md"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "basename": {
+                "const": "AGENTS.md"
+              }
+            }
+          },
+          "classification": {
+            "properties": {
+              "rule_id": {
+                "const": "filename-agents-md-exact-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:file.sql_declared"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "classification": {
+            "properties": {
+              "rule_id": {
+                "const": "declared-sql-file-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:file.json_declared"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "classification": {
+            "properties": {
+              "rule_id": {
+                "const": "declared-json-file-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:raw_binary_data"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "interpretation": {
+                "const": "opaque_payload"
+              }
+            }
+          },
+          "classification": {
+            "properties": {
+              "rule_id": {
+                "const": "opaque-byte-payload-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:bytes"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "interpretation": {
+                "const": "byte_view"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:unresolved"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "classification": {
+            "properties": {
+              "state": {
+                "const": "unresolved"
+              },
+              "rule_id": {
+                "const": "unresolved-primary-v1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:file",
+              "dt:file.agents_md",
+              "dt:file.sql_declared",
+              "dt:file.json_declared",
+              "dt:bytes",
+              "dt:raw_binary_data",
+              "dt:text",
+              "dt:document.json",
+              "dt:document.sql",
+              "dt:document.markdown",
+              "dt:value.integer",
+              "dt:value.decimal",
+              "dt:value.boolean",
+              "dt:value.string",
+              "dt:value.null",
+              "dt:value.array",
+              "dt:value.object",
+              "dt:record",
+              "dt:agent.definition",
+              "dt:agent.definition.coordination",
+              "dt:agent.definition.planning",
+              "dt:agent.definition.research",
+              "dt:agent.definition.coding",
+              "dt:agent.definition.review",
+              "dt:agent.definition.verification_assistance",
+              "dt:agent.definition.memory_curation",
+              "dt:agent.definition.composite",
+              "dt:agent.deployment",
+              "dt:agent.run",
+              "dt:workflow.definition",
+              "dt:workflow.definition.coding",
+              "dt:workflow.definition.research",
+              "dt:workflow.definition.verification",
+              "dt:workflow.definition.memory_curation",
+              "dt:workflow.definition.evaluation",
+              "dt:workflow.definition.deployment",
+              "dt:workflow.definition.composite",
+              "dt:workflow.run"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "classification": {
+            "properties": {
+              "state": {
+                "const": "established"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.coordination"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "coordination"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.planning"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "planning"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.research"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "research"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.coding"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "coding"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.review"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "review"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.verification_assistance"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "verification_assistance"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.memory_curation"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "const": [
+                  "memory_curation"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:agent.definition.composite"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_roles": {
+                "minItems": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.coding"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "const": [
+                  "coding"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.research"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "const": [
+                  "research"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.verification"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "const": [
+                  "verification"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.memory_curation"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "const": [
+                  "memory_curation"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.evaluation"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "const": [
+                  "evaluation"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.deployment"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "const": [
+                  "deployment"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:workflow.definition.composite"
+            ]
+          }
+        },
+        "required": [
+          "primary_type_id"
+        ]
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "properties": {
+              "declared_kinds": {
+                "minItems": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "locator": {
+            "properties": {
+              "kind": {
+                "const": "json_pointer"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "primary_type_id": {
+            "enum": [
+              "dt:value.integer",
+              "dt:value.decimal",
+              "dt:value.boolean",
+              "dt:value.string",
+              "dt:value.null",
+              "dt:value.array",
+              "dt:value.object"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

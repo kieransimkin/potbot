@@ -1,0 +1,628 @@
+{
+  "status": "passed_static_checks",
+  "date": "2026-10-21",
+  "validation_engine": {
+    "package": "jsonschema",
+    "version": "4.26.0",
+    "draft": "2020-12",
+    "format_checker": "enabled for available builtin formats; UUID used in fixtures"
+  },
+  "checks": [
+    {
+      "check": "JSON parsing and schema meta-validation",
+      "passed": true,
+      "details": {
+        "json_files": 18,
+        "schemas": 5,
+        "draft": "2020-12"
+      }
+    },
+    {
+      "check": "Semantic bundle fixture",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Negative semantic shape wrong_role_name",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape unknown_predicate",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape fact_with_must",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape missing_when",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape extra_authorization",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape wrong_entity_type",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape exact_state_without_environment",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape unknown_enum",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape duplicate_conjunction_member",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative semantic shape decimal_negative_zero",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Entity-valued guard shape",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Retrieval profile registry",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Retrieval request fixture",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Compliance request without contract revision",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Unique semantic registry IDs entity_types",
+      "passed": true,
+      "details": 25
+    },
+    {
+      "check": "Unique semantic registry IDs predicates",
+      "passed": true,
+      "details": 16
+    },
+    {
+      "check": "Unique semantic registry IDs concepts",
+      "passed": true,
+      "details": 16
+    },
+    {
+      "check": "Unique semantic registry IDs context_fields",
+      "passed": true,
+      "details": 11
+    },
+    {
+      "check": "Unique example frame IDs",
+      "passed": true,
+      "details": 10
+    },
+    {
+      "check": "Unique profile IDs and names",
+      "passed": true,
+      "details": 7
+    },
+    {
+      "check": "Registered profile intents",
+      "passed": true,
+      "details": "all intents registered"
+    },
+    {
+      "check": "Registered schema predicate signatures",
+      "passed": true,
+      "details": "16 exact signatures"
+    },
+    {
+      "check": "Unique channel IDs type_inventory",
+      "passed": true,
+      "details": 2
+    },
+    {
+      "check": "Unique channel IDs aboutness",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "check": "Unique channel IDs same_meaning",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "check": "Unique channel IDs applicable_procedure",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "check": "Unique channel IDs dependency_impact",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "check": "Unique channel IDs counterevidence",
+      "passed": true,
+      "details": 4
+    },
+    {
+      "check": "Unique channel IDs compliance",
+      "passed": true,
+      "details": 5
+    },
+    {
+      "check": "Conformance frame references",
+      "passed": true,
+      "details": "all named example references resolve"
+    },
+    {
+      "check": "Unique data-type registry IDs",
+      "passed": true,
+      "details": 45
+    },
+    {
+      "check": "Acyclic registered subtype graph",
+      "passed": true,
+      "details": "All parent IDs resolve; no cycles"
+    },
+    {
+      "check": "Concrete type assignments match schema",
+      "passed": true,
+      "details": "Abstract types cannot be primary assignments"
+    },
+    {
+      "check": "Query type enum matches registry",
+      "passed": true,
+      "details": "All registered types queryable"
+    },
+    {
+      "check": "Typed item Synthetic AGENTS.md file role",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Exact bytes of AGENTS.md",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Strictly decoded AGENTS.md text",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Explicit opaque binary payload",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Known bytes with unresolved format",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Strict JSON document",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item JSON root object",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item JSON /limits array",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item First distinct integer occurrence",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Second distinct integer occurrence",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Decimal lexeme 1.0 remains decimal",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Boolean true is not an integer",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Declared .sql file without syntax inference",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Illustrative fully parsed SQL representation",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Single-role coding agent definition",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Composite coding and review definition",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Coding agent deployment",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Coding agent run",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Coding workflow definition",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Evaluation workflow definition",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Coding workflow run",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Composite research and verification workflow",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Typed item Unresolved primary kind",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query agents_md_files",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query all_file_subtypes",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query explicit_opaque_binary_payloads",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query every_materialized_integer",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query validated_json_documents",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query validated_sql_documents",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query all_agent_definitions",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query single_role_coding_definitions",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query all_definitions_declaring_coding",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query agent_deployments",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query agent_runs",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query all_workflow_definitions",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query workflow_runs",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Type query unresolved_primary_items",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Unique typed occurrence identifiers",
+      "passed": true,
+      "details": 23
+    },
+    {
+      "check": "Typed fixture links resolve exact revisions",
+      "passed": true,
+      "details": {
+        "checked_item_refs": 32
+      }
+    },
+    {
+      "check": "Finite fixture type selection agents_md_files",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection all_file_subtypes",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 2,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection explicit_opaque_binary_payloads",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection every_materialized_integer",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 2,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection validated_json_documents",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection validated_sql_documents",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection all_agent_definitions",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 2,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection single_role_coding_definitions",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection all_definitions_declaring_coding",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 2,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection agent_deployments",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection agent_runs",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection all_workflow_definitions",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 3,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection workflow_runs",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Finite fixture type selection unresolved_primary_items",
+      "passed": true,
+      "details": {
+        "matching_occurrences": 1,
+        "scope": "synthetic fixture manifest only; no live database or cursor tested"
+      }
+    },
+    {
+      "check": "Embedded type query resolves registered schema ID",
+      "passed": true,
+      "details": "accepted"
+    },
+    {
+      "check": "Negative typed shape missing_primary_type",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative typed shape abstract_primary_type",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative typed shape invalid_agents_filename",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative typed shape coding_role_mismatch",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative typed shape boolean_in_integer_payload",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Negative typed shape invalid_item_uuid",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    },
+    {
+      "check": "Unknown data type query",
+      "passed": true,
+      "details": {
+        "rejected": true,
+        "error_count": 1
+      }
+    }
+  ],
+  "counts": {
+    "semantic_types": 25,
+    "semantic_predicates": 16,
+    "concepts": 16,
+    "retrieval_profiles": 7,
+    "semantic_fixture_frames": 10,
+    "rejected_schema_fixtures": 10,
+    "planned_semantic_conformance_cases": 50,
+    "data_types": 45,
+    "assignable_primary_types": 39,
+    "typed_item_fixtures": 23,
+    "type_query_fixtures": 14,
+    "planned_type_conformance_cases": 20,
+    "additional_negative_type_checks": 7
+  },
+  "not_executed": [
+    "Production reference/authority/evidence validation",
+    "Semantic guard or conflict engine conformance",
+    "Live type enumeration, parser/index or cursor behavior",
+    "Embedding inference, training, retrieval quality or deployment qualification",
+    "Database migrations, concurrency/deletion enforcement or authorization integration"
+  ],
+  "scope": "The checks establish schema validity and internal reference consistency of this design package. Planned conformance cases are expected behaviors, not production test results.",
+  "document_quality_assurance": {
+    "pages": 16,
+    "all_pages_visually_reviewed": true,
+    "pagination_corrections_rechecked": true,
+    "result": "No clipping, overflow, orphaned step headings or broken table rows in final render."
+  }
+}

@@ -1,0 +1,1068 @@
+{
+  "schema_version": "0.1.0",
+  "registry_release": "urn:agent-sem:data-types:0.1.0",
+  "fixture_status": "illustrative_synthetic_UUIDs_not_live_records_or_executed_parser_results",
+  "note": "All source owners, revisions, item IDs, runtime bindings and parser releases are synthetic fixtures. A real service must resolve them to checked existing records; the fixture's validated SQL label is an intended example shape, not evidence that this builder implements or ran a SQL parser.",
+  "classification_generation_id": "00000000-0000-0000-0000-000000002329",
+  "item_schema_id": "urn:agent-sem:schema:typed-data-item:0.1.0",
+  "items": [
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002711",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e21",
+      "display_label": "Synthetic AGENTS.md file role",
+      "source_owner_ref": {
+        "owner_kind": "file",
+        "owner_id": "00000000-0000-0000-0000-000000007531",
+        "source_revision_id": "00000000-0000-0000-0000-000000009c41"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:file.agents_md",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "filename-agents-md-exact-v1",
+        "assessments": [
+          {
+            "dimension": "file_role",
+            "outcome": "established",
+            "rule_ref": "filename-agents-md-exact-v1",
+            "detail": "Exact basename only; this grants no trust or instruction authority and does not establish Markdown parsing."
+          }
+        ]
+      },
+      "payload": {
+        "kind": "file",
+        "path": "AGENTS.md",
+        "basename": "AGENTS.md",
+        "bytes_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002712",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e22"
+        }
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002712",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e22",
+      "display_label": "Exact bytes of AGENTS.md",
+      "source_owner_ref": {
+        "owner_kind": "file",
+        "owner_id": "00000000-0000-0000-0000-000000007531",
+        "source_revision_id": "00000000-0000-0000-0000-000000009c41"
+      },
+      "locator": {
+        "kind": "representation",
+        "name": "bytes"
+      },
+      "primary_type_id": "dt:bytes",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "byte-view-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "bytes",
+        "interpretation": "byte_view",
+        "byte_length": 48,
+        "sha256": "8554ae77c98ff8a046a7e922d16f9384ac982cb2a487e89e87ce4f9fb106e164",
+        "inline_base64": "IyBQcm9qZWN0IGluc3RydWN0aW9ucwpSdW4gdGVzdHMgYmVmb3JlIHJldmlldy4K"
+      },
+      "relations": [
+        {
+          "relation": "derived_from",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-000000002711",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e21"
+          }
+        }
+      ],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002713",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e23",
+      "display_label": "Strictly decoded AGENTS.md text",
+      "source_owner_ref": {
+        "owner_kind": "file",
+        "owner_id": "00000000-0000-0000-0000-000000007531",
+        "source_revision_id": "00000000-0000-0000-0000-000000009c41"
+      },
+      "locator": {
+        "kind": "representation",
+        "name": "utf8_text"
+      },
+      "primary_type_id": "dt:text",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "utf8-strict-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "text",
+        "encoding": "utf-8",
+        "decoding_rule": "utf8-strict-v1",
+        "text": "# Project instructions\nRun tests before review.\n"
+      },
+      "relations": [
+        {
+          "relation": "derived_from",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-000000002712",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e22"
+          }
+        }
+      ],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002714",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e24",
+      "display_label": "Explicit opaque binary payload",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007534",
+        "source_revision_id": "00000000-0000-0000-0000-000000007534"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:raw_binary_data",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "opaque-byte-payload-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "bytes",
+        "interpretation": "opaque_payload",
+        "byte_length": 3,
+        "sha256": "2da45f2cd1f9c8e69a67abf7a6b26c282533d0a7686787a9533265418680d4d2",
+        "inline_base64": "AP8Q"
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002715",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e25",
+      "display_label": "Known bytes with unresolved format",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007535",
+        "source_revision_id": "00000000-0000-0000-0000-000000007535"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:bytes",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "byte-view-v1",
+        "assessments": [
+          {
+            "dimension": "format",
+            "outcome": "unresolved",
+            "rule_ref": "checked-source-kind-v1",
+            "detail": "The byte representation is known; content format remains unresolved and does not imply an opaque-payload declaration."
+          }
+        ]
+      },
+      "payload": {
+        "kind": "bytes",
+        "interpretation": "byte_view",
+        "byte_length": 3,
+        "sha256": "3766efa08f269a90d882010a8881ef8224fdc04f4d7c2b3d27f587ff38cc7e89",
+        "inline_base64": "//4B"
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002716",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e26",
+      "display_label": "Strict JSON document",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "representation",
+        "name": "parsed_json"
+      },
+      "primary_type_id": "dt:document.json",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "json-strict-lossless-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "json_document",
+        "parser_binding": {
+          "parser_id": "fixture.json_parser",
+          "parser_release": "fixture-1",
+          "profile_id": "json-strict-lossless-v1"
+        },
+        "profile_id": "json-strict-lossless-v1",
+        "syntax_status": "validated",
+        "source_text": "{\"limits\":[3,3],\"ratio\":1.0,\"enabled\":true}",
+        "root_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002717",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e27"
+        }
+      },
+      "relations": [
+        {
+          "relation": "contains",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-000000002717",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e27"
+          }
+        }
+      ],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "complete",
+        "reason_codes": [],
+        "materialized_child_count": 1
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002717",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e27",
+      "display_label": "JSON root object",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "json_pointer",
+        "pointer": "",
+        "document_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        },
+        "parent_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        }
+      },
+      "primary_type_id": "dt:value.object",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-source-kind-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "object",
+        "members": [
+          {
+            "key": "limits",
+            "item_ref": {
+              "item_id": "00000000-0000-0000-0000-000000002718",
+              "item_revision_id": "00000000-0000-0000-0000-000000004e28"
+            }
+          },
+          {
+            "key": "ratio",
+            "item_ref": {
+              "item_id": "00000000-0000-0000-0000-00000000271b",
+              "item_revision_id": "00000000-0000-0000-0000-000000004e2b"
+            }
+          },
+          {
+            "key": "enabled",
+            "item_ref": {
+              "item_id": "00000000-0000-0000-0000-00000000271c",
+              "item_revision_id": "00000000-0000-0000-0000-000000004e2c"
+            }
+          }
+        ]
+      },
+      "relations": [
+        {
+          "relation": "contains",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-000000002718",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e28"
+          }
+        },
+        {
+          "relation": "contains",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-00000000271b",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e2b"
+          }
+        },
+        {
+          "relation": "contains",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-00000000271c",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e2c"
+          }
+        }
+      ],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "complete",
+        "reason_codes": [],
+        "materialized_child_count": 3
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002718",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e28",
+      "display_label": "JSON /limits array",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "json_pointer",
+        "pointer": "/limits",
+        "document_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        },
+        "parent_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002717",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e27"
+        }
+      },
+      "primary_type_id": "dt:value.array",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-source-kind-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "array",
+        "element_refs": [
+          {
+            "item_id": "00000000-0000-0000-0000-000000002719",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e29"
+          },
+          {
+            "item_id": "00000000-0000-0000-0000-00000000271a",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e2a"
+          }
+        ]
+      },
+      "relations": [
+        {
+          "relation": "contains",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-000000002719",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e29"
+          }
+        },
+        {
+          "relation": "contains",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-00000000271a",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e2a"
+          }
+        }
+      ],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "complete",
+        "reason_codes": [],
+        "materialized_child_count": 2
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002719",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e29",
+      "display_label": "First distinct integer occurrence",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "json_pointer",
+        "pointer": "/limits/0",
+        "document_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        },
+        "parent_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002718",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e28"
+        }
+      },
+      "primary_type_id": "dt:value.integer",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "json-integer-lexeme-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "integer",
+        "canonical_value": "3",
+        "source_lexeme": "3"
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-00000000271a",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e2a",
+      "display_label": "Second distinct integer occurrence",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "json_pointer",
+        "pointer": "/limits/1",
+        "document_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        },
+        "parent_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002718",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e28"
+        }
+      },
+      "primary_type_id": "dt:value.integer",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "json-integer-lexeme-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "integer",
+        "canonical_value": "3",
+        "source_lexeme": "3"
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-00000000271b",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e2b",
+      "display_label": "Decimal lexeme 1.0 remains decimal",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "json_pointer",
+        "pointer": "/ratio",
+        "document_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        },
+        "parent_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002717",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e27"
+        }
+      },
+      "primary_type_id": "dt:value.decimal",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "json-decimal-lexeme-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "decimal",
+        "canonical_value": "1",
+        "source_lexeme": "1.0"
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-00000000271c",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e2c",
+      "display_label": "Boolean true is not an integer",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007536",
+        "source_revision_id": "00000000-0000-0000-0000-000000007536"
+      },
+      "locator": {
+        "kind": "json_pointer",
+        "pointer": "/enabled",
+        "document_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        },
+        "parent_item_ref": {
+          "item_id": "00000000-0000-0000-0000-000000002717",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e27"
+        }
+      },
+      "primary_type_id": "dt:value.boolean",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-source-kind-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "boolean",
+        "value": true
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-00000000271d",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e2d",
+      "display_label": "Declared .sql file without syntax inference",
+      "source_owner_ref": {
+        "owner_kind": "file",
+        "owner_id": "00000000-0000-0000-0000-00000000753d",
+        "source_revision_id": "00000000-0000-0000-0000-000000009c4d"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:file.sql_declared",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "declared-sql-file-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "file",
+        "path": "queries/example.sql",
+        "basename": "example.sql",
+        "declared_language": "sql"
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-00000000271e",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e2e",
+      "display_label": "Illustrative fully parsed SQL representation",
+      "source_owner_ref": {
+        "owner_kind": "file",
+        "owner_id": "00000000-0000-0000-0000-00000000753d",
+        "source_revision_id": "00000000-0000-0000-0000-000000009c4d"
+      },
+      "locator": {
+        "kind": "representation",
+        "name": "parsed_sql"
+      },
+      "primary_type_id": "dt:document.sql",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "sql-full-parse-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "sql_document",
+        "parser_binding": {
+          "parser_id": "fixture.sql_parser",
+          "parser_release": "fixture-postgresql16-parser-1",
+          "profile_id": "sql-full-parse-v1"
+        },
+        "profile_id": "sql-full-parse-v1",
+        "syntax_status": "validated",
+        "dialect": {
+          "dialect_id": "postgresql",
+          "dialect_version": "16"
+        },
+        "source_text": "SELECT 1;"
+      },
+      "relations": [
+        {
+          "relation": "derived_from",
+          "target": {
+            "item_id": "00000000-0000-0000-0000-00000000271d",
+            "item_revision_id": "00000000-0000-0000-0000-000000004e2d"
+          }
+        }
+      ],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-00000000271f",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e2f",
+      "display_label": "Single-role coding agent definition",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-00000000753f",
+        "source_revision_id": "00000000-0000-0000-0000-00000000753f"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:agent.definition.coding",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-agent-definition-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "agent_definition",
+        "name": "Fixture coding agent",
+        "declared_roles": [
+          "coding"
+        ]
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002720",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e30",
+      "display_label": "Composite coding and review definition",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007540",
+        "source_revision_id": "00000000-0000-0000-0000-000000007540"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:agent.definition.composite",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-agent-definition-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "agent_definition",
+        "name": "Fixture coding and review agent",
+        "declared_roles": [
+          "coding",
+          "review"
+        ]
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002721",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e31",
+      "display_label": "Coding agent deployment",
+      "source_owner_ref": {
+        "owner_kind": "artifact",
+        "owner_id": "00000000-0000-0000-0000-000000007541",
+        "source_revision_id": "00000000-0000-0000-0000-000000007541"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:agent.deployment",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-agent-deployment-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "agent_deployment",
+        "defined_by": {
+          "item_id": "00000000-0000-0000-0000-00000000271f",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2f"
+        },
+        "runtime_binding_refs": [
+          {
+            "owner_kind": "model_deployment",
+            "owner_id": "00000000-0000-0000-0000-0000000075a5",
+            "source_revision_id": "00000000-0000-0000-0000-0000000075a5"
+          }
+        ]
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002722",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e32",
+      "display_label": "Coding agent run",
+      "source_owner_ref": {
+        "owner_kind": "action_run",
+        "owner_id": "00000000-0000-0000-0000-000000007542",
+        "source_revision_id": "00000000-0000-0000-0000-000000007542"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:agent.run",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-agent-run-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "agent_run",
+        "defined_by": {
+          "item_id": "00000000-0000-0000-0000-00000000271f",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2f"
+        },
+        "deployment": {
+          "item_id": "00000000-0000-0000-0000-000000002721",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e31"
+        }
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002723",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e33",
+      "display_label": "Coding workflow definition",
+      "source_owner_ref": {
+        "owner_kind": "procedure_revision",
+        "owner_id": "00000000-0000-0000-0000-000000007543",
+        "source_revision_id": "00000000-0000-0000-0000-000000007543"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:workflow.definition.coding",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-workflow-definition-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "workflow_definition",
+        "name": "Fixture coding workflow",
+        "declared_kinds": [
+          "coding"
+        ]
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002724",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e34",
+      "display_label": "Evaluation workflow definition",
+      "source_owner_ref": {
+        "owner_kind": "procedure_revision",
+        "owner_id": "00000000-0000-0000-0000-000000007544",
+        "source_revision_id": "00000000-0000-0000-0000-000000007544"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:workflow.definition.evaluation",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-workflow-definition-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "workflow_definition",
+        "name": "Fixture evaluation workflow",
+        "declared_kinds": [
+          "evaluation"
+        ]
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002725",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e35",
+      "display_label": "Coding workflow run",
+      "source_owner_ref": {
+        "owner_kind": "action_run",
+        "owner_id": "00000000-0000-0000-0000-000000007545",
+        "source_revision_id": "00000000-0000-0000-0000-000000007545"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:workflow.run",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-workflow-run-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "workflow_run",
+        "defined_by": {
+          "item_id": "00000000-0000-0000-0000-000000002723",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e33"
+        }
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002726",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e36",
+      "display_label": "Composite research and verification workflow",
+      "source_owner_ref": {
+        "owner_kind": "procedure_revision",
+        "owner_id": "00000000-0000-0000-0000-000000007546",
+        "source_revision_id": "00000000-0000-0000-0000-000000007546"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:workflow.definition.composite",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "established",
+        "rule_id": "checked-workflow-definition-v1",
+        "assessments": []
+      },
+      "payload": {
+        "kind": "workflow_definition",
+        "name": "Fixture research and verification workflow",
+        "declared_kinds": [
+          "research",
+          "verification"
+        ]
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    },
+    {
+      "schema_version": "0.1.0",
+      "registry_release": "urn:agent-sem:data-types:0.1.0",
+      "item_id": "00000000-0000-0000-0000-000000002727",
+      "item_revision_id": "00000000-0000-0000-0000-000000004e37",
+      "display_label": "Unresolved primary kind",
+      "source_owner_ref": {
+        "owner_kind": "event",
+        "owner_id": "00000000-0000-0000-0000-000000007547",
+        "source_revision_id": "00000000-0000-0000-0000-000000007547"
+      },
+      "locator": {
+        "kind": "whole_source"
+      },
+      "primary_type_id": "dt:unresolved",
+      "classification": {
+        "generation_id": "00000000-0000-0000-0000-000000002329",
+        "state": "unresolved",
+        "rule_id": "unresolved-primary-v1",
+        "assessments": [
+          {
+            "dimension": "primary_kind",
+            "outcome": "unresolved",
+            "rule_ref": "unresolved-primary-v1",
+            "detail": "This item does not match all types and is not evidence of a completed negative classification."
+          }
+        ]
+      },
+      "payload": {
+        "kind": "unresolved",
+        "reason": "Illustrative admitted payload awaiting a checked representation-kind classifier."
+      },
+      "relations": [],
+      "itemisation": {
+        "policy_id": "eager-registered-structured-values-v1",
+        "status": "not_applicable",
+        "reason_codes": [
+          "not_a_structured_payload"
+        ],
+        "materialized_child_count": 0
+      }
+    }
+  ]
+}

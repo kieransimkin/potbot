@@ -1,0 +1,67 @@
+{
+  "notice": "Illustrative fixture identifiers only. These are not real project records.",
+  "entities": [
+    {
+      "id": "00000000-0000-0000-0000-00000000000a",
+      "type": "repository",
+      "label": "example-repository"
+    },
+    {
+      "id": "00000000-0000-0000-0000-00000000000b",
+      "type": "repository_state",
+      "label": "example-state-A"
+    },
+    {
+      "id": "00000000-0000-0000-0000-00000000000c",
+      "type": "environment",
+      "label": "example-production-environment"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000014",
+      "type": "event",
+      "label": "fixture-source-event"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000065",
+      "type": "configuration_key",
+      "label": "response_cache.enabled"
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000c9",
+      "type": "component",
+      "label": "Parser"
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000ca",
+      "type": "component",
+      "label": "Lexer"
+    },
+    {
+      "id": "00000000-0000-0000-0000-00000000012d",
+      "type": "dependency_binding",
+      "label": "one Python dependency binding"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000191",
+      "type": "action_run",
+      "label": "one test execution"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000192",
+      "type": "test_case",
+      "label": "one test occurrence"
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000001f5",
+      "type": "symbol",
+      "label": "caller"
+    }
+  ],
+  "configuration_keys": [
+    {
+      "id": "00000000-0000-0000-0000-000000000065",
+      "value_type": "boolean",
+      "nullable": false
+    }
+  ]
+}

@@ -1,0 +1,593 @@
+{
+  "schema_version": "0.1.0",
+  "vocabulary_release": "urn:agent-sem:vocabulary:0.1.0",
+  "frames": [
+    {
+      "local_id": "cache_required_off",
+      "mode": "normative",
+      "force": "must",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:setting",
+        "arguments": {
+          "key": {
+            "term": "entity",
+            "entity_type": "configuration_key",
+            "id": "00000000-0000-0000-0000-000000000065"
+          },
+          "value": {
+            "term": "boolean",
+            "value": false
+          }
+        }
+      },
+      "when": {
+        "op": "eq",
+        "left": {
+          "field": "environment.stage"
+        },
+        "right": {
+          "term": "enum",
+          "domain": "environment_stage",
+          "value": "production"
+        }
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "project_convention",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        }
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "normative_source",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "cache_observed_on",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:setting",
+        "arguments": {
+          "key": {
+            "term": "entity",
+            "entity_type": "configuration_key",
+            "id": "00000000-0000-0000-0000-000000000065"
+          },
+          "value": {
+            "term": "boolean",
+            "value": true
+          }
+        }
+      },
+      "when": {
+        "op": "eq",
+        "left": {
+          "field": "environment.stage"
+        },
+        "right": {
+          "term": "enum",
+          "domain": "environment_stage",
+          "value": "production"
+        }
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "cache_required_on",
+      "mode": "normative",
+      "force": "must",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:setting",
+        "arguments": {
+          "key": {
+            "term": "entity",
+            "entity_type": "configuration_key",
+            "id": "00000000-0000-0000-0000-000000000065"
+          },
+          "value": {
+            "term": "boolean",
+            "value": true
+          }
+        }
+      },
+      "when": {
+        "op": "eq",
+        "left": {
+          "field": "environment.stage"
+        },
+        "right": {
+          "term": "enum",
+          "domain": "environment_stage",
+          "value": "production"
+        }
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "project_convention",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        }
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "normative_source",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "cache_development_on",
+      "mode": "normative",
+      "force": "must",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:setting",
+        "arguments": {
+          "key": {
+            "term": "entity",
+            "entity_type": "configuration_key",
+            "id": "00000000-0000-0000-0000-000000000065"
+          },
+          "value": {
+            "term": "boolean",
+            "value": true
+          }
+        }
+      },
+      "when": {
+        "op": "eq",
+        "left": {
+          "field": "environment.stage"
+        },
+        "right": {
+          "term": "enum",
+          "domain": "environment_stage",
+          "value": "development"
+        }
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "project_convention",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        }
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "normative_source",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "parser_needs_lexer",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:depends_on",
+        "arguments": {
+          "consumer": {
+            "term": "entity",
+            "entity_type": "component",
+            "id": "00000000-0000-0000-0000-0000000000c9"
+          },
+          "provider": {
+            "term": "entity",
+            "entity_type": "component",
+            "id": "00000000-0000-0000-0000-0000000000ca"
+          }
+        }
+      },
+      "when": {
+        "op": "const",
+        "value": "true"
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "lexer_needs_parser",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:depends_on",
+        "arguments": {
+          "consumer": {
+            "term": "entity",
+            "entity_type": "component",
+            "id": "00000000-0000-0000-0000-0000000000ca"
+          },
+          "provider": {
+            "term": "entity",
+            "entity_type": "component",
+            "id": "00000000-0000-0000-0000-0000000000c9"
+          }
+        }
+      },
+      "when": {
+        "op": "const",
+        "value": "true"
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "parser_not_needs_lexer",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "negative",
+      "atom": {
+        "predicate": "sem:depends_on",
+        "arguments": {
+          "consumer": {
+            "term": "entity",
+            "entity_type": "component",
+            "id": "00000000-0000-0000-0000-0000000000c9"
+          },
+          "provider": {
+            "term": "entity",
+            "entity_type": "component",
+            "id": "00000000-0000-0000-0000-0000000000ca"
+          }
+        }
+      },
+      "when": {
+        "op": "const",
+        "value": "true"
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "version_binding_one",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:dependency_version",
+        "arguments": {
+          "dependency": {
+            "term": "entity",
+            "entity_type": "dependency_binding",
+            "id": "00000000-0000-0000-0000-00000000012d"
+          },
+          "version": {
+            "term": "version",
+            "value": "3.10",
+            "scheme": "pep440"
+          }
+        }
+      },
+      "when": {
+        "op": "const",
+        "value": "true"
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "test_inconclusive",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:test_result",
+        "arguments": {
+          "run": {
+            "term": "entity",
+            "entity_type": "action_run",
+            "id": "00000000-0000-0000-0000-000000000191"
+          },
+          "test": {
+            "term": "entity",
+            "entity_type": "test_case",
+            "id": "00000000-0000-0000-0000-000000000192"
+          },
+          "result": {
+            "term": "enum",
+            "value": "flaky_or_inconclusive",
+            "domain": "result_status"
+          }
+        }
+      },
+      "when": {
+        "op": "const",
+        "value": "true"
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "complete",
+        "unresolved": []
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    },
+    {
+      "local_id": "partial_unknown_target",
+      "mode": "factual",
+      "force": "assert",
+      "polarity": "positive",
+      "atom": {
+        "predicate": "sem:calls",
+        "arguments": {
+          "caller": {
+            "term": "entity",
+            "entity_type": "symbol",
+            "id": "00000000-0000-0000-0000-0000000001f5"
+          },
+          "callee": {
+            "term": "unknown",
+            "expected_type": "entity",
+            "reason": "ambiguous_binding"
+          }
+        }
+      },
+      "when": {
+        "op": "const",
+        "value": "true"
+      },
+      "scope": {
+        "boundary": "repository",
+        "repository_id": "00000000-0000-0000-0000-00000000000a",
+        "valid_time": {
+          "kind": "scope_only"
+        }
+      },
+      "applicability": {
+        "mode": "exact_state",
+        "guard": {
+          "op": "const",
+          "value": "true"
+        },
+        "state_id": "00000000-0000-0000-0000-00000000000b",
+        "environment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "coverage": {
+        "status": "partial",
+        "unresolved": [
+          "Callee identity cannot be resolved from the captured source."
+        ]
+      },
+      "evidence_bindings": [
+        {
+          "relation": "supports",
+          "target": {
+            "kind": "event",
+            "id": "00000000-0000-0000-0000-000000000014"
+          },
+          "interpretation": "direct_observation",
+          "coverage": "Illustrative fixture only; no real project assertion."
+        }
+      ]
+    }
+  ],
+  "conjunction_groups": [],
+  "unmapped_content": []
+}

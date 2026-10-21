@@ -1,0 +1,127 @@
+{
+  "version": "0.1.0",
+  "status": "expected_behaviors_not_executed_engine_tests",
+  "note": "These cases specify required service behavior. The build script checks its registry/fixture consistency only; it does not implement the classifier, SQL parser, source ownership, authorization, snapshot or inventory services.",
+  "cases": [
+    {
+      "id": "DT01",
+      "name": "Exactly one primary assignment",
+      "given": "Two assignments give different primary types to the same item occurrence, revision and classification generation.",
+      "expected": "Reject the conflicting assignment; do not select by embedding score or store simultaneous primary types. Different revisions/generations retain explicit separate assignments."
+    },
+    {
+      "id": "DT02",
+      "name": "Immutable registry and explicit DAG",
+      "given": "A type ID is redefined, an is_a target is unknown, or the published subtype graph contains a cycle.",
+      "expected": "Reject registry publication. Changed meanings require new immutable identities/releases; names, contains and derived_from do not add implicit subtype edges."
+    },
+    {
+      "id": "DT03",
+      "name": "Exact default and explicit descendants",
+      "given": "Query dt:file without include_subtypes against file.agents_md and file.sql_declared fixtures, then query with include_subtypes=true.",
+      "expected": "The exact query does not include either subtype; the descendant query includes both. Page size never changes the selection predicate."
+    },
+    {
+      "id": "DT04",
+      "name": "AGENTS.md role does not establish parse or authority",
+      "given": "A checked file is named AGENTS.md but its payload has invalid UTF-8 or untrusted instructions; another is named agents.md.",
+      "expected": "The first may retain the exact filename-role type while text decoding fails; do not infer Markdown, trust, applicability or instruction authority. Lowercase agents.md does not match the registered case-exact rule."
+    },
+    {
+      "id": "DT05",
+      "name": "Opaque bytes and unresolved format are distinct",
+      "given": "One payload is explicitly opaque; another has known bytes but unknown format; a third has no established primary kind.",
+      "expected": "Use raw_binary_data, bytes with unresolved format assessment, and unresolved respectively. Neither unresolved state matches every type or proves a completed nonmatch."
+    },
+    {
+      "id": "DT06",
+      "name": "Whole strict JSON profile",
+      "given": "Inputs include duplicate object keys, NaN, Infinity, trailing non-whitespace, malformed JSON, and a valid full JSON scalar.",
+      "expected": "Duplicate keys are a profile rejection, not asserted to violate JSON grammar. Non-JSON constants, trailing junk and malformed syntax fail validation. The valid scalar document is allowed. No partial parse becomes a validated JSON document."
+    },
+    {
+      "id": "DT07",
+      "name": "Exact numeric lexical typing",
+      "given": "JSON contains 9007199254740993, 1, 1.0, 1e0, true, the string 1, and -0.",
+      "expected": "Preserve precision; integer-form lexemes become integer, dot/exponent forms decimal, Boolean and string stay distinct. Preserve source -0 while canonicalizing integer value to 0. Do not round through binary float."
+    },
+    {
+      "id": "DT08",
+      "name": "Equal values at distinct locations",
+      "given": "JSON /limits/0 and /limits/1 both contain integer 3.",
+      "expected": "Return two item occurrences with distinct IDs/locators; do not merge them because their values or content hashes match."
+    },
+    {
+      "id": "DT09",
+      "name": "Parent and locator consistency",
+      "given": "A child points at the wrong parent, wrong document revision, mismatched escaped JSON Pointer, or a parent member/index not naming it.",
+      "expected": "Reject the inconsistent view. Verify immediate containment, root linkage and immutable source owner/revision, including ~0 and ~1 escaping."
+    },
+    {
+      "id": "DT10",
+      "name": "Eager registered materialization and bounded failure",
+      "given": "A registered JSON source exceeds a node/depth/numeric budget or its materializer fails halfway.",
+      "expected": "Retain explicit partial/failed itemisation with reasons. Default policy attempts every nested registered value; do not mark the parent complete or claim every integer is indexed."
+    },
+    {
+      "id": "DT11",
+      "name": "No recursive catalog self-indexing",
+      "given": "The catalog contains integer page_size, generation metadata, type registry entries and itemisation child counts.",
+      "expected": "Do not recursively turn this bookkeeping into user data items. Only payloads/fields selected by a registered source materializer are in scope."
+    },
+    {
+      "id": "DT12",
+      "name": "Containment and derivation do not confer type",
+      "given": "A JSON document contains integers and a file has linked bytes/text/SQL representations.",
+      "expected": "The document is not an integer, and the file is not a parsed document or bytes item merely through links. Each explicit representation has its own primary type."
+    },
+    {
+      "id": "DT13",
+      "name": "SQL declaration and validated syntax",
+      "given": "A .sql file has invalid syntax, unknown dialect, or only a successfully parsed prefix; another fully parses under a pinned dialect/parser release.",
+      "expected": "The file role may remain declared SQL; only the complete successful parse yields a SQL document. Never execute input to classify it or infer semantic validity, permission, or execution success."
+    },
+    {
+      "id": "DT14",
+      "name": "Agent definition descendant isolation",
+      "given": "Query agent.definition with descendants over role/composite definitions, a deployment and a run.",
+      "expected": "Return only definition descendants. Coordination/planning/research/coding/review/verification-assistance/memory-curation subtypes are available; deployment/run types are separate branches."
+    },
+    {
+      "id": "DT15",
+      "name": "Composite agent declarations",
+      "given": "An agent definition explicitly declares coding and review roles; another source merely claims it has powerful tools.",
+      "expected": "The first has exactly one composite primary type with declared role facets. A role-filtered definition query can find it; it does not silently inherit every role subtype. Neither role nor tool claim grants capability or policy authority."
+    },
+    {
+      "id": "DT16",
+      "name": "Workflow definition descendant isolation",
+      "given": "Query workflow.definition with descendants over coding/research/verification/memory-curation/evaluation/deployment definitions, composites and runs.",
+      "expected": "Return only definitions, preserving declared-kind facets. A workflow.run references its checked definition but never becomes a definition subtype; deployment workflow type does not authorize deployment."
+    },
+    {
+      "id": "DT17",
+      "name": "Checked owner and execution references",
+      "given": "An item has multiple owners, an agent deployment points at a workflow definition, an agent run names a definition different from its deployment's definition, or a workflow run names a deployment as its definition.",
+      "expected": "Reject every inconsistent or unauthorized binding. Each catalog item is a checked view of exactly one existing owner; it never becomes a parallel execution/verification truth record."
+    },
+    {
+      "id": "DT18",
+      "name": "Stable occurrence snapshot and authenticated cursor",
+      "given": "New items arrive, an existing file is renamed/reclassified, or a client changes filters/generation/principal while resuming a cursor.",
+      "expected": "Original pages retain frozen membership and stable key order without skips or duplicates. Authenticated cursor binds principal, manifest, registry, generation and filter fingerprint; reject changed selectors and require a new query/snapshot."
+    },
+    {
+      "id": "DT19",
+      "name": "Access and deletion changes",
+      "given": "Access is revoked or a relevant deletion boundary changes after page one.",
+      "expected": "Invalidate the cursor and require restart under a new authorized snapshot. Do not deliver stale content or leak revoked memberships/counts/existence. All coverage counts concern only the authorized scope."
+    },
+    {
+      "id": "DT20",
+      "name": "Independent completeness dimensions",
+      "given": "Delivery reaches its final page but ingestion/classification/itemisation is partial, or the query times out/cancels before final delivery.",
+      "expected": "Report selection, ingestion, classification, itemisation and delivery separately. Final delivery alone cannot establish exhaustive scoped typed occurrences; timeout/cancellation never silently claims completion."
+    }
+  ]
+}

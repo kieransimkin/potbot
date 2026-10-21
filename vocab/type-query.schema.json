@@ -1,0 +1,472 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-sem:schema:type-query:0.1.0",
+  "title": "Deterministic exhaustive type inventory request 0.1.0",
+  "$comment": "The authenticated owner/principal and policy are outside this payload. The trusted service applies defaults and checks every source/snapshot reference. Exact primary equality is the default; include_subtypes adds only the pinned is_a closure. Registry/snapshot/cursor checks cannot be established by JSON Schema.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "registry_release": {
+      "const": "urn:agent-sem:data-types:0.1.0"
+    },
+    "type_id": {
+      "enum": [
+        "dt:data",
+        "dt:unresolved",
+        "dt:file",
+        "dt:file.agents_md",
+        "dt:file.sql_declared",
+        "dt:file.json_declared",
+        "dt:bytes",
+        "dt:raw_binary_data",
+        "dt:text",
+        "dt:document",
+        "dt:document.json",
+        "dt:document.sql",
+        "dt:document.markdown",
+        "dt:value",
+        "dt:value.number",
+        "dt:value.integer",
+        "dt:value.decimal",
+        "dt:value.boolean",
+        "dt:value.string",
+        "dt:value.null",
+        "dt:value.array",
+        "dt:value.object",
+        "dt:record",
+        "dt:agent",
+        "dt:agent.definition",
+        "dt:agent.definition.coordination",
+        "dt:agent.definition.planning",
+        "dt:agent.definition.research",
+        "dt:agent.definition.coding",
+        "dt:agent.definition.review",
+        "dt:agent.definition.verification_assistance",
+        "dt:agent.definition.memory_curation",
+        "dt:agent.definition.composite",
+        "dt:agent.deployment",
+        "dt:agent.run",
+        "dt:workflow",
+        "dt:workflow.definition",
+        "dt:workflow.definition.coding",
+        "dt:workflow.definition.research",
+        "dt:workflow.definition.verification",
+        "dt:workflow.definition.memory_curation",
+        "dt:workflow.definition.evaluation",
+        "dt:workflow.definition.deployment",
+        "dt:workflow.definition.composite",
+        "dt:workflow.run"
+      ]
+    },
+    "include_subtypes": {
+      "type": "boolean",
+      "default": false
+    },
+    "source_scope": {
+      "$ref": "#/$defs/source_scope"
+    },
+    "snapshot_ref": {
+      "$ref": "#/$defs/snapshot_ref"
+    },
+    "include_derived_items": {
+      "type": "boolean",
+      "default": true
+    },
+    "itemisation_policy": {
+      "const": "eager-registered-structured-values-v1",
+      "default": "eager-registered-structured-values-v1"
+    },
+    "revision_view": {
+      "enum": [
+        "current_at_snapshot",
+        "all_in_snapshot"
+      ],
+      "default": "current_at_snapshot"
+    },
+    "facet_filters": {
+      "$ref": "#/$defs/facet_filters"
+    },
+    "page_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "default": 500
+    },
+    "cursor": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      ],
+      "description": "Null for the first page. Otherwise an opaque authenticated service cursor; all pinned selectors must match the original query."
+    }
+  },
+  "required": [
+    "schema_version",
+    "registry_release",
+    "type_id",
+    "source_scope",
+    "snapshot_ref",
+    "page_size",
+    "cursor"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "source_owner_ref": {
+      "type": "object",
+      "properties": {
+        "owner_kind": {
+          "enum": [
+            "artifact",
+            "memory_revision",
+            "source_excerpt",
+            "event",
+            "procedure_revision",
+            "model_deployment",
+            "action_run",
+            "file",
+            "need_revision",
+            "contract_revision",
+            "repository_state",
+            "environment",
+            "candidate",
+            "verification_assessment"
+          ]
+        },
+        "owner_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source_revision_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "owner_kind",
+        "owner_id",
+        "source_revision_id"
+      ],
+      "additionalProperties": false,
+      "description": "Exactly one existing checked owner. An immutable owner may use its own ID as source_revision_id; other bindings require the owner's checked immutable revision. The authenticated workspace/owner is outside this payload."
+    },
+    "item_ref": {
+      "type": "object",
+      "properties": {
+        "item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "item_revision_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "item_id",
+        "item_revision_id"
+      ],
+      "additionalProperties": false
+    },
+    "source_scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "collections"
+            },
+            "collection_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "collection_ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "source_revisions"
+            },
+            "source_owner_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/source_owner_ref"
+              },
+              "minItems": 1,
+              "maxItems": 256,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "source_owner_refs"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "repository_state"
+            },
+            "repository_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "state_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "path_prefix": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "repository_id",
+            "state_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "snapshot_ref": {
+      "type": "object",
+      "properties": {
+        "snapshot_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "manifest_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "classification_generation_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "manifest_id",
+        "classification_generation_id"
+      ],
+      "additionalProperties": false,
+      "description": "Server-issued immutable manifest binding; the service additionally pins principal, access boundary, registry, itemisation policy, scope, revisions and filter fingerprint. UUID syntax is not authorization."
+    },
+    "facet_filters": {
+      "type": "object",
+      "properties": {
+        "declared_agent_role": {
+          "enum": [
+            "coordination",
+            "planning",
+            "research",
+            "coding",
+            "review",
+            "verification_assistance",
+            "memory_curation"
+          ]
+        },
+        "declared_workflow_kind": {
+          "enum": [
+            "coding",
+            "research",
+            "verification",
+            "memory_curation",
+            "evaluation",
+            "deployment"
+          ]
+        },
+        "sql_dialect": {
+          "type": "object",
+          "properties": {
+            "dialect_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "dialect_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "dialect_id",
+            "dialect_version"
+          ],
+          "additionalProperties": false
+        },
+        "file_basename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "coverage_dimension": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "pending",
+            "failed",
+            "unknown",
+            "not_applicable"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "authorized_pending_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "status",
+        "reason_codes"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "selection": {
+          "$ref": "#/$defs/coverage_dimension"
+        },
+        "ingestion": {
+          "$ref": "#/$defs/coverage_dimension"
+        },
+        "classification": {
+          "$ref": "#/$defs/coverage_dimension"
+        },
+        "itemisation": {
+          "$ref": "#/$defs/coverage_dimension"
+        },
+        "delivery": {
+          "$ref": "#/$defs/coverage_dimension"
+        }
+      },
+      "required": [
+        "selection",
+        "ingestion",
+        "classification",
+        "itemisation",
+        "delivery"
+      ],
+      "additionalProperties": false
+    },
+    "page_result": {
+      "type": "object",
+      "properties": {
+        "snapshot_ref": {
+          "$ref": "#/$defs/snapshot_ref"
+        },
+        "query_fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "item_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item_ref"
+          },
+          "minItems": 0,
+          "maxItems": 1000,
+          "uniqueItems": true
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "enumeration_complete": {
+          "type": "boolean"
+        },
+        "exhaustiveness": {
+          "enum": [
+            "not_established",
+            "exhaustive_registered_matches",
+            "exhaustive_scoped_typed_occurrences"
+          ]
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "page",
+            "finished",
+            "incomplete",
+            "snapshot_invalidated",
+            "query_rejected"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "snapshot_ref",
+        "query_fingerprint",
+        "item_refs",
+        "coverage",
+        "enumeration_complete",
+        "exhaustiveness",
+        "next_cursor",
+        "outcome",
+        "reason_codes"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

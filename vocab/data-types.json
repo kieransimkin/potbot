@@ -1,0 +1,644 @@
+{
+  "id": "urn:agent-sem:data-types:0.1.0",
+  "version": "0.1.0",
+  "status": "design_baseline_not_runtime_implementation",
+  "namespace": {
+    "prefix": "dt",
+    "uri": "urn:agent-sem:data-type:"
+  },
+  "separate_from": [
+    "urn:agent-sem:vocabulary:0.1.0 entity_types",
+    "semantic predicates",
+    "embedding space coordinates"
+  ],
+  "types": [
+    {
+      "id": "dt:data",
+      "definition_version": 1,
+      "definition": "A registered data occurrence or derived representation within a checked source ownership boundary.",
+      "is_a": [],
+      "abstract": true,
+      "payload_kind": null
+    },
+    {
+      "id": "dt:unresolved",
+      "definition_version": 1,
+      "definition": "The primary kind of this admitted occurrence has not been established; not a wildcard and not a negative type assertion.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": false,
+      "payload_kind": "unresolved"
+    },
+    {
+      "id": "dt:file",
+      "definition_version": 1,
+      "definition": "A file occurrence bound to its checked source revision and provider path identity.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": false,
+      "payload_kind": "file"
+    },
+    {
+      "id": "dt:file.agents_md",
+      "definition_version": 1,
+      "definition": "A file whose exact basename is AGENTS.md under the named v1 classifier. The role asserts neither Markdown validity nor trust, applicability, or instruction authority.",
+      "is_a": [
+        "dt:file"
+      ],
+      "abstract": false,
+      "payload_kind": "file",
+      "classifier_rule": "filename-agents-md-exact-v1"
+    },
+    {
+      "id": "dt:file.sql_declared",
+      "definition_version": 1,
+      "definition": "A file declared to carry SQL by the checked source role or the exact lowercase .sql suffix rule; successful SQL parsing and dialect are separate.",
+      "is_a": [
+        "dt:file"
+      ],
+      "abstract": false,
+      "payload_kind": "file",
+      "classifier_rule": "declared-sql-file-v1"
+    },
+    {
+      "id": "dt:file.json_declared",
+      "definition_version": 1,
+      "definition": "A file declared to carry JSON by the checked source role or the exact lowercase .json suffix rule; successful strict-profile parsing is separate.",
+      "is_a": [
+        "dt:file"
+      ],
+      "abstract": false,
+      "payload_kind": "file",
+      "classifier_rule": "declared-json-file-v1"
+    },
+    {
+      "id": "dt:bytes",
+      "definition_version": 1,
+      "definition": "An explicit byte-sequence representation. Unknown encoding or format does not make its primary type unresolved.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": false,
+      "payload_kind": "bytes"
+    },
+    {
+      "id": "dt:raw_binary_data",
+      "definition_version": 1,
+      "definition": "A byte payload explicitly represented as opaque data, with no asserted text or structured interpretation. This is distinct from a pending or failed format classifier.",
+      "is_a": [
+        "dt:bytes"
+      ],
+      "abstract": false,
+      "payload_kind": "bytes"
+    },
+    {
+      "id": "dt:text",
+      "definition_version": 1,
+      "definition": "A decoded text representation with a pinned successful decoding rule; a file name alone does not establish it.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": false,
+      "payload_kind": "text"
+    },
+    {
+      "id": "dt:document",
+      "definition_version": 1,
+      "definition": "A structured document representation established by its declared parsing profile.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": true,
+      "payload_kind": null
+    },
+    {
+      "id": "dt:document.json",
+      "definition_version": 1,
+      "definition": "A complete document accepted by the strict JSON profile; JSON grammar acceptance and additional profile constraints are separately identified.",
+      "is_a": [
+        "dt:document"
+      ],
+      "abstract": false,
+      "payload_kind": "json_document"
+    },
+    {
+      "id": "dt:document.sql",
+      "definition_version": 1,
+      "definition": "A complete SQL document accepted by a pinned parser and dialect grammar; syntax acceptance is not semantic validity, authorization, or execution success.",
+      "is_a": [
+        "dt:document"
+      ],
+      "abstract": false,
+      "payload_kind": "sql_document"
+    },
+    {
+      "id": "dt:document.markdown",
+      "definition_version": 1,
+      "definition": "A Markdown document representation produced under a registered parser profile, separate from its source file role.",
+      "is_a": [
+        "dt:document"
+      ],
+      "abstract": false,
+      "payload_kind": "markdown_document"
+    },
+    {
+      "id": "dt:value",
+      "definition_version": 1,
+      "definition": "A typed value occurrence with a checked location and source revision.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": true,
+      "payload_kind": null
+    },
+    {
+      "id": "dt:value.number",
+      "definition_version": 1,
+      "definition": "A numeric value occurrence; Boolean is not a subtype.",
+      "is_a": [
+        "dt:value"
+      ],
+      "abstract": true,
+      "payload_kind": null
+    },
+    {
+      "id": "dt:value.integer",
+      "definition_version": 1,
+      "definition": "An exact integer value. In the JSON profile, the source numeric lexeme has no decimal point or exponent.",
+      "is_a": [
+        "dt:value.number"
+      ],
+      "abstract": false,
+      "payload_kind": "integer"
+    },
+    {
+      "id": "dt:value.decimal",
+      "definition_version": 1,
+      "definition": "An exact decimal value. JSON number lexemes with a decimal point or exponent retain this type even if their mathematical value is integral.",
+      "is_a": [
+        "dt:value.number"
+      ],
+      "abstract": false,
+      "payload_kind": "decimal"
+    },
+    {
+      "id": "dt:value.boolean",
+      "definition_version": 1,
+      "definition": "A Boolean value; never classified through Python's bool-is-an-int implementation detail.",
+      "is_a": [
+        "dt:value"
+      ],
+      "abstract": false,
+      "payload_kind": "boolean"
+    },
+    {
+      "id": "dt:value.string",
+      "definition_version": 1,
+      "definition": "A string value; numeric-looking characters do not establish numeric type.",
+      "is_a": [
+        "dt:value"
+      ],
+      "abstract": false,
+      "payload_kind": "string"
+    },
+    {
+      "id": "dt:value.null",
+      "definition_version": 1,
+      "definition": "An explicit null value; distinct from absence, unknown, failed parsing, and unresolved classification.",
+      "is_a": [
+        "dt:value"
+      ],
+      "abstract": false,
+      "payload_kind": "null"
+    },
+    {
+      "id": "dt:value.array",
+      "definition_version": 1,
+      "definition": "An ordered structured array occurrence whose materialized elements retain distinct occurrence identities.",
+      "is_a": [
+        "dt:value"
+      ],
+      "abstract": false,
+      "payload_kind": "array"
+    },
+    {
+      "id": "dt:value.object",
+      "definition_version": 1,
+      "definition": "A structured object occurrence with explicitly named members and checked child locators.",
+      "is_a": [
+        "dt:value"
+      ],
+      "abstract": false,
+      "payload_kind": "object"
+    },
+    {
+      "id": "dt:record",
+      "definition_version": 1,
+      "definition": "A checked application record representation validated against an identified schema; the original owning service remains authoritative.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": false,
+      "payload_kind": "record"
+    },
+    {
+      "id": "dt:agent",
+      "definition_version": 1,
+      "definition": "The family of agent definitions, deployments, and runs. These are separate primary-type branches.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": true,
+      "payload_kind": null
+    },
+    {
+      "id": "dt:agent.definition",
+      "definition_version": 1,
+      "definition": "An agent definition view over a checked source. The generic type is used when no role is declared; it does not replace the owning definition record.",
+      "is_a": [
+        "dt:agent"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition"
+    },
+    {
+      "id": "dt:agent.definition.coordination",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role coordination. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "coordination"
+    },
+    {
+      "id": "dt:agent.definition.planning",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role planning. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "planning"
+    },
+    {
+      "id": "dt:agent.definition.research",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role research. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "research"
+    },
+    {
+      "id": "dt:agent.definition.coding",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role coding. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "coding"
+    },
+    {
+      "id": "dt:agent.definition.review",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role review. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "review"
+    },
+    {
+      "id": "dt:agent.definition.verification_assistance",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role verification_assistance. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "verification_assistance"
+    },
+    {
+      "id": "dt:agent.definition.memory_curation",
+      "definition_version": 1,
+      "definition": "An agent definition with the single declared role memory_curation. This declaration does not grant capabilities, permissions, or decision authority.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition",
+      "declared_role": "memory_curation"
+    },
+    {
+      "id": "dt:agent.definition.composite",
+      "definition_version": 1,
+      "definition": "An agent definition with two or more explicit declared roles. Roles are checked facets, not additional primary types or inferred capabilities.",
+      "is_a": [
+        "dt:agent.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_definition"
+    },
+    {
+      "id": "dt:agent.deployment",
+      "definition_version": 1,
+      "definition": "A deployment view bound to exactly one checked agent definition revision and checked runtime bindings; not an agent definition or run.",
+      "is_a": [
+        "dt:agent"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_deployment"
+    },
+    {
+      "id": "dt:agent.run",
+      "definition_version": 1,
+      "definition": "An agent execution occurrence bound to a checked definition and deployment with consistent definition lineage; execution state belongs to the existing run owner.",
+      "is_a": [
+        "dt:agent"
+      ],
+      "abstract": false,
+      "payload_kind": "agent_run"
+    },
+    {
+      "id": "dt:workflow",
+      "definition_version": 1,
+      "definition": "The family of workflow definitions and workflow runs, with separate primary-type branches.",
+      "is_a": [
+        "dt:data"
+      ],
+      "abstract": true,
+      "payload_kind": null
+    },
+    {
+      "id": "dt:workflow.definition",
+      "definition_version": 1,
+      "definition": "A workflow definition view over a checked source. Generic definitions have no declared workflow kind; no execution is implied.",
+      "is_a": [
+        "dt:workflow"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition"
+    },
+    {
+      "id": "dt:workflow.definition.coding",
+      "definition_version": 1,
+      "definition": "A workflow definition with the single declared kind coding; this type does not grant deployment, verification, or other policy authority.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition",
+      "declared_kind": "coding"
+    },
+    {
+      "id": "dt:workflow.definition.research",
+      "definition_version": 1,
+      "definition": "A workflow definition with the single declared kind research; this type does not grant deployment, verification, or other policy authority.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition",
+      "declared_kind": "research"
+    },
+    {
+      "id": "dt:workflow.definition.verification",
+      "definition_version": 1,
+      "definition": "A workflow definition with the single declared kind verification; this type does not grant deployment, verification, or other policy authority.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition",
+      "declared_kind": "verification"
+    },
+    {
+      "id": "dt:workflow.definition.memory_curation",
+      "definition_version": 1,
+      "definition": "A workflow definition with the single declared kind memory_curation; this type does not grant deployment, verification, or other policy authority.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition",
+      "declared_kind": "memory_curation"
+    },
+    {
+      "id": "dt:workflow.definition.evaluation",
+      "definition_version": 1,
+      "definition": "A workflow definition with the single declared kind evaluation; this type does not grant deployment, verification, or other policy authority.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition",
+      "declared_kind": "evaluation"
+    },
+    {
+      "id": "dt:workflow.definition.deployment",
+      "definition_version": 1,
+      "definition": "A workflow definition with the single declared kind deployment; this type does not grant deployment, verification, or other policy authority.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition",
+      "declared_kind": "deployment"
+    },
+    {
+      "id": "dt:workflow.definition.composite",
+      "definition_version": 1,
+      "definition": "A workflow definition with multiple explicit declared kinds; the kinds are facets and the primary type remains unique.",
+      "is_a": [
+        "dt:workflow.definition"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_definition"
+    },
+    {
+      "id": "dt:workflow.run",
+      "definition_version": 1,
+      "definition": "A workflow execution occurrence bound to a checked workflow definition revision; it is not a subtype of workflow.definition.",
+      "is_a": [
+        "dt:workflow"
+      ],
+      "abstract": false,
+      "payload_kind": "workflow_run"
+    }
+  ],
+  "identity_contract": {
+    "type_identity": "A type ID has one immutable meaning. Publish a new ID/version and registry release for changed meaning; never silently reuse an ID or reinterpret existing assignments.",
+    "item_identity": "item_id identifies a source occurrence or explicit representation, not a content digest. Equal values at distinct locators remain separate items.",
+    "assignment_key": [
+      "item_id",
+      "item_revision_id",
+      "classification.generation_id"
+    ],
+    "exactly_one_primary": true,
+    "ownership": "Each typed item has exactly one checked source_owner_ref. It is a derived catalog view over the existing owner, not an independent authority, lifecycle, admission, or verification record.",
+    "subtyping": "is_a is an explicit acyclic registry graph. Only its pinned transitive closure adds inherited type membership. contains, derived_from, defined_by and deployment references are not is_a.",
+    "membership_policy": "Version 0.1.0 queries canonical primary equality by default; include_subtypes explicitly adds descendants. Other roles, formats and languages use declared facets or linked typed representations, not overlapping primary assignments.",
+    "file_primary_selection": "For known file occurrences: exact AGENTS.md role first; otherwise a unique checked JSON/SQL role declaration, or its exact lowercase .json/.sql suffix when no conflicting declaration exists; otherwise dt:file. Conflicting role hints retain dt:file with unresolved role assessment. Decoded text and parsed documents are separate linked items.",
+    "definition_primary_selection": "One declared agent role/workflow kind selects its corresponding subtype; two or more select composite; none selects the generic definition. Never infer a role from model identity or run behavior.",
+    "unresolved_primary": "Use dt:unresolved only when the primary representation kind is unknown. Known bytes or file with unresolved format retains its known primary type."
+  },
+  "declared_facets": {
+    "agent_roles": [
+      "coordination",
+      "planning",
+      "research",
+      "coding",
+      "review",
+      "verification_assistance",
+      "memory_curation"
+    ],
+    "workflow_kinds": [
+      "coding",
+      "research",
+      "verification",
+      "memory_curation",
+      "evaluation",
+      "deployment"
+    ],
+    "sql_dialect": "Exact dialect_id and dialect_version checked against the parser binding; syntax validity does not authorize execution.",
+    "file_basename": "Exact source-provider basename; the AGENTS.md v1 classifier requires the exact spelling AGENTS.md."
+  },
+  "classification_rules": [
+    {
+      "id": "checked-source-kind-v1",
+      "rule": "Establish the item kind from its checked source representation and payload schema; source hints alone cannot establish validated parse results."
+    },
+    {
+      "id": "filename-agents-md-exact-v1",
+      "rule": "Require a checked file occurrence with exact basename AGENTS.md. Do not infer text encoding, Markdown parse, applicability, trust, or instruction authority."
+    },
+    {
+      "id": "declared-sql-file-v1",
+      "rule": "Require a checked file occurrence with an explicit SQL role declaration or exact lowercase .sql suffix. This establishes only the file role."
+    },
+    {
+      "id": "declared-json-file-v1",
+      "rule": "Require a checked file occurrence with an explicit JSON role declaration or exact lowercase .json suffix. This establishes only the file role, not successful strict-profile parsing."
+    },
+    {
+      "id": "byte-view-v1",
+      "rule": "Represent exact source bytes with checked length and digest. Encoding/format assessment is separate."
+    },
+    {
+      "id": "opaque-byte-payload-v1",
+      "rule": "Require an explicit opaque-payload representation. Failed text or format recognition alone does not establish this role."
+    },
+    {
+      "id": "utf8-strict-v1",
+      "rule": "Decode all source bytes using strict UTF-8 with no replacement characters introduced by error recovery. A failure produces no validated text representation."
+    },
+    {
+      "id": "json-strict-lossless-v1",
+      "rule": "Parse one complete UTF-8 JSON document; reject trailing non-whitespace and non-JSON constants such as NaN/Infinity. Duplicate object keys are rejected by this additional profile constraint, not described as a JSON grammar prohibition. Preserve exact numeric lexemes and precision."
+    },
+    {
+      "id": "json-integer-lexeme-v1",
+      "rule": "A JSON numeric lexeme with neither decimal point nor exponent produces dt:value.integer; preserve lexeme and canonical exact integer string, normalizing source -0 to canonical 0."
+    },
+    {
+      "id": "json-decimal-lexeme-v1",
+      "rule": "A JSON numeric lexeme containing decimal point or exponent produces dt:value.decimal; use exact decimal arithmetic, preserve original lexeme, and canonicalize without rounding or changing type. Resource overflow is explicit incomplete itemisation."
+    },
+    {
+      "id": "sql-full-parse-v1",
+      "rule": "A trusted parser binding pins parser ID, exact parser release, dialect ID and dialect version. Accept all input including every statement under that grammar; unsupported dialect, partial parses and errors produce no validated SQL document. Never execute input to classify it."
+    },
+    {
+      "id": "markdown-parse-v1",
+      "rule": "Produce a separate document representation under a registered complete Markdown parser profile; do not infer this from AGENTS.md naming."
+    },
+    {
+      "id": "checked-agent-definition-v1",
+      "rule": "Read declared roles from the checked definition source; enforce the unique primary selection rule. Roles are descriptive and grant no capabilities or policy authority."
+    },
+    {
+      "id": "checked-agent-deployment-v1",
+      "rule": "Check defined_by is an agent definition revision and runtime bindings belong to permitted existing owners; retain existing deployment ownership."
+    },
+    {
+      "id": "checked-agent-run-v1",
+      "rule": "Check defined_by is an agent definition, deployment is an agent deployment, and both point to the same definition revision. Source run ownership remains authoritative."
+    },
+    {
+      "id": "checked-workflow-definition-v1",
+      "rule": "Read declared workflow kinds from the checked definition and apply generic/single/composite selection without execution authority."
+    },
+    {
+      "id": "checked-workflow-run-v1",
+      "rule": "Check defined_by is a workflow definition revision and the existing source owner is the execution record authorized for that view."
+    },
+    {
+      "id": "unresolved-primary-v1",
+      "rule": "Preserve a reason and unresolved classification; do not treat the fallback as matching other types."
+    }
+  ],
+  "itemisation_policy": {
+    "id": "eager-registered-structured-values-v1",
+    "default": "Eagerly materialize every nested value in registered structured payloads, including container/root values and scalar children, using stable source-revision locators.",
+    "registered_payloads": [
+      "document.json",
+      "explicitly registered application-record payload fields"
+    ],
+    "scope": "Only the source payload selected by a registered materializer. Do not recursively itemize catalog bookkeeping, type assignments, schemas, query requests, cursors, provenance wrappers or the type registry itself.",
+    "child_identity": "Bind each child to its document item, immediate container, exact locator and immutable source revision. Equal literal values at different JSON Pointers remain different occurrences.",
+    "json_locations": "JSON Pointer relative to the parsed document. The root value has pointer ''. Object member pointers escape ~ as ~0 and / as ~1; array indices are zero-based canonical decimal strings.",
+    "json_member_names": "Object member names are locator metadata, not separately materialized string values. Every object, array and scalar VALUE is materialized under the registered policy; textual source characters and bookkeeping are not recursively indexed.",
+    "numeric_policy": "Boolean is a separate kind. JSON integer lexemes contain no dot/exponent; decimal lexemes contain one or both. 1 and 1.0 retain different primary types even when canonical numeric values coincide.",
+    "design_budgets": {
+      "max_depth": 128,
+      "max_materialized_nodes_per_document": 100000,
+      "max_numeric_lexeme_bytes": 4096,
+      "max_numeric_canonical_characters": 65536
+    },
+    "incomplete_rule": "Budget exhaustion, parser failure, unsupported materializer and unresolved source coverage are explicit outcomes. Do not mark a parent complete or claim all contained values are indexed when children are missing.",
+    "extension_rule": "A new registered materializer publishes a new policy/generation and coverage manifest; it does not silently extend an existing snapshot."
+  },
+  "query_contract": {
+    "schema_id": "urn:agent-sem:schema:type-query:0.1.0",
+    "default_match": "primary_type_id equality",
+    "include_subtypes": "Only true adds the pinned registry's descendant closure; containment and derivation never add a type match.",
+    "facets": "Optional registered facet filters use exact values and are ANDed with the type predicate. To find all coding-role agent definitions including composites, query agent.definition with descendants and declared_agent_role=coding.",
+    "owner_boundary": "Authenticated owner, principal and policy are supplied by the enclosing service command, never accepted from the model payload. Check every scope/source/snapshot reference against that owner.",
+    "snapshot": "Freeze source selection, item revisions, type registry, classifier generation, materialization policy and query predicate in an immutable server-owned manifest. Store or resolve the finite occurrence membership; do not recompute later pages from a moving live index.",
+    "cursor": "Opaque authenticated cursor binds principal, authorization boundary, snapshot, manifest, registry, generation, complete filter fingerprint and last ordering key. The client cannot change these fields when resuming.",
+    "ordering": [
+      "item_id",
+      "item_revision_id"
+    ],
+    "pagination": "page_size controls delivery batches, not top-k selection. Advance only over the frozen membership with stable keyset ordering; never silently truncate for a runtime budget.",
+    "access_change": "Recheck current access/deletion boundaries before every page. If they change materially, invalidate the cursor and require a new snapshot/restart; never leak old content, membership, counts or existence from a revoked boundary.",
+    "completeness_dimensions": [
+      "selection",
+      "ingestion",
+      "classification",
+      "itemisation",
+      "delivery"
+    ],
+    "complete_claim": "Exhaustive_registered_matches requires complete selection and delivery over the authorized frozen manifest. Exhaustive_scoped_typed_occurrences additionally requires complete ingestion, requested-type classification and required itemisation. Unknown/missing memberships and unparsed values are never silently treated as nonmatches.",
+    "failure": "Return explicit incomplete coverage and a reason for timeout, cancellation, failed ingestion/classification/itemisation, resource limit or unavailable snapshot. A final page alone cannot establish upstream completeness.",
+    "scope_limit": "Completeness applies only to the selected, authorized sources and declared item granularity; it does not claim to enumerate external or unadmitted data."
+  },
+  "implementation_constraints": [
+    "Exactly one immutable assignment row for each (item_id, item_revision_id, classification_generation_id).",
+    "Foreign keys/checks enforce checked source owner, registry type and typed parent/deployment/definition targets; JSON Schema alone cannot check these relationships.",
+    "Index primary_type_id and the pinned subtype closure with existing owner/scope partitions; type inventory never depends on embeddings or approximate nearest-neighbor recall.",
+    "The catalog cannot override authoritative source lifecycle, memory admission, active requirements, verification outcomes, capabilities or deletion policy.",
+    "Declared, validated, failed, profile-rejected and unresolved classifications remain distinct; an absent assignment is not evidence of a completed negative classifier."
+  ]
+}

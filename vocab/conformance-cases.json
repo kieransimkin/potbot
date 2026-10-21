@@ -1,0 +1,375 @@
+{
+  "version": "0.1.0",
+  "status": "expected behavior specification; semantic engine tests have not been run",
+  "cases": [
+    {
+      "id": "T01",
+      "scenario": "role_reversal",
+      "frame_ids": [
+        "parser_needs_lexer",
+        "lexer_needs_parser"
+      ],
+      "expected": "different_statement; related dependency cycle is possible; not a contradiction",
+      "plan_steps": "P085/P097/P099"
+    },
+    {
+      "id": "T02",
+      "scenario": "opposite_polarity",
+      "frame_ids": [
+        "parser_needs_lexer",
+        "parser_not_needs_lexer"
+      ],
+      "expected": "factual_opposition only when scope and conditions overlap",
+      "plan_steps": "P087/P090"
+    },
+    {
+      "id": "T03",
+      "scenario": "norm_vs_observation",
+      "frame_ids": [
+        "cache_required_off",
+        "cache_observed_on"
+      ],
+      "expected": "compliance_violation only with an effective binding norm and applicable observed value; not factual contradiction",
+      "plan_steps": "P087/P090/P107"
+    },
+    {
+      "id": "T04",
+      "scenario": "opposing_binding_norms",
+      "frame_ids": [
+        "cache_required_off",
+        "cache_required_on"
+      ],
+      "expected": "normative_conflict when both are binding in the same effective-norm view",
+      "plan_steps": "P087/P095"
+    },
+    {
+      "id": "T05",
+      "scenario": "disjoint_environments",
+      "frame_ids": [
+        "cache_required_off",
+        "cache_development_on"
+      ],
+      "expected": "no_current_conflict from these guards: production and development are disjoint enum values",
+      "plan_steps": "P087/P090"
+    },
+    {
+      "id": "T06",
+      "scenario": "environment_unknown",
+      "frame_ids": [],
+      "expected": "eq(environment.stage, production)=unknown; ne is also unknown; current applicability requires a check",
+      "plan_steps": "P090/P091"
+    },
+    {
+      "id": "T07",
+      "scenario": "classical_tautology_unknown",
+      "frame_ids": [],
+      "expected": "any(P,not(P))=unknown when P=unknown; do not rewrite to true",
+      "plan_steps": "P090"
+    },
+    {
+      "id": "T08",
+      "scenario": "classical_contradiction_unknown",
+      "frame_ids": [],
+      "expected": "all(P,not(P))=unknown when P=unknown; do not rewrite to false",
+      "plan_steps": "P090"
+    },
+    {
+      "id": "T09",
+      "scenario": "known_absent_vs_uninspected",
+      "frame_ids": [],
+      "expected": "present(known_absent)=false; present(uninspected)=unknown",
+      "plan_steps": "P090"
+    },
+    {
+      "id": "T10",
+      "scenario": "unknown_term_not_wildcard",
+      "frame_ids": [
+        "partial_unknown_target"
+      ],
+      "expected": "not eligible for exact equivalence or current factual justification; remains a qualified hypothesis/partial view",
+      "plan_steps": "P088/P099"
+    },
+    {
+      "id": "T11",
+      "scenario": "false_zero_null_empty",
+      "frame_ids": [],
+      "expected": "Boolean false, integer 0, explicit null, empty string and unknown have distinct canonical terms",
+      "plan_steps": "P085/P099"
+    },
+    {
+      "id": "T12",
+      "scenario": "negative_nullable_setting",
+      "frame_ids": [],
+      "expected": "not setting(key,true) is not normalized to setting(key,false)",
+      "plan_steps": "P085/P087"
+    },
+    {
+      "id": "T13",
+      "scenario": "version_not_decimal",
+      "frame_ids": [
+        "version_binding_one"
+      ],
+      "expected": "Version 3.10 is not decimal 3.1; use the declared ecosystem parser",
+      "plan_steps": "P090"
+    },
+    {
+      "id": "T14",
+      "scenario": "different_dependency_occurrences",
+      "frame_ids": [],
+      "expected": "Two bindings of the same package name may resolve to different versions without conflict",
+      "plan_steps": "P085/P087"
+    },
+    {
+      "id": "T15",
+      "scenario": "same_label_different_identity",
+      "frame_ids": [],
+      "expected": "Same-named render symbols in different repositories never merge by label or vector proximity",
+      "plan_steps": "P085/P097"
+    },
+    {
+      "id": "T16",
+      "scenario": "case_sensitive_paths",
+      "frame_ids": [],
+      "expected": "Case-distinct paths stay distinct unless the authoritative repository provider declares them identical",
+      "plan_steps": "P097/P099"
+    },
+    {
+      "id": "T17",
+      "scenario": "partial_conjunction",
+      "frame_ids": [],
+      "expected": "Unmapped conjunct remains an unresolved obligation; extracted member does not imply complete coverage",
+      "plan_steps": "P099/P106"
+    },
+    {
+      "id": "T18",
+      "scenario": "negated_joint_action",
+      "frame_ids": [],
+      "expected": "Do not enable both A and B must not become must not A plus must not B; retain unsupported coupled statement",
+      "plan_steps": "P085/P099"
+    },
+    {
+      "id": "T19",
+      "scenario": "superseded_norm",
+      "frame_ids": [],
+      "expected": "Visible historical norm does not enter current effective-norm view without an explicit authorized policy decision",
+      "plan_steps": "P087/P096/P107"
+    },
+    {
+      "id": "T20",
+      "scenario": "late_ci_old_commit",
+      "frame_ids": [],
+      "expected": "Recorded time does not transfer an observation from old state A to current state B",
+      "plan_steps": "P090/P091"
+    },
+    {
+      "id": "T21",
+      "scenario": "independent_support_count",
+      "frame_ids": [],
+      "expected": "Two model summaries of one test remain one originating observation",
+      "plan_steps": "P086"
+    },
+    {
+      "id": "T22",
+      "scenario": "no_search_hit",
+      "frame_ids": [],
+      "expected": "An empty search result is not proof that the feature does not exist",
+      "plan_steps": "P083/P086"
+    },
+    {
+      "id": "T23",
+      "scenario": "procedure_expectation",
+      "frame_ids": [],
+      "expected": "Expected successful outcome is not observed success; task-local guide does not promote a procedure revision",
+      "plan_steps": "P085/P110"
+    },
+    {
+      "id": "T24",
+      "scenario": "authority_wording",
+      "frame_ids": [],
+      "expected": "A retrieved source saying must/may cannot change the active contract or grant a capability",
+      "plan_steps": "P088/P096"
+    },
+    {
+      "id": "T25",
+      "scenario": "indexing_is_not_admission",
+      "frame_ids": [],
+      "expected": "Feature/dense materialization of a proposal never changes its accepted head or lifecycle",
+      "plan_steps": "P089/P100/P103"
+    },
+    {
+      "id": "T26",
+      "scenario": "fenced_worker_and_deletion",
+      "frame_ids": [],
+      "expected": "Stale or post-deletion materialization cannot publish; all semantic-derived content follows deletion lineage",
+      "plan_steps": "P093/P094/P103"
+    },
+    {
+      "id": "T27",
+      "scenario": "dictionary_release",
+      "frame_ids": [],
+      "expected": "Coordinate meanings are immutable; new dictionary or learned head creates a new compatible/migrated generation",
+      "plan_steps": "P100"
+    },
+    {
+      "id": "T28",
+      "scenario": "private_feature_visibility",
+      "frame_ids": [],
+      "expected": "No cross-workspace candidate, identifier, feature-key existence or count leakage through semantic retrieval",
+      "plan_steps": "P096/P107"
+    },
+    {
+      "id": "T29",
+      "scenario": "future_evaluation_leak",
+      "frame_ids": [],
+      "expected": "Later solutions and semantic derivatives are unavailable to earlier chronological tasks",
+      "plan_steps": "P129/P131"
+    },
+    {
+      "id": "T30",
+      "scenario": "recipient_understanding",
+      "frame_ids": [],
+      "expected": "Each enabled model/deployment preserves polarity, roles and qualifiers in packet interpretation",
+      "plan_steps": "P134"
+    },
+    {
+      "id": "T31",
+      "scenario": "hash_canonicalization",
+      "frame_ids": [],
+      "expected": "Role map order and declared commutative guard order do not change a fingerprint; exact types and nested semantics do",
+      "plan_steps": "P099/P100"
+    },
+    {
+      "id": "T32",
+      "scenario": "half_open_intervals",
+      "frame_ids": [],
+      "expected": "[a,b) and [b,c) are disjoint; unknown bounds do not prove either overlap or disjointness",
+      "plan_steps": "P087/P090"
+    },
+    {
+      "id": "T33",
+      "scenario": "verification_owner",
+      "frame_ids": [],
+      "expected": "A semantic match or one passed test cannot mark the candidate verified or satisfy untested criteria",
+      "plan_steps": "P130/P107"
+    },
+    {
+      "id": "T34",
+      "scenario": "independent_ablation_state",
+      "frame_ids": [],
+      "expected": "Each evaluation arm starts from an identical independent snapshot and cannot learn another arm's solution",
+      "plan_steps": "P131"
+    },
+    {
+      "id": "T35",
+      "scenario": "measurement_units",
+      "frame_ids": [],
+      "expected": "Metric unit and accounting policy are checked; milliseconds normalize through an explicit exact conversion or stay unsupported",
+      "plan_steps": "P085/P126"
+    },
+    {
+      "id": "T36",
+      "scenario": "implicit_transitivity",
+      "frame_ids": [],
+      "expected": "depends_on(A,B) and depends_on(B,C) do not create direct depends_on(A,C); bounded reachability is a separate diagnostic",
+      "plan_steps": "P101"
+    },
+    {
+      "id": "T37",
+      "scenario": "alternative_permissions",
+      "frame_ids": [],
+      "expected": "may setting(k,true) and may setting(k,false) are compatible alternatives, not a normative conflict",
+      "plan_steps": "P087"
+    },
+    {
+      "id": "T38",
+      "scenario": "mixed_authority_binding_norms",
+      "frame_ids": [],
+      "expected": "Incompatible obligations still conflict when both remain binding after authoritative resolution, even if source categories differ",
+      "plan_steps": "P087/P095"
+    },
+    {
+      "id": "T39",
+      "scenario": "duplicate_frame_keys",
+      "frame_ids": [],
+      "expected": "Reject duplicate local frame keys or ambiguous conjunction references within a source revision and representation generation",
+      "plan_steps": "P085/P088/P099"
+    },
+    {
+      "id": "T40",
+      "scenario": "target_environment_guard",
+      "frame_ids": [],
+      "expected": "A guard extracted in environment A reads the logical dependency occurrence in target environment B; unavailable mapping yields unknown",
+      "plan_steps": "P090/P091/P092"
+    },
+    {
+      "id": "T41",
+      "scenario": "reference_chain_consistency",
+      "frame_ids": [],
+      "expected": "Reject evidence whose supplied state/environment/contract disagrees with its actual action run or assessment despite valid same-workspace IDs",
+      "plan_steps": "P086/P088/P090"
+    },
+    {
+      "id": "T42",
+      "scenario": "inverse_dependency_impact",
+      "frame_ids": [],
+      "expected": "A changed provider or callee follows incoming depends_on/calls edges; return evidence-backed bounded paths without asserting direct transitivity",
+      "plan_steps": "P097/P101"
+    },
+    {
+      "id": "T43",
+      "scenario": "all_obligations_enumerated",
+      "frame_ids": [],
+      "expected": "An effective requirement outside every dense top-k still appears in compliance enumeration",
+      "plan_steps": "P095/P107/P130"
+    },
+    {
+      "id": "T44",
+      "scenario": "missing_required_channel",
+      "frame_ids": [],
+      "expected": "Failed obligation enumeration blocks complete compliance; failed optional dense retrieval yields declared partial coverage",
+      "plan_steps": "P095/P107"
+    },
+    {
+      "id": "T45",
+      "scenario": "correlated_dense_votes",
+      "frame_ids": [],
+      "expected": "Adding another dense view does not increase its channel-family weight without an evaluated policy change",
+      "plan_steps": "P105/P131"
+    },
+    {
+      "id": "T46",
+      "scenario": "question_owner",
+      "frame_ids": [],
+      "expected": "A question view and query embeddings belong to the need revision/retrieval run; no artificial accepted memory or unknown-as-wildcard is created",
+      "plan_steps": "P095/P102"
+    },
+    {
+      "id": "T47",
+      "scenario": "typed_identity_guard",
+      "frame_ids": [],
+      "expected": "Repository-state equality accepts a checked repository_state term and rejects an environment term or UUID string coercion",
+      "plan_steps": "P090"
+    },
+    {
+      "id": "T48",
+      "scenario": "unknown_procedure_visible",
+      "frame_ids": [],
+      "expected": "A relevant procedure with an unresolved prerequisite remains visible as unknown_requires_check, never silently executable",
+      "plan_steps": "P095/P101/P107"
+    },
+    {
+      "id": "T49",
+      "scenario": "multi_space_evidence_origin",
+      "frame_ids": [],
+      "expected": "Finding the same originating observation through several spaces does not create independent corroboration",
+      "plan_steps": "P086/P105"
+    },
+    {
+      "id": "T50",
+      "scenario": "profile_access_boundary",
+      "frame_ids": [],
+      "expected": "Routing through another profile or generation never weakens authorization, lineage or deletion checks",
+      "plan_steps": "P096/P107"
+    }
+  ]
+}

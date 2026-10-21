@@ -1,0 +1,484 @@
+{
+  "schema_version": "0.1.0",
+  "fixture_status": "illustrative_synthetic_queries_and_expected_results_not_runtime_results",
+  "request_schema_id": "urn:agent-sem:schema:type-query:0.1.0",
+  "source_manifest_assumption": "Each synthetic snapshot/manifest selects exactly example-typed-items.json items under an external authenticated principal. The IDs are not live credentials or authorization. Real snapshots bind their complete normalized filter fingerprint and source/classification generation.",
+  "coverage_note": "Fixture expected selections do not claim exhaustive real-world classification. Even finished delivery must separately report selection, ingestion, requested-type classification and itemisation coverage; the unresolved fixture prevents a blanket all-data-type coverage claim.",
+  "examples": [
+    {
+      "name": "agents_md_files",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:file.agents_md",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f1",
+          "manifest_id": "00000000-0000-0000-0000-000000002455",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002711",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e21"
+        }
+      ],
+      "note": "Exact role matches the file only; linked bytes/text are separate types and no Markdown or authority is inferred."
+    },
+    {
+      "name": "all_file_subtypes",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:file",
+        "include_subtypes": true,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f2",
+          "manifest_id": "00000000-0000-0000-0000-000000002456",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002711",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e21"
+        },
+        {
+          "item_id": "00000000-0000-0000-0000-00000000271d",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2d"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    },
+    {
+      "name": "explicit_opaque_binary_payloads",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:raw_binary_data",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f3",
+          "manifest_id": "00000000-0000-0000-0000-000000002457",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002714",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e24"
+        }
+      ],
+      "note": "Known bytes with unresolved format do not automatically match the explicit opaque-payload type."
+    },
+    {
+      "name": "every_materialized_integer",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:value.integer",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f4",
+          "manifest_id": "00000000-0000-0000-0000-000000002458",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002719",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e29"
+        },
+        {
+          "item_id": "00000000-0000-0000-0000-00000000271a",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2a"
+        }
+      ],
+      "note": "The two values are equal but have distinct source occurrences. Boolean true and decimal lexeme 1.0 are excluded."
+    },
+    {
+      "name": "validated_json_documents",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:document.json",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f5",
+          "manifest_id": "00000000-0000-0000-0000-000000002459",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002716",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e26"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    },
+    {
+      "name": "validated_sql_documents",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:document.sql",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f6",
+          "manifest_id": "00000000-0000-0000-0000-00000000245a",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-00000000271e",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2e"
+        }
+      ],
+      "note": "The declared .sql file is a separate item and is not a syntax-validation result."
+    },
+    {
+      "name": "all_agent_definitions",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:agent.definition",
+        "include_subtypes": true,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f7",
+          "manifest_id": "00000000-0000-0000-0000-00000000245b",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-00000000271f",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2f"
+        },
+        {
+          "item_id": "00000000-0000-0000-0000-000000002720",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e30"
+        }
+      ],
+      "note": "Definition descendants include role and composite definitions, but never deployments or runs."
+    },
+    {
+      "name": "single_role_coding_definitions",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:agent.definition.coding",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f8",
+          "manifest_id": "00000000-0000-0000-0000-00000000245c",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-00000000271f",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2f"
+        }
+      ],
+      "note": "Exact subtype equality does not silently include composite definitions."
+    },
+    {
+      "name": "all_definitions_declaring_coding",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:agent.definition",
+        "include_subtypes": true,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023f9",
+          "manifest_id": "00000000-0000-0000-0000-00000000245d",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null,
+        "facet_filters": {
+          "declared_agent_role": "coding"
+        }
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-00000000271f",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e2f"
+        },
+        {
+          "item_id": "00000000-0000-0000-0000-000000002720",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e30"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    },
+    {
+      "name": "agent_deployments",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:agent.deployment",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023fa",
+          "manifest_id": "00000000-0000-0000-0000-00000000245e",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002721",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e31"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    },
+    {
+      "name": "agent_runs",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:agent.run",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023fb",
+          "manifest_id": "00000000-0000-0000-0000-00000000245f",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002722",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e32"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    },
+    {
+      "name": "all_workflow_definitions",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:workflow.definition",
+        "include_subtypes": true,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023fc",
+          "manifest_id": "00000000-0000-0000-0000-000000002460",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002723",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e33"
+        },
+        {
+          "item_id": "00000000-0000-0000-0000-000000002724",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e34"
+        },
+        {
+          "item_id": "00000000-0000-0000-0000-000000002726",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e36"
+        }
+      ],
+      "note": "Workflow runs remain outside the definition subtree."
+    },
+    {
+      "name": "workflow_runs",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:workflow.run",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023fd",
+          "manifest_id": "00000000-0000-0000-0000-000000002461",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002725",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e35"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    },
+    {
+      "name": "unresolved_primary_items",
+      "query": {
+        "schema_version": "0.1.0",
+        "registry_release": "urn:agent-sem:data-types:0.1.0",
+        "type_id": "dt:unresolved",
+        "include_subtypes": false,
+        "source_scope": {
+          "kind": "collections",
+          "collection_ids": [
+            "00000000-0000-0000-0000-00000000238c"
+          ]
+        },
+        "snapshot_ref": {
+          "snapshot_id": "00000000-0000-0000-0000-0000000023fe",
+          "manifest_id": "00000000-0000-0000-0000-000000002462",
+          "classification_generation_id": "00000000-0000-0000-0000-000000002329"
+        },
+        "include_derived_items": true,
+        "itemisation_policy": "eager-registered-structured-values-v1",
+        "revision_view": "current_at_snapshot",
+        "page_size": 500,
+        "cursor": null
+      },
+      "expected_matching_item_refs": [
+        {
+          "item_id": "00000000-0000-0000-0000-000000002727",
+          "item_revision_id": "00000000-0000-0000-0000-000000004e37"
+        }
+      ],
+      "note": "Expected selection over the synthetic fixture set only; not a recorded runtime query result."
+    }
+  ]
+}

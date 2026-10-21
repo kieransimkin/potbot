@@ -1,0 +1,489 @@
+{
+  "version": "0.1.0",
+  "vocabulary_release": "urn:agent-sem:vocabulary:0.1.0",
+  "status": "design_baseline",
+  "common_candidate_gates": [
+    "authenticated_workspace_scope",
+    "authorized_visibility",
+    "retrieval_deletion_deny",
+    "permitted_source_lineage",
+    "registered_purpose_lifecycle_policy"
+  ],
+  "common_delivery_gates": [
+    "rejoin_current_access",
+    "rejoin_deletion_and_lifecycle",
+    "recheck_purpose_applicability",
+    "retain_source_and_evidence_origin"
+  ],
+  "gate_note": "Do not globally require applicability=true for discovery. Unknown precedents, historical norms and potential conflicts may be eligible as explicitly qualified evidence under the authorized purpose; they cannot become current binding guidance automatically.",
+  "ranking": {
+    "method": "rrf",
+    "k": 60,
+    "family_total_weights": {
+      "exact": 1,
+      "lexical": 1,
+      "dense": 1,
+      "structural": 1,
+      "relations": 1
+    },
+    "correlated_channel_rule": "Split the family total among successful active channels using a recorded policy; adding another dense view does not add a new family vote. These weights and k are initial evaluation settings. Required enumeration and mandatory context are outside ranking competition.",
+    "deduplicate": "For relevance candidate lists, deduplicate retrieved revision views while retaining frame IDs and contributing ranks. Independently group originating evidence before support assessment. Type inventory bypasses RRF and revision-view deduplication: retain every distinct typed occurrence in manifest order. Compliance retains every enumerated obligation."
+  },
+  "default_limits": {
+    "graph_max_depth": 4,
+    "graph_max_nodes": 500,
+    "candidate_limit_note": "Starting design budgets to evaluate; zero denotes mandatory exact/registry/enumeration work with explicit exhaustion handling, never zero returned results."
+  },
+  "space_resolution": "Resolve logical view names to pinned input serializers and compatible registered space generations before execution. Record every resolved identity, exact encoding input hash and missing channel.",
+  "question_storage": "need_query_views reference existing need_revisions. Query embeddings key retrieval_run, need revision, exact encoding-input hash and space generation; indexed evidence stays in memory_embeddings. No accepted memory is created merely to encode a question.",
+  "result_contract": [
+    "retrieval_ranks_and_score_provenance",
+    "applicability_result_and_inputs",
+    "profile_decision_and_evaluator",
+    "coverage_and_truncation",
+    "source_revision_and_evidence_lineage",
+    "independent_execution_eligibility_if_relevant"
+  ],
+  "failure_policy": "Required channel failures stay explicit and block conclusions that depend on them. Optional channel failure records degraded coverage under the declared profile; incompatible spaces are rejected.",
+  "profiles": [
+    {
+      "id": "urn:agent-sem:retrieval-profile:type_inventory:0.1.0",
+      "name": "type_inventory",
+      "question": "Find every item of the specified registered type",
+      "match_intents": [
+        "type_inventory"
+      ],
+      "required_inputs": [
+        "type_query",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "type_registry",
+          "kind": "exact",
+          "family": "exact",
+          "view": "published_type_definition_and_explicit_subtype_closure",
+          "required": true,
+          "candidate_limit": 0
+        },
+        {
+          "id": "type_manifest",
+          "kind": "direct_enumeration",
+          "family": "exact",
+          "view": "frozen_ordered_typed_occurrence_manifest",
+          "required": true,
+          "candidate_limit": 0
+        }
+      ],
+      "decision": {
+        "evaluator_id": "type_inventory-decision-0.1.0",
+        "requirements": [
+          "one_primary_type_per_occurrence_generation",
+          "checked_source_ownership",
+          "consistent_source_and_catalog_snapshot",
+          "explicit_ingestion_classification_itemisation_coverage",
+          "current_access_and_deletion_recheck",
+          "authenticated_stable_cursor"
+        ],
+        "allowed_results": [
+          "complete_enumeration",
+          "partial_enumeration",
+          "coverage_requires_work",
+          "invalidated_snapshot"
+        ]
+      },
+      "coverage_rule": "Enumeration has no top-k cutoff. Distinguish source ingestion, classification, nested-item materialisation, selection and delivery completeness; missing child rows are a coverage gap even without unresolved item rows.",
+      "notes": "Exact primary-type equality is the default; include descendants only through the published type graph. Contains is not is_a. A changed eligibility boundary invalidates continuation; current authorization always governs delivery."
+    },
+    {
+      "id": "urn:agent-sem:retrieval-profile:aboutness:0.1.0",
+      "name": "aboutness",
+      "question": "What is this about?",
+      "match_intents": [
+        "general_relevance"
+      ],
+      "required_inputs": [
+        "question",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "identifiers",
+          "kind": "exact",
+          "family": "exact",
+          "view": "checked_entity_identifiers",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "lexical",
+          "kind": "fts",
+          "family": "lexical",
+          "view": "source_text",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "general_text",
+          "kind": "dense",
+          "family": "dense",
+          "view": "general_text",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "concepts",
+          "kind": "feature_postings",
+          "family": "structural",
+          "view": "concept_and_role_features",
+          "required": false,
+          "candidate_limit": 100
+        }
+      ],
+      "decision": {
+        "evaluator_id": "aboutness-decision-0.1.0",
+        "requirements": [
+          "common_candidate_gates",
+          "source_provenance"
+        ],
+        "allowed_results": [
+          "relevant_candidate"
+        ]
+      },
+      "coverage_rule": "Report candidate limits, index coverage and unavailable channels. If all channels fail, the retrieval run status is failed and no relevance decision is emitted.",
+      "notes": "Relevance is not truth, equivalence or current applicability."
+    },
+    {
+      "id": "urn:agent-sem:retrieval-profile:same_meaning:0.1.0",
+      "name": "same_meaning",
+      "question": "Does this express the same statement?",
+      "match_intents": [
+        "same_statement",
+        "equivalent_meaning"
+      ],
+      "required_inputs": [
+        "target_statement_refs",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "canonical",
+          "kind": "exact",
+          "family": "exact",
+          "view": "statement_hash_and_retained_bytes",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "structure",
+          "kind": "feature_postings",
+          "family": "structural",
+          "view": "joint_atom_and_role_bindings",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "lexical",
+          "kind": "fts",
+          "family": "lexical",
+          "view": "source_text",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "general_text",
+          "kind": "dense",
+          "family": "dense",
+          "view": "meaning_paraphrase_view",
+          "required": false,
+          "candidate_limit": 100
+        }
+      ],
+      "decision": {
+        "evaluator_id": "same_meaning-decision-0.1.0",
+        "requirements": [
+          "resolved_typed_entities",
+          "complete_source_mapping",
+          "compatible_vocabulary",
+          "preserved_polarity_modality_conditions_scope_time",
+          "registered_canonical_rules"
+        ],
+        "allowed_results": [
+          "same_statement",
+          "same_proposition_different_qualifiers",
+          "different_statement",
+          "undetermined"
+        ]
+      },
+      "coverage_rule": "Missing complete interpretation or a required comparison input produces undetermined. Do not claim universal logical equivalence from canonical mismatch.",
+      "notes": "Dense candidates and matching partial extraction bytes cannot establish exact meaning. The source interpretation itself requires coverage checks."
+    },
+    {
+      "id": "urn:agent-sem:retrieval-profile:applicable_procedure:0.1.0",
+      "name": "applicable_procedure",
+      "question": "What method might solve this problem?",
+      "match_intents": [
+        "applicable_precedent"
+      ],
+      "required_inputs": [
+        "question",
+        "target_context",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "procedure_fields",
+          "kind": "feature_postings",
+          "family": "structural",
+          "view": "trigger_preconditions_diagnostics_verification",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "lexical",
+          "kind": "fts",
+          "family": "lexical",
+          "view": "procedure_text",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "general_text",
+          "kind": "dense",
+          "family": "dense",
+          "view": "procedure_rendered_view",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "procedure_neighbors",
+          "kind": "typed_relations",
+          "family": "relations",
+          "view": "prerequisites_exceptions_qualifications",
+          "required": true,
+          "candidate_limit": 100
+        }
+      ],
+      "decision": {
+        "evaluator_id": "applicable_procedure-decision-0.1.0",
+        "requirements": [
+          "target_context_field_resolution",
+          "three_valued_applicability",
+          "prerequisite_and_exception_checks",
+          "ordered_procedure_retained"
+        ],
+        "allowed_results": [
+          "applicable",
+          "inapplicable",
+          "unknown_requires_check"
+        ]
+      },
+      "coverage_rule": "Unresolved prerequisites remain visible with required checks. Missing required condition/evidence coverage prevents an executable recommendation.",
+      "notes": "Execution requires independent capability and tool-policy checks. An optional trained procedure head may later join the dense family."
+    },
+    {
+      "id": "urn:agent-sem:retrieval-profile:dependency_impact:0.1.0",
+      "name": "dependency_impact",
+      "question": "What depends on this component or symbol?",
+      "match_intents": [
+        "dependency_impact"
+      ],
+      "required_inputs": [
+        "anchor_entities",
+        "target_context",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "anchor",
+          "kind": "exact",
+          "family": "exact",
+          "view": "checked_anchor_identity",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "incoming_edges",
+          "kind": "typed_relations",
+          "family": "relations",
+          "view": "incoming_depends_on_or_calls",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "lexical",
+          "kind": "fts",
+          "family": "lexical",
+          "view": "anchor_discovery",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "general_text",
+          "kind": "dense",
+          "family": "dense",
+          "view": "anchor_discovery",
+          "required": false,
+          "candidate_limit": 100
+        }
+      ],
+      "decision": {
+        "evaluator_id": "dependency_impact-decision-0.1.0",
+        "requirements": [
+          "directed_edge_evidence",
+          "target_state_agreement",
+          "bounded_traversal",
+          "explicit_cross_predicate_path_rules"
+        ],
+        "allowed_results": [
+          "direct_dependent",
+          "potential_propagation_path",
+          "undetermined"
+        ]
+      },
+      "coverage_rule": "Report traversed graph coverage, depth/node limits and truncation. Empty results prove only no matching edge in the inspected coverage.",
+      "notes": "Changed provider follows incoming consumer-to-provider edges; changed callee follows incoming caller-to-callee edges. A path is not a direct dependency fact or proof of a particular failure."
+    },
+    {
+      "id": "urn:agent-sem:retrieval-profile:counterevidence:0.1.0",
+      "name": "counterevidence",
+      "question": "What challenges this claim?",
+      "match_intents": [
+        "contradictory_evidence"
+      ],
+      "required_inputs": [
+        "target_statement_refs",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "conflict_slots",
+          "kind": "feature_postings",
+          "family": "structural",
+          "view": "conflict_slot_and_fixed_role_bindings",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "evidence_neighbors",
+          "kind": "typed_relations",
+          "family": "relations",
+          "view": "contradicts_qualifies_exception_to",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "lexical",
+          "kind": "fts",
+          "family": "lexical",
+          "view": "claim_and_opposition_terms",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "general_text",
+          "kind": "dense",
+          "family": "dense",
+          "view": "target_claim_with_qualifiers",
+          "required": false,
+          "candidate_limit": 100
+        }
+      ],
+      "decision": {
+        "evaluator_id": "counterevidence-decision-0.1.0",
+        "requirements": [
+          "typed_target_binding",
+          "overlap_assessment",
+          "force_and_effective_authority",
+          "source_coverage_and_origin"
+        ],
+        "allowed_results": [
+          "factual_opposition",
+          "normative_conflict",
+          "qualification",
+          "recommendation_tension",
+          "preference_tension",
+          "permission_prohibition_tension",
+          "potential_conflict",
+          "different_issue",
+          "undetermined"
+        ]
+      },
+      "coverage_rule": "Opposite polarity must survive candidate collection. Unknown overlap yields potential_conflict or undetermined. No hit is not confirmation.",
+      "notes": "Norm-versus-observation uses the compliance evaluator. Multiple channels finding the same source do not add independent evidence."
+    },
+    {
+      "id": "urn:agent-sem:retrieval-profile:compliance:0.1.0",
+      "name": "compliance",
+      "question": "Does the current situation satisfy the effective requirements?",
+      "match_intents": [
+        "compliance_assessment"
+      ],
+      "required_inputs": [
+        "target_context",
+        "effective_contract_revision",
+        "authorized_scope"
+      ],
+      "channels": [
+        {
+          "id": "effective_obligations",
+          "kind": "direct_enumeration",
+          "family": "exact",
+          "view": "all_effective_requirements",
+          "required": true,
+          "candidate_limit": 0
+        },
+        {
+          "id": "verification",
+          "kind": "exact",
+          "family": "exact",
+          "view": "criterion_and_assessment_records",
+          "required": true,
+          "candidate_limit": 0
+        },
+        {
+          "id": "evidence_neighbors",
+          "kind": "typed_relations",
+          "family": "relations",
+          "view": "per_obligation_support_and_opposition",
+          "required": true,
+          "candidate_limit": 100
+        },
+        {
+          "id": "lexical",
+          "kind": "fts",
+          "family": "lexical",
+          "view": "missing_evidence_discovery",
+          "required": false,
+          "candidate_limit": 100
+        },
+        {
+          "id": "general_text",
+          "kind": "dense",
+          "family": "dense",
+          "view": "missing_evidence_discovery",
+          "required": false,
+          "candidate_limit": 100
+        }
+      ],
+      "decision": {
+        "evaluator_id": "compliance-decision-0.1.0",
+        "requirements": [
+          "complete_obligation_enumeration",
+          "effective_norm_view",
+          "applicable_covered_observations",
+          "reference_chain_consistency",
+          "explicit_unresolved_normative_conflicts"
+        ],
+        "allowed_results": [
+          "satisfied",
+          "violated",
+          "undetermined",
+          "not_applicable"
+        ]
+      },
+      "coverage_rule": "Every effective obligation must appear even outside all search top-k. Missing enumeration or evidence coverage prevents an aggregate complete conclusion. Per-obligation diagnostics never upgrade the authoritative verification record.",
+      "notes": "candidate_limit 0 denotes uncapped direct enumeration with explicit resource exhaustion handling, not zero results. Exhaustion produces partial coverage, never silent truncation."
+    }
+  ]
+}

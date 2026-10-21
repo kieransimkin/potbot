@@ -1,0 +1,2964 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-sem:schema:semantic-bundle:0.1.0",
+  "title": "Agent semantic bundle design schema 0.1.0",
+  "$comment": "Shape validation only. Registry checks, checked references, budgets, scope, authority, evidence and temporal rules require the services specified in the companion document.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "vocabulary_release": {
+      "const": "urn:agent-sem:vocabulary:0.1.0"
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/frame"
+      },
+      "minItems": 0,
+      "maxItems": 64
+    },
+    "conjunction_groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conjunction_group"
+      },
+      "minItems": 0,
+      "maxItems": 64
+    },
+    "unmapped_content": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_target": {
+            "$ref": "#/$defs/evidence_target"
+          },
+          "reason": {
+            "enum": [
+              "unsupported_quantification",
+              "unsupported_disjunction",
+              "ambiguous_modality",
+              "ambiguous_entity",
+              "incomplete_conditions",
+              "coupled_statement",
+              "unsupported_domain"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "source_target",
+          "reason",
+          "summary"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 64
+    }
+  },
+  "required": [
+    "schema_version",
+    "vocabulary_release",
+    "frames",
+    "conjunction_groups",
+    "unmapped_content"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "entity": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "entity"
+        },
+        "entity_type": {
+          "enum": [
+            "repository",
+            "repository_state",
+            "environment",
+            "artifact",
+            "file",
+            "symbol",
+            "component",
+            "dependency_binding",
+            "configuration_key",
+            "interface",
+            "test_case",
+            "execution_case",
+            "task_contract_revision",
+            "requirement",
+            "candidate",
+            "action",
+            "action_run",
+            "verification_assessment",
+            "procedure_revision",
+            "information_need_revision",
+            "memory_revision",
+            "source_excerpt",
+            "event",
+            "model_deployment",
+            "concept"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "term",
+        "entity_type",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "boolean": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "boolean"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "term",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "integer": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "integer"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(?:0|-?[1-9][0-9]*)$"
+        }
+      },
+      "required": [
+        "term",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "decimal": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "decimal"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(?!-0$)-?(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$"
+        }
+      },
+      "required": [
+        "term",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "string": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "string"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "term",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "enum": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "term": {
+              "const": "enum"
+            },
+            "domain": {
+              "const": "result_status"
+            },
+            "value": {
+              "enum": [
+                "passed",
+                "failed",
+                "blocked",
+                "not_run",
+                "flaky_or_inconclusive",
+                "infrastructure_error"
+              ]
+            }
+          },
+          "required": [
+            "term",
+            "domain",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "term": {
+              "const": "enum"
+            },
+            "domain": {
+              "const": "environment_stage"
+            },
+            "value": {
+              "enum": [
+                "development",
+                "test",
+                "staging",
+                "production"
+              ]
+            }
+          },
+          "required": [
+            "term",
+            "domain",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "term": {
+              "const": "enum"
+            },
+            "domain": {
+              "const": "os_family"
+            },
+            "value": {
+              "enum": [
+                "linux",
+                "windows",
+                "macos",
+                "other"
+              ]
+            }
+          },
+          "required": [
+            "term",
+            "domain",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "term": {
+              "const": "enum"
+            },
+            "domain": {
+              "const": "architecture"
+            },
+            "value": {
+              "enum": [
+                "x86_64",
+                "aarch64",
+                "other"
+              ]
+            }
+          },
+          "required": [
+            "term",
+            "domain",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "term": {
+              "const": "enum"
+            },
+            "domain": {
+              "const": "metric"
+            },
+            "value": {
+              "enum": [
+                "elapsed_time",
+                "peak_memory",
+                "input_tokens",
+                "output_tokens"
+              ]
+            }
+          },
+          "required": [
+            "term",
+            "domain",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "version": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "version"
+        },
+        "scheme": {
+          "enum": [
+            "semver",
+            "pep440"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "term",
+        "scheme",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "digest": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "digest"
+        },
+        "algorithm": {
+          "const": "sha256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "term",
+        "algorithm",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "timestamp": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "timestamp"
+        },
+        "value": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "term",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "quantity": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "quantity"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(?!-0$)-?(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$"
+        },
+        "unit": {
+          "enum": [
+            "s",
+            "B",
+            "count"
+          ]
+        }
+      },
+      "required": [
+        "term",
+        "value",
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "null": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "null"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "additionalProperties": false
+    },
+    "unknown": {
+      "type": "object",
+      "properties": {
+        "term": {
+          "const": "unknown"
+        },
+        "expected_type": {
+          "enum": [
+            "entity",
+            "boolean",
+            "integer",
+            "decimal",
+            "string",
+            "enum",
+            "version",
+            "digest",
+            "timestamp",
+            "quantity",
+            "null"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "missing_source",
+            "ambiguous_binding",
+            "not_inspected",
+            "unavailable",
+            "conflicting",
+            "unsupported"
+          ]
+        }
+      },
+      "required": [
+        "term",
+        "expected_type",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "literal": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/boolean"
+        },
+        {
+          "$ref": "#/$defs/integer"
+        },
+        {
+          "$ref": "#/$defs/decimal"
+        },
+        {
+          "$ref": "#/$defs/string"
+        },
+        {
+          "$ref": "#/$defs/enum"
+        },
+        {
+          "$ref": "#/$defs/version"
+        },
+        {
+          "$ref": "#/$defs/digest"
+        },
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "$ref": "#/$defs/quantity"
+        },
+        {
+          "$ref": "#/$defs/null"
+        }
+      ]
+    },
+    "known_term": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/entity"
+        },
+        {
+          "$ref": "#/$defs/literal"
+        }
+      ]
+    },
+    "term": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/entity"
+        },
+        {
+          "$ref": "#/$defs/literal"
+        },
+        {
+          "$ref": "#/$defs/unknown"
+        }
+      ]
+    },
+    "field": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "environment.stage"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "environment.os"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "environment.architecture"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "repository_state.id"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "environment.id"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "contract_revision.id"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "dependency.version"
+            },
+            "entity": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/entity"
+                },
+                {
+                  "properties": {
+                    "entity_type": {
+                      "const": "dependency_binding"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "entity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "file.digest"
+            },
+            "entity": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/entity"
+                },
+                {
+                  "properties": {
+                    "entity_type": {
+                      "const": "file"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "entity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "interface.digest"
+            },
+            "entity": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/entity"
+                },
+                {
+                  "properties": {
+                    "entity_type": {
+                      "const": "interface"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "entity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "configuration.value"
+            },
+            "entity": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/entity"
+                },
+                {
+                  "properties": {
+                    "entity_type": {
+                      "const": "configuration_key"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "entity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "const": "contract.feature"
+            },
+            "entity": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/entity"
+                },
+                {
+                  "properties": {
+                    "entity_type": {
+                      "const": "concept"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "entity"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "guard": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "const"
+            },
+            "value": {
+              "enum": [
+                "true",
+                "false",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "all",
+                "any"
+              ]
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/guard"
+              },
+              "minItems": 1,
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "op",
+            "children"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "not"
+            },
+            "child": {
+              "$ref": "#/$defs/guard"
+            }
+          },
+          "required": [
+            "op",
+            "child"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "ne",
+                "lt",
+                "le",
+                "gt",
+                "ge"
+              ]
+            },
+            "left": {
+              "$ref": "#/$defs/field"
+            },
+            "right": {
+              "$ref": "#/$defs/known_term"
+            }
+          },
+          "required": [
+            "op",
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "in"
+            },
+            "left": {
+              "$ref": "#/$defs/field"
+            },
+            "values": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/known_term"
+              },
+              "minItems": 1,
+              "maxItems": 64
+            }
+          },
+          "required": [
+            "op",
+            "left",
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "present",
+                "is_null"
+              ]
+            },
+            "field": {
+              "$ref": "#/$defs/field"
+            }
+          },
+          "required": [
+            "op",
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "const": "version_satisfies"
+            },
+            "left": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/field"
+                },
+                {
+                  "properties": {
+                    "field": {
+                      "const": "dependency.version"
+                    }
+                  }
+                }
+              ]
+            },
+            "scheme": {
+              "enum": [
+                "semver",
+                "pep440"
+              ]
+            },
+            "range": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "op",
+            "left",
+            "scheme",
+            "range"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "atom": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:setting"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "configuration_key"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "value": {
+                  "oneOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/boolean"
+                        },
+                        {
+                          "$ref": "#/$defs/integer"
+                        },
+                        {
+                          "$ref": "#/$defs/decimal"
+                        },
+                        {
+                          "$ref": "#/$defs/string"
+                        },
+                        {
+                          "$ref": "#/$defs/enum"
+                        },
+                        {
+                          "$ref": "#/$defs/null"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "boolean",
+                                "integer",
+                                "decimal",
+                                "string",
+                                "enum",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:dependency_version"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "dependency": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "dependency_binding"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "version": {
+                  "oneOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/version"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "version"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "dependency",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:defines"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "file"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "symbol": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "symbol"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "file",
+                "symbol"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:calls"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "caller": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "symbol"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "callee": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "symbol",
+                                "interface"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "caller",
+                "callee"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:depends_on"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "consumer": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "component"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "provider": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "component"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "consumer",
+                "provider"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:exposes"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "component": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "component"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "interface": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "interface"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "component",
+                "interface"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:implements"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "implementation": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "component",
+                                "symbol"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "interface": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "interface"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "implementation",
+                "interface"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:file_digest"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "file"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "digest": {
+                  "oneOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/digest"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "digest"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "file",
+                "digest"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:artifact_digest"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "artifact": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "artifact"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "digest": {
+                  "oneOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/digest"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "digest"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "artifact",
+                "digest"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:test_result"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "action_run"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "test": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "test_case"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "result": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/enum"
+                        },
+                        {
+                          "properties": {
+                            "domain": {
+                              "const": "result_status"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "enum"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "run",
+                "test",
+                "result"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:criterion_result"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "assessment": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "verification_assessment"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "requirement": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "requirement"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "result": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/enum"
+                        },
+                        {
+                          "properties": {
+                            "domain": {
+                              "const": "result_status"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "enum"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "assessment",
+                "requirement",
+                "result"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:returns"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "case": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "execution_case"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "value": {
+                  "oneOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/boolean"
+                        },
+                        {
+                          "$ref": "#/$defs/integer"
+                        },
+                        {
+                          "$ref": "#/$defs/decimal"
+                        },
+                        {
+                          "$ref": "#/$defs/string"
+                        },
+                        {
+                          "$ref": "#/$defs/enum"
+                        },
+                        {
+                          "$ref": "#/$defs/null"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "boolean",
+                                "integer",
+                                "decimal",
+                                "string",
+                                "enum",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "case",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:raises"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "case": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "execution_case"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "error": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "concept"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "case",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:produced_by"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "artifact": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "artifact"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "run": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "action_run"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "artifact",
+                "run"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:addresses"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "procedure": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "procedure_revision"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "problem": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "concept"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "procedure",
+                "problem"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "predicate": {
+              "const": "sem:measurement"
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "run": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/entity"
+                        },
+                        {
+                          "properties": {
+                            "entity_type": {
+                              "enum": [
+                                "action_run"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "entity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "metric": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/enum"
+                        },
+                        {
+                          "properties": {
+                            "domain": {
+                              "const": "metric"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "enum"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "value": {
+                  "oneOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "$ref": "#/$defs/quantity"
+                        }
+                      ]
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/$defs/unknown"
+                        },
+                        {
+                          "properties": {
+                            "expected_type": {
+                              "enum": [
+                                "quantity"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "run",
+                "metric",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "predicate",
+            "arguments"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "valid_time": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scope_only"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "interval"
+            },
+            "start": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "end": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unknown"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "boundary": {
+              "const": "repository"
+            },
+            "repository_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "valid_time": {
+              "$ref": "#/$defs/valid_time"
+            }
+          },
+          "required": [
+            "boundary",
+            "repository_id",
+            "valid_time"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "boundary": {
+              "const": "workspace"
+            },
+            "valid_time": {
+              "$ref": "#/$defs/valid_time"
+            }
+          },
+          "required": [
+            "boundary",
+            "valid_time"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "applicability": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "exact_state",
+            "dependency_guarded",
+            "project_convention",
+            "general_procedure"
+          ]
+        },
+        "guard": {
+          "$ref": "#/$defs/guard"
+        },
+        "state_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "environment_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "contract_revision_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "mode",
+        "guard"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "exact_state"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "state_id",
+              "environment_id"
+            ]
+          }
+        }
+      ]
+    },
+    "evidence_target": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "event"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "source_excerpt"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "memory_revision"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "evidence_binding": {
+      "type": "object",
+      "properties": {
+        "relation": {
+          "enum": [
+            "supports",
+            "contradicts",
+            "qualifies"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/evidence_target"
+        },
+        "interpretation": {
+          "enum": [
+            "direct_observation",
+            "source_report",
+            "normative_source",
+            "derived_interpretation"
+          ]
+        },
+        "coverage": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "relation",
+        "target",
+        "interpretation",
+        "coverage"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "complete",
+            "partial"
+          ]
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "status",
+        "unresolved"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "unresolved": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "local_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "mode": {
+          "enum": [
+            "factual",
+            "hypothesis",
+            "normative",
+            "preference"
+          ]
+        },
+        "force": {
+          "enum": [
+            "assert",
+            "must",
+            "should",
+            "may",
+            "prefer"
+          ]
+        },
+        "polarity": {
+          "enum": [
+            "positive",
+            "negative"
+          ]
+        },
+        "atom": {
+          "$ref": "#/$defs/atom"
+        },
+        "when": {
+          "$ref": "#/$defs/guard"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "applicability": {
+          "$ref": "#/$defs/applicability"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "evidence_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_binding"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "local_id",
+        "mode",
+        "force",
+        "polarity",
+        "atom",
+        "when",
+        "scope",
+        "applicability",
+        "coverage",
+        "evidence_bindings"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "enum": [
+                  "factual",
+                  "hypothesis"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "force": {
+                "const": "assert"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "normative"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "force": {
+                "enum": [
+                  "must",
+                  "should",
+                  "may"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "preference"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "force": {
+                "const": "prefer"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "conjunction_group": {
+      "type": "object",
+      "properties": {
+        "local_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "member_claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "minItems": 2,
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "source_target": {
+          "$ref": "#/$defs/evidence_target"
+        },
+        "source_span": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        }
+      },
+      "required": [
+        "local_id",
+        "member_claim_ids",
+        "source_target",
+        "source_span",
+        "coverage"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

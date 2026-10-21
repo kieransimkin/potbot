@@ -1,0 +1,865 @@
+{
+  "id": "urn:agent-sem:vocabulary:0.1.0",
+  "version": "0.1.0",
+  "status": "design_baseline",
+  "namespace": "sem",
+  "purpose": "Controlled semantic views over existing agent records; not a production evaluator.",
+  "authoritative_sources": [
+    {
+      "document": "Multi_Model_Coding_Agent_Architecture_Specification.docx",
+      "version": "1.0",
+      "pages": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "document": "Multi_Model_Coding_Agent_Implementation_Plan.docx",
+      "version": "1.0",
+      "steps": [
+        "P085-P110",
+        "P129-P134",
+        "P149-P150"
+      ]
+    },
+    {
+      "document": "Local_Embedding_Addendum.docx",
+      "version": "1.0",
+      "sections": [
+        "E07",
+        "E08",
+        "E09"
+      ]
+    }
+  ],
+  "entity_types": [
+    {
+      "id": "repository",
+      "definition": "Existing repositories record; locator is an alias, not its identity."
+    },
+    {
+      "id": "repository_state",
+      "definition": "Existing immutable repository state, including relevant dirty-tree content."
+    },
+    {
+      "id": "environment",
+      "definition": "Existing immutable execution-environment manifest."
+    },
+    {
+      "id": "artifact",
+      "definition": "Existing content-addressed artifact record."
+    },
+    {
+      "id": "file",
+      "definition": "Checked repository-scoped file binding; spelling and case follow the repository provider."
+    },
+    {
+      "id": "symbol",
+      "definition": "Checked symbol binding with language, qualified name and containing file; overloads remain distinct."
+    },
+    {
+      "id": "component",
+      "definition": "A named package, module or service within an explicit repository/provider namespace."
+    },
+    {
+      "id": "dependency_binding",
+      "definition": "One resolved dependency occurrence, including environment, resolver and lockfile path; not a package name alone."
+    },
+    {
+      "id": "configuration_key",
+      "definition": "One effective configuration key with a declared scalar type, nullability and resolution context."
+    },
+    {
+      "id": "interface",
+      "definition": "One identified API/interface contract with a versioned signature binding."
+    },
+    {
+      "id": "test_case",
+      "definition": "An identified test with its definition digest and parameters in the execution context."
+    },
+    {
+      "id": "execution_case",
+      "definition": "A specific operation and input/fixture case; references its input artifacts and execution context."
+    },
+    {
+      "id": "task_contract_revision",
+      "definition": "Existing immutable contract revision."
+    },
+    {
+      "id": "requirement",
+      "definition": "Stable requirement/criterion identifier within a contract family; evaluated against a concrete revision."
+    },
+    {
+      "id": "candidate",
+      "definition": "Existing applied patch candidate with exact base and result state."
+    },
+    {
+      "id": "action",
+      "definition": "Existing typed action proposal; describing it does not dispatch it."
+    },
+    {
+      "id": "action_run",
+      "definition": "Existing concrete execution attempt; retries have separate attempts."
+    },
+    {
+      "id": "verification_assessment",
+      "definition": "Existing candidate assessment under a verification manifest and policy."
+    },
+    {
+      "id": "procedure_revision",
+      "definition": "A coding or research procedure represented by an existing immutable memory revision."
+    },
+    {
+      "id": "information_need_revision",
+      "definition": "Existing immutable question and resolution criteria."
+    },
+    {
+      "id": "memory_revision",
+      "definition": "Existing immutable memory revision, with its own lifecycle projection."
+    },
+    {
+      "id": "source_excerpt",
+      "definition": "Existing excerpt anchored to a captured source snapshot."
+    },
+    {
+      "id": "event",
+      "definition": "Existing immutable event; event time and recorded time remain separate."
+    },
+    {
+      "id": "model_deployment",
+      "definition": "Existing immutable model deployment fingerprint."
+    },
+    {
+      "id": "concept",
+      "definition": "A registered semantic concept; it never creates an external entity or grants a capability."
+    }
+  ],
+  "literal_types": [
+    "boolean",
+    "integer",
+    "decimal",
+    "string",
+    "enum",
+    "version",
+    "digest",
+    "timestamp",
+    "quantity",
+    "null"
+  ],
+  "enums": {
+    "result_status": [
+      "passed",
+      "failed",
+      "blocked",
+      "not_run",
+      "flaky_or_inconclusive",
+      "infrastructure_error"
+    ],
+    "environment_stage": [
+      "development",
+      "test",
+      "staging",
+      "production"
+    ],
+    "os_family": [
+      "linux",
+      "windows",
+      "macos",
+      "other"
+    ],
+    "architecture": [
+      "x86_64",
+      "aarch64",
+      "other"
+    ],
+    "metric": [
+      "elapsed_time",
+      "peak_memory",
+      "input_tokens",
+      "output_tokens"
+    ]
+  },
+  "predicates": [
+    {
+      "id": "sem:setting",
+      "roles": {
+        "key": {
+          "term_kind": "entity",
+          "entity_types": [
+            "configuration_key"
+          ]
+        },
+        "value": {
+          "term_kinds": [
+            "boolean",
+            "integer",
+            "decimal",
+            "string",
+            "enum",
+            "null"
+          ]
+        }
+      },
+      "functional_key": [
+        "key"
+      ],
+      "definition": "The effective value of this configuration binding in the statement situation. Type and nullability come from the key definition.",
+      "evidence": "Configuration inspection or authoritative configuration source; a normative frame instead describes a desired value.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:dependency_version",
+      "roles": {
+        "dependency": {
+          "term_kind": "entity",
+          "entity_types": [
+            "dependency_binding"
+          ]
+        },
+        "version": {
+          "term_kinds": [
+            "version"
+          ]
+        }
+      },
+      "functional_key": [
+        "dependency"
+      ],
+      "definition": "The version resolved for one dependency occurrence in its environment and resolver context.",
+      "evidence": "Lockfile/resolver or installed dependency inspection with the binding identity.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:defines",
+      "roles": {
+        "file": {
+          "term_kind": "entity",
+          "entity_types": [
+            "file"
+          ]
+        },
+        "symbol": {
+          "term_kind": "entity",
+          "entity_types": [
+            "symbol"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The file directly defines the symbol at the declared repository state.",
+      "evidence": "Inspected source or language-tool output at the stated revision.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:calls",
+      "roles": {
+        "caller": {
+          "term_kind": "entity",
+          "entity_types": [
+            "symbol"
+          ]
+        },
+        "callee": {
+          "term_kind": "entity",
+          "entity_types": [
+            "symbol",
+            "interface"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The caller directly invokes the callee in the declared situation. Directness is not reachability.",
+      "evidence": "Inspected call site or scoped trace; dynamic uncertainty is retained.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:depends_on",
+      "roles": {
+        "consumer": {
+          "term_kind": "entity",
+          "entity_types": [
+            "component"
+          ]
+        },
+        "provider": {
+          "term_kind": "entity",
+          "entity_types": [
+            "component"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "A direct dependency from consumer to provider. This predicate is directional and not transitively closed.",
+      "evidence": "Declared dependency or scoped implementation evidence.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:exposes",
+      "roles": {
+        "component": {
+          "term_kind": "entity",
+          "entity_types": [
+            "component"
+          ]
+        },
+        "interface": {
+          "term_kind": "entity",
+          "entity_types": [
+            "interface"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The component exposes the identified interface under the declared conditions.",
+      "evidence": "Inspected exports, documented interface or qualified runtime inspection.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:implements",
+      "roles": {
+        "implementation": {
+          "term_kind": "entity",
+          "entity_types": [
+            "component",
+            "symbol"
+          ]
+        },
+        "interface": {
+          "term_kind": "entity",
+          "entity_types": [
+            "interface"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The implementation claims conformance to the identified interface. Covered behavior and limitations remain attached.",
+      "evidence": "Declaration or conformance evidence; a declaration alone is classified as a source report.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:file_digest",
+      "roles": {
+        "file": {
+          "term_kind": "entity",
+          "entity_types": [
+            "file"
+          ]
+        },
+        "digest": {
+          "term_kinds": [
+            "digest"
+          ]
+        }
+      },
+      "functional_key": [
+        "file"
+      ],
+      "definition": "The file has the specified byte digest in the exact repository state.",
+      "evidence": "Repository/artifact service calculation; never a model-invented digest.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:artifact_digest",
+      "roles": {
+        "artifact": {
+          "term_kind": "entity",
+          "entity_types": [
+            "artifact"
+          ]
+        },
+        "digest": {
+          "term_kinds": [
+            "digest"
+          ]
+        }
+      },
+      "functional_key": [
+        "artifact"
+      ],
+      "definition": "The immutable artifact record has this verified content digest.",
+      "evidence": "Artifact-service record with integrity verification.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:test_result",
+      "roles": {
+        "run": {
+          "term_kind": "entity",
+          "entity_types": [
+            "action_run"
+          ]
+        },
+        "test": {
+          "term_kind": "entity",
+          "entity_types": [
+            "test_case"
+          ]
+        },
+        "result": {
+          "term_kind": "enum",
+          "domain": "result_status"
+        }
+      },
+      "functional_key": [
+        "run",
+        "test"
+      ],
+      "definition": "One identified test occurrence had this classified result in one execution attempt.",
+      "evidence": "Tool event and test report with exact state, environment and definition digest.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:criterion_result",
+      "roles": {
+        "assessment": {
+          "term_kind": "entity",
+          "entity_types": [
+            "verification_assessment"
+          ]
+        },
+        "requirement": {
+          "term_kind": "entity",
+          "entity_types": [
+            "requirement"
+          ]
+        },
+        "result": {
+          "term_kind": "enum",
+          "domain": "result_status"
+        }
+      },
+      "functional_key": [
+        "assessment",
+        "requirement"
+      ],
+      "definition": "The verification service assigned this result to this criterion in this assessment.",
+      "evidence": "Existing assessment/manifest; semantic matching cannot create or upgrade it.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:returns",
+      "roles": {
+        "case": {
+          "term_kind": "entity",
+          "entity_types": [
+            "execution_case"
+          ]
+        },
+        "value": {
+          "term_kinds": [
+            "boolean",
+            "integer",
+            "decimal",
+            "string",
+            "enum",
+            "null"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The operation returned this scalar in the specific input/fixture case and stated situation. It makes no universal claim about other inputs.",
+      "evidence": "Scoped execution observation or explicitly classified source report.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:raises",
+      "roles": {
+        "case": {
+          "term_kind": "entity",
+          "entity_types": [
+            "execution_case"
+          ]
+        },
+        "error": {
+          "term_kind": "entity",
+          "entity_types": [
+            "concept"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The operation raised the identified error class in the specific case and situation.",
+      "evidence": "Scoped execution/error evidence; no conclusion about every possible input.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:produced_by",
+      "roles": {
+        "artifact": {
+          "term_kind": "entity",
+          "entity_types": [
+            "artifact"
+          ]
+        },
+        "run": {
+          "term_kind": "entity",
+          "entity_types": [
+            "action_run"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "This run produced this artifact. Several runs can produce identical artifact content.",
+      "evidence": "Checked run output manifest.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:addresses",
+      "roles": {
+        "procedure": {
+          "term_kind": "entity",
+          "entity_types": [
+            "procedure_revision"
+          ]
+        },
+        "problem": {
+          "term_kind": "entity",
+          "entity_types": [
+            "concept"
+          ]
+        }
+      },
+      "functional_key": null,
+      "definition": "The procedure is intended to address the registered problem concept; this is a relevance relation, not a success guarantee.",
+      "evidence": "Procedure content and its supporting/contradicting episodes.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    },
+    {
+      "id": "sem:measurement",
+      "roles": {
+        "run": {
+          "term_kind": "entity",
+          "entity_types": [
+            "action_run"
+          ]
+        },
+        "metric": {
+          "term_kind": "enum",
+          "domain": "metric"
+        },
+        "value": {
+          "term_kinds": [
+            "quantity"
+          ]
+        }
+      },
+      "functional_key": [
+        "run",
+        "metric"
+      ],
+      "definition": "The run has one measured aggregate for the metric under its declared accounting policy. Measurements from different policies are not merged.",
+      "evidence": "Usage/measurement event with units and measurement policy; elapsed_time=s, peak_memory=B, token metrics=count.",
+      "definition_revision": "0.1.0",
+      "symmetric": false,
+      "transitive": false,
+      "negation": "Explicit opposing assertion; absence of an edge is not negation."
+    }
+  ],
+  "metadata_relations": [
+    {
+      "id": "supports",
+      "source": "evidence_target",
+      "target": "claim",
+      "definition": "Positive evidence assessment with coverage and interpretation class; does not imply independent corroboration."
+    },
+    {
+      "id": "contradicts",
+      "source": "evidence_target",
+      "target": "claim",
+      "definition": "Evidence against the claim under overlapping conditions; retains its own scope."
+    },
+    {
+      "id": "qualifies",
+      "source": "evidence_target",
+      "target": "claim",
+      "definition": "Limits coverage, adds an exception or identifies uncertainty; travels with the claim."
+    },
+    {
+      "id": "derived_from",
+      "source": "derived_representation",
+      "target": "source_representation",
+      "definition": "Checked lineage; acyclic derivation; participates in deletion."
+    },
+    {
+      "id": "supersedes",
+      "source": "memory_revision",
+      "target": "memory_revision",
+      "definition": "Explicit recorded replacement of one revision; same applicable policy/ownership checks; not inferred from recency."
+    },
+    {
+      "id": "exception_to",
+      "source": "memory_revision",
+      "target": "memory_revision",
+      "definition": "A scoped exception linked to the procedure/claim it limits."
+    },
+    {
+      "id": "prerequisite_for",
+      "source": "memory_revision",
+      "target": "memory_revision",
+      "definition": "Required supporting item/condition for using the target; traversal remains bounded."
+    },
+    {
+      "id": "related_to",
+      "source": "memory_revision",
+      "target": "memory_revision",
+      "definition": "Retrieval hint only; ordinary relatedness cycles are allowed."
+    }
+  ],
+  "context_fields": [
+    {
+      "id": "environment.stage",
+      "value_type": "environment_stage",
+      "selector_entity_type": null
+    },
+    {
+      "id": "environment.os",
+      "value_type": "os_family",
+      "selector_entity_type": null
+    },
+    {
+      "id": "environment.architecture",
+      "value_type": "architecture",
+      "selector_entity_type": null
+    },
+    {
+      "id": "repository_state.id",
+      "value_type": "entity",
+      "selector_entity_type": null,
+      "value_entity_type": "repository_state"
+    },
+    {
+      "id": "environment.id",
+      "value_type": "entity",
+      "selector_entity_type": null,
+      "value_entity_type": "environment"
+    },
+    {
+      "id": "contract_revision.id",
+      "value_type": "entity",
+      "selector_entity_type": null,
+      "value_entity_type": "task_contract_revision"
+    },
+    {
+      "id": "dependency.version",
+      "value_type": "version",
+      "selector_entity_type": "dependency_binding"
+    },
+    {
+      "id": "file.digest",
+      "value_type": "digest",
+      "selector_entity_type": "file"
+    },
+    {
+      "id": "interface.digest",
+      "value_type": "digest",
+      "selector_entity_type": "interface"
+    },
+    {
+      "id": "configuration.value",
+      "value_type": "declared_key_type",
+      "selector_entity_type": "configuration_key"
+    },
+    {
+      "id": "contract.feature",
+      "value_type": "boolean",
+      "selector_entity_type": "concept"
+    }
+  ],
+  "guard_type_rules": {
+    "eq_ne_in": "Known operands must have the same declared type/domain as the field; entity types and IDs must match. No string, number or label coercion. Explicit null is allowed only for a nullable field.",
+    "ordered_comparisons": "lt/le/gt/ge accept integer, decimal, timestamp or quantity fields of the same type and canonical unit only. Versions use version_satisfies.",
+    "missing_input": "Uninspected, unavailable or conflicted inputs give unknown; authoritative absence makes present false, is_null false and value comparisons unknown.",
+    "known_null": "present is true and is_null is true. eq(null,null) is true; comparisons follow the declared nullable type.",
+    "normalization": "Flatten nested identical all/any operators; sort and deduplicate canonical children; remove double not. Preserve all other nesting and operators. Do not apply classical excluded-middle or contradiction simplifications."
+  },
+  "guard_operators": [
+    "const",
+    "all",
+    "any",
+    "not",
+    "eq",
+    "ne",
+    "in",
+    "lt",
+    "le",
+    "gt",
+    "ge",
+    "present",
+    "is_null",
+    "version_satisfies"
+  ],
+  "guard_limits": {
+    "max_depth": 8,
+    "max_nodes": 128,
+    "max_members_per_set": 64,
+    "max_children_per_boolean_node": 32
+  },
+  "frame_limits": {
+    "max_frames_per_bundle": 64,
+    "max_evidence_bindings_per_frame": 32,
+    "max_literal_utf8_bytes": 4096
+  },
+  "concepts": [
+    {
+      "id": "sem:concern.correctness",
+      "definition": "Satisfying the specified behavior under stated conditions."
+    },
+    {
+      "id": "sem:concern.regression",
+      "definition": "Preserving previously required behavior."
+    },
+    {
+      "id": "sem:concern.compatibility",
+      "definition": "Compatibility with explicit interfaces, versions or environments."
+    },
+    {
+      "id": "sem:concern.resource_usage",
+      "definition": "Measured compute, memory, latency or budget use."
+    },
+    {
+      "id": "sem:concern.preference",
+      "definition": "A scoped user or project preference."
+    },
+    {
+      "id": "sem:need.current_fact",
+      "definition": "Establish an applicable current fact."
+    },
+    {
+      "id": "sem:need.diagnosis",
+      "definition": "Distinguish plausible causes of an observed symptom."
+    },
+    {
+      "id": "sem:need.example",
+      "definition": "Find an inspected implementation example."
+    },
+    {
+      "id": "sem:need.procedure",
+      "definition": "Find an applicable conditional method."
+    },
+    {
+      "id": "sem:need.counterevidence",
+      "definition": "Find exceptions, contradictions or disconfirming observations."
+    },
+    {
+      "id": "sem:need.verification",
+      "definition": "Obtain evidence for an acceptance criterion."
+    },
+    {
+      "id": "sem:failure.implementation",
+      "definition": "A defect attributable to the candidate implementation."
+    },
+    {
+      "id": "sem:failure.hypothesis_disproved",
+      "definition": "Evidence contradicts the tested technical hypothesis."
+    },
+    {
+      "id": "sem:failure.incomplete",
+      "definition": "Required work or evidence is unfinished."
+    },
+    {
+      "id": "sem:failure.infrastructure",
+      "definition": "The environment or execution infrastructure prevented a valid assessment."
+    },
+    {
+      "id": "sem:failure.flaky",
+      "definition": "Observed instability under a declared repetition policy."
+    }
+  ],
+  "applicability_modes": [
+    "exact_state",
+    "dependency_guarded",
+    "project_convention",
+    "general_procedure"
+  ],
+  "applicability_results": [
+    "applicable",
+    "inapplicable",
+    "unknown_requires_check"
+  ],
+  "support_states": [
+    "supported_only",
+    "refuted_only",
+    "conflicting",
+    "unknown"
+  ],
+  "match_intents": [
+    "same_statement",
+    "equivalent_meaning",
+    "applicable_precedent",
+    "contradictory_evidence",
+    "historical_comparison",
+    "general_relevance",
+    "dependency_impact",
+    "compliance_assessment",
+    "type_inventory"
+  ],
+  "functional_conflict_rule": "Positive unequal values of a declared functional slot identify candidate incompatibility only. Factual conflict additionally requires compatible factual interpretation and proven overlapping situation. Normative classification uses effective binding and the force/polarity rules below, not identical source-authority categories. Negative values are exclusions, not alternate settings.",
+  "normative_compatibility": {
+    "must_must": "Incompatible simultaneously effective binding obligations are a normative conflict, including when their authoritative sources differ.",
+    "may_may": "Alternative permissions are compatible and do not demand that both alternatives occur.",
+    "must_may": "Flag permission_prohibition_tension only for an explicitly effective permission opposed by an effective prohibition; authoritative policy resolves any priority or exception. Permission is not an obligation or an execution capability.",
+    "should_should": "Opposing recommendations are recommendation_tension, not an unsatisfiable binding-obligation verdict.",
+    "prefer_prefer": "Opposing preferences are preference_tension; existing selection policy governs their use."
+  },
+  "concept_binding": "Resolve vocabulary release plus stable concept identifier to a checked registered concept entity UUID; display labels do not determine that UUID.",
+  "target_field_resolution": "Resolve selected dependency/file/interface/configuration logical locators in the target repository state and environment. Never satisfy a target guard by rereading only the immutable source binding. Missing or ambiguous mapping gives unknown.",
+  "valid_time_rules": "Intervals are half-open. A null endpoint explicitly means unbounded; both endpoints null are rejected in favor of scope_only. Unknown time uses kind unknown. Event and recorded times remain existing provenance fields.",
+  "versioning": "Stable IDs never change definition. Changes publish immutable releases and new compatible or migrated representations. Old coordinates are never reused."
+}

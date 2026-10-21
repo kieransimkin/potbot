@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1.0",
+  "need_revision_id": "00000000-0000-0000-0000-0000000001f5",
+  "profile_names": [
+    "counterevidence",
+    "compliance"
+  ],
+  "question": "Does this production observation violate the current cache requirement?",
+  "target_statement_refs": [
+    {
+      "memory_revision_id": "00000000-0000-0000-0000-000000000258",
+      "representation_id": "00000000-0000-0000-0000-000000000259",
+      "local_frame_id": "cache_required_off"
+    }
+  ],
+  "anchor_entities": [],
+  "target_context": {
+    "repository_id": "00000000-0000-0000-0000-00000000000a",
+    "state_id": "00000000-0000-0000-0000-00000000000b",
+    "environment_id": "00000000-0000-0000-0000-00000000000c",
+    "contract_revision_id": "00000000-0000-0000-0000-00000000025a"
+  }
+}

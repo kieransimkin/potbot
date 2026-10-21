@@ -1,0 +1,61 @@
+{
+  "version": "0.1.0",
+  "rules": [
+    {
+      "id": "R01",
+      "requirement": "Resolve every reference against the authenticated workspace and expected table/type; a UUID string is not sufficient. Check repository/state agreement, run/state/environment agreement, assessment/manifest/candidate/contract/criterion agreement and versioned file/symbol binding context."
+    },
+    {
+      "id": "R02",
+      "requirement": "Validate entity bindings, configuration value type/nullability, predicate role signatures, context-field operand types/domains, supported ordered comparisons and metric/unit policy; no implicit type coercion."
+    },
+    {
+      "id": "R03",
+      "requirement": "Reject unknown operators/fields/predicates and excessive depth/node counts before evaluation; never execute supplied SQL or code."
+    },
+    {
+      "id": "R04",
+      "requirement": "Parse version values/ranges with pinned declared ecosystem adapters. Opaque or unavailable versions yield an explicit unresolved result; invalid syntax is rejected."
+    },
+    {
+      "id": "R05",
+      "requirement": "Enforce UTC canonical timestamps, half-open interval ordering and nonempty interval bounds; scope_only does not assert timeless validity."
+    },
+    {
+      "id": "R06",
+      "requirement": "Claims with unknown terms, source meaning encoded by const unknown, partial coverage or ambiguous bindings cannot be presented as exact equivalents or sufficient current factual justification. A complete condition that evaluates unknown in a target context remains well-defined but cannot justify current applicability."
+    },
+    {
+      "id": "R07",
+      "requirement": "Verify each evidence target and its relation, originating-source grouping, coverage and interpretation; a source report does not automatically establish behavior."
+    },
+    {
+      "id": "R08",
+      "requirement": "Derive authority/binding status, support state, lifecycle and applicability from existing owners; none are set by a model-generated frame."
+    },
+    {
+      "id": "R09",
+      "requirement": "Require unique frame keys and unique group keys within the enclosing revision and representation generation, with one unambiguous namespace across bundles. Every distinct conjunction member must resolve to exactly one frame. Validate shared qualifiers and source coverage; do not split disjunction, negated conjunction or coupled permission into independent assertions."
+    },
+    {
+      "id": "R10",
+      "requirement": "Canonicalize with declared type rules and RFC 8785; retain canonical bytes and check them on equal digest; unknown-frame byte equality is not semantic equivalence."
+    },
+    {
+      "id": "R11",
+      "requirement": "Use registered functionality/exclusivity, effective binding, force/polarity compatibility and proven scope overlap for conflict diagnostics. Alternative permissions do not conflict; simultaneously binding incompatible obligations may conflict across authority categories. Otherwise return potential_conflict or undetermined."
+    },
+    {
+      "id": "R12",
+      "requirement": "Rejoin current visibility, deletion, lifecycle and applicability before packet delivery; semantic similarity never bypasses the shared boundary."
+    },
+    {
+      "id": "R13",
+      "requirement": "Resolve selected field locators in the target context; unknown mapping is not the old source value. Bind concepts via vocabulary release and registered concept ID. Query views are owned by need revisions and query embeddings by retrieval runs, not fabricated memory records."
+    },
+    {
+      "id": "R14",
+      "requirement": "Validate registered question profiles, required context, compatible spaces and per-family rank contribution. Preserve coverage, truncation and channel failures. Compliance directly enumerates all effective obligations; partial retrieval cannot establish complete compliance."
+    }
+  ]
+}

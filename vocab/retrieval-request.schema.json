@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-sem:schema:retrieval-request:0.1.0",
+  "$comment": "Authenticated request envelope is checked by the service. Model proposals cannot set access policy or make unknown a wildcard. Profile-specific required inputs are service-validated.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "need_revision_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "profile_names": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "type_inventory",
+          "aboutness",
+          "same_meaning",
+          "applicable_procedure",
+          "dependency_impact",
+          "counterevidence",
+          "compliance"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "target_statement_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "memory_revision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "representation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "local_frame_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          }
+        },
+        "required": [
+          "memory_revision_id",
+          "representation_id",
+          "local_frame_id"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 16,
+      "uniqueItems": true
+    },
+    "anchor_entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "enum": [
+              "repository",
+              "repository_state",
+              "environment",
+              "artifact",
+              "file",
+              "symbol",
+              "component",
+              "dependency_binding",
+              "configuration_key",
+              "interface",
+              "test_case",
+              "execution_case",
+              "task_contract_revision",
+              "requirement",
+              "candidate",
+              "action",
+              "action_run",
+              "verification_assessment",
+              "procedure_revision",
+              "information_need_revision",
+              "memory_revision",
+              "source_excerpt",
+              "event",
+              "model_deployment",
+              "concept"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "entity_type",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 16,
+      "uniqueItems": true
+    },
+    "target_context": {
+      "type": "object",
+      "properties": {
+        "repository_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "state_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "environment_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "contract_revision_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "repository_id",
+        "state_id",
+        "environment_id"
+      ],
+      "additionalProperties": false
+    },
+    "type_query": {
+      "$ref": "urn:agent-sem:schema:type-query:0.1.0"
+    }
+  },
+  "required": [
+    "schema_version",
+    "need_revision_id",
+    "profile_names",
+    "question",
+    "target_statement_refs",
+    "anchor_entities"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profile_names": {
+            "contains": {
+              "const": "compliance"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "target_context"
+        ],
+        "properties": {
+          "target_context": {
+            "required": [
+              "contract_revision_id"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile_names": {
+            "contains": {
+              "enum": [
+                "applicable_procedure",
+                "dependency_impact"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "target_context"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile_names": {
+            "contains": {
+              "enum": [
+                "same_meaning",
+                "counterevidence"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "target_statement_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile_names": {
+            "contains": {
+              "const": "dependency_impact"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "anchor_entities": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile_names": {
+            "contains": {
+              "const": "type_inventory"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "type_query"
+        ]
+      }
+    }
+  ]
+}
