@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
+from potbot.credentials import resolve_postgres_dsn
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import DomainError, InvalidInputError
 from potbot.persistence.database import (
@@ -23,6 +24,10 @@ from potbot.persistence.database import (
 
 
 def _environment(name: str) -> str:
+    if name == "POTBOT_DSN":
+        return resolve_postgres_dsn()
+    if name == "POTBOT_ADMIN_DSN":
+        return resolve_postgres_dsn("admin")
     value = os.environ.get(name)
     if not value:
         raise InvalidInputError(f"Set the explicit {name} environment variable.")

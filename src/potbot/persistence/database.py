@@ -26,7 +26,11 @@ from potbot.domain.errors import (
     SourceUnavailableError,
 )
 from potbot.domain.serialization import canonical_json, content_hash
-from potbot.persistence.schema import SchemaMigration, application_migrations
+from potbot.persistence.schema import (
+    SchemaMigration,
+    application_migrations,
+    migrations_for_history,
+)
 
 _IDENTIFIER = re.compile(r"[a-z][a-z0-9_]{0,62}\Z")
 _UNAVAILABLE = "The requested resource is not accessible."
@@ -315,6 +319,8 @@ def migrate(
         applied = connection.execute(
             "SELECT version,name,checksum FROM schema_migrations ORDER BY version"
         ).fetchall()
+        if migrations is None:
+            selected = migrations_for_history(applied)
         if len(applied) > len(selected) or any(
             row["version"] != item.version
             or row["name"] != item.name
@@ -348,9 +354,18 @@ def migrate(
 def grant_application_role(admin_dsn: str, schema: str, role: str) -> None:
     with admin_connection(admin_dsn, schema) as connection:
         versions = connection.execute(
-            "SELECT version FROM schema_migrations ORDER BY version"
+            "SELECT version,name,checksum FROM schema_migrations ORDER BY version"
         ).fetchall()
-        revisions = application_migrations()[: len(versions)]
+        revisions = migrations_for_history(versions)[: len(versions)]
+        if len(versions) != len(revisions) or any(
+            row["version"] != migration.version
+            or row["name"] != migration.name
+            or row["checksum"] != migration.checksum
+            for row, migration in zip(versions, revisions, strict=False)
+        ):
+            raise RevisionConflictError(
+                "Application grants require a recognized migration history."
+            )
         _grant(connection, schema, role, revisions)
 
 

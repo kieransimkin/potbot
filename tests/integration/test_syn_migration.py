@@ -313,8 +313,8 @@ def test_populated_v5_upgrade_preserves_sources_and_named_views(app_env: Any) ->
         }
     with admin_connection(app_env.admin_dsn, schema) as connection:
         history = connection.execute("SELECT * FROM schema_migrations ORDER BY version").fetchall()
-    assert migrate(app_env.admin_dsn, schema) == (1, 2, 3, 4, 5, 6)
-    assert migrate(app_env.admin_dsn, schema) == (1, 2, 3, 4, 5, 6)
+    assert migrate(app_env.admin_dsn, schema) == tuple(item.version for item in revisions)
+    assert migrate(app_env.admin_dsn, schema) == tuple(item.version for item in revisions)
     with admin_connection(app_env.admin_dsn, schema) as connection:
         assert (
             connection.execute(

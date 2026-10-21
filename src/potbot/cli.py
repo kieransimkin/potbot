@@ -41,6 +41,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.semantics.cli import main as syn_main
 
         return syn_main(args[1:])
+    if args and args[0] == "execution":
+        from potbot.tools.execution_cli import main as execution_main
+
+        return execution_main(args[1:])
+    if args and args[0] == "credentials":
+        from potbot.credentials import main as credentials_main
+
+        return credentials_main(args[1:])
+    if args and args[0] == "dependencies":
+        from potbot.dependencies import main as dependencies_main
+
+        return dependencies_main(args[1:])
+    if args and args[0] == "patch":
+        from potbot.tools.patch_cli import main as patch_main
+
+        return patch_main(args[1:])
+    if args and args[0] == "models":
+        from potbot.models.cli import main as models_main
+
+        return models_main(args[1:])
 
     parser = argparse.ArgumentParser(
         prog="potbot",
@@ -56,6 +76,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("worker", help="run recoverable fixture outbox jobs")
     commands.add_parser("embedding", help="set up, index, and query local Qwen embeddings")
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
+    commands.add_parser("execution", help="capture repositories and run qualified isolated tools")
+    commands.add_parser("patch", help="run, resume and export the scripted verified patch workflow")
+    commands.add_parser(
+        "models", help="inspect model profiles, envelopes and pinned host readiness"
+    )
+    commands.add_parser(
+        "dependencies", help="inspect and download verified local model dependencies"
+    )
+    commands.add_parser(
+        "credentials", help="manage PostgreSQL connection URLs in the native credential vault"
+    )
     parsed = parser.parse_args(args)
     if parsed.command == "info":
         print(
@@ -63,7 +94,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 {
                     "package": "potbot",
                     "version": __version__,
-                    "implementation_phase": 2,
+                    "implementation_phase": 5,
+                    "implementation_phase_status": "foundation",
                     "capabilities": [
                         "versioned_domain_contracts",
                         "real_git_fixtures",
@@ -76,10 +108,33 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "model_deployment_and_invocation_records",
                         "local_standard_vector_embeddings",
                         "scoped_syn_references_and_exact_type_inventory",
+                        "named_embedding_spaces",
+                        "immutable_repository_snapshots",
+                        "fenced_candidate_workspaces",
+                        "durable_execution_and_reconciliation",
+                        "qualified_linux_process_isolation",
+                        "versioned_semantic_registry_and_validation",
+                        "semantic_task_and_context_pins",
+                        "hard_supervised_local_embeddings",
+                        "restartable_scripted_patch_pipeline",
+                        "immutable_implementation_handoffs",
+                        "baseline_and_exact_state_verification",
+                        "retained_patch_verification_manifests",
+                        "resumable_verified_dependency_downloads",
+                        "native_credential_store_and_first_startup",
+                        "uv_bootstrapped_platform_launchers",
+                        "bounded_model_proposals_and_predicates",
+                        "recipient_specific_context_rendering",
+                        "durable_offline_inference_gateway",
+                        "separate_bounded_response_repairs",
+                        "model_coding_result_admission",
+                        "default_model_profiles_and_offline_preflight",
                     ],
                     "model_inference_available": False,
                     "model_downloads_required": False,
                     "embedding_model_download_required_for_local_encoding": True,
+                    "live_coding_or_reasoning_inference_available": False,
+                    "scripted_patch_adapter_available": True,
                 },
                 sort_keys=True,
             )

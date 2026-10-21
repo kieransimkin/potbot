@@ -44,6 +44,8 @@ def append_event(
     correlation_id: UUID | None = None,
     occurred_at: datetime | None = None,
     details: dict[str, Any] | None = None,
+    run_id: UUID | None = None,
+    node_id: UUID | None = None,
 ) -> dict[str, Any]:
     """Append within the caller's transaction; never commit partial state here.
 
@@ -76,6 +78,16 @@ def append_event(
         ("model_deployments", deployment_id),
     ):
         _scoped_reference(connection, context, table, identity)
+    for table, identity in (("action_runs", run_id), ("search_nodes", node_id)):
+        if identity is not None:
+            if episode_id is None:
+                raise InvalidInputError("Execution evidence requires a task identity.")
+            found = connection.execute(
+                f"SELECT id FROM {table} WHERE workspace_id=%s AND episode_id=%s AND id=%s",
+                (context.workspace_id, episode_id, identity),
+            ).fetchone()
+            if found is None:
+                raise ScopeDeniedError("Execution evidence reference is unavailable.")
     details = {} if details is None else details
     if not isinstance(details, dict):
         raise InvalidInputError("Event details must be a JSON object.")
@@ -102,27 +114,37 @@ def append_event(
         "payload_id": str(payload_id) if payload_id else None,
         "details": details,
     }
+    # Preserve the digest contract of historical events without execution links.
+    if run_id is not None or node_id is not None:
+        body["run_id"] = str(run_id) if run_id else None
+        body["node_id"] = str(node_id) if node_id else None
+    execution_columns = ",run_id,node_id" if run_id is not None or node_id is not None else ""
+    execution_values = ",%s,%s" if execution_columns else ""
+    parameters: tuple[Any, ...] = (
+        context.workspace_id,
+        identity,
+        episode_id,
+        event_type,
+        occurred_at,
+        timestamp,
+        producer_kind,
+        producer_id,
+        deployment_id,
+        causation_id,
+        correlation_id,
+        payload_id,
+        canonical_json(details),
+        content_hash(body),
+    )
+    if execution_columns:
+        parameters += (run_id, node_id)
     row = connection.execute(
-        """INSERT INTO evidence_events
+        f"""INSERT INTO evidence_events
         (workspace_id,id,episode_id,event_type,occurred_at,recorded_at,producer_kind,
-         producer_id,deployment_id,causation_id,correlation_id,payload_id,details,content_digest)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s) RETURNING *""",
-        (
-            context.workspace_id,
-            identity,
-            episode_id,
-            event_type,
-            occurred_at,
-            timestamp,
-            producer_kind,
-            producer_id,
-            deployment_id,
-            causation_id,
-            correlation_id,
-            payload_id,
-            canonical_json(details),
-            content_hash(body),
-        ),
+         producer_id,deployment_id,causation_id,correlation_id,payload_id,details,content_digest
+         {execution_columns})
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s{execution_values}) RETURNING *""",
+        parameters,
     ).fetchone()
     return dict(row)
 

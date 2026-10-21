@@ -47,14 +47,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     from potbot.api.tasks import DevelopmentBearerAuth, TaskAPI, TaskWSGI
     from potbot.api.wire import error_response
     from potbot.controller.tasks import TaskService
+    from potbot.credentials import resolve_postgres_dsn
     from potbot.domain.auth import WorkspaceContext
     from potbot.domain.errors import InvalidInputError
     from potbot.persistence.database import Database
 
     try:
-        dsn = os.environ.get("POTBOT_DSN")
-        if not dsn:
-            raise InvalidInputError("POTBOT_DSN must identify the provisioned application login")
+        dsn = resolve_postgres_dsn()
         context = WorkspaceContext(args.workspace, args.principal)
         service = TaskService(Database(dsn, schema=args.schema))
         if args.command == "serve":

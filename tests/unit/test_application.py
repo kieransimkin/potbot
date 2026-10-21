@@ -30,13 +30,27 @@ def test_installed_cli_works_outside_source_directory(tmp_path: Path) -> None:
     info = run_cli("info", cwd=tmp_path)
     assert info.returncode == 0, info.stderr
     payload = json.loads(info.stdout)
-    assert payload["implementation_phase"] == 2
+    assert payload["implementation_phase"] == 5
+    assert payload["implementation_phase_status"] == "foundation"
     assert payload["model_inference_available"] is False
     assert payload["model_downloads_required"] is False
 
 
 def test_nested_help_does_not_require_database_or_model_services(tmp_path: Path) -> None:
-    for command in ("db", "fixture", "admin", "task", "worker", "embedding", "syn"):
+    for command in (
+        "db",
+        "fixture",
+        "admin",
+        "task",
+        "worker",
+        "embedding",
+        "syn",
+        "execution",
+        "patch",
+        "dependencies",
+        "credentials",
+        "models",
+    ):
         result = run_cli(command, "--help", cwd=tmp_path)
         assert result.returncode == 0, result.stderr
         assert "usage:" in result.stdout

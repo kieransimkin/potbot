@@ -25,6 +25,7 @@ class CheckFailed(RuntimeError):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--with-postgres", action="store_true")
+    parser.add_argument("--with-sandbox", action="store_true")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "artifacts")
     args = parser.parse_args()
     artifacts = args.artifacts.resolve()
@@ -95,7 +96,7 @@ def main() -> int:
                         )
                         junit.unlink()
 
-            tests("unit-and-git", "not postgres")
+            tests("unit-and-git", "not postgres and not sandbox")
             run("wheel-build", ["uv", "build", "--wheel", "--out-dir", str(temp / "dist")])
             wheels = list((temp / "dist").glob("*.whl"))
             if len(wheels) != 1:
@@ -149,6 +150,34 @@ def main() -> int:
                 cwd=temp,
                 environment=clean_environment,
             )
+            run(
+                "installed-execution-help",
+                [str(clean_cli), "execution", "--help"],
+                cwd=temp,
+                environment=clean_environment,
+            )
+            for command in ("patch", "credentials", "dependencies", "models"):
+                run(
+                    f"installed-{command}-help",
+                    [str(clean_cli), command, "--help"],
+                    cwd=temp,
+                    environment=clean_environment,
+                )
+            run(
+                "installed-semantic-catalog",
+                [
+                    str(clean_python),
+                    "-I",
+                    "-c",
+                    "from potbot.semantics.registry import SemanticRegistry; "
+                    "registry = SemanticRegistry.load(); "
+                    "assert len(registry.inventory('data_type')) == 45; "
+                    "assert len(registry.inventory('retrieval_profile')) == 7; "
+                    "print('installed semantic catalog verified: ' + registry.fingerprint)",
+                ],
+                cwd=temp,
+                environment=clean_environment,
+            )
             if args.with_postgres:
                 manifest = temp / "migration-run.json"
                 db_command = [sys.executable, "-m", "potbot", "db"]
@@ -157,7 +186,7 @@ def main() -> int:
                     run("db-create", [*db_command, "create", "--manifest", str(manifest)])
                     run("db-migrate", [*db_command, "migrate", "--manifest", str(manifest)])
                     run("db-check", [*db_command, "check", "--manifest", str(manifest)])
-                    tests("postgres", "postgres")
+                    tests("postgres", "postgres and not sandbox")
                 finally:
                     if manifest.exists():
                         try:
@@ -181,6 +210,8 @@ def main() -> int:
                                 flush=True,
                             )
                             raise
+            if args.with_sandbox:
+                tests("sandbox", "sandbox" if args.with_postgres else "sandbox and not postgres")
         status = 0
     except KeyboardInterrupt:
         print("Check runner interrupted.", file=sys.stderr)
@@ -198,6 +229,7 @@ def main() -> int:
             "started_at": started_at,
             "finished_at": datetime.now(UTC).isoformat(),
             "postgres_requested": args.with_postgres,
+            "sandbox_requested": args.with_sandbox,
             "success": status == 0,
             "checks": results,
         }

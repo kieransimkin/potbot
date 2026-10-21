@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "application_version": "0.4.0",
+  "phase": 4,
+  "source_baseline": "88de7ee06ca985015527618bf8ca7ffb8fdf3755",
+  "completed_steps": [
+    "P035",
+    "P036",
+    "P037",
+    "P038",
+    "P039",
+    "P040"
+  ],
+  "total_tests_passed": 970,
+  "suites": {
+    "unit-and-git": {
+      "passed": 749,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 7.534
+    },
+    "postgres": {
+      "passed": 152,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 159.147
+    },
+    "sandbox": {
+      "passed": 69,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 178.52
+    }
+  },
+  "verification": {
+    "schema_version": 1,
+    "started_at": "2026-10-21T14:23:57.648308+00:00",
+    "finished_at": "2026-10-21T14:34:16.827768+00:00",
+    "postgres_requested": true,
+    "sandbox_requested": true,
+    "success": true,
+    "checks": [
+      {
+        "check": "lint",
+        "exit_code": 0
+      },
+      {
+        "check": "format",
+        "exit_code": 0
+      },
+      {
+        "check": "types",
+        "exit_code": 0
+      },
+      {
+        "check": "unit-and-git",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-build",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-environment",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-install",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-version",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-domain",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-execution-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-patch-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-credentials-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-dependencies-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-semantic-catalog",
+        "exit_code": 0
+      },
+      {
+        "check": "db-bootstrap",
+        "exit_code": 0
+      },
+      {
+        "check": "db-create",
+        "exit_code": 0
+      },
+      {
+        "check": "db-migrate",
+        "exit_code": 0
+      },
+      {
+        "check": "db-check",
+        "exit_code": 0
+      },
+      {
+        "check": "postgres",
+        "exit_code": 0
+      },
+      {
+        "check": "db-cleanup",
+        "exit_code": 0
+      },
+      {
+        "check": "sandbox",
+        "exit_code": 0
+      }
+    ],
+    "corrected_during_verification": "Reassessment inspection used a non-existent created_at field; corrected to deterministic command-key/id ordering. Final complete sandbox gate rerun."
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "postgresql": "17.11",
+    "pgvector": "0.8.7",
+    "uv": "0.12.23",
+    "qualified_execution": "Linux bubblewrap and libseccomp with private namespaces"
+  },
+  "startup_smoke": {
+    "schema_version": 1,
+    "status": "passed",
+    "command": "UV_CACHE_DIR=<shared-cache> bash ./start.sh --help",
+    "environment": "Fresh isolated project directory whose path contains spaces",
+    "python": "3.12.15",
+    "uv": "0.12.23",
+    "bootstrap_observed": [
+      "Managed CPython 3.12.15 installed",
+      "uv sync --locked --all-extras --no-dev installed 43 runtime packages",
+      "Common startup reached complete CLI help without requesting database credentials or model weights"
+    ],
+    "runtime_imports": {
+      "torch": "2.9.1+cpu",
+      "transformers": "4.57.6"
+    },
+    "packages": {
+      "Jinja2": "3.1.6",
+      "MarkupSafe": "3.0.4",
+      "PyYAML": "6.0.3",
+      "SecretStorage": "3.5.0",
+      "attrs": "26.1.0",
+      "certifi": "2026.10.19",
+      "cffi": "2.1.1",
+      "charset-normalizer": "3.5.2",
+      "cryptography": "50.0.2",
+      "filelock": "4.2.4",
+      "fsspec": "2026.9.0",
+      "hf-xet": "1.7.0",
+      "huggingface_hub": "0.36.2",
+      "idna": "3.20",
+      "jaraco.classes": "3.4.0",
+      "jaraco.context": "6.1.2",
+      "jaraco.functools": "4.6.0",
+      "jeepney": "0.9.0",
+      "jsonschema": "4.26.0",
+      "jsonschema-specifications": "2025.9.1",
+      "keyring": "25.7.0",
+      "more-itertools": "11.2.1",
+      "mpmath": "1.3.0",
+      "networkx": "3.7",
+      "numpy": "2.5.4",
+      "packaging": "26.3",
+      "potbot": "0.4.0",
+      "psycopg": "3.3.6",
+      "psycopg-binary": "3.3.6",
+      "pycparser": "3.11",
+      "referencing": "0.37.0",
+      "regex": "2026.9.29",
+      "requests": "2.34.2",
+      "rpds-py": "2026.9.1",
+      "safetensors": "0.8.0",
+      "setuptools": "84.2.1",
+      "sympy": "1.14.0",
+      "tokenizers": "0.22.2",
+      "torch": "2.9.1+cpu",
+      "tqdm": "4.70.1",
+      "transformers": "4.57.6",
+      "typing_extensions": "4.16.0",
+      "urllib3": "2.8.0"
+    },
+    "native_vault_probe": "Installed Linux native backend safely reported capability_unavailable; no credential access or prompt",
+    "native_windows_executed": false,
+    "native_macos_executed": false
+  },
+  "final_installed_wheel": {
+    "status": "passed",
+    "wheel": "potbot-0.4.0-py3-none-any.whl",
+    "wheel_sha256": "76c69d38845d28adb082c2112e860cd501a06f537665a69a6bf2419615213b7b",
+    "pipeline_source_sha256": "09e16e98972a590a6260ed35df1f8a11c2c6738ab5eac58ada1a1b041c9a9838",
+    "installed_outside_source": true,
+    "core_install_has_optional_dependencies": false,
+    "semantic_types_verified": 45
+  },
+  "qualification": {
+    "all_python_runtime_extras_installed_by_real_bash_launcher": true,
+    "postgres_first_use_validation_with_test_vault_and_restricted_login": true,
+    "postgres_credentials_saved_in_repository": false,
+    "actual_native_desktop_vault_available": false,
+    "linux_native_vault_unavailable_fails_safely": true,
+    "windows_launcher_smoke_in_ci": true,
+    "windows_launcher_executed_here": false,
+    "macos_vault_executed_here": false,
+    "model_downloader_http_resume_corruption_and_concurrency_tests": true,
+    "complete_existing_qwen_assets_rehashed_against_pins": true,
+    "live_https_pinned_qwen_config_download_verified": true,
+    "standard_model_payload_bytes": 1207469240,
+    "scripted_producer_only": true,
+    "live_reasoning_or_coding_inference": false,
+    "custom_embeddings_introduced": false,
+    "both_published_migration_histories_upgraded_with_rows_and_checksums_preserved": true,
+    "durable_reassessment_need_created_on_contract_change": true
+  },
+  "limits": [
+    "Phase 4 uses a supplied scripted patch. No live inference or multi-model reasoning quality claim is made.",
+    "Search receipts are supplied fixtures; no live web, internal-workflow, IBM MCP or DanceFlow MCP search is performed.",
+    "Windows/macOS startup and native vault selection are implemented but their OS runtimes were not locally qualified; Windows launcher CI is included.",
+    "Native vault persistence is tested with an injected contract backend and real PostgreSQL, not a live desktop secret service on this headless host.",
+    "Controlled repository execution and embedding inference remain qualified on Linux only.",
+    "uv installs Python and Python packages; Git, PostgreSQL/pgvector and sandbox OS components remain host prerequisites.",
+    "Initial patch application supports bounded UTF-8 text additions/edits/deletions; binary, rename/copy, symlink and special-file changes are rejected.",
+    "The current checks provide bounded behavioral evidence; they are not a proof of all possible program behavior."
+  ],
+  "remote_pushed": false
+}

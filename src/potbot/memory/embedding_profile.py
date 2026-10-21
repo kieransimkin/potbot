@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from potbot.domain.errors import InvalidInputError
 from potbot.domain.serialization import content_hash
@@ -137,4 +138,18 @@ class EmbeddingProvider(Protocol):
 
     def encode(
         self, texts: tuple[str, ...], kind: Literal["query", "document"]
+    ) -> EmbeddingBatch: ...
+
+
+@runtime_checkable
+class SupervisedEmbeddingProvider(Protocol):
+    profile: EmbeddingProfile
+
+    def encode_supervised(
+        self,
+        texts: tuple[str, ...],
+        kind: Literal["query", "document"],
+        *,
+        timeout_ms: int,
+        cancelled: Callable[[], bool] | None = None,
     ) -> EmbeddingBatch: ...

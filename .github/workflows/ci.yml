@@ -9,6 +9,15 @@ permissions:
   contents: read
 
 jobs:
+  windows-launchers:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify native PowerShell and BAT startup contracts
+        shell: powershell
+        run: .\tests\windows\launcher-smoke.ps1
+
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -23,11 +32,15 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Install locked application and development dependencies
-        run: uv sync --locked --extra postgres --dev
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --dev
+      - name: Install required Linux process isolation
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bubblewrap libseccomp2
       - name: Start real PostgreSQL with pgvector
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify application, repositories, migrations, and database isolation
-        run: uv run --locked python scripts/check.py --with-postgres
+        run: uv run --locked python scripts/check.py --with-postgres --with-sandbox
       - name: Capture sanitized database diagnostics
         if: failure()
         shell: bash

@@ -1,18 +1,18 @@
-"""Restartable fixture worker; credentials come only from explicit environment."""
+"""Restartable fixture worker with explicit environment or native vault credentials."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from potbot.credentials import resolve_postgres_dsn
 from potbot.domain.auth import WorkspaceContext
-from potbot.domain.errors import DomainError, InvalidInputError
+from potbot.domain.errors import DomainError
 from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
 from potbot.persistence.database import Database
 from potbot.persistence.outbox import FixtureWorker, Outbox
@@ -35,9 +35,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     inspect.add_argument("job_id", type=UUID)
     args = parser.parse_args(argv)
     try:
-        dsn = os.environ.get("POTBOT_DSN")
-        if not dsn:
-            raise InvalidInputError("Set POTBOT_DSN to a restricted application login.")
+        dsn = resolve_postgres_dsn()
         db = Database(dsn, args.schema)
         context = WorkspaceContext(args.workspace_id, args.principal_id)
         outbox = Outbox(db)

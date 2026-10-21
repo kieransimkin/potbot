@@ -1,0 +1,51 @@
+{
+  "cosine_scores": [
+    [
+      0.7404415794215069,
+      0.4517322464159195,
+      0.12101106158161595
+    ],
+    [
+      0.4810413694339083,
+      0.7241660053487526,
+      0.1740518317621094
+    ]
+  ],
+  "dimensions": 1024,
+  "elapsed_ms": 10796,
+  "finite_normalized": true,
+  "hard_timeout_ms": 120000,
+  "input_tokens": 98,
+  "isolation_backend": "bubblewrap-seccomp-v1",
+  "preparation_included": true,
+  "profile": {
+    "backend": "transformers",
+    "backend_version": "4.57.6",
+    "dimensions": 1024,
+    "document_format": "raw",
+    "generation": "standard-v1",
+    "max_batch_size": 4,
+    "max_input_tokens": 256,
+    "metric": "cosine",
+    "model": "Qwen/Qwen3-Embedding-0.6B",
+    "model_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+    "normalization": "l2",
+    "pooling": "last_token",
+    "precision": "float32",
+    "preprocessing": "identity-v1",
+    "query_instruction": "Retrieve relevant code, documentation, and proven workflows for the programming task",
+    "runtime_version": "2.9.1",
+    "schema_version": 1,
+    "tokenizer_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+  },
+  "profile_hash": "d19b19642eed0fa209f035a8e65c3e3c76659eaba52fb96233530e2b3f66e80b",
+  "qualification": "local_smoke_only",
+  "schema_version": 1,
+  "top_document_indices": [
+    0,
+    1
+  ],
+  "usage_origin": "measured",
+  "source_baseline": "ff5510e",
+  "test_scope": "real pinned Qwen worker through bubblewrap-seccomp-v1 with final namespace policy and stop proof"
+}

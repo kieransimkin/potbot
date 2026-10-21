@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from collections.abc import Sequence
 from dataclasses import replace
@@ -12,6 +11,12 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from potbot.dependencies import (
+    MODEL_DIRECTORY,
+    ConsoleProgress,
+    ensure_standard_model,
+    project_root,
+)
 from potbot.domain.embeddings import DEFAULT_EMBEDDING_NAME
 from potbot.domain.errors import DomainError, InvalidInputError
 from potbot.domain.syn import MAX_SYN_SNAPSHOT_BYTES, SynSnapshot, parse_type_ref
@@ -27,6 +32,7 @@ from .catalog import (
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="potbot syn", description=__doc__)
+    default_model_dir = project_root() / "models" / MODEL_DIRECTORY
     sub = parser.add_subparsers(dest="command", required=True)
     catalog = sub.add_parser(
         "catalog", help="inspect bundled native classes and protected data aliases offline"
@@ -68,9 +74,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             command.add_argument("--space-id", type=UUID, required=True)
             command.add_argument("--embedding-name", default=DEFAULT_EMBEDDING_NAME)
             command.add_argument("--runtime-budget-ms", type=int, default=60_000)
-            command.add_argument(
-                "--model-dir", type=Path, default=Path("models/qwen3-embedding-0.6b")
-            )
+            command.add_argument("--model-dir", type=Path, default=default_model_dir)
             command.add_argument("--max-input-tokens", type=int, default=2048)
         if name == "search":
             command.add_argument("--query", required=True)
@@ -102,6 +106,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if not args.summary:
                 output["types"] = [row.to_dict() for row in types]
         else:
+            from potbot.credentials import resolve_postgres_dsn
             from potbot.domain.auth import WorkspaceContext
             from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
             from potbot.persistence.database import Database
@@ -110,11 +115,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             if args.workspace_id is None or args.principal_id is None:
                 raise InvalidInputError("snapshot operations require workspace-id and principal-id")
-            dsn = os.environ.get("POTBOT_DSN")
-            if not dsn:
-                raise InvalidInputError(
-                    "set POTBOT_DSN to the provisioned restricted application login"
-                )
+            dsn = resolve_postgres_dsn()
             database = Database(dsn, schema=args.schema)
             context = WorkspaceContext(args.workspace_id, args.principal_id)
             artifacts = ArtifactStore(database, LocalArtifactBackend(args.artifact_root))
@@ -150,6 +151,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 from potbot.memory.local_encoder import QwenLocalEncoder
 
                 profile = replace(EmbeddingProfile(), max_input_tokens=args.max_input_tokens)
+                ensure_standard_model(
+                    project_root(), model_dir=args.model_dir, progress=ConsoleProgress()
+                )
                 embeddings = EmbeddingService(
                     database, artifacts, QwenLocalEncoder(args.model_dir, profile)
                 )

@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
 
+from potbot.dependencies import (
+    MODEL_DIRECTORY,
+    ConsoleProgress,
+    ensure_standard_model,
+    project_root,
+)
 from potbot.domain.embeddings import DEFAULT_EMBEDDING_NAME, SOURCE_TEXT_INPUT_FORMAT
 from potbot.domain.errors import DomainError, InvalidInputError
 from potbot.memory.embedding_profile import EmbeddingProfile
@@ -18,20 +23,22 @@ from potbot.memory.embedding_profile import EmbeddingProfile
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="potbot embedding", description=__doc__)
+    default_model_dir = project_root() / "models" / MODEL_DIRECTORY
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("profile", help="show the exact standard local embedding profile")
     setup = sub.add_parser("setup", help="download pinned model artifacts explicitly")
-    setup.add_argument("--model-dir", type=Path, default=Path("models/qwen3-embedding-0.6b"))
+    setup.add_argument("--model-dir", type=Path, default=default_model_dir)
     smoke = sub.add_parser("smoke", help="qualify local encoding without a database")
-    smoke.add_argument("--model-dir", type=Path, default=Path("models/qwen3-embedding-0.6b"))
+    smoke.add_argument("--model-dir", type=Path, default=default_model_dir)
     smoke.add_argument("--max-input-tokens", type=int, default=256)
+    smoke.add_argument("--timeout-ms", type=int, default=120_000)
     for name in ("register-space", "put", "index", "search", "retire", "manifest"):
         command = sub.add_parser(name)
         command.add_argument("--workspace-id", type=UUID, required=True)
         command.add_argument("--principal-id", type=UUID, required=True)
         command.add_argument("--schema", default="potbot")
         command.add_argument("--artifact-root", type=Path, default=Path("artifacts/objects"))
-        command.add_argument("--model-dir", type=Path, default=Path("models/qwen3-embedding-0.6b"))
+        command.add_argument("--model-dir", type=Path, default=default_model_dir)
         command.add_argument("--max-input-tokens", type=int, default=2048)
         if name in {"register-space", "index", "search"}:
             command.add_argument(
@@ -74,21 +81,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             from potbot.memory.local_encoder import QwenLocalEncoder
 
             profile = replace(EmbeddingProfile(), max_input_tokens=args.max_input_tokens)
+            ensure_standard_model(
+                project_root(), model_dir=args.model_dir, progress=ConsoleProgress()
+            )
             encoder = QwenLocalEncoder(args.model_dir, profile)
-            documents = encoder.encode(
+            documents = encoder.encode_supervised(
                 (
                     "A Python context manager closes its database connection when the block exits.",
                     "A database transaction commits changes atomically and rolls back on failure.",
                     "A CSS stylesheet controls colors, layout, and fonts.",
                 ),
                 "document",
+                timeout_ms=args.timeout_ms,
             )
-            queries = encoder.encode(
+            queries = encoder.encode_supervised(
                 (
                     "How can I ensure a database connection is closed?",
                     "How can I make database writes atomic?",
                 ),
                 "query",
+                timeout_ms=args.timeout_ms,
             )
             scores = [
                 [sum(a * b for a, b in zip(q, d, strict=True)) for d in documents.vectors]
@@ -109,22 +121,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "elapsed_ms": documents.elapsed_ms + queries.elapsed_ms,
                 "usage_origin": "measured",
                 "qualification": "local_smoke_only",
+                "isolation_backend": "bubblewrap-seccomp-v1",
+                "hard_timeout_ms": args.timeout_ms,
+                "preparation_included": True,
             }
         else:
+            from potbot.credentials import resolve_postgres_dsn
             from potbot.domain.auth import WorkspaceContext
             from potbot.memory.embeddings import EmbeddingService
             from potbot.memory.local_encoder import QwenLocalEncoder
             from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
             from potbot.persistence.database import Database
 
-            dsn = os.environ.get("POTBOT_DSN")
-            if not dsn:
-                raise InvalidInputError(
-                    "set POTBOT_DSN to the provisioned restricted application login"
-                )
+            dsn = resolve_postgres_dsn()
             database = Database(dsn, schema=args.schema)
             context = WorkspaceContext(args.workspace_id, args.principal_id)
             profile = replace(EmbeddingProfile(), max_input_tokens=args.max_input_tokens)
+            if args.command in {"index", "search"}:
+                ensure_standard_model(
+                    project_root(), model_dir=args.model_dir, progress=ConsoleProgress()
+                )
             service = EmbeddingService(
                 database,
                 ArtifactStore(database, LocalArtifactBackend(args.artifact_root)),

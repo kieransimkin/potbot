@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
@@ -20,17 +21,24 @@ from potbot.domain.embeddings import (
     SOURCE_TEXT_INPUT_FORMAT,
     validate_embedding_name,
 )
-from potbot.domain.errors import InvalidInputError, RevisionConflictError, ScopeDeniedError
+from potbot.domain.errors import (
+    InvalidInputError,
+    RevisionConflictError,
+    ScopeDeniedError,
+    StateMismatchError,
+)
 from potbot.domain.serialization import content_hash
 from potbot.memory.embedding_profile import (
     EmbeddingBatch,
     EmbeddingProfile,
     EmbeddingProvider,
+    SupervisedEmbeddingProvider,
     validate_vector,
 )
 from potbot.persistence.artifacts import ArtifactStore
 from potbot.persistence.database import Database
 from potbot.persistence.embedding_sources import register_source_in_transaction
+from potbot.persistence.evidence import EvidenceStore
 
 
 class EmbeddingService:
@@ -205,6 +213,7 @@ class EmbeddingService:
         *,
         provider: EmbeddingProvider,
         profile: EmbeddingProfile,
+        cancelled: Callable[[], bool] | None = None,
     ) -> tuple[EmbeddingBatch, UUID]:
         if type(runtime_budget_ms) is not int or not 1 <= runtime_budget_ms <= 3_600_000:
             raise InvalidInputError("embedding runtime reservation must be bounded")
@@ -227,18 +236,44 @@ class EmbeddingService:
         reservation_id = UUID(str(reservation["id"]))
         started = time.monotonic()
         encoding_started = False
+        supervised = isinstance(provider, SupervisedEmbeddingProvider)
         try:
-            tokens = provider.count_tokens((text,), kind)
-            self._assert_provider(provider, profile)
-            if type(tokens) is not int or not 0 < tokens <= profile.max_input_tokens:
-                raise InvalidInputError("provider input exceeds the registered token bound")
-            encoding_started = True
-            result = provider.encode((text,), kind)
+            if isinstance(provider, SupervisedEmbeddingProvider):
+                encoding_started = True
+
+                def should_cancel() -> bool:
+                    if cancelled is not None and cancelled():
+                        return True
+                    with self.database.transaction(context) as conn:
+                        row = conn.execute(
+                            "SELECT status FROM episodes WHERE workspace_id=%s AND id=%s",
+                            (context.workspace_id, episode_id),
+                        ).fetchone()
+                        return row is None or row["status"] != "running"
+
+                result = provider.encode_supervised(
+                    (text,), kind, timeout_ms=runtime_budget_ms, cancelled=should_cancel
+                )
+            else:
+                # Synthetic/test providers retain their explicit accounting-only
+                # contract. Production local Qwen always selects the supervised path.
+                tokens = provider.count_tokens((text,), kind)
+                self._assert_provider(provider, profile)
+                if type(tokens) is not int or not 0 < tokens <= profile.max_input_tokens:
+                    raise InvalidInputError("provider input exceeds the registered token bound")
+                encoding_started = True
+                result = provider.encode((text,), kind)
             if not isinstance(result, EmbeddingBatch):
                 raise InvalidInputError("embedding provider returned an untyped result")
-        except BaseException:
-            if encoding_started:
+            if not 0 < result.input_tokens <= profile.max_input_tokens:
+                raise InvalidInputError("embedding provider returned invalid input usage")
+        except BaseException as error:
+            process_result = getattr(error, "result", None)
+            stop_uncertain = process_result is not None and not process_result.processes_stopped
+            if getattr(error, "dispatched", encoding_started) or stop_uncertain:
                 # Missing usage after dispatch is never assumed to be free.
+                # A missing stop proof also prevents releasing the reservation,
+                # even if startup acknowledgement was lost before dispatch.
                 self.budgets.mark_indeterminate(
                     context, reservation_id, "embedding provider did not return confirmed usage"
                 )
@@ -248,6 +283,27 @@ class EmbeddingService:
                     reservation_id,
                     {"tokens": 0, "calls": 0, "tool_ms": int((time.monotonic() - started) * 1000)},
                     origin="measured",
+                )
+            if supervised:
+                EvidenceStore(self.database).append(
+                    context,
+                    "embedding_worker_outcome",
+                    episode_id=episode_id,
+                    producer_id="potbot.local_embedding_supervisor",
+                    details={
+                        "reservation_id": str(reservation_id),
+                        "profile_hash": profile.fingerprint,
+                        "input_kind": kind,
+                        "input_hash": hashlib.sha256(
+                            profile.prepare(text, kind).encode()
+                        ).hexdigest(),
+                        "outcome": getattr(process_result, "outcome", "inconclusive"),
+                        "error_code": str(getattr(error, "code", "internal_error")),
+                        "dispatched": bool(getattr(error, "dispatched", encoding_started)),
+                        "elapsed_ms": int((time.monotonic() - started) * 1000),
+                        "isolation_identity": getattr(process_result, "isolation_identity", None),
+                        "processes_stopped": getattr(process_result, "processes_stopped", False),
+                    },
                 )
             raise
         elapsed_ms = int((time.monotonic() - started) * 1000)
@@ -261,6 +317,23 @@ class EmbeddingService:
             },
             origin=result.usage_origin,
         )
+        if supervised:
+            EvidenceStore(self.database).append(
+                context,
+                "embedding_worker_outcome",
+                episode_id=episode_id,
+                producer_id="potbot.local_embedding_supervisor",
+                details={
+                    "reservation_id": str(reservation_id),
+                    "profile_hash": profile.fingerprint,
+                    "input_kind": kind,
+                    "input_hash": hashlib.sha256(profile.prepare(text, kind).encode()).hexdigest(),
+                    "outcome": "completed",
+                    "dispatched": True,
+                    "elapsed_ms": elapsed_ms,
+                    "publication": "pending_source_and_task_fence",
+                },
+            )
         # Confirmed compute is charged even when a mutable provider changed its
         # configuration during dispatch. Such a vector never enters the old space.
         self._assert_provider(provider, profile)
@@ -268,6 +341,15 @@ class EmbeddingService:
             raise InvalidInputError("embedding provider returned the wrong batch size")
         validate_vector(result.vectors[0])
         return result, reservation_id
+
+    @staticmethod
+    def _publication_allowed(conn: Any, context: WorkspaceContext, episode_id: UUID) -> None:
+        row = conn.execute(
+            "SELECT status FROM episodes WHERE workspace_id=%s AND id=%s FOR UPDATE",
+            (context.workspace_id, episode_id),
+        ).fetchone()
+        if row is None or row["status"] != "running":
+            raise StateMismatchError("embedding operation was fenced before publication")
 
     def index_source(
         self,
@@ -278,6 +360,7 @@ class EmbeddingService:
         *,
         embedding_name: str = DEFAULT_EMBEDDING_NAME,
         runtime_budget_ms: int = 60_000,
+        cancelled: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
         validate_embedding_name(embedding_name)
         provider = self.provider
@@ -305,8 +388,10 @@ class EmbeddingService:
             runtime_budget_ms,
             provider=provider,
             profile=profile,
+            cancelled=cancelled,
         )
         with self.database.transaction(context) as conn:
+            self._publication_allowed(conn, context, episode_id)
             self._assert_provider(provider, profile)
             head = conn.execute(
                 "SELECT * FROM embedding_source_heads WHERE workspace_id=%s AND repository_id=%s AND source_key=%s FOR UPDATE",
@@ -351,6 +436,7 @@ class EmbeddingService:
         limit: int = 5,
         runtime_budget_ms: int = 60_000,
         source_ids: tuple[UUID, ...] | None = None,
+        cancelled: Callable[[], bool] | None = None,
     ) -> list[dict[str, Any]]:
         validate_embedding_name(embedding_name)
         if type(limit) is not int or not 1 <= limit <= 100:
@@ -385,8 +471,10 @@ class EmbeddingService:
             runtime_budget_ms,
             provider=provider,
             profile=profile,
+            cancelled=cancelled,
         )
         with self.database.transaction(context) as conn:
+            self._publication_allowed(conn, context, episode_id)
             self._assert_provider(provider, profile)
             # No approximate index is used in this first integration. Rejoining
             # current heads prevents retired or superseded sources reappearing.

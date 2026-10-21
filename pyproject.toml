@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "potbot"
-version = "0.2.0"
+version = "0.5.0.dev1"
 description = "Foundation for an evidence-driven, multi-model coding agent"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,8 @@ dependencies = []
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]
 embeddings = ["transformers==4.57.6", "torch==2.9.1"]
+semantics = ["jsonschema>=4.26,<5"]
+credentials = ["keyring==25.7.0"]
 
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
@@ -36,11 +38,15 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/potbot"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"vocab" = "potbot/semantics/data"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --strict-config --import-mode=importlib -ra"
 markers = [
   "postgres: requires an explicitly configured real PostgreSQL test database",
+  "sandbox: requires a functional Linux bubblewrap and libseccomp isolation boundary",
 ]
 
 [tool.ruff]

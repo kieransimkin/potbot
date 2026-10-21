@@ -32,22 +32,33 @@ a time, while the local adapter supports bounded batches.
 
 ## Install and verify the local provider
 
+Phase 3 runs the standard local provider in a supervised Linux worker. Install
+Bubblewrap and libseccomp, and ensure private user/PID/mount/network namespaces are
+available. Unsupported or restricted hosts return `capability_unavailable`; they do
+not run the model outside the required boundary. Model files may be downloaded on
+another platform, but inference currently requires this qualified Linux backend.
+See [Phase 3](phase-3.md) for the launch profile and platform limits.
+
 ```bash
-uv sync --locked --extra postgres --extra embeddings --dev
+uv sync --locked --extra postgres --extra semantics --extra embeddings --dev
 uv run --locked potbot embedding setup --model-dir models/qwen3-embedding-0.6b
 uv run --locked potbot embedding smoke --model-dir models/qwen3-embedding-0.6b
 ```
 
-Setup downloads six exact-revision files, about 1.21 GB total, and atomically writes
+Phase 4's shared dependency downloader downloads six exact-revision files, about 1.21 GB total, and atomically writes
 `potbot-model.json` with every SHA256 and byte count. Inference verifies this manifest
 before loading with `local_files_only=True` and `trust_remote_code=False`. A missing,
-changed or incompatible model fails explicitly. Setup requires a new empty directory;
-an interrupted setup can be retried in a fresh directory. Runtime never downloads or
-switches providers. The weights and generated model manifest are excluded from Git.
+changed or incompatible model fails explicitly. Setup verifies and reuses complete
+installations and resumes owned partial downloads with visible progress. CLI encoding
+commands prepare the model before starting the worker; the worker itself remains
+local-only and never switches providers. The weights and generated model manifest
+are excluded from Git. `potbot dependencies status|download` exposes the same manager;
+see [startup and dependencies](startup.md).
 
-The standalone smoke uses a 256-token profile and a small fixed corpus. It checks
-finite normalized vectors and two expected rankings. It is an installation check,
-not broad retrieval-quality qualification.
+The standalone smoke uses a 256-token profile and a small fixed corpus. It runs
+preparation and inference inside the same supervised worker as the service and checks
+finite normalized vectors and two expected rankings. It is an installation check;
+broad retrieval-quality qualification remains separate.
 
 ## PostgreSQL sources and retrieval
 
@@ -154,10 +165,17 @@ Preparation failures charge confirmed preparation time; uncertain failures after
 dispatch hold the reservation for reconciliation. Paused/blocked tasks cannot dispatch.
 
 The default runtime reservation is 60,000 ms, selectable with `--runtime-budget-ms`.
-Actual overruns are retained and may exhaust the task. This phase does not yet enforce
-a hard process kill at that limit. It also does not automatically queue indexing on
-source registration; callers explicitly index sources, using the shared durable
-source-generation and budget safeguards. Background memory workers will integrate
+Phase 3 also uses this allowance as a hard worker deadline covering preparation and
+inference. Cancellation and deadline expiry trigger process termination and bounded
+cleanup. A worker cannot publish vectors unless its result identity is valid, all
+processes are confirmed stopped, and the task, provider profile and source generation
+still match. Observed runtime, including cleanup, is retained even if it exceeds the
+reservation. Missing stop proof holds the reservation, including when startup
+acknowledgment was lost; it is never treated as confirmed unused capacity.
+
+Deterministic providers used by the SQL tests explicitly retain their synthetic,
+accounting-only contract. Production Qwen calls use process supervision. Indexing is
+still explicit after source registration; background memory workers will integrate
 with the outbox in the planned memory phases.
 
 ## Reproduce the real encoder + database check
@@ -179,9 +197,11 @@ checks measured budget settlement. Missing weights or services fail this check.
 It is not automatically collected by ordinary CI; deterministic provider tests cover
 the SQL and failure contracts there. Synthetic test usage is labeled synthetic.
 
-The recorded delivery run is in `embedding-verification.json`. The expected database
+The original Phase 2 delivery run is in `embedding-verification.json`. The expected database
 cleanup source ranked first with cosine distance about 0.260, ahead of a CSS distractor
-at about 0.879. These tiny-corpus measurements establish integration correctness only.
+at about 0.879. The supervised Phase 3 smoke is recorded separately in
+`phase-3-embedding-verification.json`; the earlier report is preserved as historical
+evidence. These tiny-corpus measurements establish integration correctness only.
 
 Primary references: [Qwen model card](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B),
 [pinned source revision](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B/tree/97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3),

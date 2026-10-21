@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib import import_module
+from typing import Any
 
 from potbot.domain.serialization import content_hash
 
@@ -102,15 +104,33 @@ BASE_MIGRATION = SchemaMigration(
 )
 
 
-def application_migrations() -> tuple[SchemaMigration, ...]:
+def application_migrations(*, lineage: str = "main") -> tuple[SchemaMigration, ...]:
     """All shipped revisions in dependency order; missing modules are failures."""
     migrations = [BASE_MIGRATION]
+    if lineage not in {"main", "phase3-preview"}:
+        raise ValueError("Unknown application migration lineage")
+    extensions = (
+        (
+            (6, "syn_schema"),
+            (7, "repository_schema"),
+            (8, "semantic_schema"),
+            (9, "execution_schema"),
+        )
+        if lineage == "main"
+        else (
+            (6, "repository_schema"),
+            (7, "semantic_schema"),
+            (8, "execution_schema"),
+            (9, "syn_schema"),
+        )
+    )
     for version, module_name in (
         (2, "evidence_schema"),
         (3, "task_schema"),
         (4, "model_schema"),
         (5, "named_vector_schema"),
-        (6, "syn_schema"),
+        *extensions,
+        (10, "phase4_schema"),
     ):
         module = import_module(f"potbot.persistence.{module_name}")
         migrations.append(
@@ -123,3 +143,14 @@ def application_migrations() -> tuple[SchemaMigration, ...]:
             )
         )
     return tuple(migrations)
+
+
+def migrations_for_history(applied: Sequence[Mapping[str, Any]]) -> tuple[SchemaMigration, ...]:
+    """Join both published pre-Phase-4 histories without rewriting either ledger.
+
+    GitHub shipped SYN as revision 6 while the Phase 3 ZIP independently shipped
+    repository/semantic/execution revisions 6–8. Each known history reaches the
+    same schema at revision 9. The caller still checks every original checksum.
+    """
+    legacy = len(applied) >= 6 and applied[5].get("name") == "repository_schema"
+    return application_migrations(lineage="phase3-preview" if legacy else "main")

@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "application_version": "0.3.0",
+  "source_repository": "https://github.com/kieransimkin/potbot",
+  "source_baseline": "ff5510e75a16e9fa8b2a8c4a3008e4a568a0ad87",
+  "source_branch": "feature/phase-3-repository-execution",
+  "completed_steps": [
+    "P022",
+    "P023",
+    "P024",
+    "P025",
+    "P154",
+    "P155",
+    "P026",
+    "P027",
+    "P028",
+    "P029",
+    "P030",
+    "P031",
+    "P032",
+    "P033",
+    "P034",
+    "P156",
+    "P157"
+  ],
+  "verification_command": "uv run --locked python scripts/check.py --with-postgres --with-sandbox",
+  "verification": {
+    "schema_version": 1,
+    "started_at": "2026-10-21T13:36:41.418635+00:00",
+    "finished_at": "2026-10-21T13:38:20.396874+00:00",
+    "postgres_requested": true,
+    "sandbox_requested": true,
+    "success": true,
+    "checks": [
+      {
+        "check": "lint",
+        "exit_code": 0
+      },
+      {
+        "check": "format",
+        "exit_code": 0
+      },
+      {
+        "check": "types",
+        "exit_code": 0
+      },
+      {
+        "check": "unit-and-git",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-build",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-environment",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-install",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-version",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-domain",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-execution-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-semantic-catalog",
+        "exit_code": 0
+      },
+      {
+        "check": "db-bootstrap",
+        "exit_code": 0
+      },
+      {
+        "check": "db-create",
+        "exit_code": 0
+      },
+      {
+        "check": "db-migrate",
+        "exit_code": 0
+      },
+      {
+        "check": "db-check",
+        "exit_code": 0
+      },
+      {
+        "check": "postgres",
+        "exit_code": 0
+      },
+      {
+        "check": "db-cleanup",
+        "exit_code": 0
+      },
+      {
+        "check": "sandbox",
+        "exit_code": 0
+      }
+    ]
+  },
+  "test_suites": [
+    {
+      "suite": "unit-and-git",
+      "tests": 342,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 4.518
+    },
+    {
+      "suite": "postgres",
+      "tests": 87,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 61.017
+    },
+    {
+      "suite": "sandbox",
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 30.878
+    }
+  ],
+  "total_tests_passed": 459,
+  "total_tests_skipped": 0,
+  "runtime": {
+    "python": "3.12.14",
+    "platform": "Linux",
+    "architecture": "x86_64",
+    "postgres_version_num": 170011,
+    "pgvector": "0.8.7",
+    "pytest": "9.1.1",
+    "ruff": "0.17.1",
+    "mypy": "1.20.2",
+    "isolation_backend": "bubblewrap-seccomp-v1"
+  },
+  "migrations": [
+    {
+      "version": 1,
+      "name": "scoped_identity_tasks_commands",
+      "checksum": "dad7fcb6afd1720b427fb27bc18dfb182f0428112d78696554c7c941d1b04a7d"
+    },
+    {
+      "version": 2,
+      "name": "evidence_schema",
+      "checksum": "56ee825cfe2e989dc29c8f520bbca85ba4f314691ef750e2a50712afc300576b"
+    },
+    {
+      "version": 3,
+      "name": "task_schema",
+      "checksum": "309b25df22966997cd26693cb99e374b9bb9aaf19d5bc86b09d5113e90ea9a47"
+    },
+    {
+      "version": 4,
+      "name": "model_schema",
+      "checksum": "65bfab18f6bb93d788bd220387780544f93c1b236a11c774d1f6e28602ea8941"
+    },
+    {
+      "version": 5,
+      "name": "named_vector_schema",
+      "checksum": "5456f844a46117a94a61b50b9e44896890ef25b3a8870d1b29e243aed9bcfc92"
+    },
+    {
+      "version": 6,
+      "name": "repository_schema",
+      "checksum": "fab5e81a276e9b952e081e9262bd0bdf82616bb644219764f9f7e42a406c0ab8"
+    },
+    {
+      "version": 7,
+      "name": "semantic_schema",
+      "checksum": "b8fc76d2463d26d803dbaf8206326442fba9e1e521f48828e9ac5700c01b7aae"
+    },
+    {
+      "version": 8,
+      "name": "execution_schema",
+      "checksum": "0bd0651a6f69ec6c0eb73110352c87e38017420e4fe131ae7db25fb642c79223"
+    }
+  ],
+  "populated_upgrade": {
+    "from": 5,
+    "to": 8,
+    "historical_migrations_unchanged": true,
+    "test": "tests/integration/test_phase3_upgrade.py",
+    "preserved": [
+      "contract/configuration hashes",
+      "version-1 context packet",
+      "evidence records",
+      "named embedding identity/vector values",
+      "usage accounting",
+      "applied migration ledger"
+    ],
+    "legacy_semantic_backfill": false
+  },
+  "live_embedding_smoke": {
+    "success": true,
+    "report": "docs/phase-3-embedding-verification.json",
+    "qualification": "real local model smoke, separate from the deterministic test total"
+  },
+  "qualification_limits": [
+    "Linux x86_64 with Bubblewrap/libseccomp and permitted namespaces; no native Windows/macOS execution or host fallback.",
+    "Resource ceilings are per process; aggregate memory, process count and workspace disk quotas are not implemented.",
+    "Repository snapshots are bounded and do not materialize submodule contents.",
+    "Direct networking is denied; repository dependencies must be provisioned as explicit runtime assets.",
+    "Secret redaction covers declared representations, not arbitrary hostile transformations.",
+    "Missing or mismatched completion proof remains indeterminate; no exactly-once subprocess claim.",
+    "Default model catalog entries remain unqualified; autonomous coding, MCP transports, live search and custom embeddings are later work."
+  ],
+  "evidence_sha256": {
+    "db-bootstrap.log": "73548a8b32da591175bc88fdbc6f2adf360501948c038b3bda4b229e95740c90",
+    "db-check.log": "2a6fad9fe36594b864f4fc990219bfe041967d249c6669945f72e7604f371bc7",
+    "db-cleanup.log": "161290a3a52a36f4b56f270976454460029980060183aa86d7290f613dd07313",
+    "db-create.log": "ef84c912ace3afa01d9b863bdfd29343eac4376f3cc090c9d7b1afb95a4a4935",
+    "db-migrate.log": "4eb13d5ca65977fcab50ad4dab5083aef9dfb06c3ba9037b3061cb08b824a268",
+    "format.log": "67e4bf8f396fefa7f8830b9533fb5eb02129af09cf3d399e36ec9c6d6b248625",
+    "installed-domain.log": "ec4aacc86e9e0e343afbf73d9440ae43043c03b62639da4a7d735021ed2fb0d6",
+    "installed-execution-help.log": "c96a08d8f71db0885b5cdedd7bb0b635098a2ffd12a6950cb87e0f0f088da1e6",
+    "installed-help.log": "2c3bd17b17847cb94f32120783186f93b6ff3ac96fc9fdc9ca2b06d2b60e3833",
+    "installed-semantic-catalog.log": "fc191b83aadb06d9c6fd6c101cd2c00c8b2f58562b0292884e967c6e1001b8a1",
+    "installed-version.log": "c0258e8601acf7f3489138c8e7e4a46b50bcc10f71ec6c9be65be25bef7969a0",
+    "lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "postgres.log": "1d1afef057aa6b538db5d5b81dca6d8a0a60ea8c9358074d05d0275fd12a9a12",
+    "postgres.xml": "85c6ed76776b109479729e75cfaeacf4e551034d03902b46d5a63a2f2a93216a",
+    "sandbox.log": "dece6115fc3a35d3970667067b8fb65920c5ac9aaba8ca82475d32807c31dc23",
+    "sandbox.xml": "4bc60ad4a6901a81ae62cebc9bbd6af920d01a88fec93f797de8a66fdb7e2db4",
+    "summary.json": "6b83929effdf9d9b911ee06d21739344be4fdf1c229ff53a1e494b9413af959a",
+    "types.log": "e01191578d3a3bac202cef72aec747f3048def999e4a0906368a5b91b8849682",
+    "unit-and-git.log": "da349d328d217d7dfb12343b6ba137d7ba5879c0ea6af86bdf01de59d1d5f314",
+    "unit-and-git.xml": "fcb04658c4adac0159f4aeae2247ffb28988b3e34ea3e9ac76798aed1b11d998",
+    "wheel-build.log": "297ea5c2b621a4b37a4a9f06f7b82ed6132a0e59191b58c17467d43378a80ac5",
+    "wheel-environment.log": "41ba323f50470fb9eab1f5fbaeb7ba426e5acb981cdd6e0578bc33f82bf2d4fc",
+    "wheel-install.log": "f946435bfe023754b89479b1561d0fdac730e005ecbcd9e55f83f218514c07d3"
+  }
+}

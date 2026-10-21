@@ -6,13 +6,12 @@ import hashlib
 import importlib
 import importlib.metadata
 import json
-import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
 from potbot.domain.errors import InvalidInputError, ModelUnavailableError
-from potbot.domain.serialization import canonical_json
 from potbot.memory.embedding_profile import (
     QWEN_MODEL,
     QWEN_REVISION,
@@ -44,38 +43,10 @@ def _digest(path: Path) -> str:
 
 
 def setup_local_model(model_dir: Path) -> dict[str, Any]:
-    """Explicit operator download of pinned public files; never called by encode."""
-    if model_dir.exists() and any(model_dir.iterdir()):
-        raise InvalidInputError("setup requires a new empty model directory")
-    model_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        hub = importlib.import_module("huggingface_hub")
-    except ImportError as error:
-        raise LocalModelUnavailable(
-            "install potbot[embeddings] before explicit model setup"
-        ) from error
-    for name in MODEL_FILES:
-        hub.hf_hub_download(
-            repo_id=QWEN_MODEL, revision=QWEN_REVISION, filename=name, local_dir=str(model_dir)
-        )
-    files = {
-        name: {"sha256": _digest(model_dir / name), "bytes": (model_dir / name).stat().st_size}
-        for name in MODEL_FILES
-    }
-    manifest = {
-        "schema_version": 1,
-        "model": QWEN_MODEL,
-        "revision": QWEN_REVISION,
-        "tokenizer_revision": QWEN_REVISION,
-        "files": files,
-    }
-    temporary = model_dir / f".{MANIFEST}.tmp"
-    with temporary.open("x", encoding="utf-8") as stream:
-        stream.write(canonical_json(manifest) + "\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, model_dir / MANIFEST)
-    return manifest
+    """Explicit, resumable setup with pinned hashes; never called by encode."""
+    from potbot.dependencies import ConsoleProgress, ensure_standard_model, project_root
+
+    return ensure_standard_model(project_root(), model_dir=model_dir, progress=ConsoleProgress())
 
 
 def verify_local_model(model_dir: Path, profile: EmbeddingProfile) -> None:
@@ -164,6 +135,21 @@ class QwenLocalEncoder:
 
     def count_tokens(self, texts: tuple[str, ...], kind: Literal["query", "document"]) -> int:
         return self._inputs(texts, kind)[1]
+
+    def encode_supervised(
+        self,
+        texts: tuple[str, ...],
+        kind: Literal["query", "document"],
+        *,
+        timeout_ms: int,
+        cancelled: Callable[[], bool] | None = None,
+    ) -> EmbeddingBatch:
+        """Production service entry: preparation and inference share one deadline."""
+        from potbot.memory.supervised_encoder import SupervisedQwenEncoder
+
+        return SupervisedQwenEncoder(self.model_dir, self.profile).encode_supervised(
+            texts, kind, timeout_ms=timeout_ms, cancelled=cancelled
+        )
 
     def encode(self, texts: tuple[str, ...], kind: Literal["query", "document"]) -> EmbeddingBatch:
         start = time.monotonic()

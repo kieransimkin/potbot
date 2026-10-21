@@ -1,0 +1,841 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "application_version": "0.5.0.dev1",
+  "phase": 5,
+  "title": "Model foundation and deterministic gateway",
+  "phase_status": "partial",
+  "source_baseline": "88de7ee06ca985015527618bf8ca7ffb8fdf3755",
+  "prerequisite": "Previously delivered Phase 4 update (0.4.0)",
+  "local_phase4_baseline_commit": "41f8f3abae9d861573bfb08194026947a20a9b70",
+  "approved_plan_revision": {
+    "version": "1.1",
+    "date": "2026-10-21",
+    "project": "potbot",
+    "architecture_baseline": "1.1",
+    "semantic_design_release": "0.1.0",
+    "original_ids_preserved": true,
+    "new_steps": [
+      "P154",
+      "P155",
+      "P156",
+      "P157",
+      "P158",
+      "P159",
+      "P160",
+      "P161",
+      "P162",
+      "P163",
+      "P164",
+      "P165",
+      "P166",
+      "P167",
+      "P168",
+      "P169",
+      "P170",
+      "P171",
+      "P172",
+      "P173",
+      "P174",
+      "P175",
+      "P176",
+      "P177",
+      "P178",
+      "P179",
+      "P180",
+      "P181",
+      "P182",
+      "P183",
+      "P184",
+      "P185",
+      "P186",
+      "P187",
+      "P188",
+      "P189",
+      "P190",
+      "P191",
+      "P192",
+      "P193",
+      "P194",
+      "P195",
+      "P196",
+      "P197",
+      "P198",
+      "P199",
+      "P200",
+      "P201",
+      "P202",
+      "P203",
+      "P204"
+    ],
+    "new_gates": [
+      "G25",
+      "G26",
+      "G27",
+      "G28",
+      "G29",
+      "G30",
+      "G31",
+      "G32",
+      "G33",
+      "G34",
+      "G35"
+    ],
+    "new_requirements": [
+      "U10",
+      "U11",
+      "U12",
+      "U13",
+      "U14",
+      "U15"
+    ]
+  },
+  "approved_plan_sha256": "b9a60f20564cc3f16cebb1ea64b57c0851d8053b7ca5884bafb682b2cbfa6a4f",
+  "steps": [
+    {
+      "key": "R03",
+      "title": "Adapt registered actions into bounded model proposals",
+      "phase_hint": "Model foundation",
+      "depends_on": [
+        "P019",
+        "P028",
+        "P156"
+      ],
+      "deliverables": [
+        "Reuse the durable action schema for ActionProposal version 1, adding model response framing, proposal bounds, purpose, information needs, expected observations, criteria, and resource class.",
+        "Bind action-specific arguments, dependencies, preconditions, stop conditions, and controller identity echoes to the existing action registry rather than defining competing execution records.",
+        "Define a bounded predicate language and fail-closed evaluator over known task, repository, and environment fields, returning satisfied, unsatisfied, or unknown without executing arbitrary expressions."
+      ],
+      "acceptance": [
+        "Valid repository inspection, memory lookup, external search, example lookup, experiment, and implementation proposals deserialize through their declared action schemas.",
+        "Unknown action discriminators, malformed or excessive proposals, and unknown predicate fields or operators fail validation or yield an explicit unknown result; no tool is invoked."
+      ],
+      "trace_sections": [
+        "Reference controller algorithm",
+        "Active investigation and source acquisition",
+        "Semantic types and meaning contracts",
+        "MCP integration"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P041",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S18",
+        "S09",
+        "S30",
+        "S31"
+      ],
+      "optional": false,
+      "notes": "Render only the relevant registered type and tool subset for the small reasoner, while keeping complete catalogs queryable. No model invents a registry term or callable tool.",
+      "status": "implemented",
+      "implemented_scope": "Bounded model proposal framing, installed-tool admission, identity/reference checking and tri-state predicates.",
+      "implementation_files": [
+        "src/potbot/domain/model_proposals.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_proposals.py"
+      ],
+      "remaining": [],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R04",
+      "title": "Connect typed coding handoffs to model output",
+      "phase_hint": "Model foundation",
+      "depends_on": [
+        "P036",
+        "P041"
+      ],
+      "deliverables": [
+        "Connect the existing ImplementationContract to reasoner generation and coder rendering, preserving task revision, subgoal, base, environment, scope, compatibility, evidence, assumptions, and verification criteria.",
+        "Adapt model responses into the existing CodingResult contract with invocation provenance, patch or inability, changed files, proposed checks, and raised information needs; retain scripted producer compatibility."
+      ],
+      "acceptance": [
+        "Changing a handoff's required behavior or permitted scope creates a new immutable contract instead of mutating an existing assignment.",
+        "A result cannot claim both a successful patch and a classified inability; a focused information need is accepted without fabricating a patch or marking the task complete."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Reference controller algorithm"
+      ],
+      "gates": [],
+      "size": "S",
+      "id": "P042",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S18"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Existing immutable coding handoffs render to recipients; complete model results admit durably into existing coding records with focused information needs.",
+      "implementation_files": [
+        "src/potbot/domain/model_proposals.py",
+        "src/potbot/controller/model_coding.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_proposals.py",
+        "tests/integration/test_model_coding.py"
+      ],
+      "remaining": [
+        "Generate new immutable implementation contracts from reasoner output."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R05",
+      "title": "Add the recipient-specific context rendering interface",
+      "phase_hint": "Model foundation",
+      "depends_on": [
+        "P042"
+      ],
+      "deliverables": [
+        "Select mandatory task records and render them through deployment-specific tokenizer, chat, role, and response templates, reserving output space and exposing an optional-memory bundle interface.",
+        "Persist exact rendered input, ordered source references, template versions, tokenizer accounting, and the originating baseline knowledge view without requiring persistent-memory retrieval."
+      ],
+      "acceptance": [
+        "The same authoritative input renders through two fixture tokenizers with different usable limits and produces independently reproducible packet records.",
+        "An overflowing optional bundle is omitted or narrowed with its reason recorded; mandatory requirements or an essential qualification are never silently truncated, and mandatory overflow returns context_overflow."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Retrieval and context assembly",
+        "Semantic types and meaning contracts"
+      ],
+      "gates": [
+        "G15",
+        "G21"
+      ],
+      "size": "M",
+      "id": "P043",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S12",
+        "S30"
+      ],
+      "optional": false,
+      "notes": "Retain explicit type/version and qualifier references in compact contexts; full semantic packet rendering is implemented separately in P197.",
+      "status": "implemented",
+      "implemented_scope": "Task-aware exact recipient contexts, input/output accounting, source rehashing, persistence and whole optional memory/qualification bundles.",
+      "implementation_files": [
+        "src/potbot/models/context.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_context_rendering.py",
+        "tests/integration/test_context_persistence.py"
+      ],
+      "remaining": [],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R06",
+      "title": "Validate model envelopes and bound repair attempts",
+      "phase_hint": "Model foundation",
+      "depends_on": [
+        "P043"
+      ],
+      "deliverables": [
+        "Add constrained-output negotiation where supported and a validated envelope fallback where it is unavailable.",
+        "Implement configurable bounded repair with separately recorded invocations, original output retention, and a terminal schema_violation classification after exhaustion."
+      ],
+      "acceptance": [
+        "A malformed response followed by a valid repair produces one accepted proposal while preserving both raw outputs and their usage records.",
+        "An exhausted repair allowance, incomplete stream, or prose pretending to be an action produces no executable proposal; structurally valid responses remain untrusted until controller semantic validation."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Reference controller algorithm"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P044",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S18"
+      ],
+      "optional": false,
+      "status": "implemented",
+      "implemented_scope": "Strict complete envelopes, output capability negotiation helper and bounded, separately retained and budgeted repairs in the offline gateway.",
+      "implementation_files": [
+        "src/potbot/models/envelopes.py",
+        "src/potbot/models/gateway.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_envelopes.py",
+        "tests/integration/test_inference_gateway.py"
+      ],
+      "remaining": [],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R14",
+      "title": "Require atomic inference reservations before dispatch",
+      "phase_hint": "Controller foundation",
+      "depends_on": [
+        "P015",
+        "P019"
+      ],
+      "deliverables": [
+        "Wire generation, repair, and reviewer dispatch to the existing atomic ledger for token, inference-time, monetary, worker-slot, and applicable search allowances.",
+        "Require stable operation identities and successful task-wide reservations before model work enters a runnable queue; share aggregate capacity with tool and source operations."
+      ],
+      "acceptance": [
+        "Two generation workers competing for the last available allowance cannot both dispatch; the rejected request records budget_unavailable without contacting the backend.",
+        "Replaying an identical reservation request returns its existing operation, while reusing its key with changed amounts fails; a cancelled queue entry releases capacity only through the defined ledger transition."
+      ],
+      "trace_sections": [
+        "Configuration and resource scheduling",
+        "Transactions and concurrency"
+      ],
+      "gates": [
+        "G22"
+      ],
+      "size": "M",
+      "id": "P045",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S20",
+        "S16"
+      ],
+      "optional": false,
+      "status": "implemented",
+      "implemented_scope": "Stable operation identities and atomic task-ledger reservations before fixture generation, repair or reviewer dispatch.",
+      "implementation_files": [
+        "src/potbot/models/gateway.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_inference_gateway.py"
+      ],
+      "remaining": [],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "X26",
+      "title": "Prepare a reproducible inference host profile",
+      "phase_hint": "model_foundation",
+      "depends_on": [
+        "P018",
+        "P029"
+      ],
+      "size": "M",
+      "deliverables": [
+        "A documented local runtime or configured endpoint profile with backend version, model access, weight/tokenizer revisions, available devices, and secret references.",
+        "A preflight command checking connectivity or loading feasibility and producing resource observations without marking the deployment qualified."
+      ],
+      "acceptance": [
+        "The chosen host can serve one pinned deployment or returns an explicit resource/access blocker, with all configuration needed for a later live run recorded.",
+        "A missing weight revision, inaccessible endpoint, or insufficient host capacity cannot silently select another model or claim conformance."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Configuration and resource scheduling"
+      ],
+      "gates": [],
+      "id": "P046",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S20"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Pinned local host profile, file/template/backend checks and read-only CPU feasibility observations.",
+      "implementation_files": [
+        "src/potbot/models/preflight.py",
+        "src/potbot/models/profiles.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_preflight.py",
+        "tests/unit/test_model_profiles.py"
+      ],
+      "remaining": [
+        "Supervised real model loading and connectivity/access qualification.",
+        "Actual GPU observations through a device adapter."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "X32",
+      "title": "Enforce provider destination and disclosure policies",
+      "phase_hint": "",
+      "depends_on": [
+        "P029"
+      ],
+      "deliverables": [
+        "A shared outbound policy for search, document fetch, remote inference, and embeddings, checking destination, authorized data classes, request content, and secret references before transport.",
+        "A recorded allow, sanitized-allow, or deny decision linked to the task capability context and the effective request."
+      ],
+      "acceptance": [
+        "A protected repository excerpt or canary secret in a denied request never reaches a local fake provider; an allowed sanitized request records exactly what was disclosed.",
+        "Changing source text or model-proposed arguments cannot widen destination or disclosure authority; each redirect receives the same destination check."
+      ],
+      "trace_sections": [
+        "Security and trust boundaries",
+        "Active investigation and source acquisition"
+      ],
+      "size": "M",
+      "gates": [
+        "G16"
+      ],
+      "optional": false,
+      "id": "P047",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S21",
+        "S09"
+      ],
+      "status": "pending",
+      "implemented_scope": "Shared outbound destination and disclosure policy is reserved for the coordinated security boundary.",
+      "implementation_files": [],
+      "acceptance_files": [],
+      "remaining": [
+        "Shared policy and recorded decisions for real search, fetch, remote inference and embeddings."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R07",
+      "title": "Implement streaming inference transport supervision",
+      "phase_hint": "Model foundation",
+      "depends_on": [
+        "P033",
+        "P044",
+        "P045",
+        "P046",
+        "P047"
+      ],
+      "deliverables": [
+        "Implement one backend adapter behind the common gateway, including streaming assembly, terminal usage, transport failures, deadlines, and cooperative cancellation.",
+        "Record backend capability limitations explicitly when cancellation or exact provider token usage is unavailable."
+      ],
+      "acceptance": [
+        "Scripted fragmented responses produce the same final parsed output as an unfragmented response and persist exactly one terminal invocation record.",
+        "Cancellation and deadline fixtures stop delivery of usable proposals, retain partial output and incurred usage, and expose an indeterminate or unsupported stop outcome when the backend cannot confirm termination."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Task contracts and lifecycle",
+        "Service interfaces and events"
+      ],
+      "gates": [
+        "G19"
+      ],
+      "size": "M",
+      "id": "P048",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S06",
+        "S19"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Finite offline streaming, deadlines and cooperative cancellation, raw output retention, lifecycle classification and conservative restart behavior.",
+      "implementation_files": [
+        "src/potbot/models/transport.py",
+        "src/potbot/models/gateway.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_inference_transport.py",
+        "tests/integration/test_inference_gateway.py"
+      ],
+      "remaining": [
+        "Supervised live runtime/backend adapter.",
+        "Confirmed process termination for blocking runtimes."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R15",
+      "title": "Settle gateway usage through the task budget ledger",
+      "phase_hint": "Controller foundation",
+      "depends_on": [
+        "P048"
+      ],
+      "deliverables": [
+        "Translate gateway token reports, elapsed inference, loading, repair, failure, and reviewer usage into existing idempotent settlement operations; retain unresolved charges for interrupted calls.",
+        "Route background inference to its configured task or maintenance budget while preserving aggregate evaluation cost and provenance for estimated versus provider-reported usage."
+      ],
+      "acceptance": [
+        "Duplicate completion delivery changes totals once; an ordinary completed operation releases its unused allowance and retains its actual usage.",
+        "A lost terminal usage report remains charged conservatively until reconciliation; an actual overrun stops further scheduling or marks exhaustion instead of creating extra available budget."
+      ],
+      "trace_sections": [
+        "Configuration and resource scheduling",
+        "Transactions and concurrency"
+      ],
+      "gates": [
+        "G22"
+      ],
+      "size": "M",
+      "id": "P049",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S20",
+        "S16"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Idempotent fixture-usage settlement, exact synthetic input accounting, conservative held reservations and explicit reconciliation.",
+      "implementation_files": [
+        "src/potbot/models/gateway.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_inference_gateway.py"
+      ],
+      "remaining": [
+        "Live/provider usage and provenance.",
+        "Loading transitions and background maintenance accounting."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R08",
+      "title": "Separate deterministic gateway CI from live qualification",
+      "phase_hint": "Model qualification",
+      "depends_on": [
+        "P038",
+        "P049"
+      ],
+      "deliverables": [
+        "Build reusable conformance fixtures for formatting, limits, streaming, cancellation, parser repair, evidence identifiers, unknown preconditions, and cross-model memory consumption.",
+        "Provide separate deterministic and opt-in live runners; live runs use normal gateway admission and usage settlement with a bounded qualification budget, bind results to complete deployment fingerprints, and can run one model at a time."
+      ],
+      "acceptance": [
+        "Ordinary CI runs the fake backend without downloading weights, requiring credentials, or making network calls.",
+        "A skipped, unavailable, or partially completed live run cannot mark a deployment qualified; changing weights, tokenizer, quantization, or prompt adapter invalidates the applicable qualification."
+      ],
+      "trace_sections": [
+        "Evaluation and release qualification",
+        "Default models and deployment contracts"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "Fixed weights are the baseline. Any later trained deployment requires this qualification plus the separate training and release gates.",
+      "id": "P050",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S23",
+        "S05"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Deterministic gateway CI and documented live conformance inventory are present; fixtures cannot qualify deployments.",
+      "implementation_files": [
+        "src/potbot/models/profiles.py",
+        "scripts/check.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_profiles.py",
+        "tests/unit/test_inference_transport.py",
+        "tests/integration/test_inference_gateway.py",
+        "tests/integration/test_model_coding.py"
+      ],
+      "remaining": [
+        "Opt-in budgeted live qualification runner bound to complete deployment fingerprints."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R09",
+      "title": "Qualify the Phi-4-mini-instruct reasoning adapter",
+      "phase_hint": "Default model qualification",
+      "depends_on": [
+        "P050"
+      ],
+      "deliverables": [
+        "Implement microsoft/Phi-4-mini-instruct formatting and its configured tool or envelope protocol using the exact tokenizer and deployment revision.",
+        "Produce a live conformance report for bounded reasoning output, effective context limits, and consumption of evidence attributed to another model."
+      ],
+      "acceptance": [
+        "The actual deployment returns a valid focused question, typed action, and bounded implementation contract on finite programming fixtures while preserving supplied evidence identifiers.",
+        "Malformed output or an unknown precondition is rejected or repaired within the configured allowance; an oversized mandatory packet fails locally before inference."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Evaluation and release qualification"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P051",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S23"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Phi-4-mini-instruct advisory profile and exact-tokenizer rendering interface.",
+      "implementation_files": [
+        "src/potbot/models/profiles.py",
+        "src/potbot/models/context.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_profiles.py",
+        "tests/unit/test_context_rendering.py"
+      ],
+      "remaining": [
+        "All actual Phi-4-mini-instruct load/generation and cross-model live qualification."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R10",
+      "title": "Qualify the Gemma 3 4B IT reasoning adapter",
+      "phase_hint": "Default model qualification",
+      "depends_on": [
+        "P050"
+      ],
+      "deliverables": [
+        "Implement google/gemma-3-4b-it text-mode rendering, configured tokenizer and chat template, and a qualified structured envelope without assuming another model's tool protocol.",
+        "Record a live qualification report for the actual backend, precision, limits, and prompt version."
+      ],
+      "acceptance": [
+        "The actual deployment produces a valid information need, action, and implementation contract and uses a fixture memory authored by another reasoner without losing its version qualification.",
+        "A missing evidence identifier or unsupported precondition cannot reach execution, and configured context overflow is detected without dropping mandatory task requirements."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Evaluation and release qualification"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P052",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S23"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Gemma 3 4B IT text-mode advisory profile and first-user-turn controller instruction policy.",
+      "implementation_files": [
+        "src/potbot/models/profiles.py",
+        "src/potbot/models/context.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_profiles.py",
+        "tests/unit/test_context_rendering.py"
+      ],
+      "remaining": [
+        "All actual Gemma 3 4B IT load/generation and cross-model live qualification."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R11",
+      "title": "Qualify the Qwen2.5-Coder-7B-Instruct coding adapter",
+      "phase_hint": "Default model qualification",
+      "depends_on": [
+        "P050"
+      ],
+      "deliverables": [
+        "Implement Qwen/Qwen2.5-Coder-7B-Instruct rendering and CodingResult parsing with its exact tokenizer and qualified usable context configuration.",
+        "Record live patch-generation and cross-model handoff results; longer-context configurations require their own qualification rather than inheriting support from the family name."
+      ],
+      "acceptance": [
+        "On a tiny programming fixture, the actual deployment implements a reasoner-authored contract, returns an applicable patch, and passes the fixture's targeted verification.",
+        "An insufficient-scope fixture produces a classified inability or focused information need; a mismatched base reference or malformed patch never becomes an accepted candidate."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Evaluation and release qualification"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P053",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S23"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "Qwen2.5-Coder-7B-Instruct advisory profile and shared coding result protocol.",
+      "implementation_files": [
+        "src/potbot/models/profiles.py",
+        "src/potbot/models/context.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_profiles.py",
+        "tests/unit/test_context_rendering.py"
+      ],
+      "remaining": [
+        "All actual Qwen2.5-Coder-7B-Instruct load/generation and exact-base live qualification."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R12",
+      "title": "Qualify the CodeGemma 7B IT coding adapter",
+      "phase_hint": "Default model qualification",
+      "depends_on": [
+        "P050"
+      ],
+      "deliverables": [
+        "Implement google/codegemma-7b-it chat formatting and CodingResult adaptation with compact implementation packets and the configured tokenizer's measured limits.",
+        "Persist live qualification evidence for patch production, failure classification, and consumption of another model's bounded contract and memory references."
+      ],
+      "acceptance": [
+        "The actual deployment returns an applicable patch for a tiny repository task and the resulting state passes the targeted fixture check.",
+        "An incomplete contract produces a focused question or classified inability; a packet exceeding usable context is rejected before inference rather than silently losing compatibility constraints."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Evaluation and release qualification"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P054",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S23"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "CodeGemma 7B IT advisory profile and first-user-turn controller instruction policy.",
+      "implementation_files": [
+        "src/potbot/models/profiles.py",
+        "src/potbot/models/context.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_profiles.py",
+        "tests/unit/test_context_rendering.py"
+      ],
+      "remaining": [
+        "All actual CodeGemma 7B IT load/generation and exact-base live qualification."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R13",
+      "title": "Qualify the DeepSeek Coder V2 Lite coding adapter",
+      "phase_hint": "Default model qualification",
+      "depends_on": [
+        "P050"
+      ],
+      "deliverables": [
+        "Implement deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct rendering and CodingResult adaptation for the exact backend, tokenizer, and precision.",
+        "Measure the complete deployment's resident and context-memory requirements and retain a live qualification report; active parameter count does not determine the loading budget."
+      ],
+      "acceptance": [
+        "Running alone on an eligible host, the actual deployment consumes a cross-model contract, produces an applicable fixture patch, and passes targeted verification.",
+        "Insufficient device capacity is classified as model_unavailable or a resource failure, never algorithmic failure or successful qualification; invalid result references remain rejected."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "Configuration and resource scheduling",
+        "Evaluation and release qualification"
+      ],
+      "gates": [
+        "G08"
+      ],
+      "size": "M",
+      "id": "P055",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S05",
+        "S20",
+        "S23"
+      ],
+      "optional": false,
+      "status": "partial",
+      "implemented_scope": "DeepSeek Coder V2 Lite Instruct advisory profile and full-resident-allocation preflight requirements.",
+      "implementation_files": [
+        "src/potbot/models/profiles.py",
+        "src/potbot/models/preflight.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_model_profiles.py",
+        "tests/unit/test_model_preflight.py"
+      ],
+      "remaining": [
+        "All actual DeepSeek Coder V2 Lite load/generation and exact-base live qualification."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    },
+    {
+      "key": "R16",
+      "title": "Schedule a logical ensemble on limited hardware",
+      "phase_hint": "Controller foundation",
+      "depends_on": [
+        "P049"
+      ],
+      "deliverables": [
+        "Add physical admission using resident weights, context storage, runtime overhead, loading cost, device availability, and workspace leases.",
+        "Permit sequential model loading and prioritize foreground operations above compatible batched maintenance work."
+      ],
+      "acceptance": [
+        "A scripted five-model portfolio completes with only one deployment resident at a time, preserving logical participation and charging load transitions.",
+        "A deployment that cannot fit waits, fails, or is explicitly skipped only under the permitted degradation profile; low-priority consolidation cannot repeatedly evict an active foreground model."
+      ],
+      "trace_sections": [
+        "Configuration and resource scheduling",
+        "Default models and deployment contracts"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P056",
+      "phase": 5,
+      "phase_title": "Model adapters and live qualification",
+      "trace_codes": [
+        "S20",
+        "S05"
+      ],
+      "optional": false,
+      "status": "pending",
+      "implemented_scope": "Physical multi-model admission, loading, eviction and residency scheduling remain pending.",
+      "implementation_files": [],
+      "acceptance_files": [],
+      "remaining": [
+        "Resource-aware sequential residency and charging load transitions.",
+        "Foreground priority and bounded maintenance admission."
+      ],
+      "verification_report": "docs/phase-5-verification.json"
+    }
+  ],
+  "implemented_step_count": 4,
+  "partial_step_count": 10,
+  "pending_step_count": 2,
+  "scope_definition": "Implemented status means the stated deterministic model-foundation deliverables are present. This milestone performs no live model inference and does not complete Phase 5.",
+  "concurrent_work_boundaries": [
+    "Preserve existing SYN/synny resolution and semantic registries; source declarations retain versions and qualification references with syntax-only provenance.",
+    "No SQL migration or embedding-space change.",
+    "Credential store, startup launchers, private cryptographic broker and MCP transports are unchanged.",
+    "Use an incremental Phase 4 patch; overlapping edits fail the Git apply check."
+  ],
+  "qualification": {
+    "transport": "potbot-offline-fixture",
+    "live_inference": false,
+    "live_qualified_default_models": 0,
+    "weights_downloaded": false,
+    "sql_migration_added": false,
+    "remote_pushed": false
+  },
+  "next_work": [
+    "Coordinate the outbound destination/disclosure policy with the private-keystore architecture.",
+    "Implement one supervised local inference adapter and bounded live qualification runner.",
+    "Complete reasoner-generated immutable implementation contracts.",
+    "Qualify the five exact deployments individually, then add physical residency scheduling."
+  ],
+  "verification_report": "docs/phase-5-verification.json"
+}

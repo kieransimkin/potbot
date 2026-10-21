@@ -14,3 +14,5 @@ artifacts/
 .test-runs/
 # Local model weights and generated encoding manifests are provisioned separately.
 /models/
+# Project-local bootstrap runtime, package cache, and dependency state.
+/.potbot/

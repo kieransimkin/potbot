@@ -75,6 +75,8 @@ def _event(
 def inspect_in_transaction(
     conn: Any, context: WorkspaceContext, episode_id: UUID
 ) -> dict[str, Any]:
+    from potbot.semantics.releases import read_task_pin
+
     episode = conn.execute(
         "SELECT * FROM episodes WHERE workspace_id=%s AND id=%s",
         (context.workspace_id, episode_id),
@@ -91,6 +93,7 @@ def inspect_in_transaction(
         "WHERE workspace_id=%s AND episode_id=%s",
         (context.workspace_id, episode_id),
     ).fetchone()
+    semantic_pin = read_task_pin(conn, context, episode_id, required=False)
     return {
         "schema_version": 1,
         "operation_id": str(episode_id),
@@ -103,6 +106,7 @@ def inspect_in_transaction(
         "blockers": [] if episode["blocked_on"] is None else [episode["blocked_on"]],
         "current_contract": json_record(dict(contract)) if contract is not None else None,
         "configuration": json_record(dict(configuration)) if configuration is not None else None,
+        "semantic_configuration": json_record(semantic_pin),
         "created_at": json_record(episode["created_at"]),
         "updated_at": json_record(episode["updated_at"]),
     }
@@ -156,6 +160,7 @@ class TaskService:
         from psycopg.types.json import Jsonb
 
         from potbot.models.configuration import resolve_configuration, store_configuration
+        from potbot.semantics.releases import pin_task
 
         if not isinstance(repository_id, UUID) or not isinstance(contract, ContractSpec):
             raise InvalidInputError("submission requires a repository UUID and validated contract")
@@ -190,7 +195,8 @@ class TaskService:
                     "INSERT INTO budget_limits(workspace_id,id,dimensions) VALUES(%s,%s,%s)",
                     (context.workspace_id, episode_id, Jsonb(dict(contract.budget))),
                 )
-                store_configuration(conn, context, resolved, episode_id=episode_id)
+                configuration = store_configuration(conn, context, resolved, episode_id=episode_id)
+                pin_task(conn, context, episode_id, configuration["id"])
                 _event(
                     conn,
                     context,
@@ -376,6 +382,11 @@ class TaskService:
                 current = TaskStatus(episode["status"])
                 previous: str | None = episode["previous_status"]
                 if action == "resume":
+                    from potbot.semantics.releases import read_task_pin
+
+                    # Existing pre-semantic tasks remain inspectable; semantic consumers
+                    # require an explicit extension instead of silently adopting a release.
+                    read_task_pin(conn, context, episode_id, required=False)
                     if current not in {TaskStatus.PAUSED, TaskStatus.BLOCKED} or previous is None:
                         raise StateMismatchError("only a suspended task can resume")
                     target = TaskStatus(previous)

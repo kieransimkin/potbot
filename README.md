@@ -3,44 +3,91 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phase 1, Phase 2 (P006–P021), the initial standard local embedding
-integration, and scoped SYN snapshots.** Tasks, contracts, evidence, artifacts, worker
-jobs, budgets, configuration,
-environment identities, and model invocation records are durable. The local Qwen encoder
-can index explicit sources and search them through PostgreSQL with pgvector.
+**Implemented: Phases 1–4 and the Phase 5 model foundation (`0.5.0.dev1`).** Tasks, contracts,
+evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
+model invocation records are durable. Potbot can capture a local Git repository,
+materialize isolated candidates, execute registered tools under a qualified Linux
+sandbox, and reconcile interrupted runs. The standard local Qwen encoder indexes
+explicit sources and searches PostgreSQL with pgvector under hard process supervision.
+Scoped SYN snapshots, pinned semantic catalogs and bounded typed proposal validation are also implemented.
+The scripted patch pipeline now records baseline failures, freezes a coding handoff,
+applies a bounded patch, checks its exact resulting state, and exports a retained
+patch plus an immutable verification manifest. It resumes from durable checkpoints.
+The Phase 5 foundation adds bounded model responses, recipient-specific context
+packets, durable inference reservations and settlement, a deterministic streaming
+gateway, coding-result admission, and local host preflight for the five default models.
 
-Reasoning/coding inference, repository execution orchestration, learned memory admission,
-and the custom semantic embedding space remain later stages. The five default reasoning
-and coding models are registered as **unqualified catalog entries**; a name is never
-treated as a tested deployment.
+The current execution flow uses operator-selected tools and scripted proposals.
+Multi-model reasoning-tree selection, live reasoning/coding inference, learned memory
+admission, live web discovery, IBM MCP, DanceFlow MCP, and the custom semantic embedding
+space remain later stages. The five default reasoning and coding models are registered
+as **unqualified catalog entries**; a name is never treated as a tested deployment.
 
 ## Install and check
 
-Use Python 3.12, Git, and [uv](https://docs.astral.sh/uv/):
+Run the entry point for your platform from the extracted checkout:
+
+```powershell
+# Windows Command Prompt: start.bat
+# Windows PowerShell:
+.\start.ps1
+```
 
 ```bash
-uv sync --locked --extra postgres --dev
+# Linux or macOS:
+bash ./start.sh
+```
+
+Each launcher installs pinned `uv` when needed, obtains managed Python 3.12, and
+uses `uv sync --locked --all-extras --no-dev` to install all Python runtime extras.
+It reports progress and then enters the same startup module. On first startup,
+an unknown PostgreSQL URL is requested without echo, checked, and saved in the
+native operating-system credential store. Subsequent starts reuse that value.
+See [startup and dependencies](docs/startup.md) for credentials, downloads and host requirements.
+
+Help and dependency management work without a configured database:
+
+```bash
+bash ./start.sh --help
+bash ./start.sh dependencies status
+bash ./start.sh dependencies download
+```
+
+For development, use Python 3.12, Git, and [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --locked --extra postgres --extra semantics --extra credentials --dev
 uv run --locked potbot info
 uv run --locked python scripts/check.py
 ```
 
 The core package has no mandatory third-party runtime dependencies. The PostgreSQL
-driver and local encoder are separate extras. Domain imports and CLI help need neither
-model weights nor running services. `uv.lock` pins the complete dependency resolution.
+driver, semantic validation, credential vault, and local encoder are separate extras. Domain imports and
+CLI help need neither model weights nor running services. `uv.lock` pins the complete
+dependency resolution.
 
-For the real PostgreSQL test suite:
+For the real PostgreSQL suite and Linux process-isolation acceptance suite, install
+Bubblewrap, libseccomp, and `prlimit` from the host's packages. On Debian/Ubuntu:
+
+```bash
+sudo apt-get install bubblewrap libseccomp2 util-linux
+```
+
+The host must permit Bubblewrap's user, mount, PID, and network namespaces. Then run:
 
 ```bash
 docker compose up --detach --wait
 export POTBOT_TEST_DSN='postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test'
-uv run --locked python scripts/check.py --with-postgres
+uv run --locked python scripts/check.py --with-postgres --with-sandbox
 docker compose down --volumes
 ```
 
 `compose.yaml` is a disposable test database with temporary storage. Use persistent
 PostgreSQL and an artifact directory on persistent storage for retained tasks.
 Selecting PostgreSQL tests without a usable explicit test DSN fails; tests never
-silently substitute an in-memory database. CI runs this same required SQL suite.
+silently substitute an in-memory database. Selecting sandbox tests requires a working
+isolation backend; unavailable isolation fails closed. CI requests both suites. Omit
+`--with-sandbox` for the SQL-only gate on a host without qualified process isolation.
 
 ## Work with tasks
 
@@ -58,23 +105,95 @@ The [Phase 2 guide](docs/phase-2.md) contains provisioning, task submission,
 worker recovery, API, configuration, and acceptance-test instructions. A valid starter
 contract is in [examples/task-contract.json](examples/task-contract.json).
 
+## First verified patch
+
+The [Phase 4 guide](docs/phase-4.md) documents the full scripted fixture, its
+checkpoint/resume commands, exported manifest, and acceptance evidence:
+
+```bash
+bash ./start.sh patch --help
+```
+
+The fixture uses a supplied repair and a clearly identified scripted coding adapter.
+It requires no reasoning/coding weights. Mandatory checks bind the current contract,
+exact repository state, environment, check definition and actual execution. A changed
+or removed test, missing dependency, unexecuted check, or superseded contract cannot
+silently turn into a passing gate. Imported patches require fresh application-bound checks.
+
+Migration 10 supports both the GitHub SYN-first history and the previously released
+Phase 3 ZIP history without rewriting either migration ledger. The [upgrade guide](docs/phase-4.md#database-upgrade)
+explains the converging revisions.
+
+## Model foundation
+
+The [Phase 5 guide](docs/phase-5.md) describes model proposal admission, exact
+recipient contexts, separately budgeted schema repair, restart handling and the
+bridge into the existing verified patch pipeline. The [model adapter guide](docs/model-adapters.md)
+documents the five advisory profiles and pinned local host configuration.
+
+```bash
+bash ./start.sh models catalog
+bash ./start.sh models schema --schema action-proposal-v1
+bash ./start.sh models schema --schema coding-result-v1
+bash ./start.sh models preflight --profile local-host.json --project-root .
+```
+
+These commands operate without database credentials or model downloads. The current
+inference gateway uses a clearly identified offline fixture transport. Preflight can
+establish readiness for a later load check; it does not load a model or qualify a
+deployment. Live inference, provider disclosure policy and model residency scheduling
+remain outstanding Phase 5 work. [Implementation status](docs/phase-5-implementation-status.json)
+records completed foundations and remaining deliverables separately.
+
+## Repository capture and controlled execution
+
+The [Phase 3 guide](docs/phase-3.md) describes its original migration history and the complete
+`prepare`, `run`, `inspect`, `reconcile`, and `resume` workflow:
+
+```bash
+uv run --locked potbot execution --help
+```
+
+Snapshots preserve tracked changes plus explicitly included untracked/generated inputs
+without modifying the source repository. Candidates have ownership markers and fenced
+single-writer leases. The default CLI tools inspect files, compile Python, and run
+Python `unittest` discovery. Their captured outputs, actual input/result states, and
+usage remain inspectable after restart.
+
+Run receipts are kept outside candidates. A matching stopped-process receipt can
+reconcile a lost completion acknowledgment; missing or inconsistent evidence leaves
+the workspace quarantined and prevents blind replay. `execution resume` reconstructs
+durable state and accounting without starting a command or changing task lifecycle.
+
+The qualified backend is **Linux Bubblewrap plus seccomp**. It denies direct networking
+and access to unmounted host files; the supervisor has no unrestricted host fallback.
+CPU, address-space, file-size, and descriptor limits are per process. Aggregate memory
+and process-count quotas, native Windows/macOS execution, submodule materialization,
+and installation of repository-specific native dependencies are outside this delivery.
+The startup launchers install Potbot's own Python dependencies; arbitrary repository
+build environments remain explicit execution inputs.
+
 ## Standard local vector embeddings
 
 The reference integration uses **Qwen/Qwen3-Embedding-0.6B**, pinned to revision
 `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`, with **1,024 dimensions**, last-token pooling,
-L2 normalization, and cosine distance. It runs locally on CPU in float32. Setup is an
-explicit download; encoding never falls back to a remote service.
+L2 normalization, and cosine distance. It runs locally on CPU in float32. The integrated
+downloader prepares the pinned files before CLI encoding operations; encoding never
+falls back to a remote service.
 
 ```bash
-uv sync --locked --extra postgres --extra embeddings --dev
+uv sync --locked --extra postgres --extra semantics --extra embeddings --dev
 uv run --locked potbot embedding setup --model-dir models/qwen3-embedding-0.6b
-uv run --locked potbot embedding smoke --model-dir models/qwen3-embedding-0.6b
+uv run --locked potbot embedding smoke --model-dir models/qwen3-embedding-0.6b --timeout-ms 120000
 ```
 
 The pinned weight/tokenizer files occupy about 1.21 GB on disk; runtime memory is
-additional. Linux and Windows uv installs use the CPU PyTorch index. Model files stay
-outside Git. For an existing local installation, run `smoke` directly; setup downloads
-only into a new directory.
+additional. Model files stay outside Git. Completed installations are verified and
+reused offline; interrupted downloads resume from owned partial files. Supervised encoding and
+the smoke command require the qualified Linux sandbox described above. The deadline
+covers tokenizer/model preparation and inference; a timed-out, cancelled, or unconfirmed
+worker cannot publish a late vector. Confirmed usage is charged, confirmed unused capacity
+is released, and uncertain usage remains held for reconciliation.
 
 The [embedding guide](docs/embeddings.md) explains source registration, budgeted indexing,
 exact filtered search, retirement, and the opt-in live SQL test. This first integration
@@ -109,19 +228,33 @@ Import and exact reads load no encoder. The [SYN integration guide](docs/syn-sem
 covers migration 6, read-only export, type/representation distinctions, stable pagination,
 hashes, coverage limits, and the `potbot syn` commands.
 
+## Semantic types and release identities
+
+The committed [vocabulary package](vocab/) supplies 45 data types, including six
+abstract families, plus entity types, predicates, concepts, and retrieval profiles.
+The loader checks the exact catalog, explicit subtype graph, local schema references,
+and release hashes. Typed literals preserve distinctions between booleans, integers,
+decimals, strings, null, absent, and unresolved values.
+
+New tasks and context packets freeze their semantic release identities. Selecting a
+new release does not rewrite historical configurations or packets. Structural
+validation leaves an envelope as a proposal: entity resolution, truth adjudication,
+guard evaluation, and learned semantic classification remain later work. See the
+[semantic API and compatibility notes](docs/phase-3.md#semantic-contracts-and-release-pins).
+
 ## Package boundaries
 
 | Package | Responsibility |
 | --- | --- |
 | `potbot.domain` | Immutable contracts, provenance, configuration, identity, error taxonomy |
 | `potbot.persistence` | Migrations, scoped SQL transactions, artifacts, evidence, outbox, fenced workers |
-| `potbot.controller` | Task lifecycle, contract revisions, atomic budgets, reuse-discovery policy |
+| `potbot.controller` | Task lifecycle, contracts, budgets, durable actions and information needs, reuse policy |
 | `potbot.api` | Versioned task operations, development authentication, HTTP and CLI adapters |
 | `potbot.models` | Deployment registry, resolved configuration, environments, packets and invocation records |
-| `potbot.memory` | Standard local encoding profiles, source versions, vector persistence and exact retrieval |
-| `potbot.semantics` | SYN catalog aliases, immutable snapshot resolution, exact type inventories and scoped vector selection |
+| `potbot.memory` | Supervised local encoding, source versions, named vectors and exact retrieval |
+| `potbot.semantics` | SYN catalogs and exact inventories, immutable releases, typed proposals and task pins |
 | `potbot.evaluation` | Real Git fixtures and sanitized verification diagnostics |
-| `potbot.tools` | Reserved boundary for repository, execution, and information adapters |
+| `potbot.tools` | Repository snapshots, candidate leases, tool admission, Linux isolation, captures and recovery |
 
 ## Reuse before implementation
 

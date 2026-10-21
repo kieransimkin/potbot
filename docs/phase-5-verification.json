@@ -1,0 +1,369 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "application_version": "0.5.0.dev1",
+  "phase": 5,
+  "phase_status": "partial",
+  "source_baseline": "88de7ee06ca985015527618bf8ca7ffb8fdf3755",
+  "local_phase4_baseline_commit": "41f8f3abae9d861573bfb08194026947a20a9b70",
+  "prerequisite": "Previously delivered Phase 4 update (0.4.0)",
+  "implemented_foundation_steps": [
+    "P041",
+    "P043",
+    "P044",
+    "P045"
+  ],
+  "total_tests_passed": 1223,
+  "additional_tests_over_phase4": 253,
+  "suites": {
+    "unit-and-git": {
+      "passed": 962,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 8.759
+    },
+    "postgres": {
+      "passed": 191,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 205.96
+    },
+    "sandbox": {
+      "passed": 70,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 150.261
+    }
+  },
+  "verification": {
+    "schema_version": 1,
+    "started_at": "2026-10-21T16:28:10.295337+00:00",
+    "finished_at": "2026-10-21T16:34:18.995582+00:00",
+    "postgres_requested": true,
+    "sandbox_requested": true,
+    "success": true,
+    "checks": [
+      {
+        "check": "lint",
+        "exit_code": 0
+      },
+      {
+        "check": "format",
+        "exit_code": 0
+      },
+      {
+        "check": "types",
+        "exit_code": 0
+      },
+      {
+        "check": "unit-and-git",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-build",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-environment",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-install",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-version",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-domain",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-execution-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-patch-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-credentials-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-dependencies-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-models-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-semantic-catalog",
+        "exit_code": 0
+      },
+      {
+        "check": "db-bootstrap",
+        "exit_code": 0
+      },
+      {
+        "check": "db-create",
+        "exit_code": 0
+      },
+      {
+        "check": "db-migrate",
+        "exit_code": 0
+      },
+      {
+        "check": "db-check",
+        "exit_code": 0
+      },
+      {
+        "check": "postgres",
+        "exit_code": 0
+      },
+      {
+        "check": "db-cleanup",
+        "exit_code": 0
+      },
+      {
+        "check": "sandbox",
+        "exit_code": 0
+      }
+    ]
+  },
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "postgresql": "17.11",
+    "pgvector": "0.8.7",
+    "uv": "uv 0.12.23 (x86_64-unknown-linux-gnu)",
+    "qualified_execution": "Linux bubblewrap and libseccomp with private namespaces"
+  },
+  "tested_runtime_source_sha256": {
+    "scripts/check.py": "5b8564c34863c45cfff360abee2c19957f5199840538b95f1b85ae268dc08c46",
+    "scripts/dev.py": "30db48963f9d401c743ecf5c8a11ca2c6ce28769d16bfdc785e6e3c81bada02a",
+    "scripts/export_syn_snapshot.py": "7c98d16d38240e99641de5dd638d1cee9ea91855c7af009c276c3c75d022713f",
+    "scripts/extract_syn_types_dump.py": "780aaa3663e4897fceb4a744722f7ee012365b55bc72ef0f8ba2d5fad6bd878b",
+    "src/potbot/__init__.py": "965a59353fcb362f370d336025af44e671704c7ce8c0dd6df42b49d5a8cbb9af",
+    "src/potbot/__main__.py": "9587d7cfa8a6e4a702e89d14111ec83828ff469d62855595eff1bac6f4ab8a74",
+    "src/potbot/api/__init__.py": "3737598cc8268e75ca65916810fef668f5fcbe0e92deace04ccdad989db2a02d",
+    "src/potbot/api/task_cli.py": "1821239e9147124a7f2598fd3343ea2b4336cdeb6e6e81feb94d1216b0399e1b",
+    "src/potbot/api/tasks.py": "405838ad20e5a55ca8b58b29abb9eaa34b91476c992ba2d45f908ae64415d44d",
+    "src/potbot/api/wire.py": "c44fa2517d3b18b623fc2ec54eb4a360bdb51663321382c54d778eff34a648f0",
+    "src/potbot/cli.py": "8662b3790913b076a2cffbacd9ac4d3676b1a0576ecd982fda67eb91dbb677f6",
+    "src/potbot/controller/__init__.py": "26a156c80c2a5d05721de24ef12bee0cbd24044f17a1abe6d3793420d39dabed",
+    "src/potbot/controller/budgets.py": "a3786e269e414482a7fc80c1dd217e73216f94c7b6c0a87c8ca33b2ea2de8ce0",
+    "src/potbot/controller/coding.py": "26af7feb19e86ce4683f8cd42ad43ce9c32443c02513f04e30bae4463916680e",
+    "src/potbot/controller/execution.py": "06af3aaece77465b9befc20cf0f2ee1f3229f90d8df128f39721b60ab94a816e",
+    "src/potbot/controller/information_needs.py": "1e0ff1882cb0cb9bed43a9ab65745e04bbdb32a582daa50042ff2f6588aa51d9",
+    "src/potbot/controller/model_coding.py": "14547b632060d43150456866cd403be8264103b0b848ba868492084ebdf56b3c",
+    "src/potbot/controller/patch_exports.py": "c929151a40e2748a2f2f465c95c2b56f39aba0f75fbfd9b34b1d58dd2e33568d",
+    "src/potbot/controller/patch_pipeline.py": "09e16e98972a590a6260ed35df1f8a11c2c6738ab5eac58ada1a1b041c9a9838",
+    "src/potbot/controller/reuse.py": "568140ac69c6fda68cda173146d343586ee59299893a063af2c73001bdd1db97",
+    "src/potbot/controller/tasks.py": "0b4fef0c10f4b6805303cbc8e2250b45be10d60ce0ab25051036d2ce3d4caac8",
+    "src/potbot/controller/verification.py": "e811fab1d8d531871c7877f0422bb7cac36537c46d40c06bf6458a7d4c2114d4",
+    "src/potbot/credentials.py": "98b77f15928859fb7ce4c6545735d91ba4a9353d2897f8c003568a583c8998cd",
+    "src/potbot/dependencies.py": "89e2aa2318114e5c7c0491bb0bc03534c0bdfa5e40bb09f561f57117925250fb",
+    "src/potbot/domain/__init__.py": "4289ce977454a1ef807e1ea047ab9acdad84ae1e6baa9ab0162bbf4187cf9928",
+    "src/potbot/domain/auth.py": "b9348afa1811004718718d6f2933b042b4197b70f2a5a5647eb60306aa57d645",
+    "src/potbot/domain/coding.py": "10d8870a46b77bcd68b66e28a6cdbd5f763c11f6a317735ef4cc66bd789554c8",
+    "src/potbot/domain/configuration.py": "26aab5c63c8e83035fe6155e49ffba9ca772ef1c35521ebaa4d09fb719f10c72",
+    "src/potbot/domain/embeddings.py": "5574cb34d8bfc4083e6571ebfb31a647709823428f492cc185dab2f8c99e9e9c",
+    "src/potbot/domain/errors.py": "224af134795e6eeee75f9177f8ae0751e6da762bb3dfb01eeabf55312c319649",
+    "src/potbot/domain/execution.py": "757a08f48827097a09500f68398b2ff974b19ebdd06680d19d419fae72e3efff",
+    "src/potbot/domain/model_proposals.py": "b5acab1474a577315b5e7fd0cf07731d3da62a323772fd357e08da02a4bb7700",
+    "src/potbot/domain/records.py": "a7fe61a633c5d6bb6135b20bc86f86fec5cc450f616afa9e35c86bf7ffe0a551",
+    "src/potbot/domain/reuse.py": "d025978ed55de9e70a9ac21a19806dd4e60acffaaf7a13f9e6b7fcb7de764434",
+    "src/potbot/domain/serialization.py": "ec3554ae03b6340b531c115bb7d64240dcecd7b16256f84a4fd40ac7052f1be6",
+    "src/potbot/domain/syn.py": "32aa43220e3ff78ffa89e486717a897e90a47d2f0641f92dd6f49630ea4a0b78",
+    "src/potbot/domain/tasks.py": "86af219a0cf9a4dcad37ee4fc12fd72cd0236db8c419183b63e15f3b80b70263",
+    "src/potbot/domain/verification.py": "177127d5f97f7ab76d5ff4aa358e6fbb8c70281f3abe1d9c289c8b3ec09439fa",
+    "src/potbot/evaluation/__init__.py": "5e6cb731a7677275ed8fcb16d72fe2988820842025dc268ba15beb87124dc560",
+    "src/potbot/evaluation/diagnostics.py": "169ff2f07f63dd32250c1bb0a52dd8d1e244f27b1ab20150311918c5379b88d1",
+    "src/potbot/evaluation/patch_fixture.py": "d9ec73f3d8ba8965d1bac357692e9f2465754594cff28370b39a8f5958e81e01",
+    "src/potbot/evaluation/repository_fixture.py": "ed95125c0e2e1e26dc62d2f34b17e8dc7135c55b70eb5d5cd0a8b2cf083b7c7b",
+    "src/potbot/memory/__init__.py": "ae2f58296998b5a8195d1ba50ade16d97a758e7a862fa9faa082471aea13f026",
+    "src/potbot/memory/embedding_cli.py": "6c08cb37f2a17244bfea626788af3ac9f4b6f10e40fac509c9e06e04be6429f1",
+    "src/potbot/memory/embedding_profile.py": "eaa00912925c14670ef52f064e31fc9a9183b215f9c247ec1e608345462e1e60",
+    "src/potbot/memory/embedding_worker.py": "2eb7e8b5880c2b9adc29bd22475ef8351ece791958eea7c0bf4400811ff83e2c",
+    "src/potbot/memory/embeddings.py": "8e981b2b974f7d3d1601500b627ead6fd12c223eb05095c35dd0db731a3adb74",
+    "src/potbot/memory/local_encoder.py": "8cbb51404b0352144d8bbf356a4f4edb38f39319694f7f1b5f559239ae533a29",
+    "src/potbot/memory/supervised_encoder.py": "db0a4e7677b2681d9b3bf80987d2331b62dc0f5878d8152f44c34263de053e24",
+    "src/potbot/models/__init__.py": "579943397a94dd6f90eb02fc09952f105c63ac0345a74472c9d468b159ee040c",
+    "src/potbot/models/cli.py": "93727b1215c2c615c571fa57b5e064de0098cdfae0d80d1077520623c82686ec",
+    "src/potbot/models/configuration.py": "8b475be2c3d64ae34c03d63f908b7050cbf45d2afa47a3f9d3074616d6e44965",
+    "src/potbot/models/context.py": "64e6e8bb2125decf31820756220cd4a47ee81c83c6329ad4c2ac4d440f0cd8eb",
+    "src/potbot/models/envelopes.py": "cf15e8ecc34cd4a80dfeeba6ea6fdda0905ca34d19b2223ed9cee986a3f0ba3b",
+    "src/potbot/models/gateway.py": "e4ee940c2f2ee8bb006811c5ac83c7be4e733bf01898ea6407526c51dcc3fe47",
+    "src/potbot/models/invocations.py": "e59c0e366e187d9ff11368bc2de9915056933cf4e06813f6c97d6f0fadff8354",
+    "src/potbot/models/preflight.py": "13bc3d6e7ed51f5657a84508b2bf9491ca5a0680dd0cdcb17d238f48835ede62",
+    "src/potbot/models/profiles.py": "d0140c5a07a2301b28e2b8be227e39721eacfefa977ca56afa7389462e9b43f5",
+    "src/potbot/models/registry.py": "9c951b7b6d4cab700f144edb6b1844dce55ebbc0b0105e559d2e900c65e33dde",
+    "src/potbot/models/scripted.py": "67a0fd7b4fbbcf6f9648f7fb54cf6564816c67960e8d9bef5fc1c51903f8ecc7",
+    "src/potbot/models/transport.py": "9e559cc958b3d9e388aa0e9a5a1167b2261393b97726e77eecb04ceb52616b0c",
+    "src/potbot/persistence/__init__.py": "00063baf17ede59ff0188c34ca4f9df12ac6a9b0103421aae5fb3328d1eacfe2",
+    "src/potbot/persistence/admin_cli.py": "d141354223121065c79948cfe3ffdd28dc4413d02e64ced49a1e410284cfdd17",
+    "src/potbot/persistence/artifacts.py": "a04f08351266128fb403a5a82dac10f7b63c53472d21a7c0ce33c1c431e7447f",
+    "src/potbot/persistence/coding_schema.py": "2e4cda78cc994dc328aa2be74a19e90d1446c0a12c8a8ff50555ef1a5f044d5e",
+    "src/potbot/persistence/database.py": "177d04b821d608100c6d4d809a6b1628b1ff83c7dd375be400444e582c8419b4",
+    "src/potbot/persistence/embedding_sources.py": "33d1fe04c7fc8f52f734e432f9c22ab86cd1fe2dd62a8c9881385da6ce688325",
+    "src/potbot/persistence/evidence.py": "62a1ae33e841bab8f1c65aad741330fa514003a6c05829db3025659fda0b28c2",
+    "src/potbot/persistence/evidence_schema.py": "f56281f787dcb20e26857ea43de16388031cb8eaebaa47a9ac32d8a831d4bf34",
+    "src/potbot/persistence/execution_schema.py": "c14ae7cf7985346e3dbeb93ca8b7694c63261a2fb918f254fbe57ebaa53f55a3",
+    "src/potbot/persistence/harness.py": "ea3f584f2d97f46fe63ffcc327be54d3e53ae2d16e89993ac748338974231d6c",
+    "src/potbot/persistence/model_schema.py": "7ea554ecc469c30f59473338b965e05d9a3d2bdb3598c373692b68ad28b1f782",
+    "src/potbot/persistence/named_vector_schema.py": "f71315c47bc9502948c8766a433de8d4d2d74bf3a846bb04026ea17943654031",
+    "src/potbot/persistence/outbox.py": "f2b45a5522562970f5fe23f912ce2f217b6793aa629bb3a2dde17b3e7293b320",
+    "src/potbot/persistence/phase4_schema.py": "8310e9cebcfe7fe0ae675d71736818f9f5a243b407fa13b7a1d051e4422a1e92",
+    "src/potbot/persistence/repository_schema.py": "7feb4638c49a8a59d08ea54495603c0f1c440b595b3497fa41c029daa0840dce",
+    "src/potbot/persistence/schema.py": "4a8cf33a54b77e23bd6b3f386e2602b05a5ec0e218d0e8ad91e150d90307929d",
+    "src/potbot/persistence/semantic_schema.py": "148c2a397d95b1f621737de7527d06298ec6b87c9cfe2f120ab2b5c07cba4c40",
+    "src/potbot/persistence/syn_schema.py": "d42b2aff307e63b910c95db22c89586b33d134e32e4598ac9da30215b72897c5",
+    "src/potbot/persistence/task_schema.py": "6d311144ec77773d61e1bcfde778d76bd12df7b4b31c6cd466aa93d49fd9dadd",
+    "src/potbot/persistence/verification_schema.py": "2b4913e8077819facfea4df8a52265d8967b814cd49d3ec149f0d92efb2c1a56",
+    "src/potbot/persistence/worker_cli.py": "01c002e2288e268f55142cfd1f9d26e56e7b4ab99c5f7449a7f21bcc2f4cd87b",
+    "src/potbot/semantics/__init__.py": "ae2ff8d6347e042648925cf1b706f35027fcae729a893694da6837927c89076d",
+    "src/potbot/semantics/catalog.py": "b61510b62ae23fdd05b22566704ccbefe18de92cba49f36b3b37e617c7ee88d5",
+    "src/potbot/semantics/cli.py": "6adfec35f8d6f53b4651a393f7d263e2406ff2857f3cf1431b0b44d803042eb2",
+    "src/potbot/semantics/registry.py": "497eeee4b12ed838cdc4f5cc74d765ac96214bfd569c77cdc7bbdaa6da191836",
+    "src/potbot/semantics/releases.py": "4d7ce313177a885fc7b91462322c10ef8f880bc5813e9c4e5939427b503e626e",
+    "src/potbot/semantics/service.py": "ea0d8ca7bdfca698f1105bd2f2fa78d4aef65b230288034b6d3c4358bd9597c2",
+    "src/potbot/semantics/validation.py": "42e47fb8b75f98676963aae7fcb7df73af6b56aeb818d33667c8f51c1b639af5",
+    "src/potbot/startup.py": "9c5d05814dcfcc1b6c6d71a6e794708738da23cd7b2b56dfa2ee9399221dd6ec",
+    "src/potbot/tools/__init__.py": "f1bfbd4667c2340f6e3d008ab6a32efc933aae432125e777560e96ccf4ef7711",
+    "src/potbot/tools/execution_cli.py": "f576e63acb45228dcdc56999048a5d77c2d81b5c46767c43760b21f94b61eba3",
+    "src/potbot/tools/gateway.py": "ab9b622164e86a8eaf717d10663899b72600a71d465cffeee0856b43bd25d866",
+    "src/potbot/tools/isolation.py": "3b6aea6559e8bee2d933dae31238c63ff1527d35e7b0e2ff308ab73c0578fafc",
+    "src/potbot/tools/patch_application.py": "ddd1b9e53af9c31edc204d7de756e39a8bf8edabeb1fb54058983168e698cfec",
+    "src/potbot/tools/patch_cli.py": "4c77c3a742c7a585086277a3163f22d7bc116ec8f186db00e3fc4ddb8569ff7a",
+    "src/potbot/tools/patch_worker.py": "54ba0348b1e75b2d444965f5acb150e6229fea51ca1879c1bb9bf5f20b47d7b3",
+    "src/potbot/tools/receipts.py": "63bc799adfddd55c5f1958e39424078ca9052a896a2769025103bb472d3f31b2",
+    "src/potbot/tools/repository.py": "300edde12beec8c87e3200270470e6dc513a6231615e0c29190a4637756aeef4",
+    "src/potbot/tools/repository_snapshot.py": "e1dc62d99cd8e3fc61cb7aabefb0b87e25a119ca3b50492657463bef46d92bb1",
+    "src/potbot/tools/secrets.py": "876fade707646d6f0c71a1576dd974bc2000a93c5bf323190ef5cff57b0bcb46",
+    "src/potbot/tools/supervisor.py": "1b79a7d4dbc2a70a1c7019f2955484130e69b4d0d6638e78ad9b0e33cd0b7117",
+    "tests/integration/conftest.py": "cba01d7a4b9c4a94151475e670d63b9157c80efa5a07182a0df315418b1d659b",
+    "tests/integration/live_embedding_roundtrip.py": "2ac56bab58afae18788ea74674c3bad55bb8f4897bb18831af564453438cab6f",
+    "tests/integration/test_artifact_embedding_manifest.py": "4551405b2c254b0208a51c606206283283aeddb63c1c9e4805e4606a3b10b54b",
+    "tests/integration/test_budgets.py": "cef196af7715c5a5bd2e7123c5d89d9e7a4a558b7ec1cad99cb62531c4fff36a",
+    "tests/integration/test_coding_pipeline.py": "5084260f69f5da6eef59adab90f5989626578d861d497dcddb5bad0a7b8580c1",
+    "tests/integration/test_context_persistence.py": "da75af19d4bf4a8edd58afbdab3596c90ab9998df534e26c3685333b42583863",
+    "tests/integration/test_criterion_assessment.py": "a41d6f148340c3ec56dcb0e6328a0c2fed266c346cc557ea5007a4dfe9d2c8cf",
+    "tests/integration/test_database.py": "f9cddf278bd38b8fb265466e4879ab8540be230fbd1b7b09dc80eefbcb5e5939",
+    "tests/integration/test_embedding_persistence.py": "1861cc03c068b228153e0772f0865067eb4a14bb1e4b64d97106324113ecf7a0",
+    "tests/integration/test_evidence_outbox.py": "94341e80d4db5a506352c84f839b15f063e5916395b6af08eef3e86cb65ed77f",
+    "tests/integration/test_execution_gateway.py": "f1cb4af54b6ab4e40aa458e869640f37fc0603316ea608f31f65f86952f79dfe",
+    "tests/integration/test_inference_gateway.py": "f22e8b9a314bb5271964babc7135a63b08d05a4fcdfd5a6506b5d6113da0fc6f",
+    "tests/integration/test_information_needs.py": "938c658f768434ee922223be7d14d22b9fc0a61ed1e0c1d4f006d8083c4098d8",
+    "tests/integration/test_model_coding.py": "3654df94504644121481cc2694e8c36baba50e45a64e1b00f2e07cbb27116622",
+    "tests/integration/test_model_persistence.py": "5c51430d2d1cafb4dc103bcf0b2d301dd1c94acea8ba10d27ffc105ab9d1168f",
+    "tests/integration/test_named_embedding_migration.py": "aa814f7962be53a57381f39bc7386fbb01006b5e157e838fc6568bc3bf7bd1b8",
+    "tests/integration/test_named_embeddings.py": "4a8587c5aa74bd34ca9005d11fd25b20257428329d2283832edd01f3c0c1fab5",
+    "tests/integration/test_patch_cli.py": "34aa68223601528313f924a0a4a21da7bc90e33a89f40a3088300e4b2f475e87",
+    "tests/integration/test_patch_vertical_slice.py": "53c16b5a10060f1b9f12b6570ab45bc0d84d679fdc3854981629243912e06eee",
+    "tests/integration/test_phase3_upgrade.py": "7d75fbb00d029a0ea9acf3e4f6fda1018f718530f5317afd57e7cb339fd03667",
+    "tests/integration/test_phase4_upgrade.py": "1f0b4ec39e2d966441ab1cb496675b3df3e59c2bda7988db91613e8751cd4964",
+    "tests/integration/test_postgres_harness.py": "b12c27fa9e8c7d280bf54ed5342d786d7cad0e0e90339b5444c79999cfdecbe8",
+    "tests/integration/test_process_isolation.py": "b2471a14f9d85c0e79d26f81eb8ce370b7ae4f505f650085a10a9a4dd4d10d1d",
+    "tests/integration/test_repository_fixture.py": "46e1911c7f287c8f72190c1ca61f207a94edab24736f066d251996f1b4fa4f89",
+    "tests/integration/test_repository_states.py": "d08ec0cf472cf19a86ec05c227c9035b32053782f41a5e18cad11922d618121f",
+    "tests/integration/test_semantic_releases.py": "45c6b93169c529d5ba975e00bb942dc32efff559411fec127a7a3ddea056e9a6",
+    "tests/integration/test_startup_credentials.py": "ef58ad87ac6f4a9a1f41a0ae15dc358873b8562e8a60b9b426ad62fe40de9283",
+    "tests/integration/test_stdin_inputs.py": "dd5057a103d9cacfce57e5af93a402c6cced281f6abefe8a2f6f6804bc9368c4",
+    "tests/integration/test_supervised_embeddings.py": "8beaa5ac1b85d6d6248c26b762ab1ad4c595a4cee509c8e5c65949a2d1f053d7",
+    "tests/integration/test_syn_cli.py": "425aa9c77ae7ee6428604c4990345421b4432988d3c3935504106e4fc6fafb68",
+    "tests/integration/test_syn_migration.py": "b373e8fe3bdd73a7865903d4fc251b987dc020f74a6e74c577ece25e16fa3c4b",
+    "tests/integration/test_syn_service.py": "d1361e8a91fe46484e47cc49da4aa24c4254461998cb2d06b5e89e596ef65a48",
+    "tests/integration/test_tasks.py": "1df4dee0ab07d216311a645f62b5fda0152796bf45dcac2f8a105586fffda890",
+    "tests/integration/test_verification.py": "f1020ee9145625854e56d884778601c6688f51583483003b4cb071d9cc3dd3b9",
+    "tests/unit/test_application.py": "06dadb24ade7fa31e953d70f75be91a5565f738b64600e3e043881e834ea3f23",
+    "tests/unit/test_artifact_embedding_manifest.py": "9c1d77366478663753bbd03ebc7d5afef053170a0e72c21e79e356e3bcf9ddfe",
+    "tests/unit/test_artifacts.py": "831f01b3f9a00fa42cfca2f5b5a10b8a77ebba5d15ca74b1f78c9c0bbdd353f8",
+    "tests/unit/test_check_runner.py": "c4551abc103baa3a7783e679d54e3dfc0d550d35c40ff7075e71d73cf71426dd",
+    "tests/unit/test_cli_dependency_preparation.py": "020113d8699d8ce7f677776fa82951c8db080b0d6d88b323ac457b197a91a324",
+    "tests/unit/test_coding_patch_contracts.py": "02c5f60930c220087c0b45fd320da5b0dab036bb87e86f20906841899a1351fd",
+    "tests/unit/test_configuration.py": "c0821ee87d29a828d517a9b404875712799aacde9ac5ff940c684acdd37295cb",
+    "tests/unit/test_context_rendering.py": "d053aa305a0ce2919aceec03cd2e9170a6b0205fba159563a46d3825f6ad14b3",
+    "tests/unit/test_credentials.py": "d70ec7339d17e14c6f6f85f36641597f253ecc87d12391c235f74ede50d029c4",
+    "tests/unit/test_database_contracts.py": "6f38672d58a30af027e61a11ced3d29bc98f82fd8c6d2fcbda7d0f5c7c34524a",
+    "tests/unit/test_dependencies.py": "1fd26fa7f6bbaa644b9567190ddafd68e249741f2e44cd47bad2c5a64e26709b",
+    "tests/unit/test_diagnostics.py": "d7d83069d69cdc8ecbc95b84cbc94a77ee2c51f8143335c09586930252407129",
+    "tests/unit/test_domain_records.py": "1d07a89aa5c71dbb4695dfef2865ef54afa3a44530275fcf94ad3035c30a060b",
+    "tests/unit/test_embeddings.py": "9d9298f74c9e1a6fab6deb89a20cb593fa1a773ac9a9841e9f99c48178d55478",
+    "tests/unit/test_execution_cli.py": "f159a8fa1e6274915a5ec8dfe1ee8750e9f588b99739eb7132a4bd871c436a35",
+    "tests/unit/test_gateway_guards.py": "cba4e920f0bdd650ba34722bc2221c6c630f423ac0f6c5bdf3280a7b85e39359",
+    "tests/unit/test_inference_transport.py": "b723053464a7b66fd9d4d8b3822ab117c1c1449a8428abd6634cbd8662c7f9b0",
+    "tests/unit/test_launchers.py": "078116612a3a8efd1cd31e58b03671aabf5b46d7b7667c3384c7b6998d4d9877",
+    "tests/unit/test_model_envelopes.py": "475fdd59e53ae396b53c37190f03ff906fa63879dcb466ae79d225561be1c1cb",
+    "tests/unit/test_model_preflight.py": "0e6d9b48d1d89e7ebef231e034bbb8390ddcdae1837cde4322a409cd1a489068",
+    "tests/unit/test_model_profiles.py": "edb12de6afa042068966fda9ba4ca4b824469759912f002c4bb39a407ee61803",
+    "tests/unit/test_model_proposals.py": "047efe1160f7526154cf42b722b18f05fb07c6adf0fa988d275ba302aff6c772",
+    "tests/unit/test_models.py": "65b40b68bf59e8e563d863e8364d18c87d59fde8c9ebf43f65fcea56b23f981e",
+    "tests/unit/test_models_cli.py": "d21ddc1d5f7aee135677e4d341153cb2d85263b5aaeddbea2c4e6f05f9f2d230",
+    "tests/unit/test_patch_cli.py": "ce39bae00f5846e96d38bbb635856827ea90f38a71bf903fe0a34e6b7727f5b4",
+    "tests/unit/test_postgres_config.py": "aaf5360b776dce8b7839fdd35e7588868446123b29740dd987f82ed6fa5fd1d9",
+    "tests/unit/test_process_contracts.py": "fbac7c5d383f37d0e99d8ba08addd27a73ba36b9b30657d9df5092df8d14cdbd",
+    "tests/unit/test_repository_snapshots.py": "c0c7e01d62184ccb3c6365775a0519c72635ed1d19bb21c0e06096ab86085ca0",
+    "tests/unit/test_reuse_policy.py": "0c5fadd673665cef382051331b50c377d270ea635dd2f8ee0861fa027344167d",
+    "tests/unit/test_secret_capture.py": "1e4b00c3795ffd482a3380f7ce16cd7adba8082e8ea75d30d08ee4a7edb6bc21",
+    "tests/unit/test_semantics.py": "e9bd200e45ab8f10769b036bae538834963fa66bc17441cb030843608a40344e",
+    "tests/unit/test_startup.py": "46edfc13e8e3cc8188fb2032ff8a9eb361c5e2fc46b86fae562034d545560909",
+    "tests/unit/test_syn.py": "ff32d6d65fc5fcd7ce91c69ba0d00c87aca8bc607920fafe57ea061b41300d78",
+    "tests/unit/test_syn_catalog.py": "98abdcb888921c591de2daa7ad0936b479e44f5a7fbda464db66eb6675a64828",
+    "tests/unit/test_syn_cli.py": "3f275613d41d7fd5b1e78dd94401d28f8bbdbe777eac82fd872562a174dc0624",
+    "tests/unit/test_syn_dump_extract.py": "c9b7a9e3932e40d9b96ffcdddf2b8d98786af74eda0f04e01008cc960c00d0c5",
+    "tests/unit/test_syn_export.py": "011c60aba3aa041bb48513b462e89c41ebdc80e9dc1e151a6f62a1313c51599d",
+    "tests/unit/test_tasks.py": "7d3ffedf8ca33bab1ae92dbac70f926044102d455bc5d197db625f2ef2cbad42",
+    "tests/unit/test_verification.py": "33af516eac66647f6425d00b2bedde31f60489945a390df186f463e35ba5e1e2",
+    "tests/unit/test_wire.py": "1bd8ba6d5a7aad6fad61469064256a3a8b91b4515cec91c43dfd47ae482b85bd",
+    "tests/windows/launcher-smoke.ps1": "d2976bbf5a30d1126013c1e88d82acdc79876ac9768946367d598b5abaa5df7d"
+  },
+  "qualification": {
+    "lint_and_format": true,
+    "strict_mypy": true,
+    "clean_installed_core_wheel": true,
+    "installed_models_help_without_optional_dependencies": true,
+    "real_postgresql_integration": true,
+    "real_linux_sandbox_execution": true,
+    "fixture_gateway_to_verified_exact_base_patch": true,
+    "current_source_repository_preserved_by_patch_fixture": true,
+    "token_usage_origin": "synthetic",
+    "live_reasoning_or_coding_inference": false,
+    "live_qualified_default_models": 0,
+    "model_weights_downloaded_for_phase5": false,
+    "gpu_runtime_executed": false,
+    "native_windows_executed_here": false,
+    "native_macos_executed_here": false,
+    "sql_migration_added": false,
+    "provider_credentials_accessed": false
+  },
+  "acceptance_highlights": [
+    "Concurrent fixture requests cannot both consume the final task allowance.",
+    "Stable operation replay cannot dispatch a second call or settle usage twice.",
+    "Lost dispatch/completion and terminal usage remain indeterminate until explicit reconciliation.",
+    "Cancelled, timed-out, stale, incomplete, malformed or over-limit outputs cannot publish usable proposals.",
+    "Each permitted schema repair retains its own source packet, raw output, invocation and reservation.",
+    "Required source and memory-qualification bytes are retained and rehashed before dispatch.",
+    "A complete fixture response admits into existing coding records, applies to the exact base under Linux isolation, and resolves the verified fixture criterion."
+  ],
+  "limits": [
+    "The only runnable model transport in this milestone is the finite potbot-offline-fixture adapter.",
+    "The five real model profiles remain advisory and unqualified. Preflight does not load or generate.",
+    "Cooperative deadlines cannot hard-stop an arbitrary blocking model runtime; live supervision is pending.",
+    "A process lost before completion may retain only the dispatch marker; individual chunks are not durably journaled.",
+    "Reasoner-generated implementation contracts, shared outbound disclosure policy, live qualification and physical residency scheduling remain outstanding.",
+    "Context semantic declarations are syntax-validated caller metadata; full P197 semantic validation remains pending.",
+    "Optional memory bundles are supplied through an interface; learned memory retrieval and consolidation remain later phases.",
+    "IBM and DanceFlow MCP transports and production library/workflow discovery are unchanged and remain on their existing roadmap."
+  ],
+  "remote_pushed": false
+}

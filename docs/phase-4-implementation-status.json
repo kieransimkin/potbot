@@ -1,0 +1,432 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "application_version": "0.4.0",
+  "phase": 4,
+  "title": "The first verified patch and integrated startup",
+  "source_baseline": "88de7ee06ca985015527618bf8ca7ffb8fdf3755",
+  "approved_plan_revision": {
+    "version": "1.1",
+    "date": "2026-10-21",
+    "project": "potbot",
+    "architecture_baseline": "1.1",
+    "semantic_design_release": "0.1.0",
+    "original_ids_preserved": true,
+    "new_steps": [
+      "P154",
+      "P155",
+      "P156",
+      "P157",
+      "P158",
+      "P159",
+      "P160",
+      "P161",
+      "P162",
+      "P163",
+      "P164",
+      "P165",
+      "P166",
+      "P167",
+      "P168",
+      "P169",
+      "P170",
+      "P171",
+      "P172",
+      "P173",
+      "P174",
+      "P175",
+      "P176",
+      "P177",
+      "P178",
+      "P179",
+      "P180",
+      "P181",
+      "P182",
+      "P183",
+      "P184",
+      "P185",
+      "P186",
+      "P187",
+      "P188",
+      "P189",
+      "P190",
+      "P191",
+      "P192",
+      "P193",
+      "P194",
+      "P195",
+      "P196",
+      "P197",
+      "P198",
+      "P199",
+      "P200",
+      "P201",
+      "P202",
+      "P203",
+      "P204"
+    ],
+    "new_gates": [
+      "G25",
+      "G26",
+      "G27",
+      "G28",
+      "G29",
+      "G30",
+      "G31",
+      "G32",
+      "G33",
+      "G34",
+      "G35"
+    ],
+    "new_requirements": [
+      "U10",
+      "U11",
+      "U12",
+      "U13",
+      "U14",
+      "U15"
+    ]
+  },
+  "approved_plan_sha256": "b9a60f20564cc3f16cebb1ea64b57c0851d8053b7ca5884bafb682b2cbfa6a4f",
+  "steps": [
+    {
+      "key": "F27",
+      "title": "Run and preserve baseline verification checks",
+      "phase_hint": "Foundation: verification and delivery",
+      "depends_on": [
+        "P032"
+      ],
+      "deliverables": [
+        "A verification-command profile with provenance and adapters for the fixture's real parser/compiler and behavioral test commands.",
+        "Baseline execution records containing test identities, definition digests, environment, statuses, and already present failures."
+      ],
+      "acceptance": [
+        "The faulty fixture baseline records its known failing behavior and an unrelated pre-existing failure as separate observations.",
+        "An unavailable test dependency becomes blocked or infrastructure_error, while an unexecuted configured check remains not_run instead of passing by default."
+      ],
+      "trace_sections": [
+        "Verification and result delivery",
+        "Repository state and isolated execution"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "Validate discovered commands through the existing tool gateway. Use stable behavior/test identities plus definition digests so a later edited test is not automatically treated as comparable baseline evidence.",
+      "id": "P035",
+      "phase": 4,
+      "phase_title": "The first verified patch",
+      "trace_codes": [
+        "S14",
+        "S07"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/domain/verification.py",
+        "src/potbot/controller/verification.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_verification.py"
+      ],
+      "verification_report": "docs/phase-4-verification.json"
+    },
+    {
+      "key": "F28",
+      "title": "Define bounded coding handoffs and a scripted producer",
+      "phase_hint": "Foundation: verification and delivery",
+      "depends_on": [
+        "P019",
+        "P026"
+      ],
+      "deliverables": [
+        "An immutable implementation-contract record binding the task contract, base state, change scope, expected behavior, and required checks.",
+        "A scripted model-adapter fixture returning either a patch artifact or a classified inability, with invocation identity and assumptions."
+      ],
+      "acceptance": [
+        "The scripted fixture produces a patch without a real model and persists the exact manually assembled input packet, deployment identity, and invocation links through the common contracts.",
+        "A response containing both patch and inability, an unknown contract, or a mismatched base is rejected before candidate creation."
+      ],
+      "trace_sections": [
+        "Default models and deployment contracts",
+        "PostgreSQL logical schema",
+        "Reference controller algorithm"
+      ],
+      "gates": [
+        "G35"
+      ],
+      "size": "M",
+      "notes": "Use explicit scripted deployment metadata and report it honestly. The real model gateway can implement the same contract later; this fixture establishes handoff semantics rather than model capability. Include the scoped reuse/adapt/build assessment and available library/tool/workflow search receipts. In the scripted milestone these are supplied fixtures; P176 later executes production discovery.",
+      "id": "P036",
+      "phase": 4,
+      "phase_title": "The first verified patch",
+      "trace_codes": [
+        "S05",
+        "S15",
+        "S18"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/domain/coding.py",
+        "src/potbot/controller/coding.py",
+        "src/potbot/models/scripted.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_coding_patch_contracts.py",
+        "tests/integration/test_coding_pipeline.py"
+      ],
+      "verification_report": "docs/phase-4-verification.json"
+    },
+    {
+      "key": "F29",
+      "title": "Apply candidate patches against their declared base",
+      "phase_hint": "Foundation: verification and delivery",
+      "depends_on": [
+        "P031",
+        "P036"
+      ],
+      "deliverables": [
+        "A candidate-application operation checking the recorded base, mutation lease, permitted paths, and patch artifact before applying it in an isolated workspace.",
+        "Candidate records linking the coding result, exact base, resulting state, and patch artifact, including explicit import provenance."
+      ],
+      "acceptance": [
+        "The fixture repair applies to its expected state and produces a new recorded state while leaving the source workspace unchanged.",
+        "The same patch against a changed base or outside permitted paths produces state_mismatch or scope denial and cannot create an apparently successful candidate."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Verification and result delivery",
+        "PostgreSQL logical schema"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "Imported branch changes remain explicit application actions. Application success only establishes patch applicability; every resulting candidate still requires verification on its own state.",
+      "id": "P037",
+      "phase": 4,
+      "phase_title": "The first verified patch",
+      "trace_codes": [
+        "S07",
+        "S14",
+        "S15"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/patch_application.py",
+        "src/potbot/tools/patch_worker.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_coding_pipeline.py",
+        "tests/integration/test_stdin_inputs.py"
+      ],
+      "verification_report": "docs/phase-4-verification.json"
+    },
+    {
+      "key": "F30",
+      "title": "Assess candidate criteria using exact-state verification",
+      "phase_hint": "Foundation: verification and delivery",
+      "depends_on": [
+        "P035",
+        "P037"
+      ],
+      "deliverables": [
+        "A criterion-assessment service consuming current-contract checks and candidate executions with passed, failed, blocked, not_run, inconclusive, or infrastructure statuses.",
+        "Baseline-versus-candidate comparison that exposes changed test definitions and limits each observation to the behavior it covers."
+      ],
+      "acceptance": [
+        "A passing result from one fixture branch or environment cannot satisfy a criterion on another; the candidate's own checks are required.",
+        "The known baseline failure is distinguished from a newly introduced regression, and an agent-authored passing test does not mark unrelated requirements verified.",
+        "Removing or weakening a configured check is visible and cannot silently produce a passing acceptance gate."
+      ],
+      "trace_sections": [
+        "Verification and result delivery",
+        "Evaluation and release qualification"
+      ],
+      "gates": [
+        "G01",
+        "G06",
+        "G07"
+      ],
+      "size": "M",
+      "id": "P038",
+      "phase": 4,
+      "phase_title": "The first verified patch",
+      "trace_codes": [
+        "S14",
+        "S23"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/controller/verification.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_verification.py",
+        "tests/integration/test_verification.py",
+        "tests/integration/test_patch_vertical_slice.py",
+        "tests/integration/test_criterion_assessment.py"
+      ],
+      "verification_report": "docs/phase-4-verification.json"
+    },
+    {
+      "key": "F31",
+      "title": "Export the selected patch with an immutable verification manifest",
+      "phase_hint": "Foundation: verification and delivery",
+      "depends_on": [
+        "P038"
+      ],
+      "deliverables": [
+        "Manifest assembly recording candidate, patch, base/result states, environment, current contract, check definitions, executions, criterion statuses, and limitations.",
+        "Candidate inspection and result-export operations returning the selected artifacts, actual participating deployments, and explicit final outcome."
+      ],
+      "acceptance": [
+        "An exported manifest resolves to the exact patch and execution artifacts used for the selected candidate; altered artifact bytes fail integrity validation.",
+        "A candidate with an unresolved mandatory criterion exports as partial or blocked under policy, with unexecuted checks visible rather than a verified success."
+      ],
+      "trace_sections": [
+        "Verification and result delivery",
+        "Service interfaces and events"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "Returning a patch does not apply it to the user's workspace or invoke an external publication capability. Preserve the selected result even when disposable candidate workspaces are later removed.",
+      "id": "P039",
+      "phase": 4,
+      "phase_title": "The first verified patch",
+      "trace_codes": [
+        "S14",
+        "S19"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/controller/patch_exports.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_patch_vertical_slice.py"
+      ],
+      "verification_report": "docs/phase-4-verification.json"
+    },
+    {
+      "key": "F32",
+      "title": "Complete a scripted task-to-patch vertical slice",
+      "phase_hint": "Foundation: verification and delivery",
+      "depends_on": [
+        "P034",
+        "P039"
+      ],
+      "deliverables": [
+        "A deterministic controller path connecting submission, initialization, baseline checks, scripted coding handoff, patch application, verification, and final export.",
+        "An end-to-end fixture exercising restart boundaries and recording all work through the existing event and budget paths."
+      ],
+      "acceptance": [
+        "A clean run returns a patch that applies to a fresh fixture checkout and passes the documented checks without changing the original repository.",
+        "Importing a fixture patch into another candidate requires fresh verification; the source branch's passing record cannot complete the import.",
+        "Changing a requirement before finalization creates reassessment work and prevents success under the obsolete contract."
+      ],
+      "trace_sections": [
+        "Reference controller algorithm",
+        "Implementation roadmap",
+        "Verification and result delivery",
+        "Evaluation and release qualification"
+      ],
+      "gates": [
+        "G04",
+        "G05"
+      ],
+      "size": "M",
+      "notes": "The scripted producer is the only model participant; report no real-model capability claim.",
+      "id": "P040",
+      "phase": 4,
+      "phase_title": "The first verified patch",
+      "trace_codes": [
+        "S18",
+        "S25",
+        "S14",
+        "S23"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/controller/patch_pipeline.py",
+        "src/potbot/tools/patch_cli.py",
+        "src/potbot/evaluation/patch_fixture.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_patch_vertical_slice.py",
+        "tests/unit/test_patch_cli.py",
+        "tests/integration/test_patch_cli.py"
+      ],
+      "verification_report": "docs/phase-4-verification.json"
+    }
+  ],
+  "user_requested_additions": [
+    {
+      "id": "S4-01",
+      "title": "uv bootstrap launchers for BAT, PowerShell and Bash",
+      "implementation_files": [
+        "start.bat",
+        "start.ps1",
+        "start.sh",
+        "src/potbot/startup.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_launchers.py",
+        "tests/windows/launcher-smoke.ps1"
+      ],
+      "status": "implemented_and_tested_with_documented_platform_limits"
+    },
+    {
+      "id": "S4-02",
+      "title": "Verified dependency downloads with progress and resume",
+      "implementation_files": [
+        "src/potbot/dependencies.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_dependencies.py"
+      ],
+      "status": "implemented_and_tested_with_documented_platform_limits"
+    },
+    {
+      "id": "S4-03",
+      "title": "Native credential store and first-start PostgreSQL prompt",
+      "implementation_files": [
+        "src/potbot/credentials.py",
+        "src/potbot/startup.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_credentials.py",
+        "tests/unit/test_startup.py",
+        "tests/integration/test_startup_credentials.py"
+      ],
+      "status": "implemented_and_tested_with_documented_platform_limits"
+    },
+    {
+      "id": "S4-04",
+      "title": "Join published SYN-first and Phase3-preview database histories",
+      "implementation_files": [
+        "src/potbot/persistence/schema.py",
+        "src/potbot/persistence/database.py",
+        "src/potbot/persistence/phase4_schema.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_phase4_upgrade.py"
+      ],
+      "status": "implemented_and_tested_with_documented_platform_limits"
+    }
+  ],
+  "phase_3_dependency_delivery": "Cumulative source integration from the previously released Phase 3 patch; current GitHub baseline did not contain it.",
+  "qualification_limits": [
+    "Scripted coding only; live reasoning/coding adapters remain Phase 5.",
+    "Linux sandbox execution qualified; native Windows/macOS execution is unsupported.",
+    "Windows launcher smoke is included in CI and was not run locally.",
+    "Native credential backend contracts tested with injected vault; actual desktop vault unavailable on this host.",
+    "Discovery receipts are supplied fixtures; live online/MCP workflow discovery remains later scope."
+  ],
+  "next_phase": {
+    "phase": 5,
+    "title": "Model adapters and live qualification",
+    "steps": "P041\u2013P056"
+  },
+  "completed_step_count": 6,
+  "verification_report": "docs/phase-4-verification.json"
+}

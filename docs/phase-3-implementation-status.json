@@ -1,0 +1,788 @@
+{
+  "schema_version": 1,
+  "project": "potbot",
+  "application_version": "0.3.0",
+  "phase": 3,
+  "title": "Repository isolation and controlled tools",
+  "source_baseline": "ff5510e75a16e9fa8b2a8c4a3008e4a568a0ad87",
+  "approved_plan_version": "1.1",
+  "approved_plan_sha256": "b9a60f20564cc3f16cebb1ea64b57c0851d8053b7ca5884bafb682b2cbfa6a4f",
+  "completed_step_count": 17,
+  "steps": [
+    {
+      "key": "F17",
+      "title": "Record committed repository states and lineage",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P002",
+        "P017"
+      ],
+      "deliverables": [
+        "Repository-state persistence identifying the repository, commit, content-tree digest, relevant submodule references, dependency-lock identity, and environment linkage.",
+        "Published parent-state relationships with scope validation and cycle prevention."
+      ],
+      "acceptance": [
+        "Capturing two fixture branches records their distinct content identities even if a branch label is later moved or renamed.",
+        "A parent from another repository or an attempted lineage cycle is rejected without changing an already published state."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "PostgreSQL logical schema"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "This step supports committed snapshots first. Branch names remain descriptive metadata, and the next step adds preservation of uncommitted execution inputs.",
+      "id": "P022",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S15"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/repository.py",
+        "src/potbot/persistence/repository_schema.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_repository_states.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F18",
+      "title": "Snapshot dirty and execution-relevant untracked inputs",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P022"
+      ],
+      "deliverables": [
+        "A snapshot artifact capturing tracked modifications, configured untracked/generated inputs, and declared exclusions without editing the source workspace.",
+        "Materialization support that reconstructs those inputs and verifies their recorded content digest."
+      ],
+      "acceptance": [
+        "A dirty fixture materializes into a clean temporary destination with identical execution behavior and leaves the original Git status unchanged.",
+        "Changing a declared untracked runtime input changes the snapshot identity; excluded sensitive inputs remain references and are not copied into the snapshot."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Security and trust boundaries"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "The repository profile must explicitly identify relevant ignored/generated inputs. Report unsupported or unavailable inputs rather than pretending the snapshot fully represents an execution it cannot reproduce.",
+      "id": "P023",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S21"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/repository_snapshot.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_repository_snapshots.py",
+        "tests/integration/test_repository_states.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F19",
+      "title": "Allocate isolated candidate workspaces",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P023"
+      ],
+      "deliverables": [
+        "A workspace manager materializing a candidate from a recorded state into an application-owned worktree or equivalent isolated directory.",
+        "Cleanup rules distinguishing temporary candidates, retained evidence, selected patches, and user-owned paths."
+      ],
+      "acceptance": [
+        "Two candidates initialized from one dirty snapshot can make conflicting edits without changing each other or the original repository.",
+        "Cleanup removes only the selected disposable fixture workspace and preserves the original sentinel, retained artifacts, and sibling candidate."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "System components and deployment"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "Use real temporary Git repositories in the test. Workspace ownership must be explicit; never infer that an arbitrary directory is disposable merely because its path resembles an application worktree.",
+      "id": "P024",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S04"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/repository.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_repository_states.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F20",
+      "title": "Enforce single-writer workspace leases",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P024"
+      ],
+      "deliverables": [
+        "Workspace mutation leases with owner, expiry, renewal, monotonically increasing fencing token, and reconciliation status.",
+        "State-publication checks rejecting results from stale lease holders and preventing unsafe reassignment of an unresolved workspace."
+      ],
+      "acceptance": [
+        "Concurrent mutation claims for one workspace yield one active owner; publishing with an expired token fails.",
+        "An expired workspace cannot be reassigned for mutation until its former operation is reconciled or a fresh isolated workspace is allocated."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Transactions and concurrency"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "A database fencing token cannot stop an arbitrary operating-system process writing files. Keep unresolved workspaces quarantined; the later supervisor and recovery steps establish when their operations have stopped.",
+      "id": "P025",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S16"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/repository.py",
+        "src/potbot/persistence/repository_schema.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_repository_states.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "id": "P154",
+      "key": "V11_154",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "phase_hint": "Version 1.1 extension",
+      "title": "Load the pinned semantic and data type registries",
+      "depends_on": [
+        "P005",
+        "P016",
+        "P020"
+      ],
+      "deliverables": [
+        "An immutable release loader and bounded schema resolver for vocabulary 0.1.0: 45 data types, 39 assignable types, six abstract families, 25 entity types, 16 predicates, 16 concepts and seven retrieval profiles.",
+        "A checked explicit subtype graph, release manifest, content hashes and exhaustive registry-listing API; source package assertions remain separate from runtime qualification."
+      ],
+      "acceptance": [
+        "Every shipped identifier loads exactly once; abstract families are queryable but cannot be primary assignments, and an unknown reference, duplicate identifier or subtype cycle is rejected.",
+        "A changed definition cannot overwrite an existing release. A fixture that omits a registered type fails the exact catalog inventory check."
+      ],
+      "trace_codes": [
+        "S30",
+        "S15",
+        "S03"
+      ],
+      "trace_sections": [
+        "Semantic types and meaning contracts",
+        "PostgreSQL logical schema",
+        "Architecture principles"
+      ],
+      "gates": [
+        "G25",
+        "G26"
+      ],
+      "notes": "Use the committed vocab package as the authoritative design input. Do not copy its counts into a validator while ignoring the actual definitions.",
+      "size": "M",
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/semantics/registry.py",
+        "src/potbot/semantics/releases.py",
+        "src/potbot/persistence/semantic_schema.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_semantics.py",
+        "tests/integration/test_semantic_releases.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "id": "P155",
+      "key": "V11_155",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "phase_hint": "Version 1.1 extension",
+      "title": "Validate typed literals and semantic frame envelopes",
+      "depends_on": [
+        "P154"
+      ],
+      "deliverables": [
+        "Typed value, named-role atom, mode/force, polarity, scope, interval and bounded guard-AST validation using the pinned signatures. Numeric values preserve exact decimal/integer meaning and source lexemes.",
+        "Explicit unresolved values and partial coverage; schema-valid envelopes remain proposals and cannot supply authenticated workspace, producer or verification authority."
+      ],
+      "acceptance": [
+        "Boolean, integer, decimal, string, null, absent and unknown remain distinct; invalid roles, unsupported coercion, reversed signatures and excessive guard/frame limits fail before persistence.",
+        "Fixtures distinguish must(not P) from may(not P), preserve when separately from applicability, and reject unsupported disjunction or coupled prohibitions as atomic claims while retaining source material."
+      ],
+      "trace_codes": [
+        "S30",
+        "S03",
+        "S19"
+      ],
+      "trace_sections": [
+        "Semantic types and meaning contracts",
+        "Architecture principles",
+        "Service interfaces and events"
+      ],
+      "gates": [
+        "G26"
+      ],
+      "notes": "Structural validation does not resolve entity references, evaluate guards, or establish truth. P177, P180 and P183 add those separate behaviors.",
+      "size": "M",
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/semantics/validation.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_semantics.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F21",
+      "title": "Persist execution inputs and typed action records",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P025",
+        "P155"
+      ],
+      "deliverables": [
+        "Minimal knowledge-view, search-node, action, and action-run persistence binding operations to immutable inputs, with corresponding checked run/node foreign keys added to events.",
+        "A registered action schema with producer identity, dependencies, expected output, stopping conditions, and attempt status."
+      ],
+      "acceptance": [
+        "A scripted action reload retains its exact inputs and distinct proposed/running/completed or indeterminate status.",
+        "Unknown action kinds, fabricated evidence references, and mismatched contract/state scope are rejected before any tool can execute."
+      ],
+      "trace_sections": [
+        "PostgreSQL logical schema",
+        "Reference controller algorithm",
+        "Architecture principles",
+        "Semantic types and meaning contracts",
+        "MCP integration"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "This is the durable execution envelope, not the search policy. Use a manually assembled evidence manifest and scripted proposals; reasoning-tree selection and model inference are separate work. Reserve versioned semantic-contract and external invocation references in the durable envelope; authenticated execution identity still belongs to the controller.",
+      "id": "P026",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S15",
+        "S18",
+        "S03",
+        "S30",
+        "S31"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/controller/execution.py",
+        "src/potbot/domain/execution.py",
+        "src/potbot/persistence/execution_schema.py",
+        "src/potbot/persistence/evidence.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_execution_gateway.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F22",
+      "title": "Validate tool capabilities and expected inputs",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P015",
+        "P020",
+        "P026"
+      ],
+      "deliverables": [
+        "A controller-owned capability context and tool-admission interface checking registered operations, structured arguments, paths, workspace lease, input state, active contract, and reservation.",
+        "A small fixture tool registry for repository inspection, compilation, and tests."
+      ],
+      "acceptance": [
+        "A permitted request with matching inputs is admitted, while a path escape, stale base, missing reservation, or stale lease is rejected before launch.",
+        "Embedding an instruction to widen permissions inside source text or a proposal payload leaves the authenticated capability context unchanged."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Security and trust boundaries",
+        "Service interfaces and events",
+        "MCP integration"
+      ],
+      "gates": [
+        "G16"
+      ],
+      "size": "M",
+      "notes": "Preserve existing task authorization. These checks implement execution authority, not a new approval dialog for every action; broader disclosure and public-API authorization tests are integrated separately. The same admission contract applies to later MCP adapters; external descriptions and effect acknowledgments do not grant capabilities.",
+      "id": "P027",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S21",
+        "S19",
+        "S31"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/gateway.py",
+        "src/potbot/domain/execution.py",
+        "src/potbot/tools/execution_cli.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_execution_gateway.py",
+        "tests/unit/test_gateway_guards.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "M01",
+      "title": "Persist first-class information needs",
+      "phase_hint": "Investigation foundation",
+      "depends_on": [
+        "P020",
+        "P026"
+      ],
+      "deliverables": [
+        "Create information_needs, immutable need_revisions, and need_status with question, pending decision, alternatives, known evidence references, required evidence, resolution criteria, scope, priority, and budget fields. Enforce same-need predecessors and workspace ownership through checked relational references.",
+        "Implement idempotent creation and append-revision commands with expected update tokens; retain prior questions when requirements change instead of overwriting their text."
+      ],
+      "acceptance": [
+        "A real PostgreSQL fixture creates a need, appends a changed question, and retrieves both immutable revisions with the correct current pointer.",
+        "A cross-workspace reference, mismatched predecessor, changed idempotent payload, or stale update token is rejected without partial writes."
+      ],
+      "trace_sections": [
+        "Active investigation and source acquisition",
+        "PostgreSQL logical schema",
+        "Transactions and concurrency",
+        "Semantic types and meaning contracts"
+      ],
+      "gates": [],
+      "size": "M",
+      "id": "P028",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S09",
+        "S15",
+        "S16",
+        "S30"
+      ],
+      "optional": false,
+      "notes": "Needs may request exact inventories or qualified semantic comparisons. Query views belong to need revisions, never to invented accepted memories.",
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/controller/information_needs.py",
+        "src/potbot/persistence/execution_schema.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_information_needs.py",
+        "tests/integration/test_semantic_releases.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "X03",
+      "title": "Inject secret references and redact captures before publication",
+      "phase_hint": "tools",
+      "depends_on": [
+        "P027"
+      ],
+      "size": "M",
+      "deliverables": [
+        "A secret-reference provider that injects credentials only into authorized operations and keeps literal values out of ordinary configuration records.",
+        "A capture boundary redacting supported secret fields in command metadata, logs, errors, and searchable material before artifact publication, with explicit coverage and limitations."
+      ],
+      "acceptance": [
+        "A canary credential reaches an allowed fixture operation but is absent from the captured fields, stored artifacts, context inputs, and exports examined by the secret-handling suite.",
+        "A denied secret reference is never injected, and an attempted artifact publication that fails its configured redaction policy produces an explicit failure rather than publishing the raw capture."
+      ],
+      "trace_sections": [
+        "Security and trust boundaries",
+        "Active investigation and source acquisition"
+      ],
+      "gates": [],
+      "id": "P029",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S21",
+        "S09"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/secrets.py",
+        "src/potbot/tools/gateway.py"
+      ],
+      "acceptance_files": [
+        "tests/unit/test_secret_capture.py",
+        "tests/unit/test_gateway_guards.py",
+        "tests/integration/test_execution_gateway.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "X30",
+      "title": "Enforce an actual subprocess sandbox boundary",
+      "phase_hint": "tools",
+      "depends_on": [
+        "P029"
+      ],
+      "size": "M",
+      "deliverables": [
+        "One qualified process-isolation backend with an explicit launch profile for permitted mounts, filesystem access, network destinations, environment values, and resource limits.",
+        "A launch interface for the subprocess supervisor that fails as capability_unavailable when the required isolation cannot be enforced."
+      ],
+      "acceptance": [
+        "An adversarial fixture build cannot read or modify an out-of-root canary, escape through a symlink, or make a denied direct network request; permitted fixture work still succeeds.",
+        "Child processes inherit the profile, and loss of the isolation backend never falls back to an unrestricted host process."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Security and trust boundaries"
+      ],
+      "gates": [
+        "G16"
+      ],
+      "id": "P030",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S21"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/isolation.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_process_isolation.py",
+        "tests/integration/test_execution_gateway.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F23",
+      "title": "Execute supervised subprocess tools and capture results",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P030"
+      ],
+      "deliverables": [
+        "A subprocess adapter launching only through the qualified isolation backend, using argument arrays, explicit working directories and environment references, bounded output capture, and separate stdout/stderr artifacts; no direct host fallback is permitted.",
+        "Run completion records binding exit status, actual input state, resulting state, duration, usage, and artifacts to the admitted action."
+      ],
+      "acceptance": [
+        "A real compile/test command completes and its captured output can be inspected after restarting the service.",
+        "An argument containing shell metacharacters remains literal rather than launching an unintended command; oversized output is preserved or bounded through the declared artifact policy.",
+        "The real tool gateway passes the isolation backend's out-of-root read/write, symlink escape, denied-network, and child-process fixtures, proving production commands use the qualified boundary."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Service interfaces and events"
+      ],
+      "gates": [],
+      "size": "M",
+      "notes": "Do not construct shell strings from model text. Record the actual execution inputs rather than merely echoing a proposal's expected state into the evidence.",
+      "id": "P031",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S19"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/supervisor.py",
+        "src/potbot/tools/gateway.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_execution_gateway.py",
+        "tests/integration/test_phase3_upgrade.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F24",
+      "title": "Classify tool failures and enforce execution deadlines",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P031"
+      ],
+      "deliverables": [
+        "Deadline enforcement and process-group cleanup for supervised tools, including a documented termination escalation.",
+        "Distinct timeout, infrastructure-error, ordinary nonzero-exit, and inconclusive result classes with explicit retryability."
+      ],
+      "acceptance": [
+        "A fixture command that spawns a child and exceeds its deadline leaves no running child and records a timeout with partial output.",
+        "A missing executable or unavailable fixture service is classified operationally and cannot be consumed as evidence that the proposed algorithm was disproved."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Verification and result delivery",
+        "Evaluation and release qualification"
+      ],
+      "gates": [
+        "G08"
+      ],
+      "size": "M",
+      "notes": "Tests must observe actual process termination and persisted outcome classes. Do not convert every nonzero exit into the same semantic failure or retry indefinitely until one invocation happens to pass.",
+      "id": "P032",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S14",
+        "S23"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/supervisor.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_process_isolation.py",
+        "tests/unit/test_process_contracts.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F25",
+      "title": "Cancel active tasks and resume reconciled work",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P011",
+        "P014",
+        "P032"
+      ],
+      "deliverables": [
+        "Cancellation control stopping further scheduling, signalling active supervised work, and recording each operation as stopped, completed, or indeterminate.",
+        "Resume logic reconstructing task, contract, reservations, and workspace reconciliation requirements from durable records."
+      ],
+      "acceptance": [
+        "Cancel a task during a real long-running command: no new action starts, the child is stopped or explicitly indeterminate, and consumed resources remain charged.",
+        "Restart and resume a paused fixture task without duplicating its completed action; an unresolved mutation blocks further workspace writes."
+      ],
+      "trace_sections": [
+        "Task contracts and lifecycle",
+        "Repository state and isolated execution",
+        "Evaluation and release qualification"
+      ],
+      "gates": [
+        "G19"
+      ],
+      "size": "M",
+      "notes": "Cancellation is cooperative and cannot retroactively erase a completed operation. Distinguish deliberate pause, dependency blockage, cancellation, and process failure in both API status and events.",
+      "id": "P033",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S06",
+        "S07",
+        "S23"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/gateway.py",
+        "src/potbot/tools/supervisor.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_execution_gateway.py",
+        "tests/unit/test_execution_cli.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "key": "F26",
+      "title": "Reconcile mutations after a lost acknowledgment",
+      "phase_hint": "Foundation: repository and runtime",
+      "depends_on": [
+        "P033"
+      ],
+      "deliverables": [
+        "An indeterminate-run recovery path inspecting process status, workspace fingerprints, and produced artifacts before any mutation retry.",
+        "A durable reconciliation decision linking observed filesystem results to the original operation key and lease generation."
+      ],
+      "acceptance": [
+        "Crash the service after a fixture mutation increments a file but before completion is committed; recovery records or quarantines the existing result without incrementing it again.",
+        "If workspace contents do not match a recognized completion, recovery reports an unresolved state and refuses a blind replay."
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Transactions and concurrency",
+        "Evaluation and release qualification"
+      ],
+      "gates": [
+        "G20"
+      ],
+      "size": "M",
+      "notes": "Do not claim exactly-once subprocess execution. Provide a reliable distinction among safe retry, known completion, and uncertainty requiring reconciliation.",
+      "id": "P034",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "trace_codes": [
+        "S07",
+        "S16",
+        "S23"
+      ],
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/tools/gateway.py",
+        "src/potbot/tools/receipts.py",
+        "src/potbot/persistence/execution_schema.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_execution_gateway.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "id": "P156",
+      "key": "V11_156",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "phase_hint": "Version 1.1 extension",
+      "title": "Freeze semantic release identities for task consumers",
+      "depends_on": [
+        "P154",
+        "P155",
+        "P016",
+        "P019"
+      ],
+      "deliverables": [
+        "A versioned configuration extension that freezes vocabulary, type-registry, classifier-policy and query-profile identities for newly created tasks and generated context packets.",
+        "Compatibility checks for resumed tasks and catalog readers, with explicit candidate release selection rather than changing the Phase 2 configuration records in place."
+      ],
+      "acceptance": [
+        "A task started under release A retains its identities after the installation selects release B; new tasks use B and both historical packets remain inspectable.",
+        "An unsupported release or missing compatibility declaration fails clearly. No migration rewrites existing configuration hashes, invocation records or completed-step evidence."
+      ],
+      "trace_codes": [
+        "S30",
+        "S06",
+        "S15",
+        "S16"
+      ],
+      "trace_sections": [
+        "Semantic types and meaning contracts",
+        "Task contracts and lifecycle",
+        "PostgreSQL logical schema",
+        "Transactions and concurrency"
+      ],
+      "gates": [
+        "G28"
+      ],
+      "notes": "P016 and P019 remain completed baseline steps; this new work extends their versioned contracts.",
+      "size": "M",
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/semantics/releases.py",
+        "src/potbot/controller/tasks.py",
+        "src/potbot/models/invocations.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_semantic_releases.py",
+        "tests/integration/test_phase3_upgrade.py"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    },
+    {
+      "id": "P157",
+      "key": "V11_157",
+      "phase": 3,
+      "phase_title": "Repository isolation and controlled tools",
+      "phase_hint": "Version 1.1 extension",
+      "title": "Enforce hard supervision of local embedding execution",
+      "depends_on": [
+        "P032",
+        "P015"
+      ],
+      "deliverables": [
+        "A supervised local embedding worker that bounds preparation and inference time, propagates cancellation, and accounts for confirmed and uncertain usage through the existing ledger.",
+        "A process-isolated adapter preserving the pinned Qwen profile and input bytes; startup failures and killed workers have separate recorded outcomes."
+      ],
+      "acceptance": [
+        "A blocked encoder and a slow model load exceed the fixture deadline, stop under supervision, and cannot publish a vector after their operation is fenced.",
+        "Confirmed unused capacity is released; post-dispatch uncertainty remains held for reconciliation. A successful real local smoke retains the prior profile and finite normalized output contract."
+      ],
+      "trace_codes": [
+        "S07",
+        "S12",
+        "S20"
+      ],
+      "trace_sections": [
+        "Repository state and isolated execution",
+        "Retrieval and context assembly",
+        "Configuration and resource scheduling"
+      ],
+      "gates": [
+        "G19",
+        "G22"
+      ],
+      "notes": "The Phase 2 runtime allowance is accounting only. This step adds enforcement without relabeling the previous smoke as a hard-timeout test.",
+      "size": "M",
+      "optional": false,
+      "status": "completed",
+      "implementation_files": [
+        "src/potbot/memory/supervised_encoder.py",
+        "src/potbot/memory/embedding_worker.py",
+        "src/potbot/memory/embeddings.py",
+        "src/potbot/memory/local_encoder.py"
+      ],
+      "acceptance_files": [
+        "tests/integration/test_supervised_embeddings.py",
+        "docs/phase-3-embedding-verification.json"
+      ],
+      "verification_report": "docs/phase-3-verification.json"
+    }
+  ],
+  "release_gate_scope": "Phase 3 contributions only; broader full-system gates and later plan steps remain planned.",
+  "next_phase": {
+    "number": 4,
+    "title": "The first verified patch",
+    "intro": "Produce a deterministic task-to-patch result with baseline checks and an exact-state verification manifest.",
+    "first": "P035",
+    "last": "P040",
+    "count": 6,
+    "step_ids": [
+      "P035",
+      "P036",
+      "P037",
+      "P038",
+      "P039",
+      "P040"
+    ],
+    "new_step_ids": []
+  }
+}
