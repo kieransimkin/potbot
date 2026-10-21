@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run reproducible Phase 1 gates and write only sanitized failure diagnostics."""
+"""Run reproducible application gates and write sanitized failure diagnostics."""
 
 from __future__ import annotations
 

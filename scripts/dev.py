@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> int:
     try:
         installed = subprocess.run(
-            ["uv", "sync", "--locked", "--all-extras", "--dev"], cwd=ROOT, check=False
+            ["uv", "sync", "--locked", "--extra", "postgres", "--dev"], cwd=ROOT, check=False
         )
         if installed.returncode:
             return installed.returncode

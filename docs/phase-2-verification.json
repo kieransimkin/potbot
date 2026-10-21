@@ -1,0 +1,135 @@
+{
+  "base_commit": "af3d4a4df565289054689539d60681611b4d0976",
+  "checks": [
+    {
+      "check": "lint",
+      "exit_code": 0
+    },
+    {
+      "check": "format",
+      "exit_code": 0
+    },
+    {
+      "check": "types",
+      "exit_code": 0
+    },
+    {
+      "check": "unit-and-git",
+      "exit_code": 0
+    },
+    {
+      "check": "wheel-build",
+      "exit_code": 0
+    },
+    {
+      "check": "wheel-environment",
+      "exit_code": 0
+    },
+    {
+      "check": "wheel-install",
+      "exit_code": 0
+    },
+    {
+      "check": "installed-version",
+      "exit_code": 0
+    },
+    {
+      "check": "installed-help",
+      "exit_code": 0
+    },
+    {
+      "check": "installed-domain",
+      "exit_code": 0
+    },
+    {
+      "check": "db-bootstrap",
+      "exit_code": 0
+    },
+    {
+      "check": "db-create",
+      "exit_code": 0
+    },
+    {
+      "check": "db-migrate",
+      "exit_code": 0
+    },
+    {
+      "check": "db-check",
+      "exit_code": 0
+    },
+    {
+      "check": "postgres",
+      "exit_code": 0
+    },
+    {
+      "check": "db-cleanup",
+      "exit_code": 0
+    }
+  ],
+  "database": {
+    "application_tests": "genuine normal login roles, forced workspace RLS",
+    "pgvector": "0.8.7",
+    "postgresql": "17.11",
+    "test_databases": "unique disposable databases with two scoped principals"
+  },
+  "delivery": {
+    "format": "source ZIP and reviewable patch",
+    "github_publication": "blocked by GitHub integration permissions (HTTP 403)"
+  },
+  "limits": [
+    "Local Qwen results are a small integration smoke, not a retrieval quality benchmark.",
+    "The five reasoning/coding models have registry and invocation contracts but no live generation adapters yet.",
+    "Embedding runtime allowances are reservations with actual usage settlement; hard process supervision is a later phase.",
+    "Local PostgreSQL was exercised directly. Hosted CI was not run; the GitHub integration rejected publication with HTTP 403."
+  ],
+  "live_embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+  "live_embedding_profile_hash": "d19b19642eed0fa209f035a8e65c3e3c76659eaba52fb96233530e2b3f66e80b",
+  "live_embedding_report": "embedding-verification.json",
+  "live_embedding_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+  "live_embedding_tests_passed": 1,
+  "phase": 2,
+  "project": "potbot",
+  "python": "3.12.14",
+  "result": "passed",
+  "schema_version": 1,
+  "scope": {
+    "additional": "initial standard local Qwen3-Embedding-0.6B integration; custom semantic space deferred",
+    "plan_steps": [
+      "P006",
+      "P007",
+      "P008",
+      "P009",
+      "P010",
+      "P011",
+      "P012",
+      "P013",
+      "P014",
+      "P015",
+      "P016",
+      "P017",
+      "P018",
+      "P019",
+      "P020",
+      "P021"
+    ]
+  },
+  "skipped": 0,
+  "standard_tests_passed": 274,
+  "suite_counts": {
+    "postgres": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 54
+    },
+    "unit-and-git": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 220
+    }
+  },
+  "total_tests_passed": 275,
+  "verified_at": "2026-10-21T11:53:29.622511+00:00",
+  "version": "0.2.0"
+}

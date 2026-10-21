@@ -1,0 +1,50 @@
+{
+  "budget_usage": {
+    "calls": 4,
+    "tokens": 86,
+    "tool_ms": 5068
+  },
+  "checks": [
+    "offline pinned model manifest integrity",
+    "measured local CPU float32 encoding",
+    "exact pgvector retrieval",
+    "same-input idempotency",
+    "retirement excluded from subsequent query",
+    "cross-workspace RLS exclusion",
+    "measured budget settlement"
+  ],
+  "cosine_distances": [
+    0.2595583421123492,
+    0.8789891079068175
+  ],
+  "database_role": "restricted normal application login",
+  "dimensions": 1024,
+  "profile": {
+    "backend": "transformers",
+    "backend_version": "4.57.6",
+    "dimensions": 1024,
+    "document_format": "raw",
+    "generation": "standard-v1",
+    "max_batch_size": 4,
+    "max_input_tokens": 256,
+    "metric": "cosine",
+    "model": "Qwen/Qwen3-Embedding-0.6B",
+    "model_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+    "normalization": "l2",
+    "pooling": "last_token",
+    "precision": "float32",
+    "preprocessing": "identity-v1",
+    "query_instruction": "Retrieve relevant code, documentation, and proven workflows for the programming task",
+    "runtime_version": "2.9.1",
+    "schema_version": 1,
+    "tokenizer_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+  },
+  "profile_hash": "d19b19642eed0fa209f035a8e65c3e3c76659eaba52fb96233530e2b3f66e80b",
+  "qualification": "integration smoke; not a retrieval benchmark or deployment promotion",
+  "query_top_source": "database-cleanup",
+  "result": "passed",
+  "schema_version": 1,
+  "source_count": 2,
+  "test": "live_qwen_pgvector_roundtrip",
+  "verified_at": "2026-10-21T11:49:18.217643+00:00"
+}

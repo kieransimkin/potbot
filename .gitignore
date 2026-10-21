@@ -12,4 +12,5 @@ dist/
 !.env.example
 artifacts/
 .test-runs/
-models/
+# Local model weights and generated encoding manifests are provisioned separately.
+/models/

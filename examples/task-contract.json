@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "objective": "Investigate how to make repository writes atomic and identify reusable implementations.",
+  "baseline_ref": "fixture:phase2-no-code-execution",
+  "deliverable_type": "investigation",
+  "requirements": [
+    {
+      "id": "R1",
+      "description": "Identify an existing library, tool, or internal workflow that supports atomic writes.",
+      "acceptance_criterion": "Record inspected source references and an explicit reuse, adapt, or build decision."
+    }
+  ],
+  "change_scope": [],
+  "capabilities": ["local_embeddings"],
+  "verification_policy": "investigation-v1",
+  "budget": {"tokens": 10000, "calls": 20, "tool_ms": 600000, "concurrency": 1},
+  "compatibility_constraints": [],
+  "nonfunctional_requirements": ["Preserve source provenance and workspace isolation."]
+}

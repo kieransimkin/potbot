@@ -1,0 +1,10 @@
+Connection cleanup workflow
+
+Use a Python context manager to close a database connection when the block exits.
+Commit successful work explicitly and roll back on exceptions. Keep resource cleanup
+in the context manager exit path so cancellation and failed statements do not leak
+connections. Adapt this pattern to the actual database driver and verify exception,
+normal completion, and cancellation behavior with the repository's own tests.
+
+This is an illustrative source for the local embedding demo, not an admitted memory
+or a claim that a particular repository has passed those checks.
