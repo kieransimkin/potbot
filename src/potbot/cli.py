@@ -37,6 +37,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.memory.embedding_cli import main as embedding_main
 
         return embedding_main(args[1:])
+    if args and args[0] == "syn":
+        from potbot.semantics.cli import main as syn_main
+
+        return syn_main(args[1:])
 
     parser = argparse.ArgumentParser(
         prog="potbot",
@@ -51,6 +55,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("task", help="submit, inspect, revise, and control durable tasks")
     commands.add_parser("worker", help="run recoverable fixture outbox jobs")
     commands.add_parser("embedding", help="set up, index, and query local Qwen embeddings")
+    commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
     parsed = parser.parse_args(args)
     if parsed.command == "info":
         print(
@@ -70,6 +75,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "task_budget_ledger",
                         "model_deployment_and_invocation_records",
                         "local_standard_vector_embeddings",
+                        "scoped_syn_references_and_exact_type_inventory",
                     ],
                     "model_inference_available": False,
                     "model_downloads_required": False,

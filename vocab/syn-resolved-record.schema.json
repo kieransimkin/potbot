@@ -1,0 +1,518 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:potbot:schema:syn-resolved-record:1",
+  "title": "A SYN public record resolved within one sealed Potbot graph snapshot",
+  "$comment": "Derived scoped output; the bare URL is not globally unique. Native class assertions are source reports, not proof of executable capability or checked referent data type. Type declarations have no invented semantic type. Runtime verifies exact payload/source/artifact bytes and filters named references to this source ID. Named reference keys, source IDs, repository, source hash and encoding hash must agree with this envelope; JSON Schema alone cannot verify those equalities or parse lossless embedded public JSON. Source retirement affects named vectors, not immutable historical resolution. Published agent-sem 0.1.0 schemas are unchanged. Type URLs with identical slugs under syn://type/ and synny://type/ resolve to one entry; ref is its stored canonical spelling and requested_ref retains the input. primary_data_type is the published dt compatibility alias; primary_data_type_ref is the canonical synny URL.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "workspace_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "namespace_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "snapshot_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "required": [
+        "workspace_id",
+        "namespace_id",
+        "namespace",
+        "snapshot_id",
+        "repository_id"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "content_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "catalog_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "pattern": "\\S"
+        },
+        "catalog_mode": {
+          "enum": [
+            "complete",
+            "extend_builtin"
+          ]
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "required": [
+        "content_hash",
+        "source_hash",
+        "catalog_hash",
+        "source_label",
+        "catalog_mode",
+        "artifact_id"
+      ],
+      "additionalProperties": false
+    },
+    "type_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "object_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "coverage": {
+      "const": "imported_snapshot_only"
+    },
+    "ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/type_ref"
+        },
+        {
+          "$ref": "#/$defs/object_ref"
+        }
+      ]
+    },
+    "kind": {
+      "enum": [
+        "cog",
+        "credential",
+        "ember",
+        "enigma",
+        "event",
+        "om",
+        "pondle",
+        "snug",
+        "thing",
+        "type"
+      ]
+    },
+    "semantic_type_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/type_ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "primary_data_type": {
+      "enum": [
+        "dt:syn.object_record",
+        "dt:syn.type_definition"
+      ]
+    },
+    "primary_data_type_ref": {
+      "enum": [
+        "synny://type/potbot-data-syn-object-record",
+        "synny://type/potbot-data-syn-type-definition"
+      ]
+    },
+    "source_id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "artifact_id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "source_content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "artifact_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "byte_length": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000000
+    },
+    "media_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "payload_json": {
+      "$ref": "#/$defs/public_json"
+    },
+    "semantic_assertion_origin": {
+      "enum": [
+        "source_report",
+        null
+      ]
+    },
+    "named_embeddings": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/embedding_name"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/named_embedding_reference"
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      }
+    },
+    "requested_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/type_ref"
+        },
+        {
+          "$ref": "#/$defs/object_ref"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "scope",
+    "snapshot",
+    "type_count",
+    "object_count",
+    "coverage",
+    "ref",
+    "kind",
+    "semantic_type_ref",
+    "primary_data_type",
+    "primary_data_type_ref",
+    "source_id",
+    "artifact_id",
+    "source_content_hash",
+    "artifact_digest",
+    "byte_length",
+    "media_type",
+    "payload_json",
+    "semantic_assertion_origin",
+    "named_embeddings",
+    "requested_ref"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "type"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/type_ref"
+          },
+          "semantic_type_ref": {
+            "type": "null"
+          },
+          "primary_data_type": {
+            "const": "dt:syn.type_definition"
+          },
+          "primary_data_type_ref": {
+            "const": "synny://type/potbot-data-syn-type-definition"
+          },
+          "semantic_assertion_origin": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/object_ref"
+          },
+          "semantic_type_ref": {
+            "$ref": "#/$defs/type_ref"
+          },
+          "primary_data_type": {
+            "const": "dt:syn.object_record"
+          },
+          "primary_data_type_ref": {
+            "const": "synny://type/potbot-data-syn-object-record"
+          },
+          "semantic_assertion_origin": {
+            "const": "source_report"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "minLength": 36,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "embedding_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9]*([._-][a-z0-9]+)*$(?![\\s\\S])"
+    },
+    "named_embedding_reference": {
+      "type": "object",
+      "properties": {
+        "embedding_name": {
+          "$ref": "#/$defs/embedding_name"
+        },
+        "view_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "vector_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "source_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "repository_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "source_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "source_content_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "space_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "profile_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "encoding_input_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "input_format": {
+          "const": "source_text_v1"
+        },
+        "dimensions": {
+          "type": "integer",
+          "const": 1024
+        },
+        "metric": {
+          "const": "cosine"
+        },
+        "generation": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "usage_origin": {
+          "enum": [
+            "synthetic",
+            "measured",
+            "provider_reported"
+          ]
+        }
+      },
+      "required": [
+        "embedding_name",
+        "view_id",
+        "vector_id",
+        "source_id",
+        "repository_id",
+        "source_key",
+        "source_content_hash",
+        "space_id",
+        "profile_hash",
+        "encoding_input_hash",
+        "input_format",
+        "dimensions",
+        "metric",
+        "generation",
+        "usage_origin"
+      ],
+      "additionalProperties": false
+    },
+    "type_ref": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 268,
+      "pattern": "^(?:syn|synny)://type/(?=[a-z0-9_-]{1,255}(?![\\s\\S]))[a-z0-9]+(?:[-_][a-z0-9]+)*(?![\\s\\S])",
+      "description": "Exact Type reference under either scheme, with a slug of 1..255 characters. syn://type/<slug> and synny://type/<slug> identify the same Type within a selected catalog. Source spelling is preserved; catalog normalization prefers syn:// for native types and synny:// for protected potbot-data- slugs. Catalog merge rejects snapshot-supplied definitions using a protected slug under either scheme."
+    },
+    "object_ref": {
+      "type": "string",
+      "pattern": "^syn://(?:thing|event|ember|cog|credential|enigma|pondle|snug|om)/(?=[a-z0-9_-]{1,255}(?![\\s\\S]))[a-z0-9]+(?:[-_][a-z0-9]+)*(?![\\s\\S])",
+      "description": "An exact non-Type local reference. The slug is limited to 255 characters for the SQL/HTTP boundary, which is stricter than SYN's general Python ObjectRef constructor."
+    },
+    "nonblank_string": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "public_json": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 2000000,
+      "contentMediaType": "application/json",
+      "contentSchema": {
+        "type": "object"
+      },
+      "description": "Exact UTF-8 JSON object text, retained without reserialization. Runtime validation enforces the byte limit and rejects duplicate keys, non-finite constants, and privateData/private_data keys at every object depth."
+    },
+    "syn_property": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "\\S",
+          "not": {
+            "pattern": "\\u0000"
+          }
+        },
+        "type_ref": {
+          "$ref": "#/$defs/type_ref"
+        },
+        "minimum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807,
+          "default": 1
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807,
+          "default": 1
+        }
+      },
+      "required": [
+        "name",
+        "type_ref",
+        "minimum",
+        "maximum"
+      ],
+      "additionalProperties": false
+    },
+    "syn_type": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/type_ref"
+        },
+        "name": {
+          "$ref": "#/$defs/nonblank_string",
+          "not": {
+            "pattern": "\\u0000"
+          }
+        },
+        "parents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/type_ref"
+          },
+          "uniqueItems": true
+        },
+        "definition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "not": {
+            "type": "string",
+            "pattern": "\\u0000"
+          }
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/syn_property"
+          }
+        },
+        "metadata_json": {
+          "$ref": "#/$defs/public_json",
+          "default": "{}"
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "parents",
+        "definition",
+        "properties",
+        "metadata_json"
+      ],
+      "additionalProperties": false
+    },
+    "syn_object": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "type_ref": {
+          "$ref": "#/$defs/type_ref"
+        },
+        "payload_json": {
+          "$ref": "#/$defs/public_json",
+          "contentSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/object_ref"
+              },
+              "typeRef": {
+                "$ref": "#/$defs/type_ref"
+              },
+              "name": {
+                "$ref": "#/$defs/nonblank_string"
+              }
+            },
+            "required": [
+              "id",
+              "typeRef",
+              "name"
+            ]
+          }
+        }
+      },
+      "required": [
+        "ref",
+        "type_ref",
+        "payload_json"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

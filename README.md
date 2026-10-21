@@ -3,8 +3,9 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phase 1, Phase 2 (P006–P021), and the initial standard local embedding
-integration.** Tasks, contracts, evidence, artifacts, worker jobs, budgets, configuration,
+**Implemented: Phase 1, Phase 2 (P006–P021), the initial standard local embedding
+integration, and scoped SYN snapshots.** Tasks, contracts, evidence, artifacts, worker
+jobs, budgets, configuration,
 environment identities, and model invocation records are durable. The local Qwen encoder
 can index explicit sources and search them through PostgreSQL with pgvector.
 
@@ -86,6 +87,28 @@ search select both a name and an exact immutable space; artifacts expose a typed
 [named-embedding guide](docs/named-embeddings.md) covers application migration 5,
 additional named views, the JSON schema and the coordinated upgrade procedure.
 
+## SYN semantic catalogs and exact inventories
+
+Import public SYN snapshots, resolve scoped references, enumerate instances by
+declared type, and rank selected snapshot records with named embeddings.
+The bundled catalog contains 529 native classes reconciled with the supplied database,
+plus 47 protected representation types preserving all 45 existing data types and
+adding two public-record types. The complete extracted registry is ready to import
+from [syn-database-types.snapshot.json](vocab/syn-database-types.snapshot.json).
+Future types-only exports capture the live native registry without reading instance
+tables; bounded public-record snapshots supply resolvable objects.
+
+Type URLs `syn://type/<slug>` and `synny://type/<slug>` resolve the same type.
+Native classes prefer `syn://`; Potbot representation types prefer
+`synny://type/potbot-data-...`, with existing `dt:*` IDs retained for compatibility.
+Instance URLs remain native `syn://` references. Alias spelling does not create
+another type, artifact, or vector within the selected snapshot.
+
+Every lookup selects an explicit immutable snapshot within the authenticated workspace.
+Import and exact reads load no encoder. The [SYN integration guide](docs/syn-semantic-integration.md)
+covers migration 6, read-only export, type/representation distinctions, stable pagination,
+hashes, coverage limits, and the `potbot syn` commands.
+
 ## Package boundaries
 
 | Package | Responsibility |
@@ -96,6 +119,7 @@ additional named views, the JSON schema and the coordinated upgrade procedure.
 | `potbot.api` | Versioned task operations, development authentication, HTTP and CLI adapters |
 | `potbot.models` | Deployment registry, resolved configuration, environments, packets and invocation records |
 | `potbot.memory` | Standard local encoding profiles, source versions, vector persistence and exact retrieval |
+| `potbot.semantics` | SYN catalog aliases, immutable snapshot resolution, exact type inventories and scoped vector selection |
 | `potbot.evaluation` | Real Git fixtures and sanitized verification diagnostics |
 | `potbot.tools` | Reserved boundary for repository, execution, and information adapters |
 

@@ -40,10 +40,23 @@ from .reuse import (
     SearchIntent,
     SearchStatus,
 )
+from .syn import (
+    SYN_KINDS,
+    SynnyRef,
+    SynObject,
+    SynProperty,
+    SynRef,
+    SynSnapshot,
+    SynType,
+    parse_ref,
+    parse_type_ref,
+    type_identity,
+)
 
 __all__ = [
     "DEFAULT_EMBEDDING_NAME",
     "SOURCE_TEXT_INPUT_FORMAT",
+    "SYN_KINDS",
     "ArtifactEmbeddingManifest",
     "ContentDigest",
     "DomainError",
@@ -73,5 +86,14 @@ __all__ = [
     "SearchEvidence",
     "SearchIntent",
     "SearchStatus",
+    "SynObject",
+    "SynnyRef",
+    "SynProperty",
+    "SynRef",
+    "SynSnapshot",
+    "SynType",
+    "parse_ref",
+    "parse_type_ref",
+    "type_identity",
     "validate_embedding_name",
 ]

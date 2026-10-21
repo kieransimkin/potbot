@@ -36,7 +36,7 @@ def test_installed_cli_works_outside_source_directory(tmp_path: Path) -> None:
 
 
 def test_nested_help_does_not_require_database_or_model_services(tmp_path: Path) -> None:
-    for command in ("db", "fixture", "admin", "task", "worker", "embedding"):
+    for command in ("db", "fixture", "admin", "task", "worker", "embedding", "syn"):
         result = run_cli(command, "--help", cwd=tmp_path)
         assert result.returncode == 0, result.stderr
         assert "usage:" in result.stdout

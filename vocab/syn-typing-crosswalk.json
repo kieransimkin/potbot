@@ -1,0 +1,1956 @@
+{
+  "schema_version": 1,
+  "id": "urn:potbot:syn-typing-crosswalk:1",
+  "provenance": {
+    "catalog_id": "urn:potbot:syn-catalog:1",
+    "extraction": "Static Python AST seed extraction plus PostgreSQL COPY text type-registry extraction; no uploaded application code or SQL executed",
+    "native_sources": [
+      {
+        "ontology": "syn-core",
+        "version": 4,
+        "path": "src/syn/ontology.py",
+        "sha256": "ab5d2c6133355cd868d72ecd97fa5d80ca90f8c2512b53b48de81c4f81c42bc4",
+        "type_count": 369,
+        "direct_parent_edges": 442
+      },
+      {
+        "ontology": "syn-feeds",
+        "version": 1,
+        "path": "src/syn/feeds.py",
+        "sha256": "aae16fc0c3ff254bb0b07765bc92ea5c07704918963238e3e00c39e0524fb5ae",
+        "type_count": 81,
+        "direct_parent_edges": 116
+      }
+    ],
+    "contract_sources": [
+      {
+        "path": "src/syn/models.py",
+        "sha256": "b066b2a19f0667837c95a15b5bf0198c3fdb1d4edef73e9f4170d0b326e03a03"
+      },
+      {
+        "path": "src/syn/refs.py",
+        "sha256": "fe0bc4159112aca4c0a62872578db720cbe3dabdea2a9745909c438bd89450b0"
+      },
+      {
+        "path": "src/syn/controllers/type.py",
+        "sha256": "416f439a6a6fdf451ed10a333546bab23abecd2dbb73b4be96dea6db94e59507"
+      },
+      {
+        "path": "src/syn/alembic/versions/20260801_0007_primitive_type_refs.py",
+        "sha256": "3299afb8b740db1d66d3b2b82ee44b67a5c8220109569149e0d0764803847d27"
+      },
+      {
+        "path": "src/syn/alembic/versions/20260801_0009_type_properties.py",
+        "sha256": "1b7f98162c179166d3b996032d8a6684311a13cc7a5285c0d15f10230cb1eb0d"
+      },
+      {
+        "path": "src/syn/alembic/versions/20260811_0010_credential_primitive.py",
+        "sha256": "4d56e12878b4cbb56d1fa343cd54e140855cc0a58324fc47048638f074b7ecef"
+      },
+      {
+        "path": "src/syn/alembic/versions/20260821_0011_optimize_object_has_type.py",
+        "sha256": "e1ddc914ef1255cca614694be2286e95f8c52f0c6f3528dec0631c8950c64aba"
+      }
+    ],
+    "data_type_source": {
+      "path": "vocab/data-types.json",
+      "id": "urn:agent-sem:data-types:0.1.0",
+      "version": "0.1.0",
+      "sha256": "bf6e8a7d2d43979c00a792effb75884052a75a781f027eece2948a1d5115b598",
+      "type_count": 45
+    },
+    "extension_registry": "urn:potbot:syn-record-types:1",
+    "extension_alias_count": 47,
+    "identity_axes": [
+      "reference_kind",
+      "native_semantic_class",
+      "representation_type",
+      "embedding_name"
+    ],
+    "property_policy": "Only direct declarations; no inherited-property merge or instance-value validator is implied.",
+    "ancestry_policy": "Explicit acyclic parent edges; preserve redundant direct edges and include self in closure.",
+    "seed_registry": {
+      "type_count": 450,
+      "direct_parent_edges": 558,
+      "definitions_sha256": "8a30e8c0a1bf39fcde80a66a18a185cd69ae9718a56820965dc8c2d73785dd5f",
+      "definitions_resource": "src/potbot/semantics/catalog.json#/seed_types"
+    },
+    "database_registry": {
+      "coverage": "complete native type registry in the selected dump COPY sections; no instances",
+      "direct_parent_edges": 859,
+      "direct_property_declarations": 0,
+      "id": "urn:potbot:syn-database-type-extraction:1",
+      "method": "postgresql-copy-text-types-v1",
+      "object_count": 0,
+      "omitted": [
+        "all instance records",
+        "credentials",
+        "non-type relationships",
+        "chronicles",
+        "jobs",
+        "configuration"
+      ],
+      "schema_version": 1,
+      "selected_sections": {
+        "typeParents": {
+          "columns": [
+            "childRef",
+            "parentRef"
+          ],
+          "header_line": 1648055,
+          "row_count": 859
+        },
+        "typeProperties": {
+          "columns": [
+            "type",
+            "name",
+            "propertyTypeRef",
+            "min",
+            "max"
+          ],
+          "header_line": 1648922,
+          "row_count": 0
+        },
+        "types": {
+          "columns": [
+            "id",
+            "name",
+            "wikipediaRef",
+            "locality",
+            "stats",
+            "statsUpdated",
+            "knowledge",
+            "knowledgeUpdated",
+            "confidence",
+            "confidenceUpdated"
+          ],
+          "header_line": 1648930,
+          "row_count": 529
+        }
+      },
+      "snapshot_bytes": 306299,
+      "snapshot_sha256": "255a54201cbba2679dfcff4d23cb1a8fe72e22e696d2887e8b20dc1d1b3efb4b",
+      "source_basename": "syn.sql",
+      "source_bytes": 284364298,
+      "source_header": {
+        "database_version": "16.15 (Ubuntu 16.15-1.pgdg24.04+2)",
+        "pg_dump_version": "16.15 (Ubuntu 16.15-1.pgdg24.04+2)"
+      },
+      "source_schema": "public",
+      "source_sha256": "2f4d949fb5b2996ee88d2dbcbbbe6996cdd7213d1c4aef50b26fad4857a1ab3e",
+      "sql_executed": false,
+      "type_count": 529,
+      "type_refs": [
+        "syn://type/abstract-structure",
+        "syn://type/abstract-thing",
+        "syn://type/academic-feed",
+        "syn://type/academic-feed-and-api-feed-and-atom-feed-and-repository-feed",
+        "syn://type/academic-feed-and-csv-feed-and-json-data-feed-and-repository-feed-and-solr-api-feed-and-xml-data-feed",
+        "syn://type/academic-feed-and-json-api-feed-and-repository-feed",
+        "syn://type/academic-feed-and-json-data-feed-and-repository-feed-and-rest-api-feed",
+        "syn://type/academic-feed-and-json-data-feed-and-repository-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/academic-feed-and-json-data-feed-and-repository-feed-and-solr-api-feed-and-xml-data-feed",
+        "syn://type/academic-feed-and-oai-pmh-feed",
+        "syn://type/academic-feed-and-repository-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/account",
+        "syn://type/activity",
+        "syn://type/activity-stream-feed",
+        "syn://type/address",
+        "syn://type/administrative-area",
+        "syn://type/agent",
+        "syn://type/aggregate",
+        "syn://type/algebraic-structure",
+        "syn://type/algorithm",
+        "syn://type/animal-agent",
+        "syn://type/animal-organism",
+        "syn://type/animated-character",
+        "syn://type/api",
+        "syn://type/api-feed",
+        "syn://type/api-feed-and-archive-feed-and-book-data-feed",
+        "syn://type/api-feed-and-archive-feed-and-catalogue-feed-and-csv-feed-and-organization-feed",
+        "syn://type/api-feed-and-archive-feed-and-catalogue-feed-and-music-data-feed",
+        "syn://type/api-feed-and-archive-feed-and-data-portal-feed-and-json-data-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-book-data-feed-and-opds-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-json-data-feed-and-legislative-data-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-legislative-data-feed-and-rss-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-organization-feed-and-rss-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-organization-feed-and-sitemap-feed",
+        "syn://type/api-feed-and-crypto-price-feed-and-json-data-feed",
+        "syn://type/api-feed-and-csv-feed-and-cultural-data-feed",
+        "syn://type/api-feed-and-csv-feed-and-data-portal-feed-and-json-data-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-csv-feed-and-json-data-feed-and-traditional-asset-price-feed",
+        "syn://type/api-feed-and-csv-feed-and-traditional-asset-price-feed",
+        "syn://type/api-feed-and-cultural-data-feed-and-json-data-feed",
+        "syn://type/api-feed-and-data-portal-feed-and-json-data-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-json-data-feed-and-traditional-asset-price-feed",
+        "syn://type/api-feed-and-spreadsheet-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/architectural-work",
+        "syn://type/archive-feed",
+        "syn://type/argument",
+        "syn://type/arrow-feed",
+        "syn://type/article",
+        "syn://type/artifact",
+        "syn://type/assertion",
+        "syn://type/assessment",
+        "syn://type/astronomical-object",
+        "syn://type/atmospheric-object",
+        "syn://type/atom-feed",
+        "syn://type/atom-feed-and-forum-feed-and-newsletter-feed-and-rss-feed",
+        "syn://type/atom-feed-and-json-data-feed-and-news-feed",
+        "syn://type/attachment",
+        "syn://type/attachment-record",
+        "syn://type/attitude",
+        "syn://type/audio-recording",
+        "syn://type/audio-stream-feed",
+        "syn://type/audiovisual-work",
+        "syn://type/authority",
+        "syn://type/bag",
+        "syn://type/battle",
+        "syn://type/belief",
+        "syn://type/benefit",
+        "syn://type/bias",
+        "syn://type/binary-data-feed",
+        "syn://type/biological-community",
+        "syn://type/biological-population",
+        "syn://type/biological-process",
+        "syn://type/biological-structure",
+        "syn://type/biomolecule",
+        "syn://type/birth",
+        "syn://type/body-of-water",
+        "syn://type/book-data-feed",
+        "syn://type/book-data-feed-and-csv-feed-and-json-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/book-data-feed-and-csv-feed-and-json-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/book-data-feed-and-json-data-feed-and-rest-api-feed",
+        "syn://type/book-data-feed-and-json-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/book-data-feed-and-oai-pmh-feed",
+        "syn://type/book-work",
+        "syn://type/boolean",
+        "syn://type/boundary",
+        "syn://type/brand",
+        "syn://type/breed",
+        "syn://type/building",
+        "syn://type/bulk-data-feed",
+        "syn://type/calendar-feed",
+        "syn://type/calendar-period",
+        "syn://type/catalogue-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-sdmx-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-sdmx-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-government-data-feed-and-json-data-feed-and-linked-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-government-data-feed-and-json-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-legislative-data-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-legislative-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-legislative-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-music-data-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-music-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-odata-feed-and-organization-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/cell",
+        "syn://type/cellular-component",
+        "syn://type/ceremony",
+        "syn://type/change",
+        "syn://type/chemical-entity",
+        "syn://type/chemical-process",
+        "syn://type/citation",
+        "syn://type/city",
+        "syn://type/civilization",
+        "syn://type/ckan-api-feed",
+        "syn://type/ckan-api-feed-and-government-data-feed",
+        "syn://type/ckan-api-feed-and-government-data-feed-and-json-data-feed-and-xml-data-feed",
+        "syn://type/ckan-api-feed-and-json-data-feed-and-organization-feed",
+        "syn://type/claim",
+        "syn://type/cog",
+        "syn://type/collection",
+        "syn://type/collective-agent",
+        "syn://type/comics-character",
+        "syn://type/commitment",
+        "syn://type/communication",
+        "syn://type/community",
+        "syn://type/community-feed",
+        "syn://type/company",
+        "syn://type/competition",
+        "syn://type/computation",
+        "syn://type/computational-method",
+        "syn://type/computational-procedure",
+        "syn://type/computational-process",
+        "syn://type/concept",
+        "syn://type/conceptual-model",
+        "syn://type/confidence",
+        "syn://type/conflict",
+        "syn://type/container",
+        "syn://type/contract",
+        "syn://type/coordinate-reference-system",
+        "syn://type/creation",
+        "syn://type/creative-work",
+        "syn://type/credential",
+        "syn://type/crime",
+        "syn://type/crypto-price-feed",
+        "syn://type/crypto-price-feed-and-graphql-feed-and-json-data-feed",
+        "syn://type/crypto-price-feed-and-json-data-feed-and-rest-api-feed",
+        "syn://type/csv-feed",
+        "syn://type/csv-feed-and-json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed",
+        "syn://type/csv-feed-and-json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/csv-feed-and-json-data-feed-and-sdmx-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/cultivar",
+        "syn://type/cultural-data-feed",
+        "syn://type/cultural-data-feed-and-iiif-feed-and-json-data-feed",
+        "syn://type/cultural-data-feed-and-json-data-feed-and-rest-api-feed",
+        "syn://type/cultural-data-feed-and-json-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/cultural-data-feed-and-oai-pmh-feed",
+        "syn://type/cultural-heritage-object",
+        "syn://type/cultural-repository-feed",
+        "syn://type/cultural-repository-feed-and-library-data-feed-and-oai-pmh-feed",
+        "syn://type/culture",
+        "syn://type/currency",
+        "syn://type/dash-feed",
+        "syn://type/data-point",
+        "syn://type/data-portal-feed",
+        "syn://type/data-portal-feed-and-government-data-feed",
+        "syn://type/data-portal-feed-and-government-data-feed-and-linked-data-feed-and-rest-api-feed",
+        "syn://type/data-portal-feed-and-government-data-feed-and-statistical-data-feed-and-web-catalogue-feed",
+        "syn://type/data-portal-feed-and-government-data-feed-and-web-catalogue-feed",
+        "syn://type/database",
+        "syn://type/dataset",
+        "syn://type/date-time-description",
+        "syn://type/death",
+        "syn://type/decision",
+        "syn://type/dependent-thing",
+        "syn://type/design",
+        "syn://type/desire",
+        "syn://type/device",
+        "syn://type/digital-object",
+        "syn://type/dimension",
+        "syn://type/disaster",
+        "syn://type/disease",
+        "syn://type/disposition",
+        "syn://type/dkan-api-feed",
+        "syn://type/dkan-api-feed-and-government-data-feed",
+        "syn://type/document",
+        "syn://type/drug",
+        "syn://type/duration",
+        "syn://type/duty",
+        "syn://type/economic-agent",
+        "syn://type/ecosystem",
+        "syn://type/education",
+        "syn://type/educational-institution",
+        "syn://type/election",
+        "syn://type/ember",
+        "syn://type/emotion",
+        "syn://type/employment",
+        "syn://type/energy-carrier",
+        "syn://type/enigma",
+        "syn://type/entrez-api-feed",
+        "syn://type/entrez-api-feed-and-json-data-feed-and-repository-feed-and-xml-data-feed",
+        "syn://type/entrez-api-feed-and-repository-feed-and-xml-data-feed",
+        "syn://type/environmental-feature",
+        "syn://type/episode",
+        "syn://type/epistemic-activity",
+        "syn://type/era",
+        "syn://type/error",
+        "syn://type/evaluation",
+        "syn://type/evaluation-record",
+        "syn://type/event",
+        "syn://type/event-edition",
+        "syn://type/event-series",
+        "syn://type/evidence-record",
+        "syn://type/execution",
+        "syn://type/experiment",
+        "syn://type/explanation",
+        "syn://type/expression",
+        "syn://type/facility",
+        "syn://type/family",
+        "syn://type/feature-of-interest-role",
+        "syn://type/feed",
+        "syn://type/feed-directory",
+        "syn://type/fictional-character",
+        "syn://type/file",
+        "syn://type/film",
+        "syn://type/film-character",
+        "syn://type/financial-data-feed",
+        "syn://type/financial-instrument",
+        "syn://type/folklore",
+        "syn://type/food",
+        "syn://type/forum-feed",
+        "syn://type/forum-feed-and-newsletter-feed-and-opml-feed",
+        "syn://type/forum-feed-and-newsletter-feed-and-rss-feed",
+        "syn://type/function",
+        "syn://type/fund",
+        "syn://type/fungal-organism",
+        "syn://type/game",
+        "syn://type/game-work",
+        "syn://type/gene",
+        "syn://type/geographic-feature",
+        "syn://type/geographic-region",
+        "syn://type/geojson-feed",
+        "syn://type/geological-object",
+        "syn://type/geological-process",
+        "syn://type/geometry",
+        "syn://type/geospatial-feed",
+        "syn://type/goal",
+        "syn://type/governance",
+        "syn://type/government-data-feed",
+        "syn://type/government-data-feed-and-json-data-feed-and-udata-api-feed-and-xml-data-feed",
+        "syn://type/government-data-feed-and-udata-api-feed",
+        "syn://type/government-organization",
+        "syn://type/graph",
+        "syn://type/graphql-feed",
+        "syn://type/group",
+        "syn://type/grpc-feed",
+        "syn://type/habitat",
+        "syn://type/hardware-system",
+        "syn://type/harm",
+        "syn://type/hierarchy",
+        "syn://type/history",
+        "syn://type/hls-feed",
+        "syn://type/household",
+        "syn://type/human-organism",
+        "syn://type/hypothesis",
+        "syn://type/identifier",
+        "syn://type/iiif-feed",
+        "syn://type/image",
+        "syn://type/industry",
+        "syn://type/information-object",
+        "syn://type/infrastructure",
+        "syn://type/instant",
+        "syn://type/institution",
+        "syn://type/institutional-repository-feed",
+        "syn://type/institutional-repository-feed-and-oai-pmh-feed",
+        "syn://type/instrument",
+        "syn://type/insurance-product",
+        "syn://type/intention",
+        "syn://type/interaction",
+        "syn://type/interval",
+        "syn://type/investment",
+        "syn://type/job",
+        "syn://type/journal-repository-feed",
+        "syn://type/journal-repository-feed-and-oai-pmh-feed",
+        "syn://type/json-api-feed",
+        "syn://type/json-data-feed",
+        "syn://type/json-data-feed-and-news-feed-and-podcast-feed",
+        "syn://type/json-data-feed-and-news-feed-and-rss-feed",
+        "syn://type/json-data-feed-and-news-feed-and-syndication-feed-and-xml-data-feed",
+        "syn://type/json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed",
+        "syn://type/json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/json-feed",
+        "syn://type/json-ld-feed",
+        "syn://type/judgment",
+        "syn://type/jurisdiction",
+        "syn://type/karma-unit",
+        "syn://type/knowledge-record",
+        "syn://type/knowledge-state",
+        "syn://type/landform",
+        "syn://type/language",
+        "syn://type/law",
+        "syn://type/legal-case",
+        "syn://type/legal-claim",
+        "syn://type/legal-entity",
+        "syn://type/legal-instrument",
+        "syn://type/legal-proceeding",
+        "syn://type/legal-title",
+        "syn://type/legislative-data-feed",
+        "syn://type/library-catalogue-feed",
+        "syn://type/library-data-feed",
+        "syn://type/license",
+        "syn://type/lifecycle",
+        "syn://type/linked-data-feed",
+        "syn://type/loan",
+        "syn://type/logical-system",
+        "syn://type/machine",
+        "syn://type/machine-learning-model",
+        "syn://type/manifestation",
+        "syn://type/manifestation-item",
+        "syn://type/map",
+        "syn://type/market",
+        "syn://type/market-data-feed",
+        "syn://type/material",
+        "syn://type/material-thing",
+        "syn://type/mathematical-object",
+        "syn://type/measurement",
+        "syn://type/measurement-result",
+        "syn://type/media-feed",
+        "syn://type/meeting",
+        "syn://type/message",
+        "syn://type/meteorological-process",
+        "syn://type/method",
+        "syn://type/metric",
+        "syn://type/microorganism",
+        "syn://type/military-organization",
+        "syn://type/mineral",
+        "syn://type/mixture",
+        "syn://type/monetary-amount",
+        "syn://type/movement",
+        "syn://type/music-data-feed",
+        "syn://type/musical-work",
+        "syn://type/mythological-entity",
+        "syn://type/name",
+        "syn://type/natural-object",
+        "syn://type/natural-process",
+        "syn://type/ndjson-feed",
+        "syn://type/neighborhood",
+        "syn://type/network",
+        "syn://type/network-measurement",
+        "syn://type/news-feed",
+        "syn://type/newsletter-feed",
+        "syn://type/nonprofit-organization",
+        "syn://type/number",
+        "syn://type/oai-pmh-feed",
+        "syn://type/obligation",
+        "syn://type/observable-property",
+        "syn://type/observation",
+        "syn://type/observation-result",
+        "syn://type/occurrent-thing",
+        "syn://type/odata-feed",
+        "syn://type/om",
+        "syn://type/ontology",
+        "syn://type/opds-feed",
+        "syn://type/opml-feed",
+        "syn://type/organ",
+        "syn://type/organism",
+        "syn://type/organization",
+        "syn://type/organization-feed",
+        "syn://type/painting",
+        "syn://type/parameter",
+        "syn://type/parquet-feed",
+        "syn://type/pathological-condition",
+        "syn://type/pattern",
+        "syn://type/performance",
+        "syn://type/performance-work",
+        "syn://type/persistent-thing",
+        "syn://type/person",
+        "syn://type/physical-process",
+        "syn://type/place",
+        "syn://type/plan",
+        "syn://type/planetary-body",
+        "syn://type/plant-organism",
+        "syn://type/play",
+        "syn://type/podcast",
+        "syn://type/podcast-feed",
+        "syn://type/poem",
+        "syn://type/policy",
+        "syn://type/political-party",
+        "syn://type/pondle",
+        "syn://type/prediction",
+        "syn://type/preference",
+        "syn://type/price-feed",
+        "syn://type/probability",
+        "syn://type/probability-distribution",
+        "syn://type/procedure",
+        "syn://type/process",
+        "syn://type/product-item",
+        "syn://type/product-model",
+        "syn://type/program",
+        "syn://type/property",
+        "syn://type/proposition",
+        "syn://type/protected-area",
+        "syn://type/protein",
+        "syn://type/protocol",
+        "syn://type/provenance-record",
+        "syn://type/publication",
+        "syn://type/quality",
+        "syn://type/quality-measure",
+        "syn://type/quantity-kind",
+        "syn://type/quantity-value",
+        "syn://type/question",
+        "syn://type/rdf-feed",
+        "syn://type/record",
+        "syn://type/relation",
+        "syn://type/religious-organization",
+        "syn://type/repository-feed",
+        "syn://type/representation",
+        "syn://type/reputation",
+        "syn://type/rest-api-feed",
+        "syn://type/right",
+        "syn://type/risk",
+        "syn://type/road",
+        "syn://type/rock",
+        "syn://type/role",
+        "syn://type/route",
+        "syn://type/rss-feed",
+        "syn://type/rule",
+        "syn://type/sample",
+        "syn://type/sampler",
+        "syn://type/sanction",
+        "syn://type/scalar",
+        "syn://type/schema",
+        "syn://type/scientific-model",
+        "syn://type/script",
+        "syn://type/sdmx-feed",
+        "syn://type/season",
+        "syn://type/security",
+        "syn://type/semantic-web-feed",
+        "syn://type/sensor",
+        "syn://type/sequence",
+        "syn://type/server-sent-events-feed",
+        "syn://type/service",
+        "syn://type/set",
+        "syn://type/settlement",
+        "syn://type/site",
+        "syn://type/sitemap-feed",
+        "syn://type/situation",
+        "syn://type/snug",
+        "syn://type/soap-api-feed",
+        "syn://type/social-process",
+        "syn://type/social-system",
+        "syn://type/social-thing",
+        "syn://type/software-agent",
+        "syn://type/software-application",
+        "syn://type/software-function",
+        "syn://type/software-library",
+        "syn://type/software-package",
+        "syn://type/software-service",
+        "syn://type/software-system",
+        "syn://type/software-version",
+        "syn://type/software-work",
+        "syn://type/solr-api-feed",
+        "syn://type/song",
+        "syn://type/source-material",
+        "syn://type/sparql-feed",
+        "syn://type/spatial-thing",
+        "syn://type/species-taxon",
+        "syn://type/specification",
+        "syn://type/sports-organization",
+        "syn://type/sports-season",
+        "syn://type/spreadsheet-feed",
+        "syn://type/standard",
+        "syn://type/star",
+        "syn://type/state",
+        "syn://type/statistical-data-feed",
+        "syn://type/strain",
+        "syn://type/stream-feed",
+        "syn://type/study",
+        "syn://type/substance",
+        "syn://type/symbol",
+        "syn://type/syndication-feed",
+        "syn://type/system",
+        "syn://type/tabular-data-feed",
+        "syn://type/taxon",
+        "syn://type/television-character",
+        "syn://type/television-series",
+        "syn://type/temporal-thing",
+        "syn://type/tensor",
+        "syn://type/textual-work",
+        "syn://type/theory",
+        "syn://type/thing",
+        "syn://type/time-zone",
+        "syn://type/tissue",
+        "syn://type/tool",
+        "syn://type/town",
+        "syn://type/traditional-asset-price-feed",
+        "syn://type/transaction",
+        "syn://type/transition",
+        "syn://type/transport-network",
+        "syn://type/transportation",
+        "syn://type/treaty",
+        "syn://type/tree",
+        "syn://type/trust",
+        "syn://type/tsv-feed",
+        "syn://type/type",
+        "syn://type/udata-api-feed",
+        "syn://type/uncertainty",
+        "syn://type/unit",
+        "syn://type/variable",
+        "syn://type/vector",
+        "syn://type/vehicle",
+        "syn://type/vessel",
+        "syn://type/video",
+        "syn://type/video-stream-feed",
+        "syn://type/village",
+        "syn://type/virtual-place",
+        "syn://type/visual-work",
+        "syn://type/vulnerability",
+        "syn://type/war",
+        "syn://type/waste",
+        "syn://type/weather-system",
+        "syn://type/web-catalogue-feed",
+        "syn://type/webhook-feed",
+        "syn://type/websocket-feed",
+        "syn://type/work",
+        "syn://type/workflow",
+        "syn://type/xml-data-feed"
+      ],
+      "snapshot_path": "vocab/syn-database-types.snapshot.json",
+      "provenance_path": "vocab/syn-database-types.provenance.json"
+    },
+    "reconciliation": {
+      "policy": "Database definitions replace overlapping seed records in full; seed-only records remain. Native parent edges are never inferred from labels or generated names.",
+      "seed_type_count": 450,
+      "database_type_count": 529,
+      "overlap_count": 450,
+      "database_only_refs": [
+        "syn://type/academic-feed-and-api-feed-and-atom-feed-and-repository-feed",
+        "syn://type/academic-feed-and-csv-feed-and-json-data-feed-and-repository-feed-and-solr-api-feed-and-xml-data-feed",
+        "syn://type/academic-feed-and-json-api-feed-and-repository-feed",
+        "syn://type/academic-feed-and-json-data-feed-and-repository-feed-and-rest-api-feed",
+        "syn://type/academic-feed-and-json-data-feed-and-repository-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/academic-feed-and-json-data-feed-and-repository-feed-and-solr-api-feed-and-xml-data-feed",
+        "syn://type/academic-feed-and-oai-pmh-feed",
+        "syn://type/academic-feed-and-repository-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-archive-feed-and-book-data-feed",
+        "syn://type/api-feed-and-archive-feed-and-catalogue-feed-and-csv-feed-and-organization-feed",
+        "syn://type/api-feed-and-archive-feed-and-catalogue-feed-and-music-data-feed",
+        "syn://type/api-feed-and-archive-feed-and-data-portal-feed-and-json-data-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-book-data-feed-and-opds-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-json-data-feed-and-legislative-data-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-legislative-data-feed-and-rss-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-organization-feed-and-rss-feed",
+        "syn://type/api-feed-and-catalogue-feed-and-organization-feed-and-sitemap-feed",
+        "syn://type/api-feed-and-crypto-price-feed-and-json-data-feed",
+        "syn://type/api-feed-and-csv-feed-and-cultural-data-feed",
+        "syn://type/api-feed-and-csv-feed-and-data-portal-feed-and-json-data-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-csv-feed-and-json-data-feed-and-traditional-asset-price-feed",
+        "syn://type/api-feed-and-csv-feed-and-traditional-asset-price-feed",
+        "syn://type/api-feed-and-cultural-data-feed-and-json-data-feed",
+        "syn://type/api-feed-and-data-portal-feed-and-json-data-feed-and-legislative-data-feed-and-xml-data-feed",
+        "syn://type/api-feed-and-json-data-feed-and-traditional-asset-price-feed",
+        "syn://type/api-feed-and-spreadsheet-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/atom-feed-and-forum-feed-and-newsletter-feed-and-rss-feed",
+        "syn://type/atom-feed-and-json-data-feed-and-news-feed",
+        "syn://type/book-data-feed-and-csv-feed-and-json-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/book-data-feed-and-csv-feed-and-json-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/book-data-feed-and-json-data-feed-and-rest-api-feed",
+        "syn://type/book-data-feed-and-json-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/book-data-feed-and-oai-pmh-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-sdmx-feed",
+        "syn://type/catalogue-feed-and-csv-feed-and-json-data-feed-and-organization-feed-and-sdmx-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-government-data-feed-and-json-data-feed-and-linked-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-government-data-feed-and-json-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-legislative-data-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-legislative-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-legislative-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-music-data-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-music-data-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-odata-feed-and-organization-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed",
+        "syn://type/catalogue-feed-and-json-data-feed-and-organization-feed-and-rest-api-feed-and-xml-data-feed",
+        "syn://type/ckan-api-feed-and-government-data-feed",
+        "syn://type/ckan-api-feed-and-government-data-feed-and-json-data-feed-and-xml-data-feed",
+        "syn://type/ckan-api-feed-and-json-data-feed-and-organization-feed",
+        "syn://type/crypto-price-feed-and-graphql-feed-and-json-data-feed",
+        "syn://type/crypto-price-feed-and-json-data-feed-and-rest-api-feed",
+        "syn://type/csv-feed-and-json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed",
+        "syn://type/csv-feed-and-json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/csv-feed-and-json-data-feed-and-sdmx-feed-and-traditional-asset-price-feed-and-xml-data-feed",
+        "syn://type/cultural-data-feed-and-iiif-feed-and-json-data-feed",
+        "syn://type/cultural-data-feed-and-json-data-feed-and-rest-api-feed",
+        "syn://type/cultural-data-feed-and-json-data-feed-and-sparql-feed-and-xml-data-feed",
+        "syn://type/cultural-data-feed-and-oai-pmh-feed",
+        "syn://type/cultural-repository-feed-and-library-data-feed-and-oai-pmh-feed",
+        "syn://type/data-portal-feed-and-government-data-feed",
+        "syn://type/data-portal-feed-and-government-data-feed-and-linked-data-feed-and-rest-api-feed",
+        "syn://type/data-portal-feed-and-government-data-feed-and-statistical-data-feed-and-web-catalogue-feed",
+        "syn://type/data-portal-feed-and-government-data-feed-and-web-catalogue-feed",
+        "syn://type/dkan-api-feed-and-government-data-feed",
+        "syn://type/entrez-api-feed-and-json-data-feed-and-repository-feed-and-xml-data-feed",
+        "syn://type/entrez-api-feed-and-repository-feed-and-xml-data-feed",
+        "syn://type/forum-feed-and-newsletter-feed-and-opml-feed",
+        "syn://type/forum-feed-and-newsletter-feed-and-rss-feed",
+        "syn://type/government-data-feed-and-json-data-feed-and-udata-api-feed-and-xml-data-feed",
+        "syn://type/government-data-feed-and-udata-api-feed",
+        "syn://type/institutional-repository-feed-and-oai-pmh-feed",
+        "syn://type/journal-repository-feed-and-oai-pmh-feed",
+        "syn://type/json-data-feed-and-news-feed-and-podcast-feed",
+        "syn://type/json-data-feed-and-news-feed-and-rss-feed",
+        "syn://type/json-data-feed-and-news-feed-and-syndication-feed-and-xml-data-feed",
+        "syn://type/json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed",
+        "syn://type/json-data-feed-and-rest-api-feed-and-traditional-asset-price-feed-and-xml-data-feed"
+      ],
+      "seed_only_refs": [],
+      "changed_parent_refs": [
+        "syn://type/computational-procedure"
+      ],
+      "parent_overrides": [
+        {
+          "ref": "syn://type/computational-procedure",
+          "seed_parents": [
+            "syn://type/procedure",
+            "syn://type/computational-method"
+          ],
+          "database_parents": [
+            "syn://type/computational-method"
+          ]
+        }
+      ],
+      "changed_name_refs": [],
+      "changed_definition_refs": [],
+      "effective_native_type_count": 529,
+      "effective_native_parent_edges": 859,
+      "effective_native_ancestry_pairs": 3377,
+      "effective_native_multiple_parents": 183,
+      "effective_total_with_aliases": 576
+    },
+    "representation_type_namespace": "synny://type/potbot-data-",
+    "native_type_namespace": "syn://type/",
+    "namespace_policy": "syn://type/<slug> and synny://type/<slug> resolve to one type identity within the selected scoped catalog. Preferred spellings are syn://type/<slug> for native classes and synny://type/potbot-data-<slug> for Potbot representation classes. All potbot-data- slugs are reserved across both schemes; duplicate alias declarations are rejected. No additional type is created by using the other scheme. Existing dt: identifiers remain explicit compatibility aliases.",
+    "type_identity_policy": {
+      "identity_key": "exact type slug within the authenticated workspace, namespace and selected snapshot",
+      "equivalent_schemes": [
+        "syn",
+        "synny"
+      ],
+      "native_preferred_scheme": "syn",
+      "potbot_preferred_scheme": "synny",
+      "protected_slug_prefix": "potbot-data-",
+      "scope": "type references only; instance references remain native syn://",
+      "source_preservation": "Source wire spellings and public metadata remain unchanged; effective graph refs use preferred spellings."
+    }
+  },
+  "aliases": [
+    {
+      "data_type_id": "dt:data",
+      "syn_ref": "synny://type/potbot-data-data",
+      "original_definition": {
+        "id": "dt:data",
+        "definition_version": 1,
+        "definition": "A registered data occurrence or derived representation within a checked source ownership boundary.",
+        "is_a": [],
+        "abstract": true,
+        "payload_kind": null
+      },
+      "parents": [],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-data",
+        "syn://type/potbot-data-data"
+      ]
+    },
+    {
+      "data_type_id": "dt:unresolved",
+      "syn_ref": "synny://type/potbot-data-unresolved",
+      "original_definition": {
+        "id": "dt:unresolved",
+        "definition_version": 1,
+        "definition": "The primary kind of this admitted occurrence has not been established; not a wildcard and not a negative type assertion.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": false,
+        "payload_kind": "unresolved"
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-unresolved",
+        "syn://type/potbot-data-unresolved"
+      ]
+    },
+    {
+      "data_type_id": "dt:file",
+      "syn_ref": "synny://type/potbot-data-file",
+      "original_definition": {
+        "id": "dt:file",
+        "definition_version": 1,
+        "definition": "A file occurrence bound to its checked source revision and provider path identity.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": false,
+        "payload_kind": "file"
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-file",
+        "syn://type/potbot-data-file"
+      ]
+    },
+    {
+      "data_type_id": "dt:file.agents_md",
+      "syn_ref": "synny://type/potbot-data-file-agents-md",
+      "original_definition": {
+        "id": "dt:file.agents_md",
+        "definition_version": 1,
+        "definition": "A file whose exact basename is AGENTS.md under the named v1 classifier. The role asserts neither Markdown validity nor trust, applicability, or instruction authority.",
+        "is_a": [
+          "dt:file"
+        ],
+        "abstract": false,
+        "payload_kind": "file",
+        "classifier_rule": "filename-agents-md-exact-v1"
+      },
+      "parents": [
+        "synny://type/potbot-data-file"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-file-agents-md",
+        "syn://type/potbot-data-file-agents-md"
+      ]
+    },
+    {
+      "data_type_id": "dt:file.sql_declared",
+      "syn_ref": "synny://type/potbot-data-file-sql-declared",
+      "original_definition": {
+        "id": "dt:file.sql_declared",
+        "definition_version": 1,
+        "definition": "A file declared to carry SQL by the checked source role or the exact lowercase .sql suffix rule; successful SQL parsing and dialect are separate.",
+        "is_a": [
+          "dt:file"
+        ],
+        "abstract": false,
+        "payload_kind": "file",
+        "classifier_rule": "declared-sql-file-v1"
+      },
+      "parents": [
+        "synny://type/potbot-data-file"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-file-sql-declared",
+        "syn://type/potbot-data-file-sql-declared"
+      ]
+    },
+    {
+      "data_type_id": "dt:file.json_declared",
+      "syn_ref": "synny://type/potbot-data-file-json-declared",
+      "original_definition": {
+        "id": "dt:file.json_declared",
+        "definition_version": 1,
+        "definition": "A file declared to carry JSON by the checked source role or the exact lowercase .json suffix rule; successful strict-profile parsing is separate.",
+        "is_a": [
+          "dt:file"
+        ],
+        "abstract": false,
+        "payload_kind": "file",
+        "classifier_rule": "declared-json-file-v1"
+      },
+      "parents": [
+        "synny://type/potbot-data-file"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-file-json-declared",
+        "syn://type/potbot-data-file-json-declared"
+      ]
+    },
+    {
+      "data_type_id": "dt:bytes",
+      "syn_ref": "synny://type/potbot-data-bytes",
+      "original_definition": {
+        "id": "dt:bytes",
+        "definition_version": 1,
+        "definition": "An explicit byte-sequence representation. Unknown encoding or format does not make its primary type unresolved.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": false,
+        "payload_kind": "bytes"
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-bytes",
+        "syn://type/potbot-data-bytes"
+      ]
+    },
+    {
+      "data_type_id": "dt:raw_binary_data",
+      "syn_ref": "synny://type/potbot-data-raw-binary-data",
+      "original_definition": {
+        "id": "dt:raw_binary_data",
+        "definition_version": 1,
+        "definition": "A byte payload explicitly represented as opaque data, with no asserted text or structured interpretation. This is distinct from a pending or failed format classifier.",
+        "is_a": [
+          "dt:bytes"
+        ],
+        "abstract": false,
+        "payload_kind": "bytes"
+      },
+      "parents": [
+        "synny://type/potbot-data-bytes"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-raw-binary-data",
+        "syn://type/potbot-data-raw-binary-data"
+      ]
+    },
+    {
+      "data_type_id": "dt:text",
+      "syn_ref": "synny://type/potbot-data-text",
+      "original_definition": {
+        "id": "dt:text",
+        "definition_version": 1,
+        "definition": "A decoded text representation with a pinned successful decoding rule; a file name alone does not establish it.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": false,
+        "payload_kind": "text"
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-text",
+        "syn://type/potbot-data-text"
+      ]
+    },
+    {
+      "data_type_id": "dt:document",
+      "syn_ref": "synny://type/potbot-data-document",
+      "original_definition": {
+        "id": "dt:document",
+        "definition_version": 1,
+        "definition": "A structured document representation established by its declared parsing profile.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": true,
+        "payload_kind": null
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-document",
+        "syn://type/potbot-data-document"
+      ]
+    },
+    {
+      "data_type_id": "dt:document.json",
+      "syn_ref": "synny://type/potbot-data-document-json",
+      "original_definition": {
+        "id": "dt:document.json",
+        "definition_version": 1,
+        "definition": "A complete document accepted by the strict JSON profile; JSON grammar acceptance and additional profile constraints are separately identified.",
+        "is_a": [
+          "dt:document"
+        ],
+        "abstract": false,
+        "payload_kind": "json_document"
+      },
+      "parents": [
+        "synny://type/potbot-data-document"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-document-json",
+        "syn://type/potbot-data-document-json"
+      ]
+    },
+    {
+      "data_type_id": "dt:document.sql",
+      "syn_ref": "synny://type/potbot-data-document-sql",
+      "original_definition": {
+        "id": "dt:document.sql",
+        "definition_version": 1,
+        "definition": "A complete SQL document accepted by a pinned parser and dialect grammar; syntax acceptance is not semantic validity, authorization, or execution success.",
+        "is_a": [
+          "dt:document"
+        ],
+        "abstract": false,
+        "payload_kind": "sql_document"
+      },
+      "parents": [
+        "synny://type/potbot-data-document"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-document-sql",
+        "syn://type/potbot-data-document-sql"
+      ]
+    },
+    {
+      "data_type_id": "dt:document.markdown",
+      "syn_ref": "synny://type/potbot-data-document-markdown",
+      "original_definition": {
+        "id": "dt:document.markdown",
+        "definition_version": 1,
+        "definition": "A Markdown document representation produced under a registered parser profile, separate from its source file role.",
+        "is_a": [
+          "dt:document"
+        ],
+        "abstract": false,
+        "payload_kind": "markdown_document"
+      },
+      "parents": [
+        "synny://type/potbot-data-document"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-document-markdown",
+        "syn://type/potbot-data-document-markdown"
+      ]
+    },
+    {
+      "data_type_id": "dt:value",
+      "syn_ref": "synny://type/potbot-data-value",
+      "original_definition": {
+        "id": "dt:value",
+        "definition_version": 1,
+        "definition": "A typed value occurrence with a checked location and source revision.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": true,
+        "payload_kind": null
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value",
+        "syn://type/potbot-data-value"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.number",
+      "syn_ref": "synny://type/potbot-data-value-number",
+      "original_definition": {
+        "id": "dt:value.number",
+        "definition_version": 1,
+        "definition": "A numeric value occurrence; Boolean is not a subtype.",
+        "is_a": [
+          "dt:value"
+        ],
+        "abstract": true,
+        "payload_kind": null
+      },
+      "parents": [
+        "synny://type/potbot-data-value"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-number",
+        "syn://type/potbot-data-value-number"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.integer",
+      "syn_ref": "synny://type/potbot-data-value-integer",
+      "original_definition": {
+        "id": "dt:value.integer",
+        "definition_version": 1,
+        "definition": "An exact integer value. In the JSON profile, the source numeric lexeme has no decimal point or exponent.",
+        "is_a": [
+          "dt:value.number"
+        ],
+        "abstract": false,
+        "payload_kind": "integer"
+      },
+      "parents": [
+        "synny://type/potbot-data-value-number"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-integer",
+        "syn://type/potbot-data-value-integer"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.decimal",
+      "syn_ref": "synny://type/potbot-data-value-decimal",
+      "original_definition": {
+        "id": "dt:value.decimal",
+        "definition_version": 1,
+        "definition": "An exact decimal value. JSON number lexemes with a decimal point or exponent retain this type even if their mathematical value is integral.",
+        "is_a": [
+          "dt:value.number"
+        ],
+        "abstract": false,
+        "payload_kind": "decimal"
+      },
+      "parents": [
+        "synny://type/potbot-data-value-number"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-decimal",
+        "syn://type/potbot-data-value-decimal"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.boolean",
+      "syn_ref": "synny://type/potbot-data-value-boolean",
+      "original_definition": {
+        "id": "dt:value.boolean",
+        "definition_version": 1,
+        "definition": "A Boolean value; never classified through Python's bool-is-an-int implementation detail.",
+        "is_a": [
+          "dt:value"
+        ],
+        "abstract": false,
+        "payload_kind": "boolean"
+      },
+      "parents": [
+        "synny://type/potbot-data-value"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-boolean",
+        "syn://type/potbot-data-value-boolean"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.string",
+      "syn_ref": "synny://type/potbot-data-value-string",
+      "original_definition": {
+        "id": "dt:value.string",
+        "definition_version": 1,
+        "definition": "A string value; numeric-looking characters do not establish numeric type.",
+        "is_a": [
+          "dt:value"
+        ],
+        "abstract": false,
+        "payload_kind": "string"
+      },
+      "parents": [
+        "synny://type/potbot-data-value"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-string",
+        "syn://type/potbot-data-value-string"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.null",
+      "syn_ref": "synny://type/potbot-data-value-null",
+      "original_definition": {
+        "id": "dt:value.null",
+        "definition_version": 1,
+        "definition": "An explicit null value; distinct from absence, unknown, failed parsing, and unresolved classification.",
+        "is_a": [
+          "dt:value"
+        ],
+        "abstract": false,
+        "payload_kind": "null"
+      },
+      "parents": [
+        "synny://type/potbot-data-value"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-null",
+        "syn://type/potbot-data-value-null"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.array",
+      "syn_ref": "synny://type/potbot-data-value-array",
+      "original_definition": {
+        "id": "dt:value.array",
+        "definition_version": 1,
+        "definition": "An ordered structured array occurrence whose materialized elements retain distinct occurrence identities.",
+        "is_a": [
+          "dt:value"
+        ],
+        "abstract": false,
+        "payload_kind": "array"
+      },
+      "parents": [
+        "synny://type/potbot-data-value"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-array",
+        "syn://type/potbot-data-value-array"
+      ]
+    },
+    {
+      "data_type_id": "dt:value.object",
+      "syn_ref": "synny://type/potbot-data-value-object",
+      "original_definition": {
+        "id": "dt:value.object",
+        "definition_version": 1,
+        "definition": "A structured object occurrence with explicitly named members and checked child locators.",
+        "is_a": [
+          "dt:value"
+        ],
+        "abstract": false,
+        "payload_kind": "object"
+      },
+      "parents": [
+        "synny://type/potbot-data-value"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-value-object",
+        "syn://type/potbot-data-value-object"
+      ]
+    },
+    {
+      "data_type_id": "dt:record",
+      "syn_ref": "synny://type/potbot-data-record",
+      "original_definition": {
+        "id": "dt:record",
+        "definition_version": 1,
+        "definition": "A checked application record representation validated against an identified schema; the original owning service remains authoritative.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": false,
+        "payload_kind": "record"
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-record",
+        "syn://type/potbot-data-record"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent",
+      "syn_ref": "synny://type/potbot-data-agent",
+      "original_definition": {
+        "id": "dt:agent",
+        "definition_version": 1,
+        "definition": "The family of agent definitions, deployments, and runs. These are separate primary-type branches.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": true,
+        "payload_kind": null
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent",
+        "syn://type/potbot-data-agent"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition",
+      "syn_ref": "synny://type/potbot-data-agent-definition",
+      "original_definition": {
+        "id": "dt:agent.definition",
+        "definition_version": 1,
+        "definition": "An agent definition view over a checked source. The generic type is used when no role is declared; it does not replace the owning definition record.",
+        "is_a": [
+          "dt:agent"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition",
+        "syn://type/potbot-data-agent-definition"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.coordination",
+      "syn_ref": "synny://type/potbot-data-agent-definition-coordination",
+      "original_definition": {
+        "id": "dt:agent.definition.coordination",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role coordination. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "coordination"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-coordination",
+        "syn://type/potbot-data-agent-definition-coordination"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.planning",
+      "syn_ref": "synny://type/potbot-data-agent-definition-planning",
+      "original_definition": {
+        "id": "dt:agent.definition.planning",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role planning. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "planning"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-planning",
+        "syn://type/potbot-data-agent-definition-planning"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.research",
+      "syn_ref": "synny://type/potbot-data-agent-definition-research",
+      "original_definition": {
+        "id": "dt:agent.definition.research",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role research. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "research"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-research",
+        "syn://type/potbot-data-agent-definition-research"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.coding",
+      "syn_ref": "synny://type/potbot-data-agent-definition-coding",
+      "original_definition": {
+        "id": "dt:agent.definition.coding",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role coding. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "coding"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-coding",
+        "syn://type/potbot-data-agent-definition-coding"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.review",
+      "syn_ref": "synny://type/potbot-data-agent-definition-review",
+      "original_definition": {
+        "id": "dt:agent.definition.review",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role review. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "review"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-review",
+        "syn://type/potbot-data-agent-definition-review"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.verification_assistance",
+      "syn_ref": "synny://type/potbot-data-agent-definition-verification-assistance",
+      "original_definition": {
+        "id": "dt:agent.definition.verification_assistance",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role verification_assistance. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "verification_assistance"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-verification-assistance",
+        "syn://type/potbot-data-agent-definition-verification-assistance"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.memory_curation",
+      "syn_ref": "synny://type/potbot-data-agent-definition-memory-curation",
+      "original_definition": {
+        "id": "dt:agent.definition.memory_curation",
+        "definition_version": 1,
+        "definition": "An agent definition with the single declared role memory_curation. This declaration does not grant capabilities, permissions, or decision authority.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition",
+        "declared_role": "memory_curation"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-memory-curation",
+        "syn://type/potbot-data-agent-definition-memory-curation"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.definition.composite",
+      "syn_ref": "synny://type/potbot-data-agent-definition-composite",
+      "original_definition": {
+        "id": "dt:agent.definition.composite",
+        "definition_version": 1,
+        "definition": "An agent definition with two or more explicit declared roles. Roles are checked facets, not additional primary types or inferred capabilities.",
+        "is_a": [
+          "dt:agent.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_definition"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-definition-composite",
+        "syn://type/potbot-data-agent-definition-composite"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.deployment",
+      "syn_ref": "synny://type/potbot-data-agent-deployment",
+      "original_definition": {
+        "id": "dt:agent.deployment",
+        "definition_version": 1,
+        "definition": "A deployment view bound to exactly one checked agent definition revision and checked runtime bindings; not an agent definition or run.",
+        "is_a": [
+          "dt:agent"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_deployment"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-deployment",
+        "syn://type/potbot-data-agent-deployment"
+      ]
+    },
+    {
+      "data_type_id": "dt:agent.run",
+      "syn_ref": "synny://type/potbot-data-agent-run",
+      "original_definition": {
+        "id": "dt:agent.run",
+        "definition_version": 1,
+        "definition": "An agent execution occurrence bound to a checked definition and deployment with consistent definition lineage; execution state belongs to the existing run owner.",
+        "is_a": [
+          "dt:agent"
+        ],
+        "abstract": false,
+        "payload_kind": "agent_run"
+      },
+      "parents": [
+        "synny://type/potbot-data-agent"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-agent-run",
+        "syn://type/potbot-data-agent-run"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow",
+      "syn_ref": "synny://type/potbot-data-workflow",
+      "original_definition": {
+        "id": "dt:workflow",
+        "definition_version": 1,
+        "definition": "The family of workflow definitions and workflow runs, with separate primary-type branches.",
+        "is_a": [
+          "dt:data"
+        ],
+        "abstract": true,
+        "payload_kind": null
+      },
+      "parents": [
+        "synny://type/potbot-data-data"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow",
+        "syn://type/potbot-data-workflow"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition",
+      "syn_ref": "synny://type/potbot-data-workflow-definition",
+      "original_definition": {
+        "id": "dt:workflow.definition",
+        "definition_version": 1,
+        "definition": "A workflow definition view over a checked source. Generic definitions have no declared workflow kind; no execution is implied.",
+        "is_a": [
+          "dt:workflow"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition",
+        "syn://type/potbot-data-workflow-definition"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.coding",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-coding",
+      "original_definition": {
+        "id": "dt:workflow.definition.coding",
+        "definition_version": 1,
+        "definition": "A workflow definition with the single declared kind coding; this type does not grant deployment, verification, or other policy authority.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition",
+        "declared_kind": "coding"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-coding",
+        "syn://type/potbot-data-workflow-definition-coding"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.research",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-research",
+      "original_definition": {
+        "id": "dt:workflow.definition.research",
+        "definition_version": 1,
+        "definition": "A workflow definition with the single declared kind research; this type does not grant deployment, verification, or other policy authority.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition",
+        "declared_kind": "research"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-research",
+        "syn://type/potbot-data-workflow-definition-research"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.verification",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-verification",
+      "original_definition": {
+        "id": "dt:workflow.definition.verification",
+        "definition_version": 1,
+        "definition": "A workflow definition with the single declared kind verification; this type does not grant deployment, verification, or other policy authority.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition",
+        "declared_kind": "verification"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-verification",
+        "syn://type/potbot-data-workflow-definition-verification"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.memory_curation",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-memory-curation",
+      "original_definition": {
+        "id": "dt:workflow.definition.memory_curation",
+        "definition_version": 1,
+        "definition": "A workflow definition with the single declared kind memory_curation; this type does not grant deployment, verification, or other policy authority.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition",
+        "declared_kind": "memory_curation"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-memory-curation",
+        "syn://type/potbot-data-workflow-definition-memory-curation"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.evaluation",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-evaluation",
+      "original_definition": {
+        "id": "dt:workflow.definition.evaluation",
+        "definition_version": 1,
+        "definition": "A workflow definition with the single declared kind evaluation; this type does not grant deployment, verification, or other policy authority.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition",
+        "declared_kind": "evaluation"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-evaluation",
+        "syn://type/potbot-data-workflow-definition-evaluation"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.deployment",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-deployment",
+      "original_definition": {
+        "id": "dt:workflow.definition.deployment",
+        "definition_version": 1,
+        "definition": "A workflow definition with the single declared kind deployment; this type does not grant deployment, verification, or other policy authority.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition",
+        "declared_kind": "deployment"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-deployment",
+        "syn://type/potbot-data-workflow-definition-deployment"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.definition.composite",
+      "syn_ref": "synny://type/potbot-data-workflow-definition-composite",
+      "original_definition": {
+        "id": "dt:workflow.definition.composite",
+        "definition_version": 1,
+        "definition": "A workflow definition with multiple explicit declared kinds; the kinds are facets and the primary type remains unique.",
+        "is_a": [
+          "dt:workflow.definition"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_definition"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow-definition"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-definition-composite",
+        "syn://type/potbot-data-workflow-definition-composite"
+      ]
+    },
+    {
+      "data_type_id": "dt:workflow.run",
+      "syn_ref": "synny://type/potbot-data-workflow-run",
+      "original_definition": {
+        "id": "dt:workflow.run",
+        "definition_version": 1,
+        "definition": "A workflow execution occurrence bound to a checked workflow definition revision; it is not a subtype of workflow.definition.",
+        "is_a": [
+          "dt:workflow"
+        ],
+        "abstract": false,
+        "payload_kind": "workflow_run"
+      },
+      "parents": [
+        "synny://type/potbot-data-workflow"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-workflow-run",
+        "syn://type/potbot-data-workflow-run"
+      ]
+    },
+    {
+      "data_type_id": "dt:syn.object_record",
+      "syn_ref": "synny://type/potbot-data-syn-object-record",
+      "original_definition": {
+        "id": "dt:syn.object_record",
+        "definition_version": 1,
+        "definition": "A checked public SYN instance record in an explicit immutable snapshot, with exact source reference and native semantic class. Native assertions confer no Potbot authority or verification status.",
+        "is_a": [
+          "dt:record"
+        ],
+        "abstract": false,
+        "payload_kind": "record"
+      },
+      "parents": [
+        "synny://type/potbot-data-record"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-syn-object-record",
+        "syn://type/potbot-data-syn-object-record"
+      ]
+    },
+    {
+      "data_type_id": "dt:syn.type_definition",
+      "syn_ref": "synny://type/potbot-data-syn-type-definition",
+      "original_definition": {
+        "id": "dt:syn.type_definition",
+        "definition_version": 1,
+        "definition": "A checked SYN class definition in an explicit immutable snapshot, with declared parents, direct property constraints and preserved public metadata. It is a type definition, not a native class instance.",
+        "is_a": [
+          "dt:record"
+        ],
+        "abstract": false,
+        "payload_kind": "record"
+      },
+      "parents": [
+        "synny://type/potbot-data-record"
+      ],
+      "mapping_relation": "same_representation_type_under_dt_id_and_both_type_url_schemes",
+      "equivalent_type_refs": [
+        "synny://type/potbot-data-syn-type-definition",
+        "syn://type/potbot-data-syn-type-definition"
+      ]
+    }
+  ],
+  "native_primitive_views": [
+    {
+      "reference_kind": "thing",
+      "documented_semantic_root": "syn://type/thing",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "General referent representation; native type may differ from its storage root.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "event",
+      "documented_semantic_root": "syn://type/event",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Recorded event; preserve occurrence time separately from recording time.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "ember",
+      "documented_semantic_root": "syn://type/knowledge-record",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Descriptive captured information; admission and truth remain with checked Potbot owners.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "cog",
+      "documented_semantic_root": "syn://type/computational-process",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Computational process, not an agent definition or workflow plan.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "credential",
+      "documented_semantic_root": "syn://type/credential",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Public record and public key hash only; never owner-private data.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "enigma",
+      "documented_semantic_root": "syn://type/question",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Question view; does not replace the owning information need or its resolution criteria.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "pondle",
+      "documented_semantic_root": "syn://type/evaluation-record",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Evaluation record; classification does not establish verification success.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "snug",
+      "documented_semantic_root": "syn://type/attachment-record",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Investment or attachment record; no independent preference authority.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    },
+    {
+      "reference_kind": "om",
+      "documented_semantic_root": "syn://type/karma-unit",
+      "automatically_enforced_root_membership": false,
+      "interpretation": "Native karma unit; not a Potbot token budget or financial balance.",
+      "imported_primary_data_type": "dt:syn.object_record"
+    }
+  ],
+  "type_definition_primary_data_type": "dt:syn.type_definition",
+  "non_equivalences": [
+    {
+      "left": "Potbot content-addressed artifact",
+      "right": "syn://type/artifact",
+      "reason": "The SYN class is a material artifact; stored bytes are a representation."
+    },
+    {
+      "left": "dt:agent",
+      "right": "syn://type/agent",
+      "reason": "The data family contains definitions, deployments and runs; the native class denotes an agent."
+    },
+    {
+      "left": "dt:agent.definition",
+      "right": "syn://type/cog",
+      "reason": "A definition is not a computational process."
+    },
+    {
+      "left": "dt:workflow.definition",
+      "right": "syn://type/execution",
+      "reason": "A workflow plan does not assert a run occurred."
+    },
+    {
+      "left": "dt:document.json",
+      "right": "syn://type/json-data-feed",
+      "reason": "A parsed JSON document is not a feed."
+    }
+  ],
+  "rules": [
+    "All existing data-type IDs, definitions and parent relations remain unchanged.",
+    "The data root has no native superclass and does not classify underlying referents.",
+    "Native class assignment does not create an agent, workflow, capability or verified fact.",
+    "Each imported public record has one checked representation type in addition to its separate native class.",
+    "SynType records are definitions; instance membership is not inferred for type records.",
+    "A source reference resolves only under an authenticated workspace, namespace and explicit snapshot.",
+    "Property cardinalities describe direct declarations; inherited merges and value validation are not implemented.",
+    "syn://type/<slug> and synny://type/<slug> are aliases for one type; preferred spellings do not create extra classes.",
+    "All Potbot representation slugs begin potbot-data- and prefer synny://; these slugs are protected under both schemes.",
+    "Native classes prefer syn://; the same native slug under synny:// resolves to the native class."
+  ]
+}

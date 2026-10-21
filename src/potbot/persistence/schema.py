@@ -110,6 +110,7 @@ def application_migrations() -> tuple[SchemaMigration, ...]:
         (3, "task_schema"),
         (4, "model_schema"),
         (5, "named_vector_schema"),
+        (6, "syn_schema"),
     ):
         module = import_module(f"potbot.persistence.{module_name}")
         migrations.append(
