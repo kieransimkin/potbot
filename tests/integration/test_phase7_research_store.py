@@ -3,23 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
 
 from potbot.controller.information_needs import InformationNeedStore, NeedSpec
 from potbot.controller.research_store import ResearchStore
-from potbot.domain.errors import RevisionConflictError, ScopeDeniedError
+from potbot.domain.errors import RevisionConflictError, ScopeDeniedError, StateMismatchError
 from potbot.research.contracts import (
-    ObservationStatus,
     ResearchAction,
     ResearchCategory,
-    ResearchObservation,
     ResearchOperation,
     ResearchQuery,
     ResearchScope,
 )
+from potbot.research.repository import SnapshotResearchAdapter
 
 from .test_coding_pipeline import setup
 
@@ -99,7 +97,7 @@ def test_scoped_action_dedup_idempotency_and_content_integrity(app_env, tmp_path
 
 def test_observations_bind_the_exact_repository_artifact(app_env, tmp_path):
     rig, scope, action = _setup(app_env, tmp_path)
-    store = ResearchStore(app_env.db)
+    store = ResearchStore(app_env.db, rig.artifacts)
     store.admit(app_env.context, action, "research-A")
     with app_env.db.transaction(app_env.context) as conn:
         state = conn.execute(
@@ -108,20 +106,13 @@ def test_observations_bind_the_exact_repository_artifact(app_env, tmp_path):
             (app_env.context.workspace_id, rig.state["id"]),
         ).fetchone()
     assert state is not None
-    row = next(item for item in state["manifest"]["files"] if item["path"] == "calculator.py")
-    observed = ResearchObservation(
-        action.action_id,
-        ObservationStatus.INSPECTED,
-        "calculator.py",
-        "calculator.py",
-        state["content_digest"],
-        datetime(2026, 10, 22, tzinfo=UTC),
-        row["sha256"],
-        "def total():",
-        1,
-        1,
-        True,
-    )
+    snapshot = rig.states.snapshot(app_env.context, scope.repository_state_id)
+    observed = SnapshotResearchAdapter(
+        snapshot,
+        repository_state_id=scope.repository_state_id,
+        workspace_id=app_env.context.workspace_id,
+        task_id=scope.task_id,
+    ).inspect(action)[0]
     recorded = store.record_snapshot_observation(
         app_env.context,
         observed,
@@ -150,4 +141,12 @@ def test_observations_bind_the_exact_repository_artifact(app_env, tmp_path):
             observed,
             uuid4(),
             "observe-C",
+        )
+
+    with pytest.raises(StateMismatchError):
+        store.record_snapshot_observation(
+            app_env.context,
+            replace(observed, excerpt="fabricated contents"),
+            state["snapshot_artifact_id"],
+            "observe-D",
         )

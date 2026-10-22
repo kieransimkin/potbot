@@ -15,7 +15,6 @@ from potbot.tools.capability_contracts import (
     ToolImplementationDescriptor,
 )
 
-
 SCHEMA = canonical_json({"type": "object", "properties": {"query": {"type": "string"}}})
 DIGEST = "a" * 64
 
@@ -54,7 +53,9 @@ def test_existing_syn_hierarchy_contains_tool_definitions() -> None:
         protocol="mcp", definition_type_ref=MCP_TOOL_DEFINITION_TYPE
     ).require_registered_types()
     with pytest.raises(InvalidInputError):
-        fixture_capability(input_type_ref="syn://type/not-registered-17789").require_registered_types()
+        fixture_capability(
+            input_type_ref="syn://type/not-registered-17789"
+        ).require_registered_types()
     with pytest.raises(InvalidInputError):
         fixture_capability(definition_type_ref="syn://type/cog").require_registered_types()
 
@@ -104,6 +105,9 @@ def test_implementation_is_separate_from_discovery_descriptor() -> None:
         implementation.assert_capability(fixture_capability(name="other.search"))
     with pytest.raises(InvalidInputError):
         ToolImplementationDescriptor(
-            implementation_ref="syn://type/fixture", capability_hash=DIGEST,
-            package_digest=DIGEST, publisher="Fixture", version="1",
+            implementation_ref="syn://type/fixture",
+            capability_hash=DIGEST,
+            package_digest=DIGEST,
+            publisher="Fixture",
+            version="1",
         )

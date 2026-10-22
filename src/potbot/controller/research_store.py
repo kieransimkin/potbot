@@ -11,19 +11,24 @@ from uuid import UUID, uuid4
 
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
+    CapabilityUnavailableError,
     InvalidInputError,
     RevisionConflictError,
     ScopeDeniedError,
     StateMismatchError,
 )
 from potbot.domain.serialization import content_hash
+from potbot.persistence.artifacts import ArtifactStore
 from potbot.persistence.database import Database, idempotent_command
 from potbot.research.contracts import ResearchAction, ResearchObservation
 
 
 class ResearchStore:
-    def __init__(self, database: Database):
+    def __init__(self, database: Database, artifacts: ArtifactStore | None = None):
+        if artifacts is not None and artifacts.db != database:
+            raise InvalidInputError("Research store artifacts must share its database")
         self.database = database
+        self.artifacts = artifacts
 
     def admit(
         self, context: WorkspaceContext, action: ResearchAction, idempotency_key: str
@@ -178,6 +183,10 @@ class ResearchStore:
             source_snapshot_artifact_id, UUID
         ):
             raise InvalidInputError("a typed observation and snapshot artifact are required")
+        if self.artifacts is None:
+            raise CapabilityUnavailableError(
+                "Attested observations require immutable artifact access"
+            )
         request = {
             "observation": observation.to_dict(),
             "source_snapshot_artifact_id": str(source_snapshot_artifact_id),
@@ -187,7 +196,7 @@ class ResearchStore:
             def write() -> dict[str, Any]:
                 record = conn.execute(
                     "SELECT a.episode_id,a.repository_state_id,a.content,"
-                    "s.content_digest,s.snapshot_artifact_id,s.manifest "
+                    "s.repository_id,s.content_digest,s.snapshot_artifact_id,s.manifest "
                     "FROM research_actions a JOIN repository_states s ON "
                     "s.workspace_id=a.workspace_id AND s.id=a.repository_state_id "
                     "WHERE a.workspace_id=%s AND a.id=%s",
@@ -202,6 +211,29 @@ class ResearchStore:
                     or record["snapshot_artifact_id"] != source_snapshot_artifact_id
                 ):
                     raise RevisionConflictError("observation references a different snapshot")
+                # Verify the excerpt against *actual immutable stored bytes*,
+                # not merely a caller-supplied file SHA-256 (which proves no text).
+                from potbot.controller.research_worker import _current
+                from potbot.research.repository import SnapshotResearchAdapter
+                from potbot.tools.repository_snapshot import RepositorySnapshot
+
+                _current(conn, context, action, dict(record))
+                assert self.artifacts is not None
+                raw = self.artifacts.read_in_transaction(conn, context, source_snapshot_artifact_id)
+                snapshot = RepositorySnapshot(raw)
+                if (
+                    snapshot.content_digest != record["content_digest"]
+                    or snapshot.manifest != record["manifest"]
+                ):
+                    raise StateMismatchError("Repository snapshot cannot authenticate observation")
+                observed = SnapshotResearchAdapter(
+                    snapshot,
+                    repository_state_id=action.scope.repository_state_id,
+                    workspace_id=context.workspace_id,
+                    task_id=action.scope.task_id,
+                ).inspect(action, now=observation.retrieved_at)
+                if observation not in observed:
+                    raise StateMismatchError("Research excerpt is not present in the pinned source")
                 files = record["manifest"].get("files", [])
                 if observation.content_digest is not None:
                     matches = [

@@ -47,6 +47,12 @@ CHANGED = (
     "src/potbot/workspace_sandbox.py",
     "tests/unit/test_cog_transformations.py",
     "tests/unit/test_phase6_search_scheduler.py",
+    "src/potbot/persistence/phase7_worker_schema.py",
+    "src/potbot/controller/research_worker.py",
+    "src/potbot/research/worker_cli.py",
+    "tests/unit/test_phase7_worker_schema.py",
+    "tests/integration/test_phase7_research_worker.py",
+    "docs/phase-7-increment-3.md",
 )
 LINE = re.compile(r"([0-9a-f]{64})  ([^\n]+)\Z")
 

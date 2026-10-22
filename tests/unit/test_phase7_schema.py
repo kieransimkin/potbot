@@ -8,15 +8,15 @@ from potbot.persistence.schema import application_migrations
 
 def test_research_migration_is_versioned_and_immutably_scoped():
     revisions = application_migrations()
-    assert revisions[-1].version == 16
-    assert revisions[-1].name == "phase7_schema"
-    assert tuple(r.version for r in revisions) == tuple(range(1, 17))
-    sql = "\n".join(revisions[-1].statements)
+    assert revisions[15].version == 16
+    assert revisions[15].name == "phase7_schema"
+    assert tuple(r.version for r in revisions) == tuple(range(1, 18))
+    sql = "\n".join(revisions[15].statements)
     assert "FOREIGN KEY(workspace_id,episode_id,need_id)" in sql
     assert "FOREIGN KEY(workspace_id,need_id,need_revision_id)" in sql
     assert "FOREIGN KEY(workspace_id,episode_id,predecessor_id)" in sql
     assert "source_artifact_id uuid NOT NULL" in sql
-    assert set(revisions[-1].append_only_tables) == {
+    assert set(revisions[15].append_only_tables) == {
         "research_actions",
         "research_observations",
     }
