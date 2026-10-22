@@ -3,6 +3,7 @@
 Not part of the offline-only test gate; requires POTBOT_TEST_DSN and a
 PostgreSQL server with pgvector, using the disposable app_env fixture.
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -31,12 +32,21 @@ def _run(app_env, tmp_path: Path):
         ).fetchone()
     assert release is not None
     policy = SolvePolicy(
-        app_env.context.workspace_id, rig.episode_id, rig.contract_id, rig.state["id"],
-        release["content_hash"], ("reasoner-fixture",), ("coder-fixture-a", "coder-fixture-b"),
+        app_env.context.workspace_id,
+        rig.episode_id,
+        rig.contract_id,
+        rig.state["id"],
+        release["content_hash"],
+        ("reasoner-fixture",),
+        ("coder-fixture-a", "coder-fixture-b"),
     )
     root = KnowledgeView(
-        policy.workspace_id, policy.task_id, policy.contract_revision_id,
-        policy.base_state_id, policy.semantic_release_digest, (),
+        policy.workspace_id,
+        policy.task_id,
+        policy.contract_revision_id,
+        policy.base_state_id,
+        policy.semantic_release_digest,
+        (),
     )
     store = SolveStore(app_env.db)
     run = store.create(app_env.context, policy, root, "start-solve")
@@ -59,19 +69,40 @@ def test_durable_policy_replay_and_workspace_scope(app_env, tmp_path: Path):
 def test_graph_claim_fencing_pause_and_expiry(app_env, tmp_path: Path):
     rig, store, _policy, root, run = _run(app_env, tmp_path)
     run_id, root_id, view_id = (
-        UUID(run["run_id"]), UUID(run["root_node_id"]), UUID(run["root_view_id"]),
+        UUID(run["run_id"]),
+        UUID(run["root_node_id"]),
+        UUID(run["root_view_id"]),
     )
     candidate = store.add_node(
-        app_env.context, run_id, root_id, view_id, NodeKind.CANDIDATE,
-        "coder-fixture-a", "b" * 64, "candidate-one",
+        app_env.context,
+        run_id,
+        root_id,
+        view_id,
+        NodeKind.CANDIDATE,
+        "coder-fixture-a",
+        "b" * 64,
+        "candidate-one",
     )
-    assert store.add_node(
-        app_env.context, run_id, root_id, view_id, NodeKind.CANDIDATE,
-        "coder-fixture-a", "b" * 64, "candidate-one",
-    ) == candidate
+    assert (
+        store.add_node(
+            app_env.context,
+            run_id,
+            root_id,
+            view_id,
+            NodeKind.CANDIDATE,
+            "coder-fixture-a",
+            "b" * 64,
+            "candidate-one",
+        )
+        == candidate
+    )
     store.add_edge(
-        app_env.context, run_id, root_id, UUID(candidate["id"]),
-        EdgeKind.CONTINUES, "edge-one",
+        app_env.context,
+        run_id,
+        root_id,
+        UUID(candidate["id"]),
+        EdgeKind.CONTINUES,
+        "edge-one",
     )
     lease = store.claim(app_env.context, run_id, uuid4(), lease_seconds=45)
     assert lease is not None
@@ -99,15 +130,24 @@ def test_graph_claim_fencing_pause_and_expiry(app_env, tmp_path: Path):
 def test_changed_task_revision_prevents_new_graph_mutations(app_env, tmp_path: Path):
     rig, store, policy, _root, run = _run(app_env, tmp_path)
     paused = rig.tasks.control(
-        app_env.context, rig.episode_id, 2, "pause", "review",
+        app_env.context,
+        rig.episode_id,
+        2,
+        "pause",
+        "review",
         idempotency_key="pause-phase6",
     )
     assert paused["status"] == "paused"
     with pytest.raises(RevisionConflictError):
         store.add_node(
-            app_env.context, UUID(run["run_id"]), UUID(run["root_node_id"]),
-            UUID(run["root_view_id"]), NodeKind.PROPOSAL,
-            "reasoner-fixture", "f" * 64, "after-pause",
+            app_env.context,
+            UUID(run["run_id"]),
+            UUID(run["root_node_id"]),
+            UUID(run["root_view_id"]),
+            NodeKind.PROPOSAL,
+            "reasoner-fixture",
+            "f" * 64,
+            "after-pause",
         )
     with pytest.raises(RevisionConflictError):
         store.claim(app_env.context, UUID(run["run_id"]), uuid4())

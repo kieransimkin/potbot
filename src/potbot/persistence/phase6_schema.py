@@ -5,11 +5,22 @@ frontier projections. Expired claims quarantine rather than replay effects.
 """
 
 WORKSPACE_TABLES = (
-    "solve_runs", "solve_views", "solve_nodes", "solve_edges", "solve_frontier",
-    "solve_frontier_events", "solve_cog_receipts", "solve_node_contributions",
+    "solve_runs",
+    "solve_views",
+    "solve_nodes",
+    "solve_edges",
+    "solve_frontier",
+    "solve_frontier_events",
+    "solve_cog_receipts",
+    "solve_node_contributions",
 )
 APPEND_ONLY_TABLES = (
-    "solve_views", "solve_nodes", "solve_edges", "solve_frontier_events", "solve_cog_receipts", "solve_node_contributions",
+    "solve_views",
+    "solve_nodes",
+    "solve_edges",
+    "solve_frontier_events",
+    "solve_cog_receipts",
+    "solve_node_contributions",
 )
 
 MIGRATION_STATEMENTS = (

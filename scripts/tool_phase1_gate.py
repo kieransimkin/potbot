@@ -33,8 +33,12 @@ TEST_MODULES = {
 def _run(root: Path, args: list[str], *, timeout: int) -> int:
     try:
         result = subprocess.run(
-            args, cwd=root, check=False, timeout=timeout,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            args,
+            cwd=root,
+            check=False,
+            timeout=timeout,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         return result.returncode
     except (OSError, subprocess.TimeoutExpired):
@@ -49,9 +53,15 @@ def _cases(path: Path) -> dict[str, int]:
     except ET.ParseError:
         return {"collected": 0, "failed": 1, "errors": 1, "skipped": 0}
     suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
-    return {key: sum(int(s.attrib.get(key_map, 0)) for s in suites)
-            for key, key_map in (("collected", "tests"), ("failed", "failures"),
-                                 ("errors", "errors"), ("skipped", "skipped"))}
+    return {
+        key: sum(int(s.attrib.get(key_map, 0)) for s in suites)
+        for key, key_map in (
+            ("collected", "tests"),
+            ("failed", "failures"),
+            ("errors", "errors"),
+            ("skipped", "skipped"),
+        )
+    }
 
 
 def run_gate(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str, Any]:
@@ -66,44 +76,73 @@ def run_gate(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str,
     stages: list[dict[str, Any]] = []
     for stage_id, selector in TEST_MODULES.items():
         junit = artifacts / f"{stage_id.lower().replace('.', '-')}.xml"
-        exit_code = _run(root, [sys.executable, "-m", "pytest", "-q", selector, f"--junitxml={junit}"], timeout=180)
+        exit_code = _run(
+            root,
+            [sys.executable, "-m", "pytest", "-q", selector, f"--junitxml={junit}"],
+            timeout=180,
+        )
         summary = _cases(junit)
-        stages.append({
-            "stage": stage_id,
-            "test_selector": selector,
-            "status": "offline_passed" if exit_code == 0 and summary["collected"] > 0
-                       and summary["failed"] == 0 and summary["errors"] == 0
-                       and summary["skipped"] == 0 else "failed",
-            "return_code": exit_code,
-            "tests": summary,
-        })
+        stages.append(
+            {
+                "stage": stage_id,
+                "test_selector": selector,
+                "status": "offline_passed"
+                if exit_code == 0
+                and summary["collected"] > 0
+                and summary["failed"] == 0
+                and summary["errors"] == 0
+                and summary["skipped"] == 0
+                else "failed",
+                "return_code": exit_code,
+                "tests": summary,
+            }
+        )
     if inventory["missing_required_anchors"]:
         stages[0]["status"] = "failed"
     offline_passed = all(row["status"] == "offline_passed" for row in stages)
     qualified = False
     qualification: dict[str, Any] = {
-        "requested": mode == "qualified", "performed": False,
-        "postgresql": "not_run", "sandbox": "not_run", "check_success": False,
+        "requested": mode == "qualified",
+        "performed": False,
+        "postgresql": "not_run",
+        "sandbox": "not_run",
+        "check_success": False,
     }
     if mode == "qualified" and offline_passed:
         # Tests + database migrations + sandbox + wheel checks executed by the
         # repository's existing trusted runner. No shadow DB runner is added.
         report_dir = artifacts / "full-check"
-        exit_code = _run(root, [
-            sys.executable, str(root / "scripts" / "check.py"),
-            "--with-postgres", "--with-sandbox", "--artifacts", str(report_dir),
-        ], timeout=1800)
+        exit_code = _run(
+            root,
+            [
+                sys.executable,
+                str(root / "scripts" / "check.py"),
+                "--with-postgres",
+                "--with-sandbox",
+                "--artifacts",
+                str(report_dir),
+            ],
+            timeout=1800,
+        )
         state_path = report_dir / "summary.json"
         state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file() else {}
         qualified = bool(
-            exit_code == 0 and state.get("success") is True
+            exit_code == 0
+            and state.get("success") is True
             and state.get("postgres_requested") is True
             and state.get("sandbox_requested") is True
-            and any(x.get("check") == "postgres" and x.get("exit_code") == 0 for x in state.get("checks", []))
-            and any(x.get("check") == "sandbox" and x.get("exit_code") == 0 for x in state.get("checks", []))
+            and any(
+                x.get("check") == "postgres" and x.get("exit_code") == 0
+                for x in state.get("checks", [])
+            )
+            and any(
+                x.get("check") == "sandbox" and x.get("exit_code") == 0
+                for x in state.get("checks", [])
+            )
         )
         qualification = {
-            "requested": True, "performed": state_path.is_file(),
+            "requested": True,
+            "performed": state_path.is_file(),
             "postgresql": "passed" if qualified else "failed_or_unavailable",
             "sandbox": "passed" if qualified else "failed_or_unavailable",
             "check_success": qualified,
@@ -127,7 +166,9 @@ def run_gate(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str,
             "Only an explicitly requested successful full-check gate can qualify T01",
         ],
     }
-    digest = hashlib.sha256(json.dumps(report, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    digest = hashlib.sha256(
+        json.dumps(report, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     report["report_sha256"] = digest
     (artifacts / "phase1-gate.json").write_text(
         json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8"
@@ -143,12 +184,18 @@ def main() -> int:
     args = parser.parse_args()
     artifacts = args.artifacts or args.root / "artifacts" / "tool-platform-phase1"
     result = run_gate(args.root, artifacts, mode=args.mode)
-    print(json.dumps({
-        "phase": result["phase"], "mode": result["mode"],
-        "offline_contract_checks_passed": result["offline_contract_checks_passed"],
-        "fully_qualified": result["fully_qualified"],
-        "report": str(artifacts / "phase1-gate.json"),
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "phase": result["phase"],
+                "mode": result["mode"],
+                "offline_contract_checks_passed": result["offline_contract_checks_passed"],
+                "fully_qualified": result["fully_qualified"],
+                "report": str(artifacts / "phase1-gate.json"),
+            },
+            sort_keys=True,
+        )
+    )
     if result["mode"] == "qualified":
         return 0 if result["fully_qualified"] else 1
     return 0 if result["offline_contract_checks_passed"] else 1

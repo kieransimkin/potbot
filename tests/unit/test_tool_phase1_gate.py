@@ -22,18 +22,26 @@ def mock_check_success(tmp_path: Path, args: list[str], *, timeout: int) -> int:
     for arg in args:
         if arg.startswith("--junitxml="):
             report = Path(arg.partition("=")[2])
-            report.write_text('<testsuites><testsuite tests="2" failures="0" errors="0" skipped="0"/></testsuites>')
+            report.write_text(
+                '<testsuites><testsuite tests="2" failures="0" errors="0" skipped="0"/></testsuites>'
+            )
             return 0
     if "--with-postgres" in args and "--with-sandbox" in args:
         artifacts = Path(args[args.index("--artifacts") + 1])
         artifacts.mkdir(parents=True, exist_ok=True)
-        (artifacts / "summary.json").write_text(json.dumps({
-            "success": True, "postgres_requested": True, "sandbox_requested": True,
-            "checks": [
-                {"check": "postgres", "exit_code": 0},
-                {"check": "sandbox", "exit_code": 0},
-            ],
-        }))
+        (artifacts / "summary.json").write_text(
+            json.dumps(
+                {
+                    "success": True,
+                    "postgres_requested": True,
+                    "sandbox_requested": True,
+                    "checks": [
+                        {"check": "postgres", "exit_code": 0},
+                        {"check": "sandbox", "exit_code": 0},
+                    ],
+                }
+            )
+        )
     return 0
 
 
@@ -48,7 +56,9 @@ def test_offline_stage_report_explicitly_unqualified(tmp_path: Path, monkeypatch
     assert (tmp_path / "stage-artifacts" / "phase1-gate.json").is_file()
 
 
-def test_qualified_release_requires_existing_db_and_sandbox_gates(tmp_path: Path, monkeypatch) -> None:
+def test_qualified_release_requires_existing_db_and_sandbox_gates(
+    tmp_path: Path, monkeypatch
+) -> None:
     seed(tmp_path)
     monkeypatch.setattr(gate, "_run", mock_check_success)
     report = gate.run_gate(tmp_path, tmp_path / "qualified", mode="qualified")
@@ -76,7 +86,9 @@ def test_skipped_stage_check_is_a_failure(tmp_path: Path, monkeypatch) -> None:
     def skipped(root: Path, args: list[str], *, timeout: int) -> int:
         for arg in args:
             if arg.startswith("--junitxml="):
-                Path(arg.partition("=")[2]).write_text('<testsuite tests="2" failures="0" errors="0" skipped="1"/>')
+                Path(arg.partition("=")[2]).write_text(
+                    '<testsuite tests="2" failures="0" errors="0" skipped="1"/>'
+                )
                 return 0
         return 0
 

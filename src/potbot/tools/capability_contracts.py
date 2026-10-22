@@ -24,7 +24,9 @@ from potbot.domain.syn import SynRef, parse_type_ref, type_identity
 
 _TOOL_NAME = re.compile(r"[a-z][a-z0-9_.-]{0,79}\Z", re.ASCII)
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
-_ALLOWED_PROTOCOLS = frozenset({"mcp", "cli", "rest", "graphql", "grpc", "sql", "browser", "solver"})
+_ALLOWED_PROTOCOLS = frozenset(
+    {"mcp", "cli", "rest", "graphql", "grpc", "sql", "browser", "solver"}
+)
 _EFFECTS = frozenset({"read_only", "idempotent_write", "non_idempotent_write", "destructive"})
 _OUTCOMES = frozenset({"succeeded", "failed", "indeterminate"})
 MAX_CONTRACT_BYTES = 128 * 1024
@@ -150,11 +152,20 @@ class ToolCapabilityDescriptor:
     description: str
     schema_version: int = 1
 
-    _FIELDS: ClassVar[frozenset[str]] = frozenset({
-        "schema_version", "name", "definition_type_ref", "input_type_ref",
-        "output_type_ref", "protocol", "effect_class", "input_schema_json",
-        "output_schema_json", "description",
-    })
+    _FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "schema_version",
+            "name",
+            "definition_type_ref",
+            "input_type_ref",
+            "output_type_ref",
+            "protocol",
+            "effect_class",
+            "input_schema_json",
+            "output_schema_json",
+            "description",
+        }
+    )
 
     def __post_init__(self) -> None:
         if type(self.schema_version) is not int or self.schema_version != 1:
@@ -165,7 +176,9 @@ class ToolCapabilityDescriptor:
             _type_ref(getattr(self, name))
         if self.protocol not in _ALLOWED_PROTOCOLS or self.effect_class not in _EFFECTS:
             raise InvalidInputError("Tool transport or side effect classification is invalid")
-        if self.protocol == "mcp" and type_identity(self.definition_type_ref) != type_identity(MCP_TOOL_DEFINITION_TYPE):
+        if self.protocol == "mcp" and type_identity(self.definition_type_ref) != type_identity(
+            MCP_TOOL_DEFINITION_TYPE
+        ):
             raise InvalidInputError("MCP tools require the registered MCP tool-definition Type")
         _schema(self.input_schema_json)
         _schema(self.output_schema_json)
@@ -219,8 +232,12 @@ class ToolCapabilityDescriptor:
                 raise InvalidInputError(f"Unregistered tool contract Type: {name}")
         ancestry = type_ancestors(merged)
         ancestors = ancestry[str(available[type_identity(self.definition_type_ref)].ref)]
-        if not any(type_identity(value) == type_identity(TOOL_INTERFACE_RECORD_TYPE) for value in ancestors):
-            raise InvalidInputError("Tool definition Type does not descend from tool-interface-record")
+        if not any(
+            type_identity(value) == type_identity(TOOL_INTERFACE_RECORD_TYPE) for value in ancestors
+        ):
+            raise InvalidInputError(
+                "Tool definition Type does not descend from tool-interface-record"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,10 +251,16 @@ class ToolImplementationDescriptor:
     version: str
     schema_version: int = 1
 
-    _FIELDS: ClassVar[frozenset[str]] = frozenset({
-        "schema_version", "implementation_ref", "capability_hash", "package_digest",
-        "publisher", "version",
-    })
+    _FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "schema_version",
+            "implementation_ref",
+            "capability_hash",
+            "package_digest",
+            "publisher",
+            "version",
+        }
+    )
 
     def __post_init__(self) -> None:
         if type(self.schema_version) is not int or self.schema_version != 1:
@@ -285,10 +308,17 @@ class ToolInstallationDescriptor:
     permitted_scopes: tuple[str, ...]
     schema_version: int = 1
 
-    _FIELDS: ClassVar[frozenset[str]] = frozenset({
-        "schema_version", "installation_ref", "workspace_id", "implementation_hash",
-        "configuration_hash", "policy_revision_hash", "permitted_scopes",
-    })
+    _FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "schema_version",
+            "installation_ref",
+            "workspace_id",
+            "implementation_hash",
+            "configuration_hash",
+            "policy_revision_hash",
+            "permitted_scopes",
+        }
+    )
 
     def __post_init__(self) -> None:
         if type(self.schema_version) is not int or self.schema_version != 1:
@@ -354,11 +384,22 @@ class ToolInvocationIntent:
     idempotency_key: str
     schema_version: int = 1
 
-    _FIELDS: ClassVar[frozenset[str]] = frozenset({
-        "schema_version", "invocation_id", "workspace_id", "task_revision_id",
-        "installation_hash", "input_type_ref", "input_hash", "effect_class",
-        "policy_revision_hash", "max_wall_time_ms", "max_output_bytes", "idempotency_key",
-    })
+    _FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "schema_version",
+            "invocation_id",
+            "workspace_id",
+            "task_revision_id",
+            "installation_hash",
+            "input_type_ref",
+            "input_hash",
+            "effect_class",
+            "policy_revision_hash",
+            "max_wall_time_ms",
+            "max_output_bytes",
+            "idempotency_key",
+        }
+    )
 
     def __post_init__(self) -> None:
         if type(self.schema_version) is not int or self.schema_version != 1:
@@ -420,7 +461,9 @@ class ToolInvocationIntent:
             type_identity(self.input_type_ref) != type_identity(descriptor.input_type_ref)
             or self.effect_class != descriptor.effect_class
         ):
-            raise ScopeDeniedError("Tool invocation ports or effects differ from the pinned descriptor")
+            raise ScopeDeniedError(
+                "Tool invocation ports or effects differ from the pinned descriptor"
+            )
 
     def assert_installation(self, installation: ToolInstallationDescriptor) -> None:
         if not isinstance(installation, ToolInstallationDescriptor):
@@ -445,10 +488,17 @@ class ToolObservation:
     error_code: str | None
     schema_version: int = 1
 
-    _FIELDS: ClassVar[frozenset[str]] = frozenset({
-        "schema_version", "invocation_hash", "output_type_ref", "status",
-        "output_hash", "artifact_sha256", "error_code",
-    })
+    _FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "schema_version",
+            "invocation_hash",
+            "output_type_ref",
+            "status",
+            "output_hash",
+            "artifact_sha256",
+            "error_code",
+        }
+    )
 
     def __post_init__(self) -> None:
         if type(self.schema_version) is not int or self.schema_version != 1:
@@ -464,7 +514,9 @@ class ToolObservation:
             if self.output_hash is None or self.error_code is not None:
                 raise InvalidInputError("Successful observations need an output hash, not an error")
         elif self.output_hash is not None or self.artifact_sha256 is not None:
-            raise InvalidInputError("Failed/indeterminate operations must not assert completed output")
+            raise InvalidInputError(
+                "Failed/indeterminate operations must not assert completed output"
+            )
         if self.error_code is not None:
             _text(self.error_code, "error code", 128)
         if self.status == "indeterminate" and self.error_code is None:
@@ -491,7 +543,8 @@ class ToolObservation:
 
 
 def verify_observation_link(
-    intent: ToolInvocationIntent, observation: ToolObservation,
+    intent: ToolInvocationIntent,
+    observation: ToolObservation,
     descriptor: ToolCapabilityDescriptor | None = None,
 ) -> None:
     """Check one hash link; success still does not mean truth or authorization."""

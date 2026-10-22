@@ -328,7 +328,15 @@ class ToolGateway:
                 sandbox_environment = sandbox.runtime_environment()
                 writable_roots = tuple(
                     sandbox.path(name)
-                    for name in ("tmp", "cache", "environments", "builds", "tests", "tools", "dependencies")
+                    for name in (
+                        "tmp",
+                        "cache",
+                        "environments",
+                        "builds",
+                        "tests",
+                        "tools",
+                        "dependencies",
+                    )
                 )
                 read_only_roots = (
                     *read_only_roots,

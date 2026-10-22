@@ -114,7 +114,10 @@ class CodingScope:
             for name in ("implementation_id", "base_state_id", "contract_revision_id")
         ):
             raise InvalidInputError("Coding scope requires UUID identities")
-        if any(not isinstance(getattr(self, name), tuple) for name in ("permitted_paths", "known_checks", "evidence_ids", "query_profiles")):
+        if any(
+            not isinstance(getattr(self, name), tuple)
+            for name in ("permitted_paths", "known_checks", "evidence_ids", "query_profiles")
+        ):
             raise InvalidInputError("Coding scope requires immutable sequences")
         if any(not isinstance(ref, UUID) for ref in self.evidence_ids):
             raise InvalidInputError("Coding evidence references must be UUIDs")
@@ -122,22 +125,26 @@ class CodingScope:
             values = getattr(self, name)
             if (
                 len(values) > 128
-                or any(not isinstance(value, str) or not value or "\x00" in value for value in values)
+                or any(
+                    not isinstance(value, str) or not value or "\x00" in value for value in values
+                )
                 or len(set(values)) != len(values)
             ):
                 raise InvalidInputError(f"Coding scope {name} is invalid")
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({
-            "implementation_id": str(self.implementation_id),
-            "base_state_id": str(self.base_state_id),
-            "contract_revision_id": str(self.contract_revision_id),
-            "permitted_paths": self.permitted_paths,
-            "known_checks": self.known_checks,
-            "evidence_ids": [str(value) for value in self.evidence_ids],
-            "query_profiles": self.query_profiles,
-        })
+        return content_hash(
+            {
+                "implementation_id": str(self.implementation_id),
+                "base_state_id": str(self.base_state_id),
+                "contract_revision_id": str(self.contract_revision_id),
+                "permitted_paths": self.permitted_paths,
+                "known_checks": self.known_checks,
+                "evidence_ids": [str(value) for value in self.evidence_ids],
+                "query_profiles": self.query_profiles,
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)

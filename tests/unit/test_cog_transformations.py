@@ -65,7 +65,9 @@ def test_registered_instance_types_and_required_ember_signatures():
     root = next(item for item in snapshot.types if str(item.ref) == TRANSFORM_TYPE)
     assert str(root.parents[0]) == "syn://type/cog"
     assert [(prop.name, prop.minimum) for prop in root.properties] == [
-        ("inputTypeRef", 1), ("outputTypeRef", 1), ("implementationBindingHash", 1)
+        ("inputTypeRef", 1),
+        ("outputTypeRef", 1),
+        ("implementationBindingHash", 1),
     ]
     merged = merge_types(snapshot)
     closure = type_ancestors(merged)
@@ -82,15 +84,22 @@ def test_cog_chain_converts_completed_provider_text_into_scope_checked_coding_da
     source = TypedCogValue(COMPLETION_TEXT, canonical_json(proposed.to_dict()), uuid4())
     ctx = context(registry, contract=revision)
     authority = CodingScope(
-        proposed.implementation_id, proposed.base_state_id, revision,
-        permitted_paths=("a.py",), known_checks=("unit",),
+        proposed.implementation_id,
+        proposed.base_state_id,
+        revision,
+        permitted_paths=("a.py",),
+        known_checks=("unit",),
     )
     outcomes = registry.chain(
-        (COG_COMPLETION_JSON, COG_JSON_CODING, COG_SCOPE_CODING), source, ctx,
+        (COG_COMPLETION_JSON, COG_JSON_CODING, COG_SCOPE_CODING),
+        source,
+        ctx,
         scope=authority,
     )
     assert [value.value.type_ref for value in outcomes] == [
-        JSON_DOCUMENT, MODEL_CODING_RESPONSE, SCOPE_CHECKED_CODING
+        JSON_DOCUMENT,
+        MODEL_CODING_RESPONSE,
+        SCOPE_CHECKED_CODING,
     ]
     assert outcomes[-1].value.value == proposed.to_dict()
     assert outcomes[0].receipt.input_artifact_id == source.source_artifact_id
@@ -108,20 +117,24 @@ def test_action_path_is_an_explicit_other_cog_not_an_implicit_schema_guess():
     identity = ControllerIdentity(*(uuid4() for _ in range(6)))
     from potbot.domain.execution import ActionProposal
     from potbot.domain.model_proposals import ModelActionProposal
-    action = ModelActionFrame(identity, (
-        ModelActionProposal("inspect", ActionProposal("inspect"), "Inspect code", ("report",)),
-    ))
+
+    action = ModelActionFrame(
+        identity,
+        (ModelActionProposal("inspect", ActionProposal("inspect"), "Inspect code", ("report",)),),
+    )
     ctx = context(registry)
     outcomes = registry.chain(
         (COG_COMPLETION_JSON, COG_JSON_ACTION),
-        TypedCogValue(COMPLETION_TEXT, json.dumps(action.to_dict())), ctx,
+        TypedCogValue(COMPLETION_TEXT, json.dumps(action.to_dict())),
+        ctx,
     )
     assert outcomes[-1].value.type_ref == MODEL_ACTION_FRAME
     assert outcomes[-1].value.value == action.to_dict()
     with pytest.raises(SchemaViolationError):
         registry.chain(
             (COG_COMPLETION_JSON, COG_JSON_CODING),
-            TypedCogValue(COMPLETION_TEXT, json.dumps(action.to_dict())), ctx,
+            TypedCogValue(COMPLETION_TEXT, json.dumps(action.to_dict())),
+            ctx,
         )
 
 
@@ -133,24 +146,35 @@ def test_data_type_mismatch_never_auto_converts_or_traverses_ancestors():
     with pytest.raises(StateMismatchError):
         registry.transform(COG_COMPLETION_JSON, TypedCogValue(JSON_DOCUMENT, {}), ctx)
     with pytest.raises(ScopeDeniedError):
-        registry.transform("syn://cog/arbitrary-model-function", TypedCogValue(COMPLETION_TEXT, "{}"), ctx)
+        registry.transform(
+            "syn://cog/arbitrary-model-function", TypedCogValue(COMPLETION_TEXT, "{}"), ctx
+        )
     with pytest.raises(StateMismatchError):
-        registry.transform(COG_COMPLETION_JSON, TypedCogValue(COMPLETION_TEXT, "{}"), replace(ctx, cog_snapshot_hash="a" * 64))
+        registry.transform(
+            COG_COMPLETION_JSON,
+            TypedCogValue(COMPLETION_TEXT, "{}"),
+            replace(ctx, cog_snapshot_hash="a" * 64),
+        )
 
 
-@pytest.mark.parametrize("raw", [
-    '{"a":1,"a":2}',
-    '```json\n{}\n```',
-    '{} trailing',
-    '{"x":NaN}',
-    '{"x":1e999}',
-    "null",
-    "[]",
-])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '{"a":1,"a":2}',
+        "```json\n{}\n```",
+        "{} trailing",
+        '{"x":NaN}',
+        '{"x":1e999}',
+        "null",
+        "[]",
+    ],
+)
 def test_model_text_cog_enforces_exact_json_contract(raw):
     registry = BoundCogRegistry.builtins()
     with pytest.raises(SchemaViolationError):
-        registry.transform(COG_COMPLETION_JSON, TypedCogValue(COMPLETION_TEXT, raw), context(registry))
+        registry.transform(
+            COG_COMPLETION_JSON, TypedCogValue(COMPLETION_TEXT, raw), context(registry)
+        )
 
 
 def test_valid_json_is_not_a_valid_coding_result_without_checked_schema():
@@ -159,7 +183,8 @@ def test_valid_json_is_not_a_valid_coding_result_without_checked_schema():
     with pytest.raises(SchemaViolationError):
         registry.chain(
             (COG_COMPLETION_JSON, COG_JSON_CODING),
-            TypedCogValue(COMPLETION_TEXT, '{"schema_version":1}'), ctx,
+            TypedCogValue(COMPLETION_TEXT, '{"schema_version":1}'),
+            ctx,
         )
 
 
@@ -173,18 +198,28 @@ def test_scope_cog_fails_without_controller_facts_and_rejects_stale_or_wrong_pat
         registry.transform(COG_SCOPE_CODING, source, ctx)
     with pytest.raises(StateMismatchError):
         registry.transform(
-            COG_SCOPE_CODING, source, ctx,
+            COG_SCOPE_CODING,
+            source,
+            ctx,
             scope=CodingScope(model.implementation_id, model.base_state_id, uuid4(), ("a.py",), ()),
         )
     with pytest.raises(ScopeDeniedError):
         registry.transform(
-            COG_SCOPE_CODING, source, ctx,
-            scope=CodingScope(model.implementation_id, model.base_state_id, revision, ("safe/",), ()),
+            COG_SCOPE_CODING,
+            source,
+            ctx,
+            scope=CodingScope(
+                model.implementation_id, model.base_state_id, revision, ("safe/",), ()
+            ),
         )
     with pytest.raises(ScopeDeniedError):
         registry.transform(
-            COG_COMPLETION_JSON, TypedCogValue(COMPLETION_TEXT, "{}"), ctx,
-            scope=CodingScope(model.implementation_id, model.base_state_id, revision, ("a.py",), ()),
+            COG_COMPLETION_JSON,
+            TypedCogValue(COMPLETION_TEXT, "{}"),
+            ctx,
+            scope=CodingScope(
+                model.implementation_id, model.base_state_id, revision, ("a.py",), ()
+            ),
         )
 
 
@@ -200,11 +235,22 @@ def test_snapshot_tampering_cannot_swap_cog_implementation_or_transform_types():
     tampered = json.loads(bad_obj.payload_json)
     tampered["implementationBindingHash"] = "0" * 64
     with pytest.raises(ScopeDeniedError):
-        BoundCogRegistry(replace(original, objects=(SynObject(bad_obj.ref, bad_obj.type_ref, canonical_json(tampered)), *original.objects[1:])))
+        BoundCogRegistry(
+            replace(
+                original,
+                objects=(
+                    SynObject(bad_obj.ref, bad_obj.type_ref, canonical_json(tampered)),
+                    *original.objects[1:],
+                ),
+            )
+        )
     # Introducing an unqualified/type-spoofed Cog instance cannot override the pinned registry.
     unknown = SynObject(
-        ref=bad_obj.ref, type_ref=parse_type_ref("syn://type/cog"),
-        payload_json=canonical_json({**json.loads(bad_obj.payload_json), "typeRef": "syn://type/cog"}),
+        ref=bad_obj.ref,
+        type_ref=parse_type_ref("syn://type/cog"),
+        payload_json=canonical_json(
+            {**json.loads(bad_obj.payload_json), "typeRef": "syn://type/cog"}
+        ),
     )
     with pytest.raises(ScopeDeniedError):
         BoundCogRegistry(replace(original, objects=(unknown, *original.objects[1:])))
@@ -225,23 +271,28 @@ def test_bad_typed_payloads_and_signatures_are_rejected():
 def test_type_to_type_planner_connects_only_explicit_cogs():
     registry = BoundCogRegistry.builtins()
     assert registry.plan(COMPLETION_TEXT, MODEL_ACTION_FRAME) == (
-        COG_COMPLETION_JSON, COG_JSON_ACTION
+        COG_COMPLETION_JSON,
+        COG_JSON_ACTION,
     )
     assert registry.plan(COMPLETION_TEXT, MODEL_CODING_RESPONSE) == (
-        COG_COMPLETION_JSON, COG_JSON_CODING
+        COG_COMPLETION_JSON,
+        COG_JSON_CODING,
     )
     with pytest.raises(StateMismatchError):
         registry.plan(COMPLETION_TEXT, SCOPE_CHECKED_CODING)
-    assert registry.plan(
-        COMPLETION_TEXT, SCOPE_CHECKED_CODING, controller_scope=True
-    ) == (COG_COMPLETION_JSON, COG_JSON_CODING, COG_SCOPE_CODING)
+    assert registry.plan(COMPLETION_TEXT, SCOPE_CHECKED_CODING, controller_scope=True) == (
+        COG_COMPLETION_JSON,
+        COG_JSON_CODING,
+        COG_SCOPE_CODING,
+    )
     with pytest.raises(InvalidInputError):
         registry.plan(COMPLETION_TEXT, COMPLETION_TEXT)
     with pytest.raises(ScopeDeniedError):
         registry.plan("syn://type/invented", MODEL_CODING_RESPONSE)
     # Scheme-equivalent type identities remain the same registered Type.
     assert registry.plan("synny://type/potbot-provider-completion-text", MODEL_CODING_RESPONSE) == (
-        COG_COMPLETION_JSON, COG_JSON_CODING
+        COG_COMPLETION_JSON,
+        COG_JSON_CODING,
     )
 
 
@@ -249,12 +300,16 @@ def test_convert_follows_derived_route_and_records_each_step():
     registry = BoundCogRegistry.builtins()
     proposed = coding_response()
     scope = CodingScope(
-        proposed.implementation_id, proposed.base_state_id, proposed.contract_revision_id,
-        ("a.py",), (),
+        proposed.implementation_id,
+        proposed.base_state_id,
+        proposed.contract_revision_id,
+        ("a.py",),
+        (),
     )
     outputs = registry.convert(
         TypedCogValue(COMPLETION_TEXT, canonical_json(proposed.to_dict())),
-        SCOPE_CHECKED_CODING, context(registry, contract=proposed.contract_revision_id),
+        SCOPE_CHECKED_CODING,
+        context(registry, contract=proposed.contract_revision_id),
         scope=scope,
     )
     assert len(outputs) == 3
@@ -264,8 +319,12 @@ def test_convert_follows_derived_route_and_records_each_step():
 
 def test_embedded_cog_snapshot_fully_agrees_with_runtime_contract():
     from pathlib import Path
+
     package_root = Path(__file__).resolve().parents[2]
     path = package_root / "vocab/potbot-cog-transforms.snapshot.json"
     if not path.is_file():
         pytest.skip("checkout-local snapshot is packaged separately")
-    assert SynSnapshot.from_json(path.read_text("utf-8")).fingerprint == builtin_cog_snapshot().fingerprint
+    assert (
+        SynSnapshot.from_json(path.read_text("utf-8")).fingerprint
+        == builtin_cog_snapshot().fingerprint
+    )

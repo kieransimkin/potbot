@@ -151,9 +151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             profile = replace(EmbeddingProfile(), max_input_tokens=args.max_input_tokens)
             if args.command in {"index", "search"}:
-                ensure_standard_model(
-                    sandbox.root, model_dir=model_dir, progress=ConsoleProgress()
-                )
+                ensure_standard_model(sandbox.root, model_dir=model_dir, progress=ConsoleProgress())
             service = EmbeddingService(
                 database,
                 ArtifactStore(database, LocalArtifactBackend(artifact_root)),

@@ -42,7 +42,11 @@ def main() -> int:
     root = ROOT.resolve(strict=True)
     for rel in UPDATED:
         path = ROOT / rel
-        if not path.is_file() or path.is_symlink() or not path.resolve(strict=True).is_relative_to(root):
+        if (
+            not path.is_file()
+            or path.is_symlink()
+            or not path.resolve(strict=True).is_relative_to(root)
+        ):
             raise ValueError("Expected source file is missing or not a normal project file")
         entries[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
     MANIFEST.write_text(

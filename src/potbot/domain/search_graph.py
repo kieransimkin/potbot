@@ -72,9 +72,7 @@ class SolvePolicy:
                 not isinstance(models, tuple)
                 or not models
                 or len(models) > 16
-                or any(
-                    not isinstance(m, str) or not m.strip() or len(m) > 256 for m in models
-                )
+                or any(not isinstance(m, str) or not m.strip() or len(m) > 256 for m in models)
                 or len(set(models)) != len(models)
             ):
                 raise InvalidInputError(f"{field} must contain distinct nonempty model selectors")
@@ -269,12 +267,12 @@ class GraphProjection:
             raise InvalidInputError("graph edge references an unknown node")
         if edge in self.edges:
             return
-        if (
-            self.nodes[edge.source].view.repository_state_id
-            != self.nodes[edge.target].view.repository_state_id
-            and edge.kind not in (EdgeKind.CONTINUES, EdgeKind.VERIFIES)
-        ):
-            raise InvalidInputError("cross-state edges require explicit continuation or verification")
+        if self.nodes[edge.source].view.repository_state_id != self.nodes[
+            edge.target
+        ].view.repository_state_id and edge.kind not in (EdgeKind.CONTINUES, EdgeKind.VERIFIES):
+            raise InvalidInputError(
+                "cross-state edges require explicit continuation or verification"
+            )
         adjacency: dict[UUID, set[UUID]] = {}
         for existing in self.edges:
             adjacency.setdefault(existing.source, set()).add(existing.target)

@@ -57,36 +57,58 @@ def _signature(
     scoped: bool = False,
 ) -> CogSignature:
     return CogSignature(
-        SynRef(cog_ref), cog_type, input_type, output_type,
-        "potbot.cogs.builtin." + handler_name, 1, scoped,
+        SynRef(cog_ref),
+        cog_type,
+        input_type,
+        output_type,
+        "potbot.cogs.builtin." + handler_name,
+        1,
+        scoped,
     )
 
 
 INSTALLED_COGS: tuple[CogSignature, ...] = (
     _signature(
-        COG_COMPLETION_JSON, PARSE_JSON_TYPE,
-        builtin.COMPLETION_TEXT, builtin.JSON_DOCUMENT, "text_to_json",
+        COG_COMPLETION_JSON,
+        PARSE_JSON_TYPE,
+        builtin.COMPLETION_TEXT,
+        builtin.JSON_DOCUMENT,
+        "text_to_json",
     ),
     _signature(
-        COG_JSON_CODING, PARSE_CODING_TYPE,
-        builtin.JSON_DOCUMENT, builtin.MODEL_CODING_RESPONSE, "json_to_coding",
+        COG_JSON_CODING,
+        PARSE_CODING_TYPE,
+        builtin.JSON_DOCUMENT,
+        builtin.MODEL_CODING_RESPONSE,
+        "json_to_coding",
     ),
     _signature(
-        COG_JSON_ACTION, PARSE_ACTION_TYPE,
-        builtin.JSON_DOCUMENT, builtin.MODEL_ACTION_FRAME, "json_to_action",
+        COG_JSON_ACTION,
+        PARSE_ACTION_TYPE,
+        builtin.JSON_DOCUMENT,
+        builtin.MODEL_ACTION_FRAME,
+        "json_to_action",
     ),
     _signature(
-        COG_SCOPE_CODING, SCOPE_CODING_TYPE,
-        builtin.MODEL_CODING_RESPONSE, builtin.SCOPE_CHECKED_CODING,
-        "coding_scope_check", scoped=True,
+        COG_SCOPE_CODING,
+        SCOPE_CODING_TYPE,
+        builtin.MODEL_CODING_RESPONSE,
+        builtin.SCOPE_CHECKED_CODING,
+        "coding_scope_check",
+        scoped=True,
     ),
 )
 
 
-def _type(ref: str, name: str, parent: str, definition: str, properties: tuple[SynProperty, ...] = ()) -> SynType:
+def _type(
+    ref: str, name: str, parent: str, definition: str, properties: tuple[SynProperty, ...] = ()
+) -> SynType:
     return SynType(
-        ref=parse_type_ref(ref), name=name, parents=(parse_type_ref(parent),),
-        definition=definition, properties=properties,
+        ref=parse_type_ref(ref),
+        name=name,
+        parents=(parse_type_ref(parent),),
+        definition=definition,
+        properties=properties,
         metadata_json=canonical_json({"module": "potbot.cogs", "ontologyVersion": 1}),
     )
 
@@ -101,52 +123,93 @@ def builtin_cog_snapshot() -> SynSnapshot:
     fields = (
         SynProperty("inputTypeRef", SynRef("syn://type/type")),
         SynProperty("outputTypeRef", SynRef("syn://type/type")),
-        SynProperty("implementationBindingHash", parse_type_ref("synny://type/potbot-data-value-string")),
+        SynProperty(
+            "implementationBindingHash", parse_type_ref("synny://type/potbot-data-value-string")
+        ),
     )
     definitions = (
         _type(
-            TRANSFORM_TYPE, "Potbot transform Cog", "syn://type/cog",
+            TRANSFORM_TYPE,
+            "Potbot transform Cog",
+            "syn://type/cog",
             "Cog that transforms exactly one declared input data Type into one declared output data Type.",
             fields,
         ),
-        _type(PARSE_JSON_TYPE, "Parse model completion as JSON", TRANSFORM_TYPE,
-              "Strict, bounded JSON syntax conversion; never grants execution authority."),
-        _type(PARSE_CODING_TYPE, "Decode model coding response", TRANSFORM_TYPE,
-              "Checks a JSON document against the coding result contract; output is untrusted."),
-        _type(PARSE_ACTION_TYPE, "Decode model action proposal", TRANSFORM_TYPE,
-              "Checks a JSON document against the action frame contract; output is untrusted."),
-        _type(SCOPE_CODING_TYPE, "Scope-check a model coding response", TRANSFORM_TYPE,
-              "Uses separately supplied controller authority; does not settle usage or persist a patch."),
-        _type(builtin.COMPLETION_TEXT, "Completed provider text", "synny://type/potbot-data-text",
-              "A completed, retained provider text result; completion status must be checked by the caller."),
-        _type(builtin.MODEL_CODING_RESPONSE, "Structured model coding response", "synny://type/potbot-data-record",
-              "A schema-checked model coding response, not an admitted executable patch."),
-        _type(builtin.MODEL_ACTION_FRAME, "Structured model action proposal", "synny://type/potbot-data-record",
-              "A schema-checked action proposal frame, not a dispatched tool action."),
-        _type(builtin.SCOPE_CHECKED_CODING, "Scope-checked model coding response", builtin.MODEL_CODING_RESPONSE,
-              "Matches controller-supplied coding handoff scope; additional durable and budget checks required."),
+        _type(
+            PARSE_JSON_TYPE,
+            "Parse model completion as JSON",
+            TRANSFORM_TYPE,
+            "Strict, bounded JSON syntax conversion; never grants execution authority.",
+        ),
+        _type(
+            PARSE_CODING_TYPE,
+            "Decode model coding response",
+            TRANSFORM_TYPE,
+            "Checks a JSON document against the coding result contract; output is untrusted.",
+        ),
+        _type(
+            PARSE_ACTION_TYPE,
+            "Decode model action proposal",
+            TRANSFORM_TYPE,
+            "Checks a JSON document against the action frame contract; output is untrusted.",
+        ),
+        _type(
+            SCOPE_CODING_TYPE,
+            "Scope-check a model coding response",
+            TRANSFORM_TYPE,
+            "Uses separately supplied controller authority; does not settle usage or persist a patch.",
+        ),
+        _type(
+            builtin.COMPLETION_TEXT,
+            "Completed provider text",
+            "synny://type/potbot-data-text",
+            "A completed, retained provider text result; completion status must be checked by the caller.",
+        ),
+        _type(
+            builtin.MODEL_CODING_RESPONSE,
+            "Structured model coding response",
+            "synny://type/potbot-data-record",
+            "A schema-checked model coding response, not an admitted executable patch.",
+        ),
+        _type(
+            builtin.MODEL_ACTION_FRAME,
+            "Structured model action proposal",
+            "synny://type/potbot-data-record",
+            "A schema-checked action proposal frame, not a dispatched tool action.",
+        ),
+        _type(
+            builtin.SCOPE_CHECKED_CODING,
+            "Scope-checked model coding response",
+            builtin.MODEL_CODING_RESPONSE,
+            "Matches controller-supplied coding handoff scope; additional durable and budget checks required.",
+        ),
     )
     objects = tuple(
         SynObject(
             ref=signature.cog_ref,
             type_ref=parse_type_ref(signature.cog_type_ref),
-            payload_json=canonical_json({
-                "id": str(signature.cog_ref),
-                "name": signature.cog_ref.slug,
-                "typeRef": signature.cog_type_ref,
-                "schemaVersion": 1,
-                "inputTypeRef": signature.input_type_ref,
-                "outputTypeRef": signature.output_type_ref,
-                "implementationBindingHash": signature.binding_hash,
-                "handlerRef": signature.handler_ref,
-                "implementationRevision": signature.implementation_revision,
-                "requiresControllerScope": signature.requires_controller_scope,
-            }),
-        ) for signature in INSTALLED_COGS
+            payload_json=canonical_json(
+                {
+                    "id": str(signature.cog_ref),
+                    "name": signature.cog_ref.slug,
+                    "typeRef": signature.cog_type_ref,
+                    "schemaVersion": 1,
+                    "inputTypeRef": signature.input_type_ref,
+                    "outputTypeRef": signature.output_type_ref,
+                    "implementationBindingHash": signature.binding_hash,
+                    "handlerRef": signature.handler_ref,
+                    "implementationRevision": signature.implementation_revision,
+                    "requiresControllerScope": signature.requires_controller_scope,
+                }
+            ),
+        )
+        for signature in INSTALLED_COGS
     )
     return SynSnapshot(
         source_label="potbot-cog-data-transformations-v1",
-        catalog_mode="extend_builtin", types=definitions, objects=objects,
+        catalog_mode="extend_builtin",
+        types=definitions,
+        objects=objects,
     )
 
 
@@ -172,9 +235,13 @@ class BoundCogRegistry:
             ancestors = closure[str(parse_type_ref(signature.cog_type_ref))]
             if "syn://type/cog" not in ancestors:
                 raise ScopeDeniedError("Concrete transform Cog must descend from native Cog")
-            if any(type_identity(ref) not in declared for ref in (
-                signature.input_type_ref, signature.output_type_ref,
-            )):
+            if any(
+                type_identity(ref) not in declared
+                for ref in (
+                    signature.input_type_ref,
+                    signature.output_type_ref,
+                )
+            ):
                 raise ScopeDeniedError("Cog references an unregistered input or output Type")
             payload = json.loads(entry.payload_json)
             if (
@@ -202,7 +269,10 @@ class BoundCogRegistry:
         *,
         scope: CodingScope | None = None,
     ) -> CogOutcome:
-        if not isinstance(context, CogRunContext) or context.cog_snapshot_hash != self.snapshot.fingerprint:
+        if (
+            not isinstance(context, CogRunContext)
+            or context.cog_snapshot_hash != self.snapshot.fingerprint
+        ):
             raise StateMismatchError("Cog transform requires the exact pinned catalogue revision")
         if not isinstance(source, TypedCogValue):
             raise InvalidInputError("Cog input must carry one checked Type")
@@ -217,21 +287,26 @@ class BoundCogRegistry:
         output = builtin.BUILTIN_HANDLERS[selected.handler_ref](source, scope)
         check_cog_output(selected, output)
         receipt = CogReceipt(
-            cog_ref=str(selected.cog_ref), cog_type_ref=selected.cog_type_ref,
+            cog_ref=str(selected.cog_ref),
+            cog_type_ref=selected.cog_type_ref,
             binding_hash=selected.binding_hash,
             cog_snapshot_hash=context.cog_snapshot_hash,
             task_revision_id=context.task_revision_id,
             repository_state_id=context.repository_state_id,
             invocation_id=context.invocation_id,
-            input_type_ref=source.type_ref, input_hash=source.fingerprint,
-            output_type_ref=output.type_ref, output_hash=output.fingerprint,
+            input_type_ref=source.type_ref,
+            input_hash=source.fingerprint,
+            output_type_ref=output.type_ref,
+            output_hash=output.fingerprint,
             input_artifact_id=source.source_artifact_id,
             upstream_receipt_hash=context.upstream_receipt_hash,
             scope_hash=scope.fingerprint if scope is not None else None,
         )
         return CogOutcome(output, receipt)
 
-    def plan(self, input_type_ref: str, output_type_ref: str, *, controller_scope: bool = False) -> tuple[str, ...]:
+    def plan(
+        self, input_type_ref: str, output_type_ref: str, *, controller_scope: bool = False
+    ) -> tuple[str, ...]:
         """Find an explicit installed Cog chain by exact registered Type identity.
 
         Never guess a conversion from embeddings, model prose, class ancestry or
@@ -265,7 +340,9 @@ class BoundCogRegistry:
                         next_frontier.append((next_type, new_path))
             if solutions:
                 if len(set(solutions)) != 1:
-                    raise StateMismatchError("Multiple equally short Cog paths require explicit selection")
+                    raise StateMismatchError(
+                        "Multiple equally short Cog paths require explicit selection"
+                    )
                 return solutions[0]
             if not next_frontier:
                 break

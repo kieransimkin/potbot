@@ -75,7 +75,9 @@ def test_invocation_roundtrip_and_stable_hash() -> None:
 
 def test_wrong_workspace_or_policy_does_not_match_installation() -> None:
     with pytest.raises(ScopeDeniedError):
-        intent(workspace_id=UUID("00000000-0000-0000-0000-0000000000a4")).assert_installation(installation())
+        intent(workspace_id=UUID("00000000-0000-0000-0000-0000000000a4")).assert_installation(
+            installation()
+        )
     with pytest.raises(ScopeDeniedError):
         intent(policy_revision_hash=DIGEST).assert_installation(installation())
     with pytest.raises(InvalidInputError):
@@ -91,8 +93,10 @@ def test_observation_links_exact_immutable_invocation() -> None:
     observed = ToolObservation(
         invocation_hash=action.fingerprint,
         output_type_ref="synny://type/potbot-data-record",
-        status="succeeded", output_hash=DIGEST,
-        artifact_sha256=None, error_code=None,
+        status="succeeded",
+        output_hash=DIGEST,
+        artifact_sha256=None,
+        error_code=None,
     )
     assert ToolObservation.from_dict(observed.to_dict()) == observed
     verify_observation_link(action, observed)
@@ -106,20 +110,29 @@ def test_observation_links_exact_immutable_invocation() -> None:
 def test_unknown_or_failed_outcomes_cannot_claim_completed_artifacts() -> None:
     with pytest.raises(InvalidInputError):
         ToolObservation(
-            invocation_hash=DIGEST, output_type_ref="synny://type/potbot-data-record",
-            status="failed", output_hash=DIGEST, artifact_sha256=None,
+            invocation_hash=DIGEST,
+            output_type_ref="synny://type/potbot-data-record",
+            status="failed",
+            output_hash=DIGEST,
+            artifact_sha256=None,
             error_code="timeout",
         )
     with pytest.raises(InvalidInputError):
         ToolObservation(
-            invocation_hash=DIGEST, output_type_ref="synny://type/potbot-data-record",
-            status="indeterminate", output_hash=None,
-            artifact_sha256=None, error_code=None,
+            invocation_hash=DIGEST,
+            output_type_ref="synny://type/potbot-data-record",
+            status="indeterminate",
+            output_hash=None,
+            artifact_sha256=None,
+            error_code=None,
         )
     indeterminate = ToolObservation(
-        invocation_hash=DIGEST, output_type_ref="synny://type/potbot-data-record",
-        status="indeterminate", output_hash=None,
-        artifact_sha256=None, error_code="worker_lost_after_dispatch",
+        invocation_hash=DIGEST,
+        output_type_ref="synny://type/potbot-data-record",
+        status="indeterminate",
+        output_hash=None,
+        artifact_sha256=None,
+        error_code="worker_lost_after_dispatch",
     )
     assert indeterminate.status == "indeterminate"
 
@@ -127,29 +140,39 @@ def test_unknown_or_failed_outcomes_cannot_claim_completed_artifacts() -> None:
 def test_complete_descriptor_implementation_installation_intent_result_chain() -> None:
     schema = canonical_json({"type": "object"})
     descriptor = ToolCapabilityDescriptor(
-        name="fixture.read", definition_type_ref="synny://type/tool-definition",
+        name="fixture.read",
+        definition_type_ref="synny://type/tool-definition",
         input_type_ref="synny://type/potbot-data-record",
         output_type_ref="synny://type/potbot-data-record",
-        protocol="rest", effect_class="read_only",
-        input_schema_json=schema, output_schema_json=schema,
+        protocol="rest",
+        effect_class="read_only",
+        input_schema_json=schema,
+        output_schema_json=schema,
         description="Read-only fixture",
     )
     implementation = ToolImplementationDescriptor(
         implementation_ref="syn://thing/fixture-read-v1",
         capability_hash=descriptor.fingerprint,
-        package_digest=DIGEST, publisher="Fixture", version="1",
+        package_digest=DIGEST,
+        publisher="Fixture",
+        version="1",
     )
     installed = ToolInstallationDescriptor(
-        installation_ref="syn://thing/fixture-installation", workspace_id=WORKSPACE,
+        installation_ref="syn://thing/fixture-installation",
+        workspace_id=WORKSPACE,
         implementation_hash=implementation.fingerprint,
-        configuration_hash=DIGEST, policy_revision_hash=POLICY,
+        configuration_hash=DIGEST,
+        policy_revision_hash=POLICY,
         permitted_scopes=("repo.read",),
     )
     action = intent(installation_hash=installed.fingerprint)
     output = ToolObservation(
         invocation_hash=action.fingerprint,
-        output_type_ref=descriptor.output_type_ref, status="succeeded",
-        output_hash=DIGEST, artifact_sha256=None, error_code=None,
+        output_type_ref=descriptor.output_type_ref,
+        status="succeeded",
+        output_hash=DIGEST,
+        artifact_sha256=None,
+        error_code=None,
     )
     implementation.assert_capability(descriptor)
     installed.assert_implementation(implementation)
@@ -157,14 +180,20 @@ def test_complete_descriptor_implementation_installation_intent_result_chain() -
     action.assert_capability(descriptor)
     verify_observation_link(action, output, descriptor)
     with pytest.raises(ScopeDeniedError):
-        action.assert_capability(ToolCapabilityDescriptor.from_dict({
-            **descriptor.to_dict(), "effect_class": "destructive"
-        }))
+        action.assert_capability(
+            ToolCapabilityDescriptor.from_dict(
+                {**descriptor.to_dict(), "effect_class": "destructive"}
+            )
+        )
     with pytest.raises(ScopeDeniedError):
-        installed.assert_implementation(ToolImplementationDescriptor.from_dict({
-            **implementation.to_dict(), "package_digest": "d" * 64
-        }))
+        installed.assert_implementation(
+            ToolImplementationDescriptor.from_dict(
+                {**implementation.to_dict(), "package_digest": "d" * 64}
+            )
+        )
     with pytest.raises(ScopeDeniedError):
-        verify_observation_link(action, ToolObservation.from_dict({
-            **output.to_dict(), "output_type_ref": "syn://type/cog"
-        }), descriptor)
+        verify_observation_link(
+            action,
+            ToolObservation.from_dict({**output.to_dict(), "output_type_ref": "syn://type/cog"}),
+            descriptor,
+        )

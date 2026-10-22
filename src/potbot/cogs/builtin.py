@@ -41,7 +41,9 @@ def json_to_coding(value: TypedCogValue, scope: CodingScope | None) -> TypedCogV
         raise ScopeDeniedError("Structural coding Cog does not accept controller authority")
     if not isinstance(value.value, dict):
         raise InvalidInputError("Coding response Cog requires a JSON document")
-    result = parse_model_response(canonical_json(value.value), response_schema=CODING_RESPONSE_SCHEMA)
+    result = parse_model_response(
+        canonical_json(value.value), response_schema=CODING_RESPONSE_SCHEMA
+    )
     if not isinstance(result, ModelCodingResponse):
         raise SchemaViolationError("Coding Cog requires a coding result")
     return TypedCogValue(MODEL_CODING_RESPONSE, result.to_dict())
@@ -52,7 +54,9 @@ def json_to_action(value: TypedCogValue, scope: CodingScope | None) -> TypedCogV
         raise ScopeDeniedError("Structural action Cog does not accept controller authority")
     if not isinstance(value.value, dict):
         raise InvalidInputError("Action response Cog requires a JSON document")
-    result = parse_model_response(canonical_json(value.value), response_schema=ACTION_RESPONSE_SCHEMA)
+    result = parse_model_response(
+        canonical_json(value.value), response_schema=ACTION_RESPONSE_SCHEMA
+    )
     return TypedCogValue(MODEL_ACTION_FRAME, result.to_dict())
 
 
@@ -62,6 +66,7 @@ def coding_scope_check(value: TypedCogValue, scope: CodingScope | None) -> Typed
     if not isinstance(value.value, dict):
         raise InvalidInputError("Scope checking requires a coding response record")
     from potbot.domain.model_proposals import admit_coding_response
+
     response = ModelCodingResponse.from_dict(value.value)
     checked = admit_coding_response(
         response,
@@ -76,9 +81,7 @@ def coding_scope_check(value: TypedCogValue, scope: CodingScope | None) -> Typed
     return TypedCogValue(SCOPE_CHECKED_CODING, checked.to_dict())
 
 
-BUILTIN_HANDLERS: dict[
-    str, Callable[[TypedCogValue, CodingScope | None], TypedCogValue]
-] = {
+BUILTIN_HANDLERS: dict[str, Callable[[TypedCogValue, CodingScope | None], TypedCogValue]] = {
     "potbot.cogs.builtin.text_to_json": text_to_json,
     "potbot.cogs.builtin.json_to_coding": json_to_coding,
     "potbot.cogs.builtin.json_to_action": json_to_action,

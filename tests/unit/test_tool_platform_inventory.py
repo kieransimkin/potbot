@@ -26,8 +26,12 @@ def test_inventory_has_explicit_integrators_and_source_digests(tmp_path: Path) -
     assert report["missing_required_anchors"] == []
     assert report["unexpected_preexisting_components"] == []
     assert len(report["components"]) == len(ANCHORS)
-    assert all(row["qualification"] == "not_established_by_inventory" for row in report["components"])
-    assert all(row["sha256"] is not None for row in report["components"] if row["presence"] == "present")
+    assert all(
+        row["qualification"] == "not_established_by_inventory" for row in report["components"]
+    )
+    assert all(
+        row["sha256"] is not None for row in report["components"] if row["presence"] == "present"
+    )
     assert build_inventory(tmp_path)["inventory_sha256"] == report["inventory_sha256"]
     assert all(row["owner"] for row in report["components"])
 

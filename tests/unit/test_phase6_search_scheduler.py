@@ -1,4 +1,5 @@
 """Finite controller policy tests: no model/network/subprocess side effects."""
+
 from dataclasses import replace
 from uuid import uuid4
 
@@ -16,9 +17,15 @@ D = "a" * 64
 
 
 def policy(**options):
-    params = dict(workspace_id=uuid4(), task_id=uuid4(), contract_revision_id=uuid4(),
-                  base_state_id=uuid4(), semantic_release_digest=D,
-                  reasoning_models=("reasoner",), coding_models=("coder",))
+    params = dict(
+        workspace_id=uuid4(),
+        task_id=uuid4(),
+        contract_revision_id=uuid4(),
+        base_state_id=uuid4(),
+        semantic_release_digest=D,
+        reasoning_models=("reasoner",),
+        coding_models=("coder",),
+    )
     params.update(options)
     return SolvePolicy(**params)
 

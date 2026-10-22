@@ -53,7 +53,11 @@ class FrontierItem:
             or not isinstance(self.status, SearchStatus)
         ):
             raise InvalidInputError("Invalid frontier status or generation")
-        if not isinstance(self.producer, str) or not self.producer.strip() or len(self.producer) > 256:
+        if (
+            not isinstance(self.producer, str)
+            or not self.producer.strip()
+            or len(self.producer) > 256
+        ):
             raise InvalidInputError("A frontier item requires a bounded producer")
         for value in (self.state_digest, self.result_digest):
             if value is not None and (
@@ -64,15 +68,23 @@ class FrontierItem:
                 raise InvalidInputError("A frontier digest must be lowercase SHA-256")
         if self.status == SearchStatus.READY and (self.generation != 0 or self.result_digest):
             raise InvalidInputError("A ready item cannot have executed effects")
-        if self.status in {SearchStatus.VERIFIED, SearchStatus.FAILED} and self.result_digest is None:
+        if (
+            self.status in {SearchStatus.VERIFIED, SearchStatus.FAILED}
+            and self.result_digest is None
+        ):
             raise InvalidInputError("Finished work requires a retained result digest")
 
     @property
     def identity(self) -> str:
-        return content_hash({
-            "node": str(self.node_id), "parent": str(self.parent_id) if self.parent_id else None,
-            "depth": self.depth, "state": self.state_digest, "producer": self.producer,
-        })
+        return content_hash(
+            {
+                "node": str(self.node_id),
+                "parent": str(self.parent_id) if self.parent_id else None,
+                "depth": self.depth,
+                "state": self.state_digest,
+                "producer": self.producer,
+            }
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -97,8 +109,11 @@ class SearchEvent:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "number": self.number, "kind": self.kind, "node_id": str(self.node_id),
-            "generation": self.generation, "detail": self.detail,
+            "number": self.number,
+            "kind": self.kind,
+            "node_id": str(self.node_id),
+            "generation": self.generation,
+            "detail": self.detail,
         }
 
 
@@ -122,12 +137,19 @@ class DepthFirstSearch:
         self.winner: UUID | None = None
 
     def _event(self, kind: str, item: FrontierItem, detail: str = "") -> None:
-        self.events.append(SearchEvent(len(self.events) + 1, kind, item.node_id, item.generation, detail))
+        self.events.append(
+            SearchEvent(len(self.events) + 1, kind, item.node_id, item.generation, detail)
+        )
 
     def anchor(self, item: FrontierItem) -> None:
         """Register the inert root context without charging an inference call."""
-        if (not isinstance(item, FrontierItem) or item.parent_id is not None
-                or item.depth != 0 or item.status != SearchStatus.READY or self.items):
+        if (
+            not isinstance(item, FrontierItem)
+            or item.parent_id is not None
+            or item.depth != 0
+            or item.status != SearchStatus.READY
+            or self.items
+        ):
             raise InvalidInputError("Root anchor must be the first unexecuted item")
         self.items[item.node_id] = item
         self._anchors.add(item.node_id)
@@ -166,8 +188,13 @@ class DepthFirstSearch:
             if item.status != SearchStatus.READY:
                 continue
             claimed = FrontierItem(
-                item.node_id, item.parent_id, item.depth, item.state_digest,
-                item.producer, SearchStatus.CLAIMED, 1,
+                item.node_id,
+                item.parent_id,
+                item.depth,
+                item.state_digest,
+                item.producer,
+                SearchStatus.CLAIMED,
+                1,
             )
             self.items[identity] = claimed
             self.claims += 1
@@ -175,17 +202,30 @@ class DepthFirstSearch:
             return claimed
         return None
 
-    def settle(self, claim: FrontierItem, outcome: SearchStatus, result_digest: str) -> FrontierItem:
+    def settle(
+        self, claim: FrontierItem, outcome: SearchStatus, result_digest: str
+    ) -> FrontierItem:
         if not isinstance(claim, FrontierItem) or claim.status != SearchStatus.CLAIMED:
             raise InvalidInputError("An exact claimed snapshot is required")
-        if outcome not in {SearchStatus.VERIFIED, SearchStatus.FAILED, SearchStatus.BLOCKED, SearchStatus.INDETERMINATE}:
+        if outcome not in {
+            SearchStatus.VERIFIED,
+            SearchStatus.FAILED,
+            SearchStatus.BLOCKED,
+            SearchStatus.INDETERMINATE,
+        }:
             raise InvalidInputError("Invalid terminal observation")
         current = self.items.get(claim.node_id)
         if current != claim or self.winner is not None:
             raise RevisionConflictError("The claim is stale or this search already completed")
         updated = FrontierItem(
-            current.node_id, current.parent_id, current.depth, current.state_digest,
-            current.producer, outcome, current.generation, result_digest,
+            current.node_id,
+            current.parent_id,
+            current.depth,
+            current.state_digest,
+            current.producer,
+            outcome,
+            current.generation,
+            result_digest,
         )
         self.items[current.node_id] = updated
         if outcome == SearchStatus.VERIFIED:
@@ -214,12 +254,14 @@ class DepthFirstSearch:
         }
 
     def integrity_digest(self) -> str:
-        return content_hash({
-            "policy": self.policy.digest,
-            "items": [self.items[k].to_dict() for k in sorted(self.items)],
-            "events": [e.to_dict() for e in self.events],
-            "ready_order": [str(k) for k in self._ready],
-            "anchors": [str(k) for k in sorted(self._anchors)],
-            "claims": self.claims,
-            "winner": str(self.winner) if self.winner else None,
-        })
+        return content_hash(
+            {
+                "policy": self.policy.digest,
+                "items": [self.items[k].to_dict() for k in sorted(self.items)],
+                "events": [e.to_dict() for e in self.events],
+                "ready_order": [str(k) for k in self._ready],
+                "anchors": [str(k) for k in sorted(self._anchors)],
+                "claims": self.claims,
+                "winner": str(self.winner) if self.winner else None,
+            }
+        )
