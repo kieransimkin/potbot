@@ -715,6 +715,12 @@ async def _stream(
             for task in pending:
                 task.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
+    except asyncio.CancelledError:
+        # The ASGI server can cancel a connection scope during shutdown or
+        # TestClient teardown after the last event has been delivered. This is
+        # a normal lifecycle transition, not an application/protocol error.
+        # Do not attempt a final WebSocket send on a cancelled connection.
+        return
     except WebSocketDisconnect:
         return
     except TimeoutError:
