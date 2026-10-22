@@ -5,7 +5,9 @@ from uuid import uuid4
 import pytest
 
 from potbot.controller.search_scheduler import (
-    DepthFirstSearch, FrontierItem, SearchStatus,
+    DepthFirstSearch,
+    FrontierItem,
+    SearchStatus,
 )
 from potbot.domain.errors import InvalidInputError, RevisionConflictError, StateMismatchError
 from potbot.domain.search_graph import SolvePolicy

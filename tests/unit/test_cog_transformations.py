@@ -7,11 +7,11 @@ from uuid import uuid4
 import pytest
 
 from potbot.cogs import (
-    BoundCogRegistry,
     COG_COMPLETION_JSON,
     COG_JSON_ACTION,
     COG_JSON_CODING,
     COG_SCOPE_CODING,
+    BoundCogRegistry,
     CodingScope,
     CogRunContext,
     TypedCogValue,
@@ -27,13 +27,13 @@ from potbot.cogs.builtin import (
 from potbot.cogs.registry import TRANSFORM_TYPE
 from potbot.domain.errors import (
     InvalidInputError,
-    ScopeDeniedError,
     SchemaViolationError,
+    ScopeDeniedError,
     StateMismatchError,
 )
 from potbot.domain.model_proposals import ControllerIdentity, ModelActionFrame, ModelCodingResponse
-from potbot.domain.syn import SynObject, SynSnapshot, parse_type_ref
 from potbot.domain.serialization import canonical_json
+from potbot.domain.syn import SynObject, SynSnapshot, parse_type_ref
 from potbot.semantics.catalog import merge_types, type_ancestors
 
 

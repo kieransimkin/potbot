@@ -82,13 +82,13 @@ class WorkspaceSandbox:
     policy_version: int = POLICY_VERSION
 
     @classmethod
-    def prepare(cls, value: str | os.PathLike[str] | Path) -> "WorkspaceSandbox":
+    def prepare(cls, value: str | os.PathLike[str] | Path) -> WorkspaceSandbox:
         sandbox = cls(_canonical_root(value, create=True))
         sandbox.ensure_layout()
         return sandbox
 
     @classmethod
-    def existing(cls, value: str | os.PathLike[str] | Path) -> "WorkspaceSandbox":
+    def existing(cls, value: str | os.PathLike[str] | Path) -> WorkspaceSandbox:
         return cls(_canonical_root(value, create=False))
 
     @property
@@ -163,7 +163,7 @@ class WorkspaceSandbox:
         }
 
 
-def load_workspace_sandbox(database: "Database", context: WorkspaceContext) -> WorkspaceSandbox:
+def load_workspace_sandbox(database: Database, context: WorkspaceContext) -> WorkspaceSandbox:
     with database.transaction(context) as connection:
         row = connection.execute(
             "SELECT root_path,root_key,policy_version FROM workspace_sandboxes "

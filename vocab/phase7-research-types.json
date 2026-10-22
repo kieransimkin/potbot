@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "classification": "pending-syn-registry-import; not an activated semantic release",
+  "types": [
+    {
+      "ref": "synny://type/potbot-research-record",
+      "parents": [
+        "syn://type/record"
+      ],
+      "name": "Potbot research record",
+      "definition": "A bounded, scoped Potbot investigation record; content does not grant execution authority."
+    },
+    {
+      "ref": "synny://type/potbot-research-action",
+      "parents": [
+        "synny://type/potbot-research-record"
+      ],
+      "name": "Potbot research action",
+      "definition": "An immutable research query bound to one information-need revision and execution limits."
+    },
+    {
+      "ref": "synny://type/potbot-research-observation",
+      "parents": [
+        "syn://type/evidence-record",
+        "synny://type/potbot-research-record"
+      ],
+      "name": "Potbot research observation",
+      "definition": "Observed source bytes or a classified non-result, with revision, digest and inspection status."
+    },
+    {
+      "ref": "synny://type/potbot-research-adapted-example",
+      "parents": [
+        "synny://type/potbot-research-record"
+      ],
+      "name": "Potbot example adaptation",
+      "definition": "Explicit separation of an inspected external example from the new local implementation and its checks."
+    },
+    {
+      "ref": "synny://type/potbot-research-observation-batch",
+      "parents": [
+        "synny://type/potbot-research-record"
+      ],
+      "name": "Research observation batch",
+      "definition": "A bounded result set retaining each inspected source observation and its source revision; does not establish completion of a need."
+    },
+    {
+      "ref": "synny://type/potbot-research-repository-inspection-cog",
+      "parents": [
+        "syn://type/cog"
+      ],
+      "name": "Repository snapshot inspection Cog",
+      "definition": "Transforms a typed research action into a source observation batch against a controller-pinned repository snapshot."
+    }
+  ],
+  "cogs": [
+    {
+      "ref": "syn://cog/potbot-research-repository-inspection",
+      "type_ref": "synny://type/potbot-research-repository-inspection-cog",
+      "inputTypeRef": "synny://type/potbot-research-action",
+      "outputTypeRef": "synny://type/potbot-research-observation-batch",
+      "handlerRef": "potbot.cogs.phase7_repository_inspection",
+      "implementationRevision": 1,
+      "requiresControllerScope": true
+    }
+  ]
+}

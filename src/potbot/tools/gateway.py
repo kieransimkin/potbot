@@ -56,7 +56,7 @@ class ToolGateway:
         supervisor: ProcessSupervisor | None = None,
         secrets: SecretReferenceProvider | None = None,
         read_only_roots: tuple[Path, ...] = (),
-        workspace_sandbox: "WorkspaceSandbox | None" = None,
+        workspace_sandbox: WorkspaceSandbox | None = None,
     ) -> None:
         self.database, self.artifacts, self.candidates = database, artifacts, candidates
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts

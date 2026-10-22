@@ -6,7 +6,7 @@ No model-returned Cog reference can select an arbitrary Python callable.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from potbot.domain.coding import CODING_RESPONSE_SCHEMA
 from potbot.domain.errors import InvalidInputError, SchemaViolationError, ScopeDeniedError
