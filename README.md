@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4 and the Phase 5 model foundation (`0.5.0.dev1`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev2`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -16,9 +16,13 @@ patch plus an immutable verification manifest. It resumes from durable checkpoin
 The Phase 5 foundation adds bounded model responses, recipient-specific context
 packets, durable inference reservations and settlement, a deterministic streaming
 gateway, coding-result admission, and local host preflight for the five default models.
+Hosted adapters now support Claude, OpenAI, Grok, Gemini and EvoLink, with dynamic
+model discovery, explicit disclosure/rate policy and durable usage accounting.
+A PostgreSQL job queue, REST API, WebSocket streams and browser dashboard expose
+generation progress and retained output.
 
 The current execution flow uses operator-selected tools and scripted proposals.
-Multi-model reasoning-tree selection, live reasoning/coding inference, learned memory
+Multi-model reasoning-tree selection, local-model live qualification, learned memory
 admission, live web discovery, IBM MCP, DanceFlow MCP, and the custom semantic embedding
 space remain later stages. The five default reasoning and coding models are registered
 as **unqualified catalog entries**; a name is never treated as a tested deployment.
@@ -56,13 +60,13 @@ bash ./start.sh dependencies download
 For development, use Python 3.12, Git, and [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv sync --locked --extra postgres --extra semantics --extra credentials --dev
+uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --dev
 uv run --locked potbot info
 uv run --locked python scripts/check.py
 ```
 
 The core package has no mandatory third-party runtime dependencies. The PostgreSQL
-driver, semantic validation, credential vault, and local encoder are separate extras. Domain imports and
+driver, semantic validation, credential vault, hosted providers, web server and local encoder are separate extras. Domain imports and
 CLI help need neither model weights nor running services. `uv.lock` pins the complete
 dependency resolution.
 
@@ -73,7 +77,13 @@ Bubblewrap, libseccomp, and `prlimit` from the host's packages. On Debian/Ubuntu
 sudo apt-get install bubblewrap libseccomp2 util-linux
 ```
 
-The host must permit Bubblewrap's user, mount, PID, and network namespaces. Then run:
+The host must permit Bubblewrap's user, mount, PID, and network namespaces.
+
+Ubuntu 24.04 also needs its Bubblewrap-specific AppArmor profile when unprivileged
+user-namespace restrictions are enabled. See [Linux sandbox setup](docs/linux-sandbox-ci.md)
+for the targeted profile setup and the early isolation check used by CI.
+
+Then run:
 
 ```bash
 docker compose up --detach --wait
@@ -138,12 +148,33 @@ bash ./start.sh models schema --schema coding-result-v1
 bash ./start.sh models preflight --profile local-host.json --project-root .
 ```
 
-These commands operate without database credentials or model downloads. The current
-inference gateway uses a clearly identified offline fixture transport. Preflight can
+These commands operate without database credentials or model downloads. The local
+foundation gateway uses a clearly identified offline fixture transport. Preflight can
 establish readiness for a later load check; it does not load a model or qualify a
-deployment. Live inference, provider disclosure policy and model residency scheduling
-remain outstanding Phase 5 work. [Implementation status](docs/phase-5-implementation-status.json)
-records completed foundations and remaining deliverables separately.
+deployment. Local live inference and model residency scheduling remain outstanding
+Phase 5 work. The [historical dev1 status](docs/phase-5-implementation-status.json)
+records that milestone; the [hosted increment](docs/hosted-jobs.md) records the new scope.
+
+## Hosted models, API and job dashboard
+
+The [hosted jobs guide](docs/hosted-jobs.md) covers credentials, operator policy,
+task startup, accounting and this increment's implementation plan. The
+[REST/WebSocket guide](docs/http-api.md) documents clients and replay semantics.
+
+```powershell
+.\start.ps1 credentials service-set --name providers.openai
+.\start.ps1 credentials service-set --name api.access_token
+.\start.ps1 serve --workspace-id <UUID> --principal-id <UUID> --provider-policy providers.json
+# A second terminal runs the worker:
+.\start.ps1 jobs worker --workspace-id <UUID> --principal-id <UUID> --provider-policy providers.json
+```
+
+The default dashboard is `http://127.0.0.1:8765`. Provision the database workspace,
+configure provider policy and start a task before submitting a generation job.
+The same arguments work with `start.bat` and `bash ./start.sh`. See
+[provider adapters](docs/hosted-providers.md) for all five services. Provider
+catalogues retain media entries, while reasoning/coding jobs select text models.
+Hosted output remains unverified until admitted and checked by the coding workflow.
 
 ## Repository capture and controlled execution
 

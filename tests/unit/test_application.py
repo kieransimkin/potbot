@@ -32,7 +32,9 @@ def test_installed_cli_works_outside_source_directory(tmp_path: Path) -> None:
     payload = json.loads(info.stdout)
     assert payload["implementation_phase"] == 5
     assert payload["implementation_phase_status"] == "foundation"
-    assert payload["model_inference_available"] is False
+    assert payload["model_inference_available"] is True
+    assert payload["hosted_inference_requires_operator_policy_and_credentials"] is True
+    assert payload["automatic_reasoning_tree_available"] is False
     assert payload["model_downloads_required"] is False
 
 
@@ -50,6 +52,8 @@ def test_nested_help_does_not_require_database_or_model_services(tmp_path: Path)
         "dependencies",
         "credentials",
         "models",
+        "serve",
+        "jobs",
     ):
         result = run_cli(command, "--help", cwd=tmp_path)
         assert result.returncode == 0, result.stderr

@@ -1,0 +1,13 @@
+{
+  "job_type": "model.generate",
+  "episode_id": "00000000-0000-0000-0000-000000000001",
+  "selected_models": [
+    {"provider": "openai", "model": "replace-with-discovered-model-id", "role": "reasoning"},
+    {"provider": "anthropic", "model": "replace-with-discovered-model-id", "role": "coding"}
+  ],
+  "input": {
+    "prompt": "Using the task context supplied here, compare reusable libraries and implementation approaches. State missing evidence and suggested tests. Replace this example with the actual task and relevant source excerpts.",
+    "max_output_tokens": 2048,
+    "timeout_seconds": 60
+  }
+}

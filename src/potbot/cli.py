@@ -61,6 +61,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.models.cli import main as models_main
 
         return models_main(args[1:])
+    if args and args[0] == "serve":
+        from potbot.api.server_cli import main as server_main
+
+        return server_main(args[1:])
+    if args and args[0] == "jobs":
+        from potbot.api.jobs_cli import main as jobs_main
+
+        return jobs_main(args[1:])
 
     parser = argparse.ArgumentParser(
         prog="potbot",
@@ -74,6 +82,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("admin", help="migrate and provision application workspaces")
     commands.add_parser("task", help="submit, inspect, revise, and control durable tasks")
     commands.add_parser("worker", help="run recoverable fixture outbox jobs")
+    commands.add_parser("serve", help="serve the authenticated REST API, dashboard and job streams")
+    commands.add_parser("jobs", help="inspect the durable queue and run hosted-model workers")
     commands.add_parser("embedding", help="set up, index, and query local Qwen embeddings")
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
     commands.add_parser("execution", help="capture repositories and run qualified isolated tools")
@@ -85,7 +95,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "dependencies", help="inspect and download verified local model dependencies"
     )
     commands.add_parser(
-        "credentials", help="manage PostgreSQL connection URLs in the native credential vault"
+        "credentials", help="manage database, provider and API credentials in the native vault"
     )
     parsed = parser.parse_args(args)
     if parsed.command == "info":
@@ -129,11 +139,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "separate_bounded_response_repairs",
                         "model_coding_result_admission",
                         "default_model_profiles_and_offline_preflight",
+                        "hosted_anthropic_openai_xai_gemini_evolink_adapters",
+                        "operator_hosted_disclosure_and_rate_policy",
+                        "durable_hosted_invocation_accounting",
+                        "fenced_api_jobs_and_durable_progress",
+                        "authenticated_rest_api_and_queue_dashboard",
+                        "replayable_websocket_job_streams",
                     ],
-                    "model_inference_available": False,
+                    "model_inference_available": True,
                     "model_downloads_required": False,
                     "embedding_model_download_required_for_local_encoding": True,
-                    "live_coding_or_reasoning_inference_available": False,
+                    "live_coding_or_reasoning_inference_available": True,
+                    "hosted_inference_requires_operator_policy_and_credentials": True,
+                    "live_qualified_default_models": 0,
+                    "automatic_reasoning_tree_available": False,
                     "scripted_patch_adapter_available": True,
                 },
                 sort_keys=True,

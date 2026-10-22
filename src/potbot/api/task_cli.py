@@ -40,6 +40,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     control.add_argument("--expected-token", required=True, type=int)
     control.add_argument("--reason", required=True)
     control.add_argument("--key", required=True)
+    start = commands.add_parser("start-generation", help="start a budgeted hosted-generation task")
+    start.add_argument("task_id", type=UUID)
+    start.add_argument("--expected-token", required=True, type=int)
+    start.add_argument("--reason", required=True)
+    start.add_argument("--key", required=True)
     serve = commands.add_parser("serve", help="serve the development API on loopback")
     serve.add_argument("--port", type=int, default=8080)
     args = parser.parse_args(argv)
@@ -94,6 +99,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "expected_contract_id": str(args.expected_contract),
                     "contract": json.loads(args.contract.read_text(encoding="utf-8")),
                 }
+            elif args.command == "start-generation":
+                path += "/start-generation"
+                payload = {"expected_token": args.expected_token, "reason": args.reason}
             elif args.command == "control":
                 path += "/control"
                 payload = {

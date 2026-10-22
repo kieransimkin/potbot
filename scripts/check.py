@@ -156,7 +156,7 @@ def main() -> int:
                 cwd=temp,
                 environment=clean_environment,
             )
-            for command in ("patch", "credentials", "dependencies", "models"):
+            for command in ("patch", "credentials", "dependencies", "models", "serve", "jobs"):
                 run(
                     f"installed-{command}-help",
                     [str(clean_cli), command, "--help"],

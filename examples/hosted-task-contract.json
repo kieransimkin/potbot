@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "objective": "Compare implementation approaches for an explicitly supplied programming task.",
+  "baseline_ref": "operator-supplied-task-context",
+  "deliverable_type": "investigation",
+  "requirements": [
+    {
+      "id": "R1",
+      "description": "Identify useful existing libraries, tools and internal workflows before proposing new code.",
+      "acceptance_criterion": "Retain model proposals and identify which claims still require source inspection and repository tests."
+    }
+  ],
+  "change_scope": [],
+  "capabilities": ["hosted_text_generation"],
+  "verification_policy": "operator-reviewed-generation-v1",
+  "budget": {
+    "tokens": 100000,
+    "calls": 16,
+    "tool_ms": 600000,
+    "concurrency": 2,
+    "inference_ms": 600000,
+    "money_microunits": 5000000
+  },
+  "compatibility_constraints": [],
+  "nonfunctional_requirements": [
+    "Preserve the selected model, task revision, disclosure policy and usage evidence.",
+    "Treat generated text as unverified until its claims and proposed changes are independently checked."
+  ]
+}

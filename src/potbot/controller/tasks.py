@@ -323,6 +323,91 @@ class TaskService:
             human=False,
         )
 
+    def start_generation(
+        self,
+        context: WorkspaceContext,
+        episode_id: UUID,
+        expected_token: int,
+        reason: str,
+        *,
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        """Explicitly admit a submitted task to hosted text generation.
+
+        This starts only the budgeted generation lifecycle. It neither captures
+        a repository nor declares model output or a patch verified.
+        """
+        if (
+            not isinstance(episode_id, UUID)
+            or type(expected_token) is not int
+            or expected_token < 0
+        ):
+            raise InvalidInputError("generation start requires a task UUID and nonnegative token")
+        nonempty(reason, "reason")
+        request = {
+            "episode_id": str(episode_id),
+            "expected_token": expected_token,
+            "reason": reason,
+        }
+        with self.database.transaction(context) as conn:
+
+            def start() -> dict[str, Any]:
+                episode = lock_episode(conn, context, episode_id)
+                if episode["update_token"] != expected_token:
+                    raise RevisionConflictError("task changed; inspect before starting generation")
+                if episode["status"] != TaskStatus.SUBMITTED:
+                    raise StateMismatchError("generation start requires a submitted task")
+                limits = conn.execute(
+                    "SELECT dimensions FROM budget_limits WHERE workspace_id=%s AND id=%s",
+                    (context.workspace_id, episode_id),
+                ).fetchone()
+                if limits is None or any(
+                    limits["dimensions"].get(name, 0) <= 0
+                    for name in ("inference_ms", "money_microunits")
+                ):
+                    raise InvalidInputError(
+                        "hosted tasks require positive inference_ms and money_microunits budgets"
+                    )
+                _event(
+                    conn,
+                    context,
+                    "hosted_generation_started",
+                    episode_id,
+                    {
+                        "reason": reason,
+                        "contract_revision_id": str(episode["active_contract_id"]),
+                        "execution_authorized": False,
+                    },
+                    human=True,
+                )
+                current = TaskStatus.SUBMITTED
+                for offset, target in enumerate((TaskStatus.INITIALIZING, TaskStatus.RUNNING)):
+                    check_transition(current, target)
+                    conn.execute(
+                        "UPDATE episodes SET status=%s,status_reason=%s,update_token=update_token+1,"
+                        "updated_at=clock_timestamp() WHERE workspace_id=%s AND id=%s",
+                        (target.value, reason, context.workspace_id, episode_id),
+                    )
+                    _event(
+                        conn,
+                        context,
+                        "task_state_changed",
+                        episode_id,
+                        {
+                            "from": current.value,
+                            "to": target.value,
+                            "reason": reason,
+                            "blocked_on": None,
+                            "expected_token": expected_token + offset,
+                        },
+                    )
+                    current = target
+                return inspect_in_transaction(conn, context, episode_id)
+
+            return idempotent_command(
+                conn, context, "start_generation", idempotency_key, request, start
+            )
+
     def control(
         self,
         context: WorkspaceContext,

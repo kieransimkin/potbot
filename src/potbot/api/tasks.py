@@ -142,6 +142,15 @@ class TaskAPI:
                     ContractSpec.from_dict(payload["contract"]),
                     key,
                 )
+            elif suffix == "start-generation":
+                _fields(payload, {"expected_token", "reason"})
+                data = self.service.start_generation(
+                    context,
+                    episode_id,
+                    payload["expected_token"],
+                    payload["reason"],
+                    idempotency_key=key,
+                )
             elif suffix == "control":
                 _fields(payload, {"expected_token", "action", "reason"})
                 data = self.service.control(

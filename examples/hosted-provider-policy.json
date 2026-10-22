@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "allow_prompt_disclosure": false,
+  "rules": [],
+  "max_prompt_bytes": 262144,
+  "max_output_tokens": 8192,
+  "max_timeout_seconds": 300,
+  "max_cost_microunits": 1000000
+}

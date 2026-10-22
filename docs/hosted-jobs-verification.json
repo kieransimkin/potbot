@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "version": "0.5.0.dev2",
+  "milestone": "hosted_models_and_observable_jobs",
+  "generated_at": "2026-10-21T23:48:10.337444+00:00",
+  "base_commit": "2a451a906334f8f0654730939aa46d4f1e44444c",
+  "remote": "https://github.com/kieransimkin/potbot",
+  "remote_pushed": false,
+  "merge_check": {
+    "main_commit": "2a451a906334f8f0654730939aa46d4f1e44444c",
+    "commit_message": "phase 5",
+    "prior_ci_correction_present_on_main": false,
+    "prior_ci_correction_included_in_update": true,
+    "remote_workflow_run": 39686044019,
+    "remote_workflow_conclusion": "failure",
+    "remote_windows_launcher_job": "success",
+    "remote_linux_job": "failure",
+    "new_remote_ci_run_performed": false
+  },
+  "full_gate": {
+    "schema_version": 1,
+    "started_at": "2026-10-21T23:40:51.526836+00:00",
+    "finished_at": "2026-10-21T23:46:20.314323+00:00",
+    "postgres_requested": true,
+    "sandbox_requested": true,
+    "success": true,
+    "checks": [
+      {
+        "check": "lint",
+        "exit_code": 0
+      },
+      {
+        "check": "format",
+        "exit_code": 0
+      },
+      {
+        "check": "types",
+        "exit_code": 0
+      },
+      {
+        "check": "unit-and-git",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-build",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-environment",
+        "exit_code": 0
+      },
+      {
+        "check": "wheel-install",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-version",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-domain",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-execution-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-patch-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-credentials-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-dependencies-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-models-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-serve-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-jobs-help",
+        "exit_code": 0
+      },
+      {
+        "check": "installed-semantic-catalog",
+        "exit_code": 0
+      },
+      {
+        "check": "db-bootstrap",
+        "exit_code": 0
+      },
+      {
+        "check": "db-create",
+        "exit_code": 0
+      },
+      {
+        "check": "db-migrate",
+        "exit_code": 0
+      },
+      {
+        "check": "db-check",
+        "exit_code": 0
+      },
+      {
+        "check": "postgres",
+        "exit_code": 0
+      },
+      {
+        "check": "db-cleanup",
+        "exit_code": 0
+      },
+      {
+        "check": "sandbox",
+        "exit_code": 0
+      }
+    ]
+  },
+  "tests": {
+    "postgres": {
+      "tests": 229,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "sandbox": {
+      "tests": 70,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "unit-and-git": {
+      "tests": 1246,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "total_tests_passed": 1545,
+  "database": {
+    "postgresql": "17.11",
+    "pgvector": "0.8.7",
+    "application_migrations": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "fixture": "isolated disposable PostgreSQL with restricted application logins",
+    "storage": "temporary memory-backed fixture after shared scratch disk capacity was exhausted"
+  },
+  "provider_testing": {
+    "providers": [
+      "anthropic",
+      "openai",
+      "xai",
+      "gemini",
+      "evolink"
+    ],
+    "http_transport": "httpx.MockTransport",
+    "live_generation_calls": 0,
+    "live_account_catalog_calls": 0,
+    "live_model_qualification": false,
+    "provider_and_catalog_policy_unit_tests": 172
+  },
+  "browser_fixture_qa": {
+    "passed": true,
+    "browser": "Chromium 134 headless (temporary fixture)",
+    "checks": [
+      "authenticated dashboard connection",
+      "queue and model display",
+      "job submission",
+      "live WebSocket output",
+      "escaped model text",
+      "completed state refresh",
+      "explicit model discovery",
+      "cancellation",
+      "state filtering",
+      "mobile no horizontal overflow",
+      "no browser credential storage",
+      "disconnect cleanup",
+      "no console or page errors"
+    ]
+  },
+  "examples_validated": [
+    "examples/hosted-provider-policy.json",
+    "examples/hosted-task-contract.json",
+    "examples/hosted-job.json"
+  ],
+  "capabilities": [
+    "five hosted provider adapters and native protocol routing",
+    "dynamic workspace-scoped catalogue",
+    "native credential storage and explicit disclosure/rate ceilings",
+    "durable PostgreSQL jobs and ordered event replay",
+    "fenced worker and cooperative cancellation",
+    "crash-safe hosted invocation accounting",
+    "REST API, OpenAPI and WebSocket streaming",
+    "queue/job browser dashboard",
+    "separate server and worker CLI entry points",
+    "per-job invocation discovery and explicit usage reconciliation"
+  ],
+  "limitations": [
+    "Provider wire behavior is tested with HTTP mocks; operators must perform account-specific live qualification.",
+    "The five local default profiles remain unqualified and are not loaded by this increment.",
+    "Hosted text jobs execute selected models sequentially on the supplied input; autonomous reasoning-graph selection and typed coding handoff integration remain later work.",
+    "Unknown EvoLink capability metadata requires operator verification; broad wildcard policy is explicit authorization, not capability qualification.",
+    "Remote cancellation and provider billing cannot be proven by closing a local stream. Missing terminal usage retains budget pending reconciliation.",
+    "Hosted input admission and calculated monetary usage are conservative estimates, not exact tokenizer counts or provider invoices.",
+    "New Windows execution was not performed here; unchanged launchers passed the existing main-commit Windows CI job."
+  ],
+  "warnings": [
+    "Starlette TestClient emits an httpx deprecation warning; all relevant tests pass."
+  ],
+  "validation_notes": [
+    "An earlier PostgreSQL attempt failed during fixture creation because shared scratch storage was full. The complete final gate was rerun successfully using isolated temporary memory-backed database storage."
+  ],
+  "gate_logs_directory_in_bundle": "verification",
+  "source_manifest": "source-files.sha256"
+}

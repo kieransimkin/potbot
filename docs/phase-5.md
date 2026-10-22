@@ -1,5 +1,9 @@
 # Phase 5 foundation: model contexts, proposals and durable inference
 
+This is the historical `0.5.0.dev1` milestone report. The subsequent
+[hosted jobs and API increment](hosted-jobs.md) adds provider generation,
+disclosure policy, credentials, durable jobs and client interfaces in dev2.
+
 Version **0.5.0.dev1** implements the next independently testable model layer on
 top of the delivered Phase 4 source. It is a development milestone within Phase
 5, not completion of all live deployment qualification steps P041–P056.

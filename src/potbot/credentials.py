@@ -31,7 +31,15 @@ Purpose = Literal["application", "admin"]
 SERVICE_NAME = "DanceFlow.Potbot"
 PROFILE_ENV = "POTBOT_CREDENTIAL_PROFILE"
 _PROFILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\Z")
-_NAMES = {"postgres.application", "postgres.admin"}
+SERVICE_CREDENTIAL_NAMES = (
+    "providers.anthropic",
+    "providers.openai",
+    "providers.xai",
+    "providers.gemini",
+    "providers.evolink",
+    "api.access_token",
+)
+_NAMES = {"postgres.application", "postgres.admin", *SERVICE_CREDENTIAL_NAMES}
 _PURPOSE_ENV = {"application": "POTBOT_DSN", "admin": "POTBOT_ADMIN_DSN"}
 _URL_ERROR = "Enter a PostgreSQL URL for one explicit host and database; its value is not logged."
 _CONNECTION_ERROR = (
@@ -329,6 +337,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--profile", default=None)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status", help="show whether native credentials exist, never their values")
+    commands.add_parser("service-status", help="inspect hosted API credential presence")
+    for name in ("service-set", "service-delete"):
+        command = commands.add_parser(name)
+        command.add_argument("--name", required=True, choices=SERVICE_CREDENTIAL_NAMES)
     for name in ("set", "delete"):
         command = commands.add_parser(name)
         command.add_argument("--purpose", choices=tuple(_PURPOSE_ENV), default="application")
@@ -338,6 +350,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         result: dict[str, Any]
         if args.command == "status":
             result = store.status()
+        elif args.command == "service-status":
+            result = {
+                "profile": store.profile,
+                "configured": {
+                    name: store.get(name) is not None for name in SERVICE_CREDENTIAL_NAMES
+                },
+            }
+        elif args.command == "service-set":
+            value = _hidden_prompt(f"Value for {args.name} (hidden): ")
+            if any(not 33 <= ord(char) <= 126 for char in value):
+                raise InvalidInputError(
+                    "API credentials must contain only visible ASCII characters."
+                )
+            if args.name == "api.access_token" and len(value) < 32:
+                raise InvalidInputError("API access tokens need at least 32 characters.")
+            store.set(args.name, value)
+            result = {"profile": store.profile, "name": args.name, "saved": True}
+        elif args.command == "service-delete":
+            result = {
+                "profile": store.profile,
+                "name": args.name,
+                "deleted": store.delete(args.name),
+            }
         elif args.command == "set":
             prompt_and_store(store, args.purpose)
             result = {"profile": store.profile, "purpose": args.purpose, "saved": True}

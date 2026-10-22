@@ -153,9 +153,9 @@ class BudgetLedger:
         measured = validate_amounts(actual) if actual else {}
         if "concurrency" in measured:
             raise InvalidInputError("concurrency is released on completion, not a cumulative usage")
-        if origin not in {"measured", "synthetic", "provider_reported"}:
+        if origin not in {"measured", "synthetic", "provider_reported", "conservative_estimate"}:
             raise InvalidInputError(
-                "usage origin must be measured, synthetic, or provider_reported"
+                "usage origin must be measured, synthetic, provider_reported, or conservative_estimate"
             )
         with self.database.transaction(context) as conn:
             initial = _reservation(conn, context, reservation_id)

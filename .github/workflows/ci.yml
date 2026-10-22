@@ -32,11 +32,26 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Install locked application and development dependencies
-        run: uv sync --locked --extra postgres --extra semantics --extra credentials --dev
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --dev
       - name: Install required Linux process isolation
         run: |
           sudo apt-get update
-          sudo apt-get install --yes bubblewrap libseccomp2
+          sudo apt-get install --yes bubblewrap libseccomp2 apparmor-profiles
+      - name: Load Ubuntu's Bubblewrap user-namespace profile
+        shell: bash
+        run: |
+          # Ubuntu 24.04 can permit userns creation but deny the setup
+          # capabilities Bubblewrap needs for its private loopback interface.
+          # Use the distribution profile: its child profile denies capabilities.
+          # Keep the host-wide userns restriction and Potbot's seccomp policy.
+          potbot_userns_restriction=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          if [[ -r "$potbot_userns_restriction" ]] && [[ "$(cat "$potbot_userns_restriction")" == 1 ]]; then
+            potbot_bwrap_profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            test -r "$potbot_bwrap_profile"
+            sudo apparmor_parser --replace "$potbot_bwrap_profile"
+          fi
+      - name: Verify sandbox setup before database tests
+        run: uv run --locked python -m pytest -q tests/integration/test_process_isolation.py
       - name: Start real PostgreSQL with pgvector
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify application, repositories, migrations, and database isolation
