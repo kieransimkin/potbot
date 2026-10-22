@@ -86,7 +86,10 @@ def test_process_request_rejects_writable_mount_outside_sandbox(tmp_path: Path) 
 
 def test_workspace_sandbox_is_migration_14() -> None:
     migrations = application_migrations()
-    assert migrations[-1].version == 14
-    assert migrations[-1].name == "workspace_sandbox_schema"
-    assert migrations[-1].workspace_tables == ("workspace_sandboxes",)
-    assert migrations[-1].append_only_tables == ("workspace_sandboxes",)
+    # Migration 14 is immutable; newer features append migrations 15 onward.
+    assert tuple(item.version for item in migrations) == tuple(range(1, len(migrations) + 1))
+    sandbox_migration = migrations[13]
+    assert sandbox_migration.version == 14
+    assert sandbox_migration.name == "workspace_sandbox_schema"
+    assert sandbox_migration.workspace_tables == ("workspace_sandboxes",)
+    assert sandbox_migration.append_only_tables == ("workspace_sandboxes",)

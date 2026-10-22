@@ -10,6 +10,7 @@ import pytest
 
 from potbot.domain.errors import BudgetUnavailableError, ScopeDeniedError
 from potbot.tools import execution_cli
+from potbot.workspace_sandbox import WorkspaceSandbox
 
 
 @pytest.fixture
@@ -17,6 +18,12 @@ def cli_rig(monkeypatch, tmp_path):
     monkeypatch.setenv("POTBOT_DSN", "postgresql://fixture@localhost/potbot_test")
     task_id, candidate_id, action_id, run_id, reservation_id = (uuid4() for _ in range(5))
     lease = object()
+    sandbox = WorkspaceSandbox.prepare(tmp_path / "workspace")
+    # Unit fixture: keep the real filesystem confinement while bypassing only
+    # the database lookup that belongs to sandbox registration integration tests.
+    monkeypatch.setattr(
+        "potbot.workspace_sandbox.load_workspace_sandbox", Mock(return_value=sandbox)
+    )
     connection = Mock()
     connection.execute.return_value.fetchone.return_value = None
 
@@ -71,11 +78,11 @@ def cli_rig(monkeypatch, tmp_path):
         "--principal",
         str(uuid4()),
         "--artifacts",
-        str(tmp_path / "artifacts"),
+        str(sandbox.path("artifacts")),
         "--candidates",
-        str(tmp_path / "candidates"),
+        str(sandbox.path("candidates")),
         "--receipts",
-        str(tmp_path / "receipts"),
+        str(sandbox.path("receipts")),
         "run",
         str(task_id),
         "--candidate",
@@ -87,6 +94,7 @@ def cli_rig(monkeypatch, tmp_path):
     ]
     return SimpleNamespace(
         arguments=arguments,
+        sandbox=sandbox,
         manager=manager,
         store=store,
         budgets=budgets,
@@ -156,3 +164,22 @@ def test_read_only_inspection_is_successful_even_when_the_inspected_tool_failed(
     cli_rig.result["completion"] = {"outcome": "nonzero_exit", "exit_code": 4}
     assert execution_cli.main(arguments) == 0
     assert json.loads(capsys.readouterr().out)["data"]["completion"]["exit_code"] == 4
+
+
+def test_missing_registered_sandbox_blocks_dispatch(cli_rig, monkeypatch, capsys):
+    monkeypatch.setattr(
+        "potbot.workspace_sandbox.load_workspace_sandbox",
+        Mock(side_effect=ScopeDeniedError("No registered workspace sandbox")),
+    )
+    assert execution_cli.main(cli_rig.arguments) == 1
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "scope_denied"
+    cli_rig.manager.claim.assert_not_called()
+    cli_rig.gateway.execute.assert_not_called()
+
+
+def test_outside_sandbox_artifact_root_is_rejected(cli_rig, tmp_path, capsys):
+    cli_rig.arguments[cli_rig.arguments.index("--artifacts") + 1] = str(tmp_path / "outside")
+    assert execution_cli.main(cli_rig.arguments) == 1
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "scope_denied"
+    cli_rig.manager.claim.assert_not_called()
+    cli_rig.gateway.execute.assert_not_called()

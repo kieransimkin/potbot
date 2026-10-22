@@ -8,8 +8,13 @@ from uuid import uuid4
 
 import pytest
 
-from potbot.domain.errors import RevisionConflictError, SourceUnavailableError
+from potbot.domain.errors import (
+    RevisionConflictError,
+    ScopeDeniedError,
+    SourceUnavailableError,
+)
 from potbot.tools import patch_cli
+from potbot.workspace_sandbox import WorkspaceSandbox
 
 
 def prefix(root: Path) -> list[str]:
@@ -82,6 +87,10 @@ def test_malformed_arguments_do_not_connect_prompt_or_allocate_storage(
 @pytest.fixture
 def rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     pipeline_id, export_id = uuid4(), uuid4()
+    sandbox = WorkspaceSandbox.prepare(tmp_path / "workspace")
+    monkeypatch.setattr(
+        "potbot.workspace_sandbox.load_workspace_sandbox", Mock(return_value=sandbox)
+    )
     pipeline = SimpleNamespace(
         resume=Mock(
             return_value={
@@ -111,7 +120,8 @@ def rig(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     demo = Mock(return_value={"id": str(pipeline_id)})
     monkeypatch.setattr(patch_cli, "_demo_pipeline", demo)
     return SimpleNamespace(
-        prefix=prefix(tmp_path),
+        prefix=prefix(sandbox.root),
+        sandbox=sandbox,
         pipeline=pipeline,
         pipeline_id=pipeline_id,
         export_id=export_id,
@@ -125,12 +135,12 @@ def test_demo_returns_json_and_retains_optional_bundle_arguments(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    output = tmp_path / "review bundle"
+    output = rig.sandbox.path("artifacts") / "review bundle"
     args = [
         *rig.prefix,
         "demo",
         "--fixtures",
-        str(tmp_path / "fixtures"),
+        str(rig.sandbox.path("tests") / "fixtures"),
         "--key",
         "cli-demo",
         "--preexisting-failure",
@@ -198,3 +208,24 @@ def test_runtime_failures_return_sanitized_json_without_exception_details(
     assert result["error"]["code"] == code
     assert result["data"] is None
     assert "private" not in captured.out + captured.err
+
+
+def test_missing_registered_sandbox_blocks_pipeline_dispatch(rig, monkeypatch, capsys):
+    monkeypatch.setattr(
+        "potbot.workspace_sandbox.load_workspace_sandbox",
+        Mock(side_effect=ScopeDeniedError("No registered workspace sandbox")),
+    )
+    assert patch_cli.main([*rig.prefix, "inspect", str(rig.pipeline_id)]) == 1
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "scope_denied"
+    rig.pipeline.inspect.assert_not_called()
+
+
+def test_export_destination_outside_sandbox_is_rejected(rig, tmp_path, capsys):
+    assert (
+        patch_cli.main(
+            [*rig.prefix, "export", str(rig.export_id), "--output", str(tmp_path / "escape")]
+        )
+        == 1
+    )
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "scope_denied"
+    rig.pipeline.exports.write_bundle.assert_not_called()

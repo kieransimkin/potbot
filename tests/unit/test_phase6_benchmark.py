@@ -1,6 +1,9 @@
 """Deterministic authored-fixture benchmark acceptance, not live-model qualification."""
 
-from potbot.evaluation.phase6_bench import CASES, benchmark
+import py_compile
+from pathlib import Path
+
+from potbot.evaluation.phase6_bench import CASES, _apply_and_verify, _run, _write_files, benchmark
 
 
 def test_first_candidate_baseline_and_two_candidate_search():
@@ -30,3 +33,20 @@ def test_first_candidate_baseline_and_two_candidate_search():
         next(c for c in search["case_results"] if c["case_id"] == "reuse")["attempts"][1]["reuse"]
         is True
     )
+
+
+def test_same_size_patch_does_not_reuse_stale_baseline_bytecode(tmp_path: Path) -> None:
+    case = next(item for item in CASES if item.case_id == "arithmetic")
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    _write_files(baseline, case.baseline)
+    assert _run(baseline)["passed"] is False
+
+    # Deliberately create a stale cached version of the faulty implementation;
+    # copying this cache can defeat a same-size edit within a filesystem tick.
+    py_compile.compile(str(baseline / case.filename), doraise=True)
+    assert list(baseline.rglob("*.pyc"))
+    patched = tmp_path / "candidate"
+    result = _apply_and_verify(baseline, case, case.candidates[1][1], patched)
+    assert result["passed"] is True, result
+    assert not list(patched.rglob("*.pyc"))

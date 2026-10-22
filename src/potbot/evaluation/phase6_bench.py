@@ -153,10 +153,11 @@ def _run(root: Path, timeout: int = 5) -> dict[str, Any]:
         if k in {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMPDIR"}
     }
     env["PYTHONPATH"] = str(root)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     t0 = time.perf_counter()
     try:
         p = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-q"],
+            [sys.executable, "-B", "-m", "unittest", "discover", "-q"],
             cwd=root,
             env=env,
             capture_output=True,
@@ -203,7 +204,9 @@ def _apply_and_verify(base: Path, case: BenchCase, contents: str, root: Path) ->
     patch = _patch(case.filename, case.baseline[case.filename], contents)
     if not patch:
         return {"passed": False, "reason": "no_change", "patch_digest": _sha(patch)}
-    shutil.copytree(base, root)
+    # The failed baseline may have generated timestamp/size-based *.pyc files.
+    # Do not let stale bytecode hide same-size repairs such as a - b -> a + b.
+    shutil.copytree(base, root, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     start = time.perf_counter()
     try:
         checked = subprocess.run(
