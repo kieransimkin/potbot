@@ -38,6 +38,8 @@ dev = [
   "mypy>=1.15,<2",
   "pytest>=8.3,<10",
   "ruff>=0.11,<1",
+  "types-jsonschema>=4.26.0.20261006",
+  "types-protobuf>=7.35.1.20260906",
   "uvicorn>=0.34,<1",
   "websockets>=15,<17",
 ]
