@@ -39,8 +39,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--schema", default="potbot")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("migrate", help="apply and verify application migrations")
-    workspace = commands.add_parser("workspace-create", help="create one workspace")
+    workspace = commands.add_parser("workspace-create", help="create one sandboxed workspace")
     workspace.add_argument("--name", required=True)
+    workspace.add_argument(
+        "--sandbox-root",
+        required=True,
+        help="absolute host folder dedicated to this workspace; created when absent",
+    )
+    sandbox_set = commands.add_parser(
+        "workspace-sandbox-set",
+        help="bind one legacy workspace to an immutable sandbox root",
+    )
+    sandbox_set.add_argument("--workspace-id", required=True, type=UUID)
+    sandbox_set.add_argument("--sandbox-root", required=True)
     login = commands.add_parser("login-create", help="create a restricted PostgreSQL login")
     login.add_argument("--role", required=True)
     login.add_argument("--password-env", default="POTBOT_NEW_ROLE_PASSWORD")
@@ -69,7 +80,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.command == "migrate":
                 result = {"versions": list(migrate(dsn, args.schema))}
             elif args.command == "workspace-create":
-                result = {"workspace_id": str(provision_workspace(dsn, args.schema, args.name))}
+                identity = provision_workspace(
+                    dsn, args.schema, args.name, sandbox_root=args.sandbox_root
+                )
+                result = {"workspace_id": str(identity), "sandbox_root": args.sandbox_root}
+            elif args.command == "workspace-sandbox-set":
+                from potbot.persistence.database import configure_workspace_sandbox
+
+                result = {
+                    "workspace_id": str(args.workspace_id),
+                    "sandbox": configure_workspace_sandbox(
+                        dsn, args.schema, args.workspace_id, args.sandbox_root
+                    ),
+                }
             elif args.command == "login-create":
                 from psycopg import sql
 

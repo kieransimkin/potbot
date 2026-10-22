@@ -54,12 +54,21 @@ class SupervisedQwenEncoder:
         supervisor: ProcessSupervisor | None = None,
         worker_python: Path | None = None,
         timeout_ms: int = 60_000,
+        sandbox_root: Path | None = None,
     ) -> None:
         self.profile = profile or EmbeddingProfile()
         self.model_dir = model_dir.resolve()
         self.supervisor = supervisor or ProcessSupervisor()
         self.worker_python = worker_python or Path(sys.executable)
         self.timeout_ms = timeout_ms
+        self.sandbox_root = sandbox_root.resolve() if sandbox_root is not None else None
+        if self.sandbox_root is not None:
+            try:
+                self.model_dir.relative_to(self.sandbox_root)
+            except ValueError:
+                raise InvalidInputError(
+                    "workspace-local embedding model must remain inside its sandbox"
+                ) from None
 
     def _run(
         self,
@@ -102,14 +111,21 @@ class SupervisedQwenEncoder:
             "import runpy,sys;sys.path.insert(0,sys.argv[1]);"
             "runpy.run_module('potbot.memory.embedding_worker',run_name='__main__')"
         )
-        # Each invocation gets an empty writable scratch root. The model and
-        # trusted adapter are read-only; application artifacts and DSNs are absent.
-        with tempfile.TemporaryDirectory(prefix="potbot-embedding-worker-") as temporary:
+        # Each invocation gets an empty writable scratch root. Workspace-bound
+        # encoding keeps that scratch directory inside the registered sandbox.
+        temporary_parent = None
+        if self.sandbox_root is not None:
+            temporary_parent = self.sandbox_root / "tmp" / "embedding"
+            temporary_parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with tempfile.TemporaryDirectory(
+            prefix="potbot-embedding-worker-", dir=temporary_parent
+        ) as temporary:
             work = Path(temporary)
             request = ProcessRequest(
                 (str(self.worker_python), "-I", "-c", bootstrap, str(source_root)),
                 work,
                 work,
+                sandbox_root=self.sandbox_root or work,
                 timeout_ms=timeout_ms,
                 max_output_bytes=4_194_304,
                 environment={
@@ -119,6 +135,14 @@ class SupervisedQwenEncoder:
                     "OMP_NUM_THREADS": "2",
                     "MKL_NUM_THREADS": "2",
                     "OPENBLAS_NUM_THREADS": "2",
+                    "HOME": str(work),
+                    "TMPDIR": str(work),
+                    "TMP": str(work),
+                    "TEMP": str(work),
+                    "XDG_CACHE_HOME": str(work / "cache"),
+                    "HF_HOME": str(work / "cache" / "huggingface"),
+                    "TRANSFORMERS_CACHE": str(work / "cache" / "transformers"),
+                    "TORCH_HOME": str(work / "cache" / "torch"),
                 },
                 read_only_roots=(self.model_dir, source_root, self.worker_python.parent.parent),
                 stdin=canonical_json(request_payload).encode("utf-8"),

@@ -133,9 +133,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--workspace", type=UUID, required=True)
     parser.add_argument("--principal", type=UUID, required=True)
     parser.add_argument("--schema", type=_schema, default="potbot")
-    parser.add_argument("--artifacts", type=Path, required=True)
-    parser.add_argument("--candidates", type=Path, required=True)
-    parser.add_argument("--receipts", type=Path, required=True)
+    parser.add_argument("--artifacts", type=Path)
+    parser.add_argument("--candidates", type=Path)
+    parser.add_argument("--receipts", type=Path)
     commands = parser.add_subparsers(dest="command", required=True)
     demo = commands.add_parser(
         "demo", help="submit a disposable fixture and produce a verified patch"
@@ -184,8 +184,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         database = Database(resolve_postgres_dsn(), args.schema)
         context = WorkspaceContext(args.workspace, args.principal)
-        artifacts = ArtifactStore(database, LocalArtifactBackend(args.artifacts))
-        candidates = CandidateWorkspaceManager(database, artifacts, args.candidates)
+        from potbot.workspace_sandbox import load_workspace_sandbox
+
+        sandbox = load_workspace_sandbox(database, context)
+        artifact_root = (
+            sandbox.confine(args.artifacts, area="artifacts")
+            if args.artifacts is not None
+            else sandbox.path("artifacts") / "objects"
+        )
+        candidate_root = (
+            sandbox.confine(args.candidates, area="candidates")
+            if args.candidates is not None
+            else sandbox.path("candidates")
+        )
+        receipt_root = (
+            sandbox.confine(args.receipts, area="receipts")
+            if args.receipts is not None
+            else sandbox.path("receipts")
+        )
+        artifacts = ArtifactStore(database, LocalArtifactBackend(artifact_root))
+        candidates = CandidateWorkspaceManager(database, artifacts, candidate_root)
         registry = fixture_tools()
         gateway = ToolGateway(
             database,
@@ -193,13 +211,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             candidates,
             registry,
             CapabilityContext(registry.inventory()),
-            RunReceiptStore(args.receipts),
+            RunReceiptStore(receipt_root),
             read_only_roots=patch_runtime_roots(),
+            workspace_sandbox=sandbox,
         )
         pipeline = PatchPipeline(database, artifacts, candidates, gateway)
         if args.command == "demo":
+            fixtures = sandbox.confine(args.fixtures, area="tests")
             created = _demo_pipeline(
-                database, context, pipeline, args.fixtures, args.preexisting_failure, args.key
+                database, context, pipeline, fixtures, args.preexisting_failure, args.key
             )
             identity = UUID(created["id"])
             print(f"Pipeline {identity}", file=sys.stderr, flush=True)
@@ -219,10 +239,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif args.command == "inspect":
             result = pipeline.inspect(context, args.pipeline_id)
         else:
-            result = pipeline.exports.write_bundle(context, args.export_id, args.output)
+            result = pipeline.exports.write_bundle(
+                context, args.export_id, sandbox.confine(args.output, area="artifacts")
+            )
         if args.command in {"demo", "resume"} and args.output is not None and result.get("export"):
+            output = sandbox.confine(args.output, area="artifacts")
             result["bundle"] = pipeline.exports.write_bundle(
-                context, UUID(result["export"]["id"]), args.output
+                context, UUID(result["export"]["id"]), output
             )
         print(json.dumps({"schema_version": 1, "data": result}, indent=2))
         incomplete = args.command in {"demo", "resume"} and result.get("outcome") in {

@@ -8,7 +8,7 @@ import os
 import stat
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from potbot.controller.budgets import BudgetLedger
@@ -39,6 +39,9 @@ from potbot.tools.repository import (
 from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor, SecretReferenceProvider
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 
+if TYPE_CHECKING:
+    from potbot.workspace_sandbox import WorkspaceSandbox
+
 
 class ToolGateway:
     def __init__(
@@ -53,12 +56,14 @@ class ToolGateway:
         supervisor: ProcessSupervisor | None = None,
         secrets: SecretReferenceProvider | None = None,
         read_only_roots: tuple[Path, ...] = (),
+        workspace_sandbox: "WorkspaceSandbox | None" = None,
     ) -> None:
         self.database, self.artifacts, self.candidates = database, artifacts, candidates
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts
         self.supervisor = supervisor or ProcessSupervisor()
         self.secrets = secrets or SecretReferenceProvider({})
         self.read_only_roots = read_only_roots
+        self.workspace_sandbox = workspace_sandbox
         self.instance_id = uuid4()
         self.store = ExecutionStore(database, registry)
         self.budgets = BudgetLedger(database)
@@ -312,14 +317,37 @@ class ToolGateway:
         )
         try:
             root = Path(candidate["path"])
+            sandbox_environment: dict[str, str] = {}
+            writable_roots: tuple[Path, ...] = ()
+            read_only_roots = self.read_only_roots
+            sandbox_root = root
+            if self.workspace_sandbox is not None:
+                sandbox = self.workspace_sandbox
+                sandbox.confine(root, area="candidates", must_exist=True)
+                sandbox_root = sandbox.root
+                sandbox_environment = sandbox.runtime_environment()
+                writable_roots = tuple(
+                    sandbox.path(name)
+                    for name in ("tmp", "cache", "environments", "builds", "tests", "tools", "dependencies")
+                )
+                read_only_roots = (
+                    *read_only_roots,
+                    sandbox.path("models"),
+                )
             request = ProcessRequest(
                 argv=(*definition.argv_prefix, *proposal.arguments),
                 cwd=self._paths(root, proposal),
                 workspace_root=root,
+                sandbox_root=sandbox_root,
                 timeout_ms=definition.timeout_ms,
                 max_output_bytes=definition.max_output_bytes,
-                environment={**dict(definition.environment), **material.environment},
-                read_only_roots=self.read_only_roots,
+                environment={
+                    **sandbox_environment,
+                    **dict(definition.environment),
+                    **material.environment,
+                },
+                read_only_roots=read_only_roots,
+                writable_roots=writable_roots,
                 stdin=stdin,
             )
             result = self.supervisor.run(

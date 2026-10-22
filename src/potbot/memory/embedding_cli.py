@@ -37,8 +37,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         command.add_argument("--workspace-id", type=UUID, required=True)
         command.add_argument("--principal-id", type=UUID, required=True)
         command.add_argument("--schema", default="potbot")
-        command.add_argument("--artifact-root", type=Path, default=Path("artifacts/objects"))
-        command.add_argument("--model-dir", type=Path, default=default_model_dir)
+        command.add_argument("--artifact-root", type=Path)
+        command.add_argument("--model-dir", type=Path)
         command.add_argument("--max-input-tokens", type=int, default=2048)
         if name in {"register-space", "index", "search"}:
             command.add_argument(
@@ -136,15 +136,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             dsn = resolve_postgres_dsn()
             database = Database(dsn, schema=args.schema)
             context = WorkspaceContext(args.workspace_id, args.principal_id)
+            from potbot.workspace_sandbox import load_workspace_sandbox
+
+            sandbox = load_workspace_sandbox(database, context)
+            model_dir = (
+                sandbox.confine(args.model_dir, area="models")
+                if args.model_dir is not None
+                else sandbox.path("models") / MODEL_DIRECTORY
+            )
+            artifact_root = (
+                sandbox.confine(args.artifact_root, area="artifacts")
+                if args.artifact_root is not None
+                else sandbox.path("artifacts") / "objects"
+            )
             profile = replace(EmbeddingProfile(), max_input_tokens=args.max_input_tokens)
             if args.command in {"index", "search"}:
                 ensure_standard_model(
-                    project_root(), model_dir=args.model_dir, progress=ConsoleProgress()
+                    sandbox.root, model_dir=model_dir, progress=ConsoleProgress()
                 )
             service = EmbeddingService(
                 database,
-                ArtifactStore(database, LocalArtifactBackend(args.artifact_root)),
-                QwenLocalEncoder(args.model_dir, profile),
+                ArtifactStore(database, LocalArtifactBackend(artifact_root)),
+                QwenLocalEncoder(model_dir, profile, sandbox_root=sandbox.root),
             )
             if args.command == "register-space":
                 output = service.register_space(context, embedding_name=args.embedding_name)
@@ -153,8 +166,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     context,
                     args.repository_id,
                     args.source_key,
-                    args.file.read_text(encoding="utf-8"),
-                    metadata={"path": str(args.file)},
+                    sandbox.confine(args.file, area="repository", must_exist=True).read_text(
+                        encoding="utf-8"
+                    ),
+                    metadata={
+                        "path": str(sandbox.confine(args.file, area="repository", must_exist=True))
+                    },
                 )
             elif args.command == "index":
                 output = service.index_source(

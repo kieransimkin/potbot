@@ -170,6 +170,8 @@ class BubblewrapBackend:
         workspace_root: Path,
         cwd: Path,
         read_only_roots: tuple[Path, ...],
+        writable_roots: tuple[Path, ...],
+        sandbox_root: Path,
         status_fd: int,
         memory_bytes: int,
         cpu_seconds: int,
@@ -186,9 +188,10 @@ class BubblewrapBackend:
         ):
             raise CapabilityUnavailableError("qualified bubblewrap isolation is unavailable")
         root = workspace_root.resolve(strict=True)
+        sandbox = sandbox_root.resolve(strict=True)
         work = cwd.resolve(strict=True)
-        if not root.is_dir() or not work.is_relative_to(root):
-            raise InvalidInputError("working directory is outside the candidate workspace")
+        if not root.is_dir() or not work.is_relative_to(root) or not root.is_relative_to(sandbox):
+            raise InvalidInputError("working directory is outside the registered workspace sandbox")
         roots: list[Path] = []
         for path in (*runtime_roots(), *read_only_roots):
             absolute = path.absolute()
@@ -199,6 +202,19 @@ class BubblewrapBackend:
                 raise InvalidInputError("read-only mount is not a regular asset")
             if absolute not in roots:
                 roots.append(absolute)
+        writable: list[Path] = []
+        for path in writable_roots:
+            resolved = path.resolve(strict=True)
+            if not resolved.is_dir() or not resolved.is_relative_to(sandbox):
+                raise InvalidInputError(
+                    "writable mounts must be directories inside the workspace sandbox"
+                )
+            if resolved == root or root.is_relative_to(resolved) or resolved.is_relative_to(root):
+                raise InvalidInputError(
+                    "writable support mounts must be separate from the candidate tree"
+                )
+            if resolved not in writable:
+                writable.append(resolved)
         seccomp = _seccomp_fd()
         try:
             arguments = [
@@ -226,6 +242,8 @@ class BubblewrapBackend:
                 "potbot",
             ]
             arguments.extend(("--bind", str(root), str(root)))
+            for path in writable:
+                arguments.extend(("--bind", str(path), str(path)))
             for path in roots:
                 arguments.extend(("--ro-bind", str(path), str(path)))
             arguments.extend(
@@ -247,6 +265,8 @@ class BubblewrapBackend:
                     "prlimit_sha256": hashlib.sha256(self.prlimit.read_bytes()).hexdigest(),
                     "roots": [str(p) for p in roots],
                     "writable_root": str(root),
+                    "writable_support_roots": [str(p) for p in writable],
+                    "sandbox_root": str(sandbox),
                     "network": "deny",
                     "denied_syscalls": _DENIED_SYSCALLS,
                     "namespace_clone_flags": _NAMESPACE_CLONE_FLAGS,

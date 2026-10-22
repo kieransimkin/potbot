@@ -71,9 +71,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--workspace", type=UUID, required=True)
     parser.add_argument("--principal", type=UUID, required=True)
     parser.add_argument("--schema", default="potbot")
-    parser.add_argument("--artifacts", type=Path, required=True)
-    parser.add_argument("--candidates", type=Path, required=True)
-    parser.add_argument("--receipts", type=Path, required=True)
+    parser.add_argument("--artifacts", type=Path)
+    parser.add_argument("--candidates", type=Path)
+    parser.add_argument("--receipts", type=Path)
     commands = parser.add_subparsers(dest="command", required=True)
     prepare = commands.add_parser(
         "prepare", help="capture a task baseline and allocate an isolated candidate"
@@ -126,8 +126,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         database = Database(resolve_postgres_dsn(), args.schema)
         context = WorkspaceContext(args.workspace, args.principal)
-        artifacts = ArtifactStore(database, LocalArtifactBackend(args.artifacts))
-        manager = CandidateWorkspaceManager(database, artifacts, args.candidates)
+        from potbot.workspace_sandbox import load_workspace_sandbox
+
+        sandbox = load_workspace_sandbox(database, context)
+        artifact_root = (
+            sandbox.confine(args.artifacts, area="artifacts")
+            if args.artifacts is not None
+            else sandbox.path("artifacts") / "objects"
+        )
+        candidate_root = (
+            sandbox.confine(args.candidates, area="candidates")
+            if args.candidates is not None
+            else sandbox.path("candidates")
+        )
+        receipt_root = (
+            sandbox.confine(args.receipts, area="receipts")
+            if args.receipts is not None
+            else sandbox.path("receipts")
+        )
+        artifacts = ArtifactStore(database, LocalArtifactBackend(artifact_root))
+        manager = CandidateWorkspaceManager(database, artifacts, candidate_root)
         registry = default_tools()
         gateway = ToolGateway(
             database,
@@ -135,7 +153,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             manager,
             registry,
             CapabilityContext(registry.inventory()),
-            RunReceiptStore(args.receipts),
+            RunReceiptStore(receipt_root),
+            workspace_sandbox=sandbox,
         )
         tasks = TaskService(database)
         result: dict[str, Any]
@@ -156,10 +175,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             with database.transaction(context) as conn:
                 environment = store_environment(conn, context, manifest)
+            source = sandbox.confine(args.source, area="repository", must_exist=True)
             state = RepositoryStateStore(database, artifacts).capture(
                 context,
                 UUID(task["repository_id"]),
-                args.source,
+                source,
                 environment["id"],
                 profile=SnapshotProfile(
                     untracked_paths=tuple(args.include), excluded_paths=tuple(args.exclude)

@@ -31,10 +31,12 @@ class ProcessRequest:
     argv: tuple[str, ...]
     cwd: Path
     workspace_root: Path
+    sandbox_root: Path | None = None
     timeout_ms: int = 60_000
     max_output_bytes: int = 1_048_576
     environment: Mapping[str, str] = field(default_factory=dict, repr=False)
     read_only_roots: tuple[Path, ...] = ()
+    writable_roots: tuple[Path, ...] = ()
     stdin: bytes = field(default=b"", repr=False)
     memory_bytes: int = 4 * 1024**3
     cpu_seconds: int = 60
@@ -65,6 +67,24 @@ class ProcessRequest:
                 raise InvalidInputError("process resource limits must be bounded positive integers")
         if not isinstance(self.stdin, bytes) or len(self.stdin) > 16_777_216:
             raise InvalidInputError("process input exceeds the supported bound")
+        sandbox = (self.sandbox_root or self.workspace_root).resolve()
+        workspace = self.workspace_root.resolve()
+        try:
+            workspace.relative_to(sandbox)
+        except ValueError:
+            raise InvalidInputError(
+                "candidate workspace must be inside its registered sandbox"
+            ) from None
+        for path in (*self.read_only_roots, *self.writable_roots):
+            if not isinstance(path, Path):
+                raise InvalidInputError("sandbox mount roots must be Path values")
+        for path in self.writable_roots:
+            try:
+                path.resolve().relative_to(sandbox)
+            except ValueError:
+                raise InvalidInputError(
+                    "writable mounts must remain inside the registered sandbox"
+                ) from None
         if len(self.environment) > 128 or any(
             not isinstance(name, str)
             or not _ENV_NAME.fullmatch(name)
@@ -140,6 +160,8 @@ class ProcessSupervisor:
                 workspace_root=request.workspace_root,
                 cwd=request.cwd,
                 read_only_roots=request.read_only_roots,
+                writable_roots=request.writable_roots,
+                sandbox_root=request.sandbox_root or request.workspace_root,
                 status_fd=status_write,
                 memory_bytes=request.memory_bytes,
                 cpu_seconds=request.cpu_seconds,

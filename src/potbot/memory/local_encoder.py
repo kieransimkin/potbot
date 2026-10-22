@@ -78,7 +78,13 @@ def verify_local_model(model_dir: Path, profile: EmbeddingProfile) -> None:
 class QwenLocalEncoder:
     """CPU float32 adapter following Qwen's last-token/L2 reference convention."""
 
-    def __init__(self, model_dir: Path, profile: EmbeddingProfile | None = None) -> None:
+    def __init__(
+        self,
+        model_dir: Path,
+        profile: EmbeddingProfile | None = None,
+        *,
+        sandbox_root: Path | None = None,
+    ) -> None:
         self.profile = profile or EmbeddingProfile()
         if (
             self.profile.model != QWEN_MODEL
@@ -90,6 +96,14 @@ class QwenLocalEncoder:
         ):
             raise InvalidInputError("local adapter requires its pinned Qwen runtime profile")
         self.model_dir = model_dir.resolve()
+        self.sandbox_root = sandbox_root.resolve() if sandbox_root is not None else None
+        if self.sandbox_root is not None:
+            try:
+                self.model_dir.relative_to(self.sandbox_root)
+            except ValueError:
+                raise InvalidInputError(
+                    "workspace-local model directory must remain inside its sandbox"
+                ) from None
         self._tokenizer: Any = None
         self._model: Any = None
         self._torch: Any = None
@@ -134,6 +148,12 @@ class QwenLocalEncoder:
         return prepared, sum(lengths)
 
     def count_tokens(self, texts: tuple[str, ...], kind: Literal["query", "document"]) -> int:
+        if self.sandbox_root is not None:
+            from potbot.memory.supervised_encoder import SupervisedQwenEncoder
+
+            return SupervisedQwenEncoder(
+                self.model_dir, self.profile, sandbox_root=self.sandbox_root
+            ).count_tokens(texts, kind)
         return self._inputs(texts, kind)[1]
 
     def encode_supervised(
@@ -147,11 +167,13 @@ class QwenLocalEncoder:
         """Production service entry: preparation and inference share one deadline."""
         from potbot.memory.supervised_encoder import SupervisedQwenEncoder
 
-        return SupervisedQwenEncoder(self.model_dir, self.profile).encode_supervised(
-            texts, kind, timeout_ms=timeout_ms, cancelled=cancelled
-        )
+        return SupervisedQwenEncoder(
+            self.model_dir, self.profile, sandbox_root=self.sandbox_root
+        ).encode_supervised(texts, kind, timeout_ms=timeout_ms, cancelled=cancelled)
 
     def encode(self, texts: tuple[str, ...], kind: Literal["query", "document"]) -> EmbeddingBatch:
+        if self.sandbox_root is not None:
+            return self.encode_supervised(texts, kind, timeout_ms=60_000)
         start = time.monotonic()
         prepared, tokens = self._inputs(texts, kind)
         if self._model is None:

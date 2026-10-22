@@ -13,6 +13,7 @@ import re
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -254,7 +255,9 @@ def _grant(connection: Any, schema: str, role: str, migrations: Sequence[SchemaM
     for migration in migrations:
         for table in migration.workspace_tables:
             grants = (
-                "SELECT, INSERT"
+                "SELECT"
+                if table == "workspace_sandboxes"
+                else "SELECT, INSERT"
                 if table in migration.append_only_tables
                 else "SELECT, INSERT, UPDATE"
             )
@@ -370,17 +373,68 @@ def grant_application_role(admin_dsn: str, schema: str, role: str) -> None:
 
 
 def provision_workspace(
-    admin_dsn: str, schema: str, name: str, workspace_id: UUID | None = None
+    admin_dsn: str,
+    schema: str,
+    name: str,
+    workspace_id: UUID | None = None,
+    *,
+    sandbox_root: str | Path | None = None,
 ) -> UUID:
+    """Create a workspace and, when supplied, atomically bind its filesystem sandbox.
+
+    ``sandbox_root=None`` exists only so historical migration fixtures can construct
+    pre-migration workspaces. User-facing creation always supplies a root and current
+    local execution rejects workspaces without a registered sandbox.
+    """
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 200:
         raise InvalidInputError("Workspace name must contain 1 to 200 characters.")
+    sandbox = None
+    if sandbox_root is not None:
+        from potbot.workspace_sandbox import WorkspaceSandbox
+
+        sandbox = WorkspaceSandbox.prepare(sandbox_root)
     identity = workspace_id or uuid4()
     with admin_connection(admin_dsn, schema) as connection:
         connection.execute("INSERT INTO workspaces(id,name) VALUES (%s,%s)", (identity, name))
+        if sandbox is not None:
+            relation = connection.execute(
+                "SELECT to_regclass('workspace_sandboxes') AS relation"
+            ).fetchone()
+            if relation is None or relation["relation"] is None:
+                raise RevisionConflictError(
+                    "Workspace sandbox migration must be applied before creating a "
+                    "sandboxed workspace."
+                )
+            connection.execute(
+                "INSERT INTO workspace_sandboxes(workspace_id,root_path,root_key,policy_version) "
+                "VALUES (%s,%s,%s,%s)",
+                (identity, str(sandbox.root), sandbox.key, sandbox.policy_version),
+            )
         catalog = connection.execute("SELECT to_regclass('model_catalog') AS relation").fetchone()
         if catalog is not None and catalog["relation"] is not None:
             _seed_catalog(connection, identity)
     return identity
+
+
+def configure_workspace_sandbox(
+    admin_dsn: str, schema: str, workspace_id: UUID, sandbox_root: str | Path
+) -> dict[str, str | int]:
+    """Bind a previously created legacy workspace to one immutable sandbox root."""
+    from potbot.workspace_sandbox import WorkspaceSandbox, sandbox_record
+
+    sandbox = WorkspaceSandbox.prepare(sandbox_root)
+    with admin_connection(admin_dsn, schema) as connection:
+        workspace = connection.execute(
+            "SELECT 1 FROM workspaces WHERE id=%s", (workspace_id,)
+        ).fetchone()
+        if workspace is None:
+            raise ScopeDeniedError("Workspace is unavailable.")
+        connection.execute(
+            "INSERT INTO workspace_sandboxes(workspace_id,root_path,root_key,policy_version) "
+            "VALUES (%s,%s,%s,%s)",
+            (workspace_id, str(sandbox.root), sandbox.key, sandbox.policy_version),
+        )
+    return sandbox_record(sandbox)
 
 
 def provision_principal(
