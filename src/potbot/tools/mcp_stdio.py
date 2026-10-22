@@ -12,6 +12,7 @@ import asyncio
 from typing import Any
 
 from potbot.domain.errors import IndeterminateExecutionError, InvalidInputError
+
 from potbot.tools.mcp_protocol import (
     MAX_NOTIFICATION_MESSAGES,
     MAX_WIRE_BYTES,
@@ -59,7 +60,9 @@ class McpStdioTransport:
             raise InvalidInputError("MCP stdio notification must not have a request ID")
         async with self._lock:
             if self._poisoned:
-                raise IndeterminateExecutionError("MCP stdio stream is not reusable after an uncertain call")
+                raise IndeterminateExecutionError(
+                    "MCP stdio stream is not reusable after an uncertain call"
+                )
             try:
                 async with asyncio.timeout(self.timeout):
                     await self._send(message)
@@ -82,10 +85,16 @@ class McpStdioTransport:
                         if "method" in document and "id" in document:
                             # We deliberately do not implement server-triggered
                             # sampling/elicitation/roots in this increment.
-                            await self._send({
-                                "jsonrpc": "2.0", "id": document["id"],
-                                "error": {"code": -32601, "message": "Client method unavailable"},
-                            })
+                            await self._send(
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": document["id"],
+                                    "error": {
+                                        "code": -32601,
+                                        "message": "Client method unavailable",
+                                    },
+                                }
+                            )
                             continue
                         if document.get("id") != request_id:
                             raise McpProtocolError("MCP child sent a response for another request")
@@ -93,10 +102,14 @@ class McpStdioTransport:
                     raise McpProtocolError("MCP peer sent too many unsolicited messages")
             except TimeoutError as error:
                 self._poisoned = True
-                raise IndeterminateExecutionError("MCP request deadline exceeded; do not replay writes") from error
+                raise IndeterminateExecutionError(
+                    "MCP request deadline exceeded; do not replay writes"
+                ) from error
             except (BrokenPipeError, ConnectionError, OSError) as error:
                 self._poisoned = True
-                raise IndeterminateExecutionError("MCP stdio connection failed; dispatch outcome unknown") from error
+                raise IndeterminateExecutionError(
+                    "MCP stdio connection failed; dispatch outcome unknown"
+                ) from error
             except BaseException:
                 # Includes cancellation: an already-sent request may complete
                 # remotely. Never use this stream for another request.

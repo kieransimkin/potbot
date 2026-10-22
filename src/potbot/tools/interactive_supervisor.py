@@ -71,7 +71,8 @@ class IsolatedInteractiveProcess:
         self._watchdog = asyncio.create_task(self._deadline(), name="potbot-mcp-watchdog")
         self._cancel_watcher = (
             asyncio.create_task(self._poll_cancel(cancelled), name="potbot-mcp-cancel")
-            if cancelled is not None else None
+            if cancelled is not None
+            else None
         )
         self._close_lock = asyncio.Lock()
 

@@ -10,7 +10,7 @@ def test_research_migration_is_versioned_and_immutably_scoped():
     revisions = application_migrations()
     assert revisions[15].version == 16
     assert revisions[15].name == "phase7_schema"
-    assert tuple(r.version for r in revisions) == tuple(range(1, 18))
+    assert tuple(r.version for r in revisions) == tuple(range(1, 19))
     sql = "\n".join(revisions[15].statements)
     assert "FOREIGN KEY(workspace_id,episode_id,need_id)" in sql
     assert "FOREIGN KEY(workspace_id,need_id,need_revision_id)" in sql

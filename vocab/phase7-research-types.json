@@ -50,6 +50,14 @@
       ],
       "name": "Repository snapshot inspection Cog",
       "definition": "Transforms a typed research action into a source observation batch against a controller-pinned repository snapshot."
+    },
+    {
+      "ref": "synny://type/potbot-research-solve-link",
+      "parents": [
+        "synny://type/potbot-research-record"
+      ],
+      "name": "Audited research-to-solve provenance link",
+      "definition": "A scoped immutable source-audit evidence link to one solve observation node. It never signifies a verified patch, resolved need or Cog activation."
     }
   ],
   "cogs": [

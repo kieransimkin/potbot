@@ -31,6 +31,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--worker-id", required=True)
     inspect = commands.add_parser("inspect", help="inspect a research run and its receipt")
     inspect.add_argument("run_id", type=UUID)
+    audit = commands.add_parser("audit", help="replay immutable source evidence")
+    audit.add_argument("run_id", type=UUID)
+    link = commands.add_parser("link-source", help="link audited source to a solve graph")
+    link.add_argument("research_run_id", type=UUID)
+    link.add_argument("solve_run_id", type=UUID)
+    link.add_argument("parent_node_id", type=UUID)
+    link.add_argument("--key", required=True)
     commands.add_parser("quarantine-expired", help="mark expired claims indeterminate")
     args = parser.parse_args(argv)
     try:
@@ -44,6 +51,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = LocalResearchWorker(store).run_once(context, args.worker_id)
         elif args.command == "inspect":
             result = store.inspect(context, args.run_id)
+        elif args.command == "audit":
+            from potbot.controller.research_audit import ResearchAuditStore
+
+            result = ResearchAuditStore(db, artifacts).audit(context, args.run_id)
+        elif args.command == "link-source":
+            from potbot.controller.research_solve_bridge import ResearchSolveBridge
+
+            result = ResearchSolveBridge(db, artifacts).link(
+                context,
+                args.research_run_id,
+                args.solve_run_id,
+                args.parent_node_id,
+                args.key,
+            )
         else:
             result = {"quarantined": store.quarantine_expired(context)}
         print(json.dumps({"schema_version": 1, "result": result}, sort_keys=True))

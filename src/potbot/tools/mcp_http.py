@@ -11,20 +11,20 @@ must supply a pre-authorized audience-scoped bearer via an ephemeral callback.
 from __future__ import annotations
 
 import asyncio
-import httpx
 import ipaddress
 import re
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
 
+import httpx
 from potbot.domain.errors import (
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
 )
+
 from potbot.tools.mcp_protocol import (
-    LEGACY,
     MAX_NOTIFICATION_MESSAGES,
     MAX_WIRE_BYTES,
     MODERN,
@@ -78,7 +78,9 @@ class McpHttpTransport:
         except ValueError:
             ip = None
         if parts.scheme != "https" or ip is not None:
-            if not (allow_test_loopback and parts.scheme == "http" and ip is not None and ip.is_loopback):
+            if not (
+                allow_test_loopback and parts.scheme == "http" and ip is not None and ip.is_loopback
+            ):
                 raise ScopeDeniedError("MCP HTTP requires HTTPS and a nonliteral public hostname")
         if port is not None and not 1 <= port <= 65535:
             raise InvalidInputError("Invalid MCP HTTP port")
@@ -102,7 +104,9 @@ class McpHttpTransport:
         for event in text.split("\n\n"):
             if not event.strip():
                 continue
-            data = "\n".join(line[5:].lstrip(" ") for line in event.split("\n") if line.startswith("data:"))
+            data = "\n".join(
+                line[5:].lstrip(" ") for line in event.split("\n") if line.startswith("data:")
+            )
             if not data:
                 continue
             count += 1
@@ -144,8 +148,13 @@ class McpHttpTransport:
             headers["Mcp-Method"] = method
             if method == "tools/call":
                 name = message.get("params", {}).get("name")
-                if not isinstance(name, str) or re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name) is None:
-                    raise ScopeDeniedError("MCP tool header name needs verified header encoding support")
+                if (
+                    not isinstance(name, str)
+                    or re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name) is None
+                ):
+                    raise ScopeDeniedError(
+                        "MCP tool header name needs verified header encoding support"
+                    )
                 headers["Mcp-Name"] = name
         elif self._legacy_version is not None:
             headers["MCP-Protocol-Version"] = self._legacy_version
@@ -153,7 +162,11 @@ class McpHttpTransport:
                 headers["Mcp-Session-Id"] = self._session_id
         if self.bearer_supplier is not None:
             token = self.bearer_supplier()
-            if not isinstance(token, str) or not token or any(ord(c) < 33 or ord(c) > 126 for c in token):
+            if (
+                not isinstance(token, str)
+                or not token
+                or any(ord(c) < 33 or ord(c) > 126 for c in token)
+            ):
                 raise ScopeDeniedError("MCP credential broker returned an invalid secret")
             headers["Authorization"] = "Bearer " + token
         try:
@@ -161,8 +174,11 @@ class McpHttpTransport:
             # to follow_redirects=True; never send a bearer to a new host.
             async with asyncio.timeout(self.deadline_s):
                 async with self.client.stream(
-                    "POST", self.endpoint, headers=headers,
-                    content=encoded_frame(message), follow_redirects=False,
+                    "POST",
+                    self.endpoint,
+                    headers=headers,
+                    content=encoded_frame(message),
+                    follow_redirects=False,
                 ) as response:
                     status = response.status_code
                     if status in (401, 403):
@@ -172,7 +188,9 @@ class McpHttpTransport:
                     if status == 202 and not expect_reply:
                         return None
                     if status >= 500 or status == 429:
-                        raise IndeterminateExecutionError("MCP remote service unavailable; no implicit retry")
+                        raise IndeterminateExecutionError(
+                            "MCP remote service unavailable; no implicit retry"
+                        )
                     if status not in (200, 201, 400, 404):
                         raise McpProtocolError("Unexpected MCP HTTP status")
                     chunks: list[bytes] = []
@@ -197,15 +215,23 @@ class McpHttpTransport:
                     if method == "initialize" and status in (200, 201):
                         # Strictly handshake-era only. No protocol sessions in 2026.
                         result = document.get("result")
-                        if isinstance(result, dict) and isinstance(result.get("protocolVersion"), str):
+                        if isinstance(result, dict) and isinstance(
+                            result.get("protocolVersion"), str
+                        ):
                             self._legacy_version = result["protocolVersion"]
                             session = response.headers.get("mcp-session-id")
                             if session is not None:
-                                if not 1 <= len(session) <= 256 or any(ord(x) < 33 or ord(x) > 126 for x in session):
+                                if not 1 <= len(session) <= 256 or any(
+                                    ord(x) < 33 or ord(x) > 126 for x in session
+                                ):
                                     raise McpProtocolError("Invalid legacy MCP session identifier")
                                 self._session_id = session
                     return document
         except TimeoutError as error:
-            raise IndeterminateExecutionError("MCP HTTP deadline exceeded; write status unknown") from error
+            raise IndeterminateExecutionError(
+                "MCP HTTP deadline exceeded; write status unknown"
+            ) from error
         except (OSError, ConnectionError, httpx.TransportError) as error:
-            raise IndeterminateExecutionError("MCP HTTP connection failed; write status unknown") from error
+            raise IndeterminateExecutionError(
+                "MCP HTTP connection failed; write status unknown"
+            ) from error

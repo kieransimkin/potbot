@@ -29,6 +29,9 @@ from potbot.domain.errors import (
 )
 from potbot.domain.execution import ActionProposal, CapabilityContext, ToolRegistry
 from potbot.domain.serialization import content_hash
+from potbot.tools.supervisor import ProcessRequest
+from potbot.workspace_sandbox import WorkspaceSandbox
+
 from potbot.tools.interactive_supervisor import (
     InteractiveExit,
     InteractiveProcessSupervisor,
@@ -36,8 +39,6 @@ from potbot.tools.interactive_supervisor import (
 )
 from potbot.tools.mcp_protocol import McpCallResult, McpCatalog, McpClient, McpToolInfo
 from potbot.tools.mcp_stdio import McpStdioTransport
-from potbot.tools.supervisor import ProcessRequest
-from potbot.workspace_sandbox import WorkspaceSandbox
 
 # A function installed by the trusted controller that throws if the selected
 # tool/arguments are not covered by the active task's durable permission grant.
@@ -94,9 +95,12 @@ class SandboxedMcpClient:
             raise InvalidInputError("MCP server executable requires a pinned SHA-256")
         if not callable(approve_call):
             raise ScopeDeniedError("MCP tool calls require a controller-owned admission function")
-        if not permitted or len(permitted) > 256 or any(
-            not isinstance(x, ReadOnlyMcpGrant) for x in permitted
-        ) or len(set(x.tool_name for x in permitted)) != len(permitted):
+        if (
+            not permitted
+            or len(permitted) > 256
+            or any(not isinstance(x, ReadOnlyMcpGrant) for x in permitted)
+            or len(set(x.tool_name for x in permitted)) != len(permitted)
+        ):
             raise InvalidInputError("MCP approved tool list must be finite and unique")
         self._supervisor = supervisor
         self._sandbox = sandbox
@@ -133,7 +137,9 @@ class SandboxedMcpClient:
             raise StateMismatchError("MCP tool signature changed since operator approval")
         decision = self._approve_call(tool, arguments)
         if decision is not None:
-            raise ScopeDeniedError("MCP approval callback must fail by raising, not by returning a value")
+            raise ScopeDeniedError(
+                "MCP approval callback must fail by raising, not by returning a value"
+            )
 
     async def __aenter__(self) -> SandboxedMcpClient:
         if self._process is not None:
@@ -143,8 +149,10 @@ class SandboxedMcpClient:
         self._capabilities.authorize(definition, self._task_contract)
         if definition.secret_refs:
             raise ScopeDeniedError("MCP secret injection awaits a qualified credential broker")
-        if any(name not in {"LANG", "LC_ALL", "TZ", "PYTHONUNBUFFERED", "NO_COLOR"}
-               for name, _ in definition.environment):
+        if any(
+            name not in {"LANG", "LC_ALL", "TZ", "PYTHONUNBUFFERED", "NO_COLOR"}
+            for name, _ in definition.environment
+        ):
             raise ScopeDeniedError("MCP server environment variable is not approved")
         if not definition.accepts_stdin or definition.allow_arguments:
             raise ScopeDeniedError("MCP server must have fixed argv and approved stdio")
@@ -187,8 +195,13 @@ class SandboxedMcpClient:
             # Refuse grants for tools absent from this exact, pinned discovery.
             for name, grant in self._grants.items():
                 definition = self._catalog.tool(name)
-                if grant.tool_fingerprint is not None and definition.fingerprint != grant.tool_fingerprint:
-                    raise StateMismatchError("MCP approved tool is not the discovered implementation")
+                if (
+                    grant.tool_fingerprint is not None
+                    and definition.fingerprint != grant.tool_fingerprint
+                ):
+                    raise StateMismatchError(
+                        "MCP approved tool is not the discovered implementation"
+                    )
             return self
         except BaseException:
             await self.close(force=True)
@@ -238,9 +251,11 @@ class SandboxedMcpClient:
         """Source/config identity for the caller's durable evidence ledger."""
         if self._launched_definition_hash is None or self._catalog is None:
             return None
-        return content_hash({
-            "server_definition_hash": self._launched_definition_hash,
-            "tool_catalog_hash": self._catalog.fingerprint,
-            "isolation_identity": self.isolation_identity,
-            "candidate_root": str(self._root),
-        })
+        return content_hash(
+            {
+                "server_definition_hash": self._launched_definition_hash,
+                "tool_catalog_hash": self._catalog.fingerprint,
+                "isolation_identity": self.isolation_identity,
+                "candidate_root": str(self._root),
+            }
+        )

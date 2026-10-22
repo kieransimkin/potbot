@@ -1,4 +1,5 @@
 """T02.3 typed CLI adapter contract tests; ProcessSupervisor is simulated."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,12 +8,12 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.execution import ActionProposal, CapabilityContext, ToolDefinition, ToolRegistry
-from potbot.tools.cli_adapter import ApprovedCliAdapter
 from potbot.tools.supervisor import ProcessResult, ProcessSupervisor
 from potbot.workspace_sandbox import WorkspaceSandbox
+
+from potbot.tools.cli_adapter import ApprovedCliAdapter
 
 
 class RecordingSupervisor(ProcessSupervisor):
@@ -23,8 +24,16 @@ class RecordingSupervisor(ProcessSupervisor):
     def run(self, request):
         self.requests.append(request)
         return ProcessResult(
-            "completed", 0, b"verified command output\n", b"", 17,
-            False, False, True, self.isolation_identity, processes_stopped=True,
+            "completed",
+            0,
+            b"verified command output\n",
+            b"",
+            17,
+            False,
+            False,
+            True,
+            self.isolation_identity,
+            processes_stopped=True,
         )
 
 
@@ -33,15 +42,19 @@ def setup(tmp_path: Path, *, mutates: bool = False, allow_arguments: bool = Fals
     candidate = root / "candidates" / "candidate-one"
     candidate.mkdir(parents=True, exist_ok=True)
     tool = ToolDefinition(
-        name="python-version", capability="local-cli",
+        name="python-version",
+        capability="local-cli",
         argv_prefix=(sys.executable, "-V"),
-        mutates=mutates, allow_arguments=allow_arguments,
+        mutates=mutates,
+        allow_arguments=allow_arguments,
     )
     with open(sys.executable, "rb") as fd:
         pinned = hashlib.file_digest(fd, "sha256").hexdigest()
     arguments = dict(
-        supervisor=RecordingSupervisor(), sandbox=WorkspaceSandbox(root),
-        registry=ToolRegistry((tool,)), capabilities=CapabilityContext((tool.name,)),
+        supervisor=RecordingSupervisor(),
+        sandbox=WorkspaceSandbox(root),
+        registry=ToolRegistry((tool,)),
+        capabilities=CapabilityContext((tool.name,)),
         task_contract={"capabilities": (tool.capability,)},
         candidate_root=candidate,
         pinned_executables={sys.executable: pinned},
@@ -104,18 +117,24 @@ def test_mutation_uses_existing_durable_gateway_not_this_adapter(tmp_path: Path)
 def test_untrusted_dynamic_arguments_fail_closed(tmp_path: Path):
     arguments, tool = setup(tmp_path, allow_arguments=True)
     with pytest.raises(ScopeDeniedError):
-        ApprovedCliAdapter(**arguments).run(ActionProposal(kind=tool.name, arguments=("; rm -rf /",)))
+        ApprovedCliAdapter(**arguments).run(
+            ActionProposal(kind=tool.name, arguments=("; rm -rf /",))
+        )
     assert not arguments["supervisor"].requests
 
 
 def test_operator_supplied_exact_argument_policy(tmp_path: Path):
     arguments, tool = setup(tmp_path, allow_arguments=True)
+
     def policy(argv: tuple[str, ...]) -> None:
         if argv != ("--version",):
             raise ScopeDeniedError("not permitted")
+
     arguments["argument_policies"] = {tool.name: policy}
     adapter = ApprovedCliAdapter(**arguments)
-    assert adapter.run(ActionProposal(kind=tool.name, arguments=("--version",))).outcome == "completed"
+    assert (
+        adapter.run(ActionProposal(kind=tool.name, arguments=("--version",))).outcome == "completed"
+    )
     with pytest.raises(ScopeDeniedError):
         adapter.run(ActionProposal(kind=tool.name, arguments=("&&", "rm", "-rf", "/")))
     assert len(arguments["supervisor"].requests) == 1
@@ -147,7 +166,9 @@ def test_no_shell_wrapper_entrypoints(tmp_path: Path):
 
 def test_secrets_not_injected_to_cli(tmp_path: Path):
     arguments, tool = setup(tmp_path)
-    arguments["registry"] = ToolRegistry((replace(tool, secret_refs=(("TOKEN", "secret://something"),)),))
+    arguments["registry"] = ToolRegistry(
+        (replace(tool, secret_refs=(("TOKEN", "secret://something"),)),)
+    )
     with pytest.raises(ScopeDeniedError):
         ApprovedCliAdapter(**arguments).run(ActionProposal(kind=tool.name))
 

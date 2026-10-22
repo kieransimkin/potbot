@@ -28,9 +28,9 @@ ArgPolicy = Callable[[tuple[str, ...]], None]
 
 # Shells execute language text rather than a bounded argv contract. Do not
 # expose them as general-purpose tools in this default profile.
-_SHELL_NAMES = frozenset({
-    "sh", "bash", "dash", "zsh", "fish", "cmd.exe", "powershell.exe", "pwsh", "pwsh.exe"
-})
+_SHELL_NAMES = frozenset(
+    {"sh", "bash", "dash", "zsh", "fish", "cmd.exe", "powershell.exe", "pwsh", "pwsh.exe"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,19 +51,21 @@ class CliObservation:
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({
-            "definition_hash": self.definition_hash,
-            "proposal_hash": self.proposal_hash,
-            "isolation_identity": self.isolation_identity,
-            "outcome": self.outcome,
-            "exit_code": self.exit_code,
-            "stdout_hash": hashlib.sha256(self.stdout.encode("utf-8")).hexdigest(),
-            "stderr_hash": hashlib.sha256(self.stderr.encode("utf-8")).hexdigest(),
-            "stdout_truncated": self.stdout_truncated,
-            "stderr_truncated": self.stderr_truncated,
-            "elapsed_ms": self.elapsed_ms,
-            "processes_stopped": self.processes_stopped,
-        })
+        return content_hash(
+            {
+                "definition_hash": self.definition_hash,
+                "proposal_hash": self.proposal_hash,
+                "isolation_identity": self.isolation_identity,
+                "outcome": self.outcome,
+                "exit_code": self.exit_code,
+                "stdout_hash": hashlib.sha256(self.stdout.encode("utf-8")).hexdigest(),
+                "stderr_hash": hashlib.sha256(self.stderr.encode("utf-8")).hexdigest(),
+                "stdout_truncated": self.stdout_truncated,
+                "stderr_truncated": self.stderr_truncated,
+                "elapsed_ms": self.elapsed_ms,
+                "processes_stopped": self.processes_stopped,
+            }
+        )
 
 
 class ApprovedCliAdapter:
@@ -81,11 +83,15 @@ class ApprovedCliAdapter:
         pinned_executables: Mapping[str, str],
         argument_policies: Mapping[str, ArgPolicy] | None = None,
     ) -> None:
-        if not isinstance(sandbox, WorkspaceSandbox) or not isinstance(supervisor, ProcessSupervisor):
+        if not isinstance(sandbox, WorkspaceSandbox) or not isinstance(
+            supervisor, ProcessSupervisor
+        ):
             raise InvalidInputError("CLI requires a registered sandbox and ProcessSupervisor")
         self.sandbox = sandbox
         self.candidate_root = sandbox.confine(candidate_root, area="candidates", must_exist=True)
-        if not self.candidate_root.is_dir() or self.candidate_root.parent != sandbox.path("candidates"):
+        if not self.candidate_root.is_dir() or self.candidate_root.parent != sandbox.path(
+            "candidates"
+        ):
             raise ScopeDeniedError("CLI work must use one actual candidate directory")
         self.supervisor = supervisor
         self.registry = registry
@@ -102,8 +108,10 @@ class ApprovedCliAdapter:
         self.capabilities.authorize(tool, self.task_contract)
         if tool.secret_refs:
             raise ScopeDeniedError("CLI credential injection requires the later scoped broker")
-        if any(name not in {"LANG", "LC_ALL", "TZ", "PYTHONUNBUFFERED", "NO_COLOR"}
-               for name, _ in tool.environment):
+        if any(
+            name not in {"LANG", "LC_ALL", "TZ", "PYTHONUNBUFFERED", "NO_COLOR"}
+            for name, _ in tool.environment
+        ):
             raise ScopeDeniedError("CLI environment variable is not in the safe profile")
         if tool.mutates:
             raise ScopeDeniedError("CLI mutations require the existing durable ToolGateway")
@@ -142,7 +150,8 @@ class ApprovedCliAdapter:
                 self.sandbox.path(area) for area in ("models", "tools", "dependencies")
             ),
             writable_roots=tuple(
-                self.sandbox.path(area) for area in ("tmp", "cache", "environments", "builds", "tests")
+                self.sandbox.path(area)
+                for area in ("tmp", "cache", "environments", "builds", "tests")
             ),
         )
         result: ProcessResult = self.supervisor.run(request)

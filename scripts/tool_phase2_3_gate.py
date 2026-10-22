@@ -49,11 +49,17 @@ def counts(path: Path) -> dict[str, int]:
     }
 
 
-def _pytest(root: Path, report: Path, selectors: tuple[str, ...], *, timeout: int) -> dict[str, Any]:
+def _pytest(
+    root: Path, report: Path, selectors: tuple[str, ...], *, timeout: int
+) -> dict[str, Any]:
     try:
         process = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", *selectors, f"--junitxml={report}"],
-            cwd=root, capture_output=True, text=True, timeout=timeout, check=False,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
         )
         exit_code = process.returncode
     except (OSError, subprocess.TimeoutExpired):
@@ -62,8 +68,9 @@ def _pytest(root: Path, report: Path, selectors: tuple[str, ...], *, timeout: in
     return {
         "exit_code": exit_code,
         "test_counts": metrics,
-        "passed": exit_code == 0 and metrics["tests"] > 0 and
-        metrics["skipped"] == metrics["failures"] == metrics["errors"] == 0,
+        "passed": exit_code == 0
+        and metrics["tests"] > 0
+        and metrics["skipped"] == metrics["failures"] == metrics["errors"] == 0,
     }
 
 
@@ -77,7 +84,8 @@ def run(root: Path, artifact_root: Path, *, mode: str = "offline") -> dict[str, 
         path = root / relative
         digests[relative] = (
             hashlib.sha256(path.read_bytes()).hexdigest()
-            if path.is_file() and not path.is_symlink() else None
+            if path.is_file() and not path.is_symlink()
+            else None
         )
     offline = _pytest(root, artifact_root / "t02-3-unit.xml", UNIT_SELECTORS, timeout=240)
     qualified_sandbox: dict[str, Any] | None = None
@@ -91,28 +99,49 @@ def run(root: Path, artifact_root: Path, *, mode: str = "offline") -> dict[str, 
             full_dir.mkdir(exist_ok=True)
             try:
                 result = subprocess.run(
-                    [sys.executable, str(root / "scripts/check.py"),
-                     "--with-postgres", "--with-sandbox", "--artifacts", str(full_dir)],
-                    cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    check=False, timeout=1800,
+                    [
+                        sys.executable,
+                        str(root / "scripts/check.py"),
+                        "--with-postgres",
+                        "--with-sandbox",
+                        "--artifacts",
+                        str(full_dir),
+                    ],
+                    cwd=root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                    timeout=1800,
                 )
                 summary_file = full_dir / "summary.json"
                 summary = json.loads(summary_file.read_text()) if summary_file.is_file() else {}
-                complete_application = "passed" if (
-                    result.returncode == 0 and summary.get("success") is True
-                    and summary.get("postgres_requested") is True
-                    and summary.get("sandbox_requested") is True
-                ) else "failed"
+                complete_application = (
+                    "passed"
+                    if (
+                        result.returncode == 0
+                        and summary.get("success") is True
+                        and summary.get("postgres_requested") is True
+                        and summary.get("sandbox_requested") is True
+                    )
+                    else "failed"
+                )
             except (OSError, subprocess.TimeoutExpired):
                 complete_application = "failed"
     qualified = (
-        all(digests.values()) and offline["passed"] and qualified_sandbox is not None
-        and qualified_sandbox["passed"] and complete_application == "passed"
+        all(digests.values())
+        and offline["passed"]
+        and qualified_sandbox is not None
+        and qualified_sandbox["passed"]
+        and complete_application == "passed"
     )
     try:
         sha = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=root, check=True,
-            capture_output=True, text=True, timeout=4,
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=4,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         sha = None
@@ -128,7 +157,9 @@ def run(root: Path, artifact_root: Path, *, mode: str = "offline") -> dict[str, 
         "fully_qualified": bool(qualified),
         "unit_suite": offline,
         "source_sha256": digests,
-        "outstanding_gates": [] if qualified else [
+        "outstanding_gates": []
+        if qualified
+        else [
             "Qualified Linux Bubblewrap/seccomp interactive execution and full PostgreSQL CI",
             "Controller-owned durable tool dispatch/lease/budget/side-effect reconciliation (T03)",
             "Production credential and network egress controls remain disabled",
@@ -146,12 +177,22 @@ def main() -> int:
     )
     args = parser.parse_args()
     result = run(ROOT, args.artifacts, mode=args.mode)
-    print(json.dumps({
-        "stage": result["stage"], "offline_passed": result["offline_passed"],
-        "fully_qualified": result["fully_qualified"],
-        "unit_tests": result["unit_suite"]["test_counts"],
-    }, indent=2))
-    return 0 if (result["fully_qualified"] if args.mode == "qualified" else result["offline_passed"]) else 1
+    print(
+        json.dumps(
+            {
+                "stage": result["stage"],
+                "offline_passed": result["offline_passed"],
+                "fully_qualified": result["fully_qualified"],
+                "unit_tests": result["unit_suite"]["test_counts"],
+            },
+            indent=2,
+        )
+    )
+    return (
+        0
+        if (result["fully_qualified"] if args.mode == "qualified" else result["offline_passed"])
+        else 1
+    )
 
 
 if __name__ == "__main__":

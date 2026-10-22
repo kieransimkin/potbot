@@ -42,7 +42,9 @@ MAX_PAGES = 32
 MAX_NOTIFICATION_MESSAGES = 32
 _MAX_SCHEMA_BYTES = 128 * 1024
 _IDENTIFIER = re.compile(r"[a-z][a-z0-9_-]{0,31}\Z")
-_ALLOWED_EFFECTS = frozenset({"read_only", "idempotent_write", "non_idempotent_write", "destructive"})
+_ALLOWED_EFFECTS = frozenset(
+    {"read_only", "idempotent_write", "non_idempotent_write", "destructive"}
+)
 
 
 class McpProtocolError(ToolFailureError):
@@ -108,7 +110,11 @@ def decode_reply(document: Mapping[str, Any], request_id: int) -> dict[str, Any]
         raise McpProtocolError("MCP response must contain exactly one result or error")
     if "error" in document:
         error = document["error"]
-        if not isinstance(error, dict) or type(error.get("code")) is not int or not isinstance(error.get("message"), str):
+        if (
+            not isinstance(error, dict)
+            or type(error.get("code")) is not int
+            or not isinstance(error.get("message"), str)
+        ):
             raise McpProtocolError("Malformed JSON-RPC error")
         raise McpRpcError(error["code"], error["message"])
     result = document["result"]
@@ -130,11 +136,15 @@ def _local_references_only(document: Any) -> None:
             for key, child in node.items():
                 if key in ("$ref", "$dynamicRef", "$recursiveRef"):
                     if not isinstance(child, str) or not child.startswith("#/") or len(child) > 512:
-                        raise McpProtocolError("Remote or unbounded MCP schema references are forbidden")
+                        raise McpProtocolError(
+                            "Remote or unbounded MCP schema references are forbidden"
+                        )
                 if key == "x-mcp-header":
                     # Header-mirrored schemas require v2's protocol-level verified
                     # encoding and annotation location checks; fail closed here.
-                    raise CapabilityUnavailableError("MCP header-mirrored tool inputs are not enabled")
+                    raise CapabilityUnavailableError(
+                        "MCP header-mirrored tool inputs are not enabled"
+                    )
                 stack.append((child, depth + 1))
         elif isinstance(node, list):
             stack.extend((child, depth + 1) for child in node)
@@ -153,7 +163,9 @@ def _schema(record: object, label: str) -> str:
     try:
         from jsonschema.validators import validator_for
     except ImportError as error:
-        raise CapabilityUnavailableError("MCP schema checking needs the Potbot semantics extra") from error
+        raise CapabilityUnavailableError(
+            "MCP schema checking needs the Potbot semantics extra"
+        ) from error
     try:
         validator = validator_for(record)
         validator.check_schema(record)
@@ -170,7 +182,9 @@ def validate_arguments(tool: McpToolInfo, arguments: object) -> None:
     try:
         from jsonschema.validators import validator_for
     except ImportError as error:
-        raise CapabilityUnavailableError("MCP schema checking needs the Potbot semantics extra") from error
+        raise CapabilityUnavailableError(
+            "MCP schema checking needs the Potbot semantics extra"
+        ) from error
     schema = json.loads(tool.input_schema_json)
     _local_references_only(schema)
     try:
@@ -194,7 +208,11 @@ class McpToolInfo:
         description = document.get("description", "No description supplied")
         if not isinstance(name, str) or not 1 <= len(name) <= 128 or any(ord(x) < 32 for x in name):
             raise McpProtocolError("MCP tool has no valid name")
-        if not isinstance(description, str) or len(description) > 4096 or any(ord(x) < 32 and x not in "\n\t" for x in description):
+        if (
+            not isinstance(description, str)
+            or len(description) > 4096
+            or any(ord(x) < 32 and x not in "\n\t" for x in description)
+        ):
             raise McpProtocolError("MCP tool has an invalid description")
         input_schema = _schema(document.get("inputSchema"), "MCP input")
         output_schema = document.get("outputSchema")
@@ -204,12 +222,14 @@ class McpToolInfo:
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({
-            "name": self.name,
-            "description": self.description,
-            "input_schema_json": self.input_schema_json,
-            "output_schema_json": self.output_schema_json,
-        })
+        return content_hash(
+            {
+                "name": self.name,
+                "description": self.description,
+                "input_schema_json": self.input_schema_json,
+                "output_schema_json": self.output_schema_json,
+            }
+        )
 
     def to_capability(
         self,
@@ -260,9 +280,15 @@ class McpCallResult:
     def from_wire(cls, name: str, result: dict[str, Any]) -> McpCallResult:
         # 2026-era MRTR/Task extensions are intentionally not silently followed.
         if result.get("resultType") == "input_required" or "inputRequests" in result:
-            raise CapabilityUnavailableError("Interactive MCP tool results require a separate approved flow")
+            raise CapabilityUnavailableError(
+                "Interactive MCP tool results require a separate approved flow"
+            )
         raw_content = result.get("content", [])
-        if not isinstance(raw_content, list) or len(raw_content) > 128 or any(not isinstance(x, dict) for x in raw_content):
+        if (
+            not isinstance(raw_content, list)
+            or len(raw_content) > 128
+            or any(not isinstance(x, dict) for x in raw_content)
+        ):
             raise McpProtocolError("MCP tool returned malformed content blocks")
         structured = result.get("structuredContent")
         if structured is not None and not isinstance(structured, dict):
@@ -356,7 +382,11 @@ class McpClient:
             return MODERN
         result = await self._rpc(
             "initialize",
-            {"protocolVersion": LEGACY, "capabilities": {}, "clientInfo": {"name": "potbot", "version": "0.5.0"}},
+            {
+                "protocolVersion": LEGACY,
+                "capabilities": {},
+                "clientInfo": {"name": "potbot", "version": "0.5.0"},
+            },
         )
         version = result.get("protocolVersion")
         if version not in SUPPORTED_LEGACY:
@@ -390,11 +420,17 @@ class McpClient:
             if next_cursor is None:
                 catalog = McpCatalog(
                     tuple(tools),
-                    content_hash({"protocol_version": self._version, "tools": [x.fingerprint for x in tools]}),
+                    content_hash(
+                        {"protocol_version": self._version, "tools": [x.fingerprint for x in tools]}
+                    ),
                 )
                 self._catalog = catalog
                 return catalog
-            if not isinstance(next_cursor, str) or not 1 <= len(next_cursor) <= 2048 or next_cursor in seen:
+            if (
+                not isinstance(next_cursor, str)
+                or not 1 <= len(next_cursor) <= 2048
+                or next_cursor in seen
+            ):
                 raise McpProtocolError("MCP listing cursor is invalid or cycling")
             seen.add(next_cursor)
             cursor = next_cursor
@@ -422,13 +458,20 @@ class McpClient:
         result = McpCallResult.from_wire(name, outcome)
         if tool.output_schema_json is not None and not result.is_error:
             if result.structured_content is None:
-                raise McpProtocolError("Tool declared an output schema but omitted structuredContent")
+                raise McpProtocolError(
+                    "Tool declared an output schema but omitted structuredContent"
+                )
             schema = json.loads(tool.output_schema_json)
             try:
                 from jsonschema.validators import validator_for
+
                 validator_for(schema)(schema).validate(result.structured_content)
             except ImportError as error:
-                raise CapabilityUnavailableError("MCP output validation requires semantics") from error
+                raise CapabilityUnavailableError(
+                    "MCP output validation requires semantics"
+                ) from error
             except Exception as error:
-                raise McpProtocolError("MCP tool result violates its declared output schema") from error
+                raise McpProtocolError(
+                    "MCP tool result violates its declared output schema"
+                ) from error
         return result

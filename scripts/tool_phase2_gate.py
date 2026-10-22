@@ -56,7 +56,9 @@ def run(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str, Any]
     for relative in SOURCES:
         item = root / relative
         source_hashes[relative] = (
-            hashlib.sha256(item.read_bytes()).hexdigest() if item.is_file() and not item.is_symlink() else None
+            hashlib.sha256(item.read_bytes()).hexdigest()
+            if item.is_file() and not item.is_symlink()
+            else None
         )
     tests: list[dict[str, Any]] = []
     for stage_id, selectors in TESTS.items():
@@ -64,20 +66,29 @@ def run(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str, Any]
         try:
             process = subprocess.run(
                 [sys.executable, "-m", "pytest", "-q", *selectors, f"--junitxml={report}"],
-                cwd=root, check=False, capture_output=True, timeout=240, text=True,
+                cwd=root,
+                check=False,
+                capture_output=True,
+                timeout=240,
+                text=True,
             )
             exit_code = process.returncode
             # Do not persist arbitrary subprocess logs; they might contain test credentials.
         except (OSError, subprocess.TimeoutExpired):
             exit_code = 124
         totals = cases(report)
-        tests.append({
-            "stage": stage_id,
-            "exit_code": exit_code,
-            "test_counts": totals,
-            "status": "offline_passed" if exit_code == 0 and totals["tests"] > 0 and
-                totals["failures"] == totals["errors"] == totals["skipped"] == 0 else "failed",
-        })
+        tests.append(
+            {
+                "stage": stage_id,
+                "exit_code": exit_code,
+                "test_counts": totals,
+                "status": "offline_passed"
+                if exit_code == 0
+                and totals["tests"] > 0
+                and totals["failures"] == totals["errors"] == totals["skipped"] == 0
+                else "failed",
+            }
+        )
     success = all(x is not None for x in source_hashes.values()) and all(
         x["status"] == "offline_passed" for x in tests
     )
@@ -87,14 +98,30 @@ def run(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str, Any]
         full_dir.mkdir(exist_ok=True)
         try:
             process = subprocess.run(
-                [sys.executable, str(root / "scripts/check.py"), "--with-postgres", "--with-sandbox", "--artifacts", str(full_dir)],
-                cwd=root, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                [
+                    sys.executable,
+                    str(root / "scripts/check.py"),
+                    "--with-postgres",
+                    "--with-sandbox",
+                    "--artifacts",
+                    str(full_dir),
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 timeout=1800,
             )
             summary = full_dir / "summary.json"
             details = json.loads(summary.read_text(encoding="utf-8")) if summary.is_file() else {}
-            qualified_application_checks = "passed" if process.returncode == 0 and details.get("success") is True and \
-                details.get("postgres_requested") is True and details.get("sandbox_requested") is True else "failed"
+            qualified_application_checks = (
+                "passed"
+                if process.returncode == 0
+                and details.get("success") is True
+                and details.get("postgres_requested") is True
+                and details.get("sandbox_requested") is True
+                else "failed"
+            )
         except (OSError, subprocess.TimeoutExpired):
             qualified_application_checks = "failed"
     output = {
@@ -113,20 +140,31 @@ def run(root: Path, artifacts: Path, *, mode: str = "offline") -> dict[str, Any]
         "files_sha256": source_hashes,
         "stages": tests,
     }
-    (artifacts / "phase2-gate.json").write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
+    (artifacts / "phase2-gate.json").write_text(
+        json.dumps(output, indent=2) + "\n", encoding="utf-8"
+    )
     return output
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("offline", "qualified"), default="offline")
-    parser.add_argument("--artifacts", type=Path, default=ROOT / "artifacts" / "tool-platform-phase2")
+    parser.add_argument(
+        "--artifacts", type=Path, default=ROOT / "artifacts" / "tool-platform-phase2"
+    )
     arguments = parser.parse_args()
     result = run(ROOT, arguments.artifacts, mode=arguments.mode)
-    print(json.dumps({"offline_transport_tests_passed": result["offline_transport_tests_passed"],
-                      "application_full_checks": result["application_full_checks"],
-                      "phase2_fully_qualified": False,
-                      "stages": result["stages"]}, indent=2))
+    print(
+        json.dumps(
+            {
+                "offline_transport_tests_passed": result["offline_transport_tests_passed"],
+                "application_full_checks": result["application_full_checks"],
+                "phase2_fully_qualified": False,
+                "stages": result["stages"],
+            },
+            indent=2,
+        )
+    )
     return 0 if result["offline_transport_tests_passed"] and arguments.mode == "offline" else 1
 
 
