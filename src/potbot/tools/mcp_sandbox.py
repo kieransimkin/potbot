@@ -193,10 +193,10 @@ class SandboxedMcpClient:
             self._catalog = await self._client.refresh_tools()
             # Refuse grants for tools absent from this exact, pinned discovery.
             for name, grant in self._grants.items():
-                definition = self._catalog.tool(name)
+                discovered_tool = self._catalog.tool(name)
                 if (
                     grant.tool_fingerprint is not None
-                    and definition.fingerprint != grant.tool_fingerprint
+                    and discovered_tool.fingerprint != grant.tool_fingerprint
                 ):
                     raise StateMismatchError(
                         "MCP approved tool is not the discovered implementation"

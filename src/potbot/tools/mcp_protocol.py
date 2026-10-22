@@ -389,7 +389,7 @@ class McpClient:
             },
         )
         version = result.get("protocolVersion")
-        if version not in SUPPORTED_LEGACY:
+        if not isinstance(version, str) or version not in SUPPORTED_LEGACY:
             raise McpProtocolError("Server negotiated an unsupported legacy MCP revision")
         await self._notify("notifications/initialized")
         self._version = version
