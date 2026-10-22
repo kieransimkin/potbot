@@ -1,0 +1,7 @@
+case,k1_attempts,k1_verified,k2_attempts,k2_verified,k2_backtracks,k2_selected
+arithmetic,1,0,2,1,1,fixture-coder-b
+boundary,1,0,2,1,1,fixture-coder-b
+normalization,1,0,2,1,1,fixture-coder-b
+reuse,1,0,2,1,1,fixture-coder-b
+regression,1,0,2,1,1,fixture-coder-b
+unresolved,1,0,2,0,1,
