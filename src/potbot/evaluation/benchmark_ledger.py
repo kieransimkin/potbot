@@ -67,7 +67,8 @@ class BenchmarkSample:
             if not isinstance(value, str) or _DIGEST.fullmatch(value) is None:
                 raise InvalidInputError(f"invalid benchmark {name}")
         if self.receipt_digest is not None and (
-            not isinstance(self.receipt_digest, str) or _DIGEST.fullmatch(self.receipt_digest) is None
+            not isinstance(self.receipt_digest, str)
+            or _DIGEST.fullmatch(self.receipt_digest) is None
         ):
             raise InvalidInputError("invalid benchmark verification receipt")
         if not isinstance(self.status, Outcome) or not isinstance(self.kind, SampleKind):
@@ -81,25 +82,39 @@ class BenchmarkSample:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "attempt_id": str(self.attempt_id), "case_id": self.case_id,
-            "cohort": self.cohort, "ordinal": self.ordinal,
-            "model_id": self.model_id, "model_revision": self.model_revision,
+            "attempt_id": str(self.attempt_id),
+            "case_id": self.case_id,
+            "cohort": self.cohort,
+            "ordinal": self.ordinal,
+            "model_id": self.model_id,
+            "model_revision": self.model_revision,
             "task_revision_digest": self.task_revision_digest,
             "repository_state_digest": self.repository_state_digest,
             "test_suite_digest": self.test_suite_digest,
-            "receipt_digest": self.receipt_digest, "status": self.status.value,
-            "kind": self.kind.value, "duration_ms": self.duration_ms,
+            "receipt_digest": self.receipt_digest,
+            "status": self.status.value,
+            "kind": self.kind.value,
+            "duration_ms": self.duration_ms,
             "money_microunits": self.money_microunits,
         }
-
 
     @classmethod
     def from_dict(cls, value: object) -> BenchmarkSample:
         required = {
-            "attempt_id", "case_id", "cohort", "ordinal", "model_id",
-            "model_revision", "task_revision_digest", "repository_state_digest",
-            "test_suite_digest", "receipt_digest", "status", "kind",
-            "duration_ms", "money_microunits",
+            "attempt_id",
+            "case_id",
+            "cohort",
+            "ordinal",
+            "model_id",
+            "model_revision",
+            "task_revision_digest",
+            "repository_state_digest",
+            "test_suite_digest",
+            "receipt_digest",
+            "status",
+            "kind",
+            "duration_ms",
+            "money_microunits",
         }
         if not isinstance(value, dict) or set(value) != required:
             raise InvalidInputError("benchmark sample fields are invalid")
@@ -109,14 +124,17 @@ class BenchmarkSample:
                 raise ValueError
             return cls(
                 attempt_id=identity,
-                case_id=value["case_id"], cohort=value["cohort"],
-                ordinal=value["ordinal"], model_id=value["model_id"],
+                case_id=value["case_id"],
+                cohort=value["cohort"],
+                ordinal=value["ordinal"],
+                model_id=value["model_id"],
                 model_revision=value["model_revision"],
                 task_revision_digest=value["task_revision_digest"],
                 repository_state_digest=value["repository_state_digest"],
                 test_suite_digest=value["test_suite_digest"],
                 receipt_digest=value["receipt_digest"],
-                status=Outcome(value["status"]), kind=SampleKind(value["kind"]),
+                status=Outcome(value["status"]),
+                kind=SampleKind(value["kind"]),
                 duration_ms=value["duration_ms"],
                 money_microunits=value["money_microunits"],
             )
@@ -142,8 +160,11 @@ def _wilson(success: int, total: int) -> tuple[float, float] | None:
 
 
 def evaluate_benchmark(
-    samples: tuple[BenchmarkSample, ...], *, checker: TrustedReceiptChecker | None = None,
-    baseline_cohort: str | None = None, treatment_cohort: str | None = None
+    samples: tuple[BenchmarkSample, ...],
+    *,
+    checker: TrustedReceiptChecker | None = None,
+    baseline_cohort: str | None = None,
+    treatment_cohort: str | None = None,
 ) -> dict[str, object]:
     """Score paired, case-identical cohorts; never assume absent usage is zero."""
     if not isinstance(samples, tuple) or not samples or len(samples) > 50_000:
@@ -158,7 +179,9 @@ def evaluate_benchmark(
         seen.add(sample.attempt_id)
         kinds.add(sample.kind)
         spec = (
-            sample.task_revision_digest, sample.repository_state_digest, sample.test_suite_digest
+            sample.task_revision_digest,
+            sample.repository_state_digest,
+            sample.test_suite_digest,
         )
         if sample.case_id in specifications and specifications[sample.case_id] != spec:
             raise StateMismatchError("benchmark cohorts use different task or test revisions")
@@ -207,8 +230,7 @@ def evaluate_benchmark(
                 pending += 1
                 continue
             if checker is None or any(
-                x.receipt_digest is None or not checker.qualified(x)
-                for x in attempts
+                x.receipt_digest is None or not checker.qualified(x) for x in attempts
             ):
                 continue
             completed_cases += 1
@@ -216,18 +238,21 @@ def evaluate_benchmark(
             successes += verified
             checked_case_results[case_id] = verified
         arm_results[cohort] = {
-            "n_cases": len(cases), "n_attempts": total_attempts,
+            "n_cases": len(cases),
+            "n_attempts": total_attempts,
             "receipt_qualified_cases": completed_cases,
             "reported_successes_not_trusted": reported_successes,
             "indeterminate_cases": pending,
             "verified_successes": successes if checker is not None else None,
             "verified_success_rate": (
                 round(successes / completed_cases, 6)
-                if checker is not None and completed_cases == len(cases) else None
+                if checker is not None and completed_cases == len(cases)
+                else None
             ),
             "wilson_95": (
                 _wilson(successes, completed_cases)
-                if checker is not None and completed_cases == len(cases) else None
+                if checker is not None and completed_cases == len(cases)
+                else None
             ),
             "measured_duration_ms": sum(durations) if durations else None,
             "duration_unknown_attempts": missing_duration,
@@ -251,12 +276,18 @@ def evaluate_benchmark(
         a, b = baseline_cohort, treatment_cohort
         a_cases = arm_results[a]["_checked_cases"]
         b_cases = arm_results[b]["_checked_cases"]
-        if isinstance(a_cases, dict) and isinstance(b_cases, dict) and set(a_cases) == set(b_cases) == cases:
+        if (
+            isinstance(a_cases, dict)
+            and isinstance(b_cases, dict)
+            and set(a_cases) == set(b_cases) == cases
+        ):
             better = sum(not a_cases[c] and b_cases[c] for c in cases)
             worse = sum(a_cases[c] and not b_cases[c] for c in cases)
             paired = {
-                "cohorts": [a, b], "n_paired": len(cases),
-                "improved": better, "regressed": worse,
+                "cohorts": [a, b],
+                "n_paired": len(cases),
+                "improved": better,
+                "regressed": worse,
                 "success_difference": round((better - worse) / len(cases), 6),
             }
     for result in arm_results.values():
@@ -264,13 +295,15 @@ def evaluate_benchmark(
     return {
         "schema_version": 1,
         "classification": next(iter(kinds)).value,
-        "qualification": "checked_external_receipts" if checker is not None else "unverified_claims",
+        "qualification": "checked_external_receipts"
+        if checker is not None
+        else "unverified_claims",
         "dataset_identity": content_hash({k: v for k, v in sorted(specifications.items())}),
         "cohorts": arm_results,
         "paired_comparison": paired,
         "limitation": (
             "Receipt checks attest execution identity, not unbiased sampling or task difficulty."
-            if checker is not None else
-            "Reported outcomes are unverified; no model success rate is published."
+            if checker is not None
+            else "Reported outcomes are unverified; no model success rate is published."
         ),
     }

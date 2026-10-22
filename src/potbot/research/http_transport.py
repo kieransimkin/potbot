@@ -56,9 +56,14 @@ class FetchPermit:
         except ValueError:
             raise InvalidInputError("provider URL is invalid") from None
         if (
-            parts.scheme != "https" or not hostname or not hostname.isascii()
-            or "." not in hostname or parts.username is not None
-            or parts.password is not None or parts.fragment or parts.query
+            parts.scheme != "https"
+            or not hostname
+            or not hostname.isascii()
+            or "." not in hostname
+            or parts.username is not None
+            or parts.password is not None
+            or parts.fragment
+            or parts.query
             or (port is not None and port != 443)
             or not parts.path.startswith("/")
         ):
@@ -75,9 +80,12 @@ class FetchPermit:
             raise InvalidInputError("IP literals cannot be research-provider destinations")
         if type(self.max_bytes) is not int or not 1 <= self.max_bytes <= 1048576:
             raise InvalidInputError("invalid fetch byte limit")
-        if isinstance(self.deadline_seconds, bool) or not isinstance(
-            self.deadline_seconds, int | float
-        ) or not math.isfinite(self.deadline_seconds) or not 0 < self.deadline_seconds <= 30:
+        if (
+            isinstance(self.deadline_seconds, bool)
+            or not isinstance(self.deadline_seconds, int | float)
+            or not math.isfinite(self.deadline_seconds)
+            or not 0 < self.deadline_seconds <= 30
+        ):
             raise InvalidInputError("invalid fetch deadline")
 
 
@@ -112,10 +120,18 @@ async def fetch_approved(permit: FetchPermit, *, client: httpx.AsyncClient) -> F
     if not isinstance(permit, FetchPermit):
         raise InvalidInputError("an explicit fetch permit is required")
 
-    def result(status: FetchStatus, code: int | None = None,
-               data: bytes | None = None, count: int = 0) -> FetchResult:
-        return FetchResult(status, permit.action_id, permit.exact_url, code, data,
-                           hashlib.sha256(data).hexdigest() if data is not None else None, count)
+    def result(
+        status: FetchStatus, code: int | None = None, data: bytes | None = None, count: int = 0
+    ) -> FetchResult:
+        return FetchResult(
+            status,
+            permit.action_id,
+            permit.exact_url,
+            code,
+            data,
+            hashlib.sha256(data).hexdigest() if data is not None else None,
+            count,
+        )
 
     try:
         async with asyncio.timeout(permit.deadline_seconds):
@@ -139,8 +155,9 @@ async def fetch_approved(permit: FetchPermit, *, client: httpx.AsyncClient) -> F
                 buffer = bytearray()
                 async for chunk in response.aiter_bytes():
                     if len(buffer) + len(chunk) > permit.max_bytes:
-                        return result(FetchStatus.RESPONSE_TOO_LARGE, code,
-                                      count=len(buffer) + len(chunk))
+                        return result(
+                            FetchStatus.RESPONSE_TOO_LARGE, code, count=len(buffer) + len(chunk)
+                        )
                     buffer.extend(chunk)
                 return result(FetchStatus.FETCHED, code, bytes(buffer), len(buffer))
     except TimeoutError:

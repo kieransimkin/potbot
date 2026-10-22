@@ -23,6 +23,7 @@ CHANGED = (
     "src/potbot/research/repository.py",
     "src/potbot/research/http_transport.py",
     "src/potbot/research/cog.py",
+    "src/potbot/research/source_policy.py",
     "scripts/benchmark_phase7.py",
     "scripts/refresh_phase7_hashes.py",
     "tests/unit/test_phase7_research.py",
@@ -31,8 +32,10 @@ CHANGED = (
     "tests/unit/test_phase7_http_transport.py",
     "tests/unit/test_phase7_research_cog.py",
     "tests/unit/test_phase7_schema.py",
+    "tests/unit/test_phase7_source_policy.py",
     "tests/integration/test_phase7_research_store.py",
     "docs/phase-7.md",
+    "docs/phase-7-increment-2.md",
     "docs/benchmarks/phase-7-methodology.md",
     "vocab/phase7-research-types.json",
     # Lint fixes are applied independently, but both patches may be checked

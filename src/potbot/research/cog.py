@@ -11,8 +11,13 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from potbot.cogs.contracts import (
-    CogOutcome, CogReceipt, CogRunContext, CogSignature, TypedCogValue,
-    check_cog_input, check_cog_output,
+    CogOutcome,
+    CogReceipt,
+    CogRunContext,
+    CogSignature,
+    TypedCogValue,
+    check_cog_input,
+    check_cog_output,
 )
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.serialization import content_hash
@@ -34,9 +39,9 @@ SIGNATURE = CogSignature(
 )
 # Digest of installed signatures/type identities. This is not a deployed SYN
 # release. The authoritative controller must verify the activated release too.
-RESEARCH_COG_SNAPSHOT_DIGEST = content_hash({
-    "phase7_cog_registry": 1, "installed_signatures": [SIGNATURE.to_dict()]
-})
+RESEARCH_COG_SNAPSHOT_DIGEST = content_hash(
+    {"phase7_cog_registry": 1, "installed_signatures": [SIGNATURE.to_dict()]}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +54,10 @@ class ResearchControllerScope:
 
     def __post_init__(self) -> None:
         for field in (
-            "workspace_id", "task_id", "need_revision_id", "repository_state_id",
+            "workspace_id",
+            "task_id",
+            "need_revision_id",
+            "repository_state_id",
             "source_snapshot_artifact_id",
         ):
             if not isinstance(getattr(self, field), UUID):
@@ -57,9 +65,7 @@ class ResearchControllerScope:
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({
-            name: str(getattr(self, name)) for name in self.__dataclass_fields__
-        })
+        return content_hash({name: str(getattr(self, name)) for name in self.__dataclass_fields__})
 
 
 def transform_repository_research(
@@ -75,7 +81,9 @@ def transform_repository_research(
     """
     if not isinstance(source, TypedCogValue) or not isinstance(context, CogRunContext):
         raise InvalidInputError("research Cog requires typed data and context")
-    if not isinstance(scope, ResearchControllerScope) or not isinstance(reader, SnapshotResearchAdapter):
+    if not isinstance(scope, ResearchControllerScope) or not isinstance(
+        reader, SnapshotResearchAdapter
+    ):
         raise ScopeDeniedError("research Cog requires a trusted source scope")
     if context.cog_snapshot_hash != RESEARCH_COG_SNAPSHOT_DIGEST:
         raise ScopeDeniedError("research Cog must use the exact installed signature snapshot")
@@ -92,14 +100,19 @@ def transform_repository_research(
     ):
         raise StateMismatchError("research Cog input does not match controller-pinned state")
     results = reader.inspect(action)
-    output = TypedCogValue(RESEARCH_BATCH, {
-        "schema_version": 1, "action_id": str(action.action_id),
-        "source_revision": reader.revision,
-        "observations": [result.to_dict() for result in results],
-    })
+    output = TypedCogValue(
+        RESEARCH_BATCH,
+        {
+            "schema_version": 1,
+            "action_id": str(action.action_id),
+            "source_revision": reader.revision,
+            "observations": [result.to_dict() for result in results],
+        },
+    )
     check_cog_output(SIGNATURE, output)
     receipt = CogReceipt(
-        cog_ref=REPOSITORY_COG, cog_type_ref=SIGNATURE.cog_type_ref,
+        cog_ref=REPOSITORY_COG,
+        cog_type_ref=SIGNATURE.cog_type_ref,
         binding_hash=SIGNATURE.binding_hash,
         cog_snapshot_hash=context.cog_snapshot_hash,
         task_revision_id=context.task_revision_id,

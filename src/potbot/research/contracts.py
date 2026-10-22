@@ -96,8 +96,12 @@ class ResearchScope:
 
     def __post_init__(self) -> None:
         for field in (
-            "workspace_id", "task_id", "contract_revision_id", "need_id",
-            "need_revision_id", "repository_state_id",
+            "workspace_id",
+            "task_id",
+            "contract_revision_id",
+            "need_id",
+            "need_revision_id",
+            "repository_state_id",
         ):
             if not isinstance(getattr(self, field), UUID):
                 raise InvalidInputError(f"{field} requires a UUID")
@@ -105,10 +109,17 @@ class ResearchScope:
 
     def to_dict(self) -> dict[str, str]:
         return {
-            **{k: str(getattr(self, k)) for k in (
-                "workspace_id", "task_id", "contract_revision_id", "need_id",
-                "need_revision_id", "repository_state_id",
-            )},
+            **{
+                k: str(getattr(self, k))
+                for k in (
+                    "workspace_id",
+                    "task_id",
+                    "contract_revision_id",
+                    "need_id",
+                    "need_revision_id",
+                    "repository_state_id",
+                )
+            },
             "semantic_release_digest": self.semantic_release_digest,
         }
 
@@ -116,10 +127,12 @@ class ResearchScope:
     def from_dict(cls, value: object) -> ResearchScope:
         if not isinstance(value, dict) or set(value) != set(cls.__dataclass_fields__):
             raise InvalidInputError("research scope fields are invalid")
-        return cls(**{
-            k: value[k] if k == "semantic_release_digest" else _parse_uuid(value[k], k)
-            for k in cls.__dataclass_fields__
-        })
+        return cls(
+            **{
+                k: value[k] if k == "semantic_release_digest" else _parse_uuid(value[k], k)
+                for k in cls.__dataclass_fields__
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,8 +168,13 @@ class ResearchQuery:
             if self.operation != ResearchOperation.QUERY_SOURCE:
                 raise InvalidInputError("external sources require a qualified source adapter")
         for name in (
-            "search_text", "expected_observation", "decision_effect",
-            "evidence_requirement", "stopping_condition", "fallback", "target_version",
+            "search_text",
+            "expected_observation",
+            "decision_effect",
+            "evidence_requirement",
+            "stopping_condition",
+            "fallback",
+            "target_version",
         ):
             _string(getattr(self, name), name)
         _unique(self.required_identifiers, "required_identifiers")
@@ -165,7 +183,10 @@ class ResearchQuery:
                 raise InvalidInputError("required identifiers cannot be split or rewritten")
         if self.operation == ResearchOperation.READ_FILE and self.search_text != "whole_file":
             raise InvalidInputError("read_file uses the explicit whole_file operation")
-        if self.operation in {ResearchOperation.FIND_LITERAL, ResearchOperation.SEARCH_EXAMPLE_CODE}:
+        if self.operation in {
+            ResearchOperation.FIND_LITERAL,
+            ResearchOperation.SEARCH_EXAMPLE_CODE,
+        }:
             if len(self.search_text) > 160 or "\n" in self.search_text:
                 raise InvalidInputError("literal searches must be single-line and bounded")
         for name, lower, upper in (
@@ -179,16 +200,20 @@ class ResearchQuery:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "category": self.category.value, "operation": self.operation.value,
-            "locator": self.locator, "search_text": self.search_text,
+            "category": self.category.value,
+            "operation": self.operation.value,
+            "locator": self.locator,
+            "search_text": self.search_text,
             "required_identifiers": list(self.required_identifiers),
             "expected_observation": self.expected_observation,
             "decision_effect": self.decision_effect,
             "evidence_requirement": self.evidence_requirement,
-            "stopping_condition": self.stopping_condition, "fallback": self.fallback,
+            "stopping_condition": self.stopping_condition,
+            "fallback": self.fallback,
             "target_version": self.target_version,
             "freshness_seconds": self.freshness_seconds,
-            "max_results": self.max_results, "max_source_bytes": self.max_source_bytes,
+            "max_results": self.max_results,
+            "max_source_bytes": self.max_source_bytes,
         }
 
     @classmethod
@@ -198,11 +223,14 @@ class ResearchQuery:
         if not isinstance(value.get("required_identifiers"), list):
             raise InvalidInputError("research identifiers must be a JSON list")
         try:
-            return cls(**{
-                **value, "category": ResearchCategory(value["category"]),
-                "operation": ResearchOperation(value["operation"]),
-                "required_identifiers": tuple(value["required_identifiers"]),
-            })
+            return cls(
+                **{
+                    **value,
+                    "category": ResearchCategory(value["category"]),
+                    "operation": ResearchOperation(value["operation"]),
+                    "required_identifiers": tuple(value["required_identifiers"]),
+                }
+            )
         except (TypeError, ValueError):
             raise InvalidInputError("invalid research query") from None
 
@@ -244,17 +272,21 @@ class ResearchAction:
         query = self.query.to_dict()
         query["search_text"] = self.query.normalized_query
         query["required_identifiers"] = sorted(self.query.required_identifiers)
-        return content_hash({
-            "schema_version": 1,
-            "scope": self.scope.to_dict(),
-            "query": query,
-            "predecessor_id": str(self.predecessor_id) if self.predecessor_id else None,
-        })
+        return content_hash(
+            {
+                "schema_version": 1,
+                "scope": self.scope.to_dict(),
+                "query": query,
+                "predecessor_id": str(self.predecessor_id) if self.predecessor_id else None,
+            }
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 1, "primary_type_ref": self.primary_type_ref,
-            "action_id": str(self.action_id), "scope": self.scope.to_dict(),
+            "schema_version": 1,
+            "primary_type_ref": self.primary_type_ref,
+            "action_id": str(self.action_id),
+            "scope": self.scope.to_dict(),
             "query": self.query.to_dict(),
             "predecessor_id": str(self.predecessor_id) if self.predecessor_id else None,
             "identity": self.identity,
@@ -263,8 +295,13 @@ class ResearchAction:
     @classmethod
     def from_dict(cls, value: object) -> ResearchAction:
         if not isinstance(value, dict) or set(value) != {
-            "schema_version", "primary_type_ref", "action_id", "scope", "query",
-            "predecessor_id", "identity",
+            "schema_version",
+            "primary_type_ref",
+            "action_id",
+            "scope",
+            "query",
+            "predecessor_id",
+            "identity",
         }:
             raise InvalidInputError("research action fields are invalid")
         item = cls(
@@ -273,7 +310,8 @@ class ResearchAction:
             query=ResearchQuery.from_dict(value["query"]),
             predecessor_id=(
                 _parse_uuid(value["predecessor_id"], "predecessor_id")
-                if value["predecessor_id"] is not None else None
+                if value["predecessor_id"] is not None
+                else None
             ),
             schema_version=value["schema_version"],
             primary_type_ref=value["primary_type_ref"],
@@ -290,8 +328,7 @@ class ResearchActionBook:
     this in-memory object is not safe as a durable or cross-worker coordinator.
     """
 
-    def __init__(self, *, workspace_id: UUID, task_id: UUID,
-                 need_revisions: dict[UUID, UUID]):
+    def __init__(self, *, workspace_id: UUID, task_id: UUID, need_revisions: dict[UUID, UUID]):
         if not isinstance(workspace_id, UUID) or not isinstance(task_id, UUID):
             raise InvalidInputError("action book requires scope UUIDs")
         if not isinstance(need_revisions, dict) or not all(
@@ -321,13 +358,18 @@ class ResearchActionBook:
                 raise RevisionConflictError("a new source locator requires a new research action")
             if previous.query.target_version != action.query.target_version:
                 raise RevisionConflictError("research reformulation changed its target version")
-            missing = set(previous.query.required_identifiers) - set(action.query.required_identifiers)
-            if missing or any(token not in action.query.search_text
-                              for token in action.query.required_identifiers):
+            missing = set(previous.query.required_identifiers) - set(
+                action.query.required_identifiers
+            )
+            if missing or any(
+                token not in action.query.search_text for token in action.query.required_identifiers
+            ):
                 raise RevisionConflictError("research reformulation dropped a required identifier")
             if action.query.search_text == previous.query.search_text:
                 raise InvalidInputError("research reformulation did not change its query")
-        elif any(token not in action.query.search_text for token in action.query.required_identifiers):
+        elif any(
+            token not in action.query.search_text for token in action.query.required_identifiers
+        ):
             raise InvalidInputError("research query does not retain required identifiers")
         existing = self.identities.get(action.identity)
         if existing is not None:
@@ -372,13 +414,17 @@ class ResearchObservation:
             _string(self.excerpt, "excerpt", maximum=262144)
             if self.content_digest is None:
                 raise InvalidInputError("an inspected excerpt must have a content digest")
-        if self.status == ObservationStatus.INSPECTED and (self.excerpt is None or self.content_digest is None):
+        if self.status == ObservationStatus.INSPECTED and (
+            self.excerpt is None or self.content_digest is None
+        ):
             raise InvalidInputError("inspected observations require content and digest")
         if (self.line_start is None) != (self.line_end is None):
             raise InvalidInputError("line range must include both bounds")
         if self.line_start is not None and (
-            self.line_end is None or type(self.line_start) is not int
-            or type(self.line_end) is not int or self.line_start < 1
+            self.line_end is None
+            or type(self.line_start) is not int
+            or type(self.line_end) is not int
+            or self.line_start < 1
             or self.line_end < self.line_start
         ):
             raise InvalidInputError("invalid excerpt range")
@@ -389,28 +435,41 @@ class ResearchObservation:
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({
-            "type": self.primary_type_ref, "action_id": str(self.action_id),
-            "status": self.status.value, "requested": self.requested_locator,
-            "resolved": self.resolved_locator, "revision": self.source_revision,
-            "time": self.retrieved_at.isoformat(), "digest": self.content_digest,
-            "excerpt_sha256": (
-                hashlib.sha256(self.excerpt.encode()).hexdigest() if self.excerpt else None
-            ), "range": [self.line_start, self.line_end],
-            "complete": self.scan_complete, "license": self.license_status,
-        })
+        return content_hash(
+            {
+                "type": self.primary_type_ref,
+                "action_id": str(self.action_id),
+                "status": self.status.value,
+                "requested": self.requested_locator,
+                "resolved": self.resolved_locator,
+                "revision": self.source_revision,
+                "time": self.retrieved_at.isoformat(),
+                "digest": self.content_digest,
+                "excerpt_sha256": (
+                    hashlib.sha256(self.excerpt.encode()).hexdigest() if self.excerpt else None
+                ),
+                "range": [self.line_start, self.line_end],
+                "complete": self.scan_complete,
+                "license": self.license_status,
+            }
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 1, "primary_type_ref": self.primary_type_ref,
-            "action_id": str(self.action_id), "status": self.status.value,
+            "schema_version": 1,
+            "primary_type_ref": self.primary_type_ref,
+            "action_id": str(self.action_id),
+            "status": self.status.value,
             "requested_locator": self.requested_locator,
             "resolved_locator": self.resolved_locator,
             "source_revision": self.source_revision,
             "retrieved_at": self.retrieved_at.isoformat(),
-            "content_digest": self.content_digest, "excerpt": self.excerpt,
-            "line_start": self.line_start, "line_end": self.line_end,
-            "scan_complete": self.scan_complete, "license_status": self.license_status,
+            "content_digest": self.content_digest,
+            "excerpt": self.excerpt,
+            "line_start": self.line_start,
+            "line_end": self.line_end,
+            "scan_complete": self.scan_complete,
+            "license_status": self.license_status,
             "fingerprint": self.fingerprint,
         }
 

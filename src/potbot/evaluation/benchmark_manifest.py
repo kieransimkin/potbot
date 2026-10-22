@@ -43,8 +43,11 @@ class BenchmarkCase:
     def __post_init__(self) -> None:
         _identifier(self.case_id, "case_id")
         for name in (
-            "task_revision_digest", "repository_state_digest", "test_suite_digest",
-            "model_input_digest", "hidden_evaluator_digest",
+            "task_revision_digest",
+            "repository_state_digest",
+            "test_suite_digest",
+            "model_input_digest",
+            "hidden_evaluator_digest",
         ):
             _digest(getattr(self, name), name)
 
@@ -76,7 +79,8 @@ class BenchmarkSuite:
         if not isinstance(self.kind, SampleKind):
             raise InvalidInputError("benchmark suite kind must be explicit")
         if (
-            not isinstance(self.cases, tuple) or not 1 <= len(self.cases) <= 10000
+            not isinstance(self.cases, tuple)
+            or not 1 <= len(self.cases) <= 10000
             or any(not isinstance(case, BenchmarkCase) for case in self.cases)
             or len({case.case_id for case in self.cases}) != len(self.cases)
         ):
@@ -85,8 +89,10 @@ class BenchmarkSuite:
             not isinstance(self.cohort_limits, tuple)
             or not 1 <= len(self.cohort_limits) <= 16
             or any(
-                not isinstance(row, tuple) or len(row) != 2
-                or type(row[1]) is not int or not 1 <= row[1] <= 64
+                not isinstance(row, tuple)
+                or len(row) != 2
+                or type(row[1]) is not int
+                or not 1 <= row[1] <= 64
                 for row in self.cohort_limits
             )
         ):
@@ -103,8 +109,10 @@ class BenchmarkSuite:
         ):
             raise InvalidInputError("benchmark models must be selected explicitly")
         _digest(self.randomization_digest, "randomization_digest")
-        if (type(self.max_money_microunits) is not int
-                or not 0 <= self.max_money_microunits <= 10**15):
+        if (
+            type(self.max_money_microunits) is not int
+            or not 0 <= self.max_money_microunits <= 10**15
+        ):
             raise InvalidInputError("benchmark cost ceiling is invalid")
 
     def to_dict(self) -> dict[str, Any]:
@@ -133,8 +141,7 @@ class BenchmarkSuite:
                 kind=SampleKind(value["kind"]),
                 cases=tuple(BenchmarkCase.from_dict(item) for item in value["cases"]),
                 cohort_limits=tuple(
-                    tuple(row) if isinstance(row, list) else row
-                    for row in value["cohort_limits"]
+                    tuple(row) if isinstance(row, list) else row for row in value["cohort_limits"]
                 ),
                 model_ids=tuple(value["model_ids"]),
                 randomization_digest=value["randomization_digest"],
@@ -167,10 +174,10 @@ def check_suite_samples(suite: BenchmarkSuite, samples: tuple[BenchmarkSample, .
         if case is None or item.cohort not in cohorts or item.model_id not in suite.model_ids:
             raise StateMismatchError("benchmark attempt is outside its registered suite")
         if item.kind != suite.kind or (
-            item.task_revision_digest, item.repository_state_digest, item.test_suite_digest
-        ) != (
-            case.task_revision_digest, case.repository_state_digest, case.test_suite_digest
-        ):
+            item.task_revision_digest,
+            item.repository_state_digest,
+            item.test_suite_digest,
+        ) != (case.task_revision_digest, case.repository_state_digest, case.test_suite_digest):
             raise StateMismatchError("benchmark attempt used another case or classification")
         if item.ordinal > cohorts[item.cohort]:
             raise StateMismatchError("benchmark attempt exceeded its cohort allowance")

@@ -12,8 +12,13 @@ from potbot.controller.information_needs import InformationNeedStore, NeedSpec
 from potbot.controller.research_store import ResearchStore
 from potbot.domain.errors import RevisionConflictError, ScopeDeniedError
 from potbot.research.contracts import (
-    ObservationStatus, ResearchAction, ResearchCategory, ResearchObservation,
-    ResearchOperation, ResearchQuery, ResearchScope,
+    ObservationStatus,
+    ResearchAction,
+    ResearchCategory,
+    ResearchObservation,
+    ResearchOperation,
+    ResearchQuery,
+    ResearchScope,
 )
 
 from .test_coding_pipeline import setup
@@ -24,7 +29,8 @@ pytestmark = pytest.mark.postgres
 def _setup(app_env, tmp_path):
     rig = setup(app_env, tmp_path)
     need = InformationNeedStore(app_env.db).create(
-        app_env.context, rig.episode_id,
+        app_env.context,
+        rig.episode_id,
         NeedSpec(
             question="Which source file is relevant?",
             pending_decision="Select a bounded implementation",
@@ -44,15 +50,25 @@ def _setup(app_env, tmp_path):
         ).fetchone()
     assert pin is not None
     scope = ResearchScope(
-        app_env.context.workspace_id, rig.episode_id, rig.contract_id,
-        UUID(need["id"]), UUID(need["current_revision_id"]),
-        rig.state["id"], pin["content_hash"],
+        app_env.context.workspace_id,
+        rig.episode_id,
+        rig.contract_id,
+        UUID(need["id"]),
+        UUID(need["current_revision_id"]),
+        rig.state["id"],
+        pin["content_hash"],
     )
     query = ResearchQuery(
-        ResearchCategory.REPOSITORY, ResearchOperation.READ_FILE,
-        "calculator.py", "whole_file", (), "Read the real calculator implementation",
-        "Choose an implementation", "Source bytes with a digest",
-        "Inspected source or an explicit miss", "Leave need open",
+        ResearchCategory.REPOSITORY,
+        ResearchOperation.READ_FILE,
+        "calculator.py",
+        "whole_file",
+        (),
+        "Read the real calculator implementation",
+        "Choose an implementation",
+        "Source bytes with a digest",
+        "Inspected source or an explicit miss",
+        "Leave need open",
     )
     return rig, scope, ResearchAction(uuid4(), scope, query)
 
@@ -66,13 +82,19 @@ def test_scoped_action_dedup_idempotency_and_content_integrity(app_env, tmp_path
     assert store.admit(app_env.context, replace(action, action_id=uuid4()), "research-B")["reused"]
     assert store.inspect(app_env.context, action.action_id) == action.to_dict()
     with pytest.raises(RevisionConflictError):
-        store.admit(app_env.context, replace(action, query=replace(action.query,
-                    max_results=9)), "research-A")
+        store.admit(
+            app_env.context,
+            replace(action, query=replace(action.query, max_results=9)),
+            "research-A",
+        )
     with pytest.raises(ScopeDeniedError):
         ResearchStore(app_env.other_db).inspect(app_env.other_context, action.action_id)
     with pytest.raises(RevisionConflictError):
-        store.admit(app_env.context, replace(action, scope=replace(
-            scope, need_revision_id=uuid4()), action_id=uuid4()), "research-C")
+        store.admit(
+            app_env.context,
+            replace(action, scope=replace(scope, need_revision_id=uuid4()), action_id=uuid4()),
+            "research-C",
+        )
 
 
 def test_observations_bind_the_exact_repository_artifact(app_env, tmp_path):
@@ -88,23 +110,44 @@ def test_observations_bind_the_exact_repository_artifact(app_env, tmp_path):
     assert state is not None
     row = next(item for item in state["manifest"]["files"] if item["path"] == "calculator.py")
     observed = ResearchObservation(
-        action.action_id, ObservationStatus.INSPECTED,
-        "calculator.py", "calculator.py", state["content_digest"],
-        datetime(2026, 10, 22, tzinfo=UTC), row["sha256"],
-        "def total():", 1, 1, True,
+        action.action_id,
+        ObservationStatus.INSPECTED,
+        "calculator.py",
+        "calculator.py",
+        state["content_digest"],
+        datetime(2026, 10, 22, tzinfo=UTC),
+        row["sha256"],
+        "def total():",
+        1,
+        1,
+        True,
     )
     recorded = store.record_snapshot_observation(
-        app_env.context, observed, state["snapshot_artifact_id"], "observe-A",
+        app_env.context,
+        observed,
+        state["snapshot_artifact_id"],
+        "observe-A",
     )
-    assert store.record_snapshot_observation(
-        app_env.context, observed, state["snapshot_artifact_id"], "observe-A",
-    ) == recorded
+    assert (
+        store.record_snapshot_observation(
+            app_env.context,
+            observed,
+            state["snapshot_artifact_id"],
+            "observe-A",
+        )
+        == recorded
+    )
     with pytest.raises(RevisionConflictError):
         store.record_snapshot_observation(
-            app_env.context, replace(observed, content_digest="f" * 64),
-            state["snapshot_artifact_id"], "observe-B",
+            app_env.context,
+            replace(observed, content_digest="f" * 64),
+            state["snapshot_artifact_id"],
+            "observe-B",
         )
     with pytest.raises(RevisionConflictError):
         store.record_snapshot_observation(
-            app_env.context, observed, uuid4(), "observe-C",
+            app_env.context,
+            observed,
+            uuid4(),
+            "observe-C",
         )
