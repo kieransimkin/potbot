@@ -44,10 +44,14 @@ def _valid_schema(raw: str) -> dict[str, Any]:
             raise InvalidInputError("API schema must be canonical JSON object")
         _no_remote_refs(schema)
         from jsonschema import Draft202012Validator
+
         Draft202012Validator.check_schema(schema)
     except ImportError as error:
         from potbot.domain.errors import CapabilityUnavailableError
-        raise CapabilityUnavailableError("API schema validation requires the semantics extra") from error
+
+        raise CapabilityUnavailableError(
+            "API schema validation requires the semantics extra"
+        ) from error
     except (ValueError, TypeError, RecursionError) as error:
         raise InvalidInputError("API schema is malformed") from error
     except Exception as error:
@@ -58,6 +62,7 @@ def _valid_schema(raw: str) -> dict[str, Any]:
 
 def _no_remote_refs(document: Any) -> None:
     """Never resolve arbitrary remote/local files or complex recursive schemas."""
+
     def visit(value: Any, depth: int) -> None:
         if depth > 40:
             raise InvalidInputError("API schema is too deeply nested")
@@ -70,6 +75,7 @@ def _no_remote_refs(document: Any) -> None:
         elif isinstance(value, list):
             for child in value:
                 visit(child, depth + 1)
+
     visit(document, 0)
 
 
@@ -79,6 +85,7 @@ def validate_json(schema_json: str, value: Any, *, label: str) -> None:
         if len(canonical_json(value).encode("utf-8")) > _MAX_JSON_BYTES:
             raise InvalidInputError(f"{label} exceeds JSON byte limit")
         from jsonschema import Draft202012Validator
+
         schema = _valid_schema(schema_json)
         if not Draft202012Validator(schema).is_valid(value):
             raise InvalidInputError(f"{label} does not match its pinned JSON schema")
@@ -125,17 +132,28 @@ class ApiOperation:
             raise InvalidInputError("API result size must be 1..1048576 bytes")
         if type(self.max_pages) is not int or not 1 <= self.max_pages <= 10:
             raise InvalidInputError("Pagination must have a strict page limit")
-        if (not isinstance(self.success_statuses, tuple) or not 1 <= len(self.success_statuses) <= 8
-                or any(type(x) is not int or not 200 <= x <= 299 for x in self.success_statuses)
-                or len(set(self.success_statuses)) != len(self.success_statuses)):
+        if (
+            not isinstance(self.success_statuses, tuple)
+            or not 1 <= len(self.success_statuses) <= 8
+            or any(type(x) is not int or not 200 <= x <= 299 for x in self.success_statuses)
+            or len(set(self.success_statuses)) != len(self.success_statuses)
+        ):
             raise InvalidInputError("API successful HTTP status codes must be pinned")
         if self.protocol in {"rest", "graphql"}:
-            if self.method not in _METHODS or not isinstance(self.target, str) or not _PATH.fullmatch(self.target):
+            if (
+                self.method not in _METHODS
+                or not isinstance(self.target, str)
+                or not _PATH.fullmatch(self.target)
+            ):
                 raise InvalidInputError("HTTP operation requires one safe relative path template")
             if self.target.startswith("//") or "/../" in self.target or "/./" in self.target:
                 raise InvalidInputError("API path cannot traverse directories")
         else:
-            if self.method != "UNARY" or not isinstance(self.target, str) or not _GRPC_METHOD.fullmatch(self.target):
+            if (
+                self.method != "UNARY"
+                or not isinstance(self.target, str)
+                or not _GRPC_METHOD.fullmatch(self.target)
+            ):
                 raise InvalidInputError("gRPC operation requires a pinned unary method")
         if self.protocol == "graphql":
             doc = self.graphql_document
@@ -148,15 +166,25 @@ class ApiOperation:
                 raise InvalidInputError("GraphQL query/mutation effect class mismatch")
         elif self.graphql_document is not None:
             raise InvalidInputError("Only GraphQL operations have documents")
-        if self.protocol == "rest" and self.method not in ("GET",) and self.effect_class == "read_only":
+        if (
+            self.protocol == "rest"
+            and self.method not in ("GET",)
+            and self.effect_class == "read_only"
+        ):
             raise InvalidInputError("Non-GET REST calls must not silently be read-only")
         if self.protocol == "rest" and self.method == "GET" and self.effect_class != "read_only":
             raise InvalidInputError("GET cannot be registered as a mutation")
-        if self.page_cursor_parameter is not None or self.next_cursor_field is not None or self.max_pages != 1:
+        if (
+            self.page_cursor_parameter is not None
+            or self.next_cursor_field is not None
+            or self.max_pages != 1
+        ):
             if not (
-                self.protocol == "rest" and self.method == "GET"
+                self.protocol == "rest"
+                and self.method == "GET"
                 and self.effect_class == "read_only"
-                and self.page_cursor_parameter and self.next_cursor_field
+                and self.page_cursor_parameter
+                and self.next_cursor_field
                 and re.fullmatch(r"[a-z][a-z0-9_]{0,40}", self.page_cursor_parameter)
                 and re.fullmatch(r"[a-z][a-z0-9_]{0,40}", self.next_cursor_field)
             ):
@@ -164,23 +192,36 @@ class ApiOperation:
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({
-            "name": self.name, "protocol": self.protocol, "effect_class": self.effect_class,
-            "target": self.target, "method": self.method,
-            "input_schema_json": self.input_schema_json, "output_schema_json": self.output_schema_json,
-            "source_hash": self.source_hash, "input_type_ref": self.input_type_ref,
-            "output_type_ref": self.output_type_ref, "graphql_document": self.graphql_document,
-            "timeout_ms": self.timeout_ms, "max_output_bytes": self.max_output_bytes,
-            "page_cursor_parameter": self.page_cursor_parameter,
-            "next_cursor_field": self.next_cursor_field, "max_pages": self.max_pages,
-            "success_statuses": self.success_statuses,
-        })
+        return content_hash(
+            {
+                "name": self.name,
+                "protocol": self.protocol,
+                "effect_class": self.effect_class,
+                "target": self.target,
+                "method": self.method,
+                "input_schema_json": self.input_schema_json,
+                "output_schema_json": self.output_schema_json,
+                "source_hash": self.source_hash,
+                "input_type_ref": self.input_type_ref,
+                "output_type_ref": self.output_type_ref,
+                "graphql_document": self.graphql_document,
+                "timeout_ms": self.timeout_ms,
+                "max_output_bytes": self.max_output_bytes,
+                "page_cursor_parameter": self.page_cursor_parameter,
+                "next_cursor_field": self.next_cursor_field,
+                "max_pages": self.max_pages,
+                "success_statuses": self.success_statuses,
+            }
+        )
 
     def to_capability(self) -> ToolCapabilityDescriptor:
         return ToolCapabilityDescriptor(
-            name=self.name, definition_type_ref=TOOL_DEFINITION_TYPE,
-            input_type_ref=self.input_type_ref, output_type_ref=self.output_type_ref,
-            protocol=self.protocol, effect_class=self.effect_class,
+            name=self.name,
+            definition_type_ref=TOOL_DEFINITION_TYPE,
+            input_type_ref=self.input_type_ref,
+            output_type_ref=self.output_type_ref,
+            protocol=self.protocol,
+            effect_class=self.effect_class,
             input_schema_json=self.input_schema_json,
             output_schema_json=self.output_schema_json,
             description=f"Pinned {self.protocol} {self.method} {self.target}",
@@ -200,9 +241,15 @@ class ApiCallScope:
     def check(self, operation: ApiOperation, arguments: Mapping[str, Any]) -> None:
         if not isinstance(operation, ApiOperation) or not isinstance(arguments, Mapping):
             raise InvalidInputError("API call needs a pinned operation and arguments")
-        if not isinstance(self.installation, ToolInstallationDescriptor) or not isinstance(self.intent, ToolInvocationIntent):
+        if not isinstance(self.installation, ToolInstallationDescriptor) or not isinstance(
+            self.intent, ToolInvocationIntent
+        ):
             raise ScopeDeniedError("Controller must supply immutable installation and intent")
-        if not isinstance(self.operation_hash, str) or not _DIGEST.fullmatch(self.operation_hash) or self.operation_hash != operation.fingerprint:
+        if (
+            not isinstance(self.operation_hash, str)
+            or not _DIGEST.fullmatch(self.operation_hash)
+            or self.operation_hash != operation.fingerprint
+        ):
             raise ScopeDeniedError("API operation is not the pinned registered operation")
         if not callable(self.authorize):
             raise ScopeDeniedError("Missing controller call admission")
@@ -218,7 +265,10 @@ class ApiCallScope:
             raise ScopeDeniedError("API call input semantic type is not pinned")
         if self.intent.input_hash != content_hash(arguments):
             raise ScopeDeniedError("API call arguments do not match the immutable intent")
-        if self.intent.max_wall_time_ms < operation.timeout_ms or self.intent.max_output_bytes < operation.max_output_bytes:
+        if (
+            self.intent.max_wall_time_ms < operation.timeout_ms
+            or self.intent.max_output_bytes < operation.max_output_bytes
+        ):
             raise ScopeDeniedError("API invocation budgets are below operation bounds")
         validate_json(operation.input_schema_json, dict(arguments), label="API arguments")
         # Never lend caller-owned nested objects to a privileged admission hook.
@@ -251,9 +301,14 @@ class ApiCallResult:
             raise InvalidInputError("Failed API call cannot publish unverified data")
         if self.status != "succeeded" and not self.error_code:
             raise InvalidInputError("Failed API calls need error codes")
-        if self.status == "succeeded" and len(canonical_json(self.value).encode("utf-8")) > _MAX_JSON_BYTES:
+        if (
+            self.status == "succeeded"
+            and len(canonical_json(self.value).encode("utf-8")) > _MAX_JSON_BYTES
+        ):
             raise InvalidInputError("API observation value exceeds its bound")
-        object.__setattr__(self, "value_hash", content_hash(self.value) if self.status == "succeeded" else None)
+        object.__setattr__(
+            self, "value_hash", content_hash(self.value) if self.status == "succeeded" else None
+        )
         if type(self.attempts) is not int or not 0 <= self.attempts <= 20:
             raise InvalidInputError("Invalid attempt count")
         if type(self.pages) is not int or not 0 <= self.pages <= 20:
@@ -261,29 +316,49 @@ class ApiCallResult:
 
     @property
     def fingerprint(self) -> str:
-        return content_hash({"operation": self.operation_hash, "status": self.status,
-                             "output_hash": self.value_hash, "error": self.error_code,
-                             "http_status": self.http_status, "attempts": self.attempts, "pages": self.pages})
+        return content_hash(
+            {
+                "operation": self.operation_hash,
+                "status": self.status,
+                "output_hash": self.value_hash,
+                "error": self.error_code,
+                "http_status": self.http_status,
+                "attempts": self.attempts,
+                "pages": self.pages,
+            }
+        )
 
-    def to_observation(self, intent: ToolInvocationIntent, operation: ApiOperation) -> ToolObservation:
+    def to_observation(
+        self, intent: ToolInvocationIntent, operation: ApiOperation
+    ) -> ToolObservation:
         if self.operation_hash != operation.fingerprint:
             raise StateMismatchError("API observation differs from operation")
-        if intent.input_type_ref != operation.input_type_ref or intent.effect_class != operation.effect_class:
+        if (
+            intent.input_type_ref != operation.input_type_ref
+            or intent.effect_class != operation.effect_class
+        ):
             raise ScopeDeniedError("API observation does not match the invocation")
         if self.status == "succeeded" and self.value_hash != content_hash(self.value):
             raise StateMismatchError("API result was mutated after transport observation")
         return ToolObservation(
-            invocation_hash=intent.fingerprint, output_type_ref=operation.output_type_ref,
+            invocation_hash=intent.fingerprint,
+            output_type_ref=operation.output_type_ref,
             status=self.status,
             output_hash=self.value_hash if self.status == "succeeded" else None,
-            artifact_sha256=None, error_code=self.error_code,
+            artifact_sha256=None,
+            error_code=self.error_code,
         )
 
 
 def validated_service_origin(value: str, *, test_loopback: bool = False) -> str:
     """Syntactic preflight. Production still requires an *enforcing* egress proxy."""
     import ipaddress
-    if not isinstance(value, str) or len(value) > 1024 or any(ord(x) < 33 or ord(x) > 126 for x in value):
+
+    if (
+        not isinstance(value, str)
+        or len(value) > 1024
+        or any(ord(x) < 33 or ord(x) > 126 for x in value)
+    ):
         raise InvalidInputError("Invalid service origin")
     try:
         p = urlsplit(value)
@@ -298,6 +373,13 @@ def validated_service_origin(value: str, *, test_loopback: bool = False) -> str:
         ip = None
     if test_loopback and p.scheme == "http" and ip is not None and ip.is_loopback:
         return value.rstrip("/")
-    if p.scheme != "https" or port not in (None, 443) or ip is not None or not host.isascii() or "." not in host or host.endswith(".localhost"):
+    if (
+        p.scheme != "https"
+        or port not in (None, 443)
+        or ip is not None
+        or not host.isascii()
+        or "." not in host
+        or host.endswith(".localhost")
+    ):
         raise ScopeDeniedError("Remote APIs require public-name HTTPS and approved egress")
     return value.rstrip("/")

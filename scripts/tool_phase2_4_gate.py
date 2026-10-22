@@ -45,8 +45,10 @@ def suite_stats(file: Path) -> dict[str, int]:
     except (OSError, ET.ParseError):
         return {"tests": 0, "failures": 0, "errors": 1, "skipped": 0}
     nodes = [xml] if xml.tag == "testsuite" else list(xml.iter("testsuite"))
-    return {key: sum(int(node.attrib.get(key, "0")) for node in nodes)
-            for key in ("tests", "failures", "errors", "skipped")}
+    return {
+        key: sum(int(node.attrib.get(key, "0")) for node in nodes)
+        for key in ("tests", "failures", "errors", "skipped")
+    }
 
 
 def run(*, mode: str, root: Path, output: Path) -> dict[str, Any]:
@@ -58,28 +60,46 @@ def run(*, mode: str, root: Path, output: Path) -> dict[str, Any]:
     fingerprints = {}
     for name in SOURCES:
         path = root / name
-        fingerprints[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() and not path.is_symlink() else None
+        fingerprints[name] = (
+            hashlib.sha256(path.read_bytes()).hexdigest()
+            if path.is_file() and not path.is_symlink()
+            else None
+        )
     junit = output.with_suffix(".junit.xml")
     try:
         cmd = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", *SELECTORS, f"--junitxml={junit}"],
-            cwd=root, capture_output=True, text=True, timeout=300, check=False,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
         )
         exit_code = cmd.returncode
-        diagnostic = (cmd.stdout + cmd.stderr)[-8000:]
     except (OSError, subprocess.TimeoutExpired):
-        exit_code, diagnostic = 124, "API fixture suite could not complete"
+        exit_code = 124
     counts = suite_stats(junit)
-    fixture_ok = exit_code == 0 and counts["tests"] > 0 and counts["failures"] == counts["errors"] == 0
+    fixture_ok = (
+        exit_code == 0 and counts["tests"] > 0 and counts["failures"] == counts["errors"] == 0
+    )
     fully_tested = fixture_ok and counts["skipped"] == 0 and all(fingerprints.values())
     full_check_status: int | None = None
     if mode == "qualified" and fully_tested:
         try:
             proc = subprocess.run(
-                [sys.executable, str(root / "scripts/check.py"), "--with-postgres", "--with-sandbox",
-                 "--artifacts", str(output.parent / "full-check")],
-                cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                timeout=1800, check=False,
+                [
+                    sys.executable,
+                    str(root / "scripts/check.py"),
+                    "--with-postgres",
+                    "--with-sandbox",
+                    "--artifacts",
+                    str(output.parent / "full-check"),
+                ],
+                cwd=root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1800,
+                check=False,
             )
             full_check_status = proc.returncode
         except (OSError, subprocess.TimeoutExpired):
@@ -109,13 +129,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("offline", "qualified"), default="offline")
     parser.add_argument("--root", type=Path, default=ROOT)
-    parser.add_argument("--output", type=Path,
-                        default=ROOT / "artifacts" / "tool-platform-t02-4" / "gate.json")
+    parser.add_argument(
+        "--output", type=Path, default=ROOT / "artifacts" / "tool-platform-t02-4" / "gate.json"
+    )
     args = parser.parse_args()
     payload = run(mode=args.mode, root=args.root, output=args.output)
-    print(json.dumps({key: payload[key] for key in (
-        "stage", "mode", "fixture_counts", "fixtures_passed", "stage_qualified"
-    )}, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                key: payload[key]
+                for key in ("stage", "mode", "fixture_counts", "fixtures_passed", "stage_qualified")
+            },
+            sort_keys=True,
+        )
+    )
     if args.mode == "qualified":
         # No success until the T03 egress and durable-execution evidence exists.
         return 0 if payload["stage_qualified"] else 2

@@ -33,7 +33,11 @@ class InstalledGrpcCodec:
     deserialize: Callable[[bytes], Any]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.descriptor_hash, str) or len(self.descriptor_hash) != 64 or any(c not in "0123456789abcdef" for c in self.descriptor_hash):
+        if (
+            not isinstance(self.descriptor_hash, str)
+            or len(self.descriptor_hash) != 64
+            or any(c not in "0123456789abcdef" for c in self.descriptor_hash)
+        ):
             raise InvalidInputError("gRPC codec requires a pinned descriptor SHA-256")
         if not callable(self.serialize) or not callable(self.deserialize):
             raise InvalidInputError("gRPC codec functions must be installed code")
@@ -46,6 +50,7 @@ def protobuf_struct_codec(descriptor_hash: str) -> InstalledGrpcCodec:
         from google.protobuf.struct_pb2 import Struct
     except ImportError as error:
         from potbot.domain.errors import CapabilityUnavailableError
+
         raise CapabilityUnavailableError("Protobuf support is not installed") from error
 
     def serialize(value: Mapping[str, Any]) -> bytes:
@@ -63,8 +68,13 @@ def protobuf_struct_codec(descriptor_hash: str) -> InstalledGrpcCodec:
 class ApprovedGrpcAdapter:
     """Fixed-method unary gRPC wrapper over a pre-authorized channel."""
 
-    def __init__(self, *, channel: Any, installed_codecs: Mapping[str, InstalledGrpcCodec],
-                 channel_approval: Callable[[str], None]) -> None:
+    def __init__(
+        self,
+        *,
+        channel: Any,
+        installed_codecs: Mapping[str, InstalledGrpcCodec],
+        channel_approval: Callable[[str], None],
+    ) -> None:
         if channel is None or not callable(getattr(channel, "unary_unary", None)):
             raise InvalidInputError("gRPC requires an existing controller-created channel")
         if not callable(channel_approval):
@@ -73,8 +83,9 @@ class ApprovedGrpcAdapter:
         self.codecs = dict(installed_codecs)
         self.channel_approval = channel_approval
 
-    async def call(self, operation: ApiOperation, arguments: Mapping[str, Any],
-                   scope: ApiCallScope) -> ApiCallResult:
+    async def call(
+        self, operation: ApiOperation, arguments: Mapping[str, Any], scope: ApiCallScope
+    ) -> ApiCallResult:
         if operation.protocol != "grpc":
             raise InvalidInputError("Not a gRPC operation")
         approved_arguments = json.loads(canonical_json(dict(arguments)))
@@ -87,13 +98,16 @@ class ApprovedGrpcAdapter:
         try:
             payload = codec.serialize(approved_arguments)
         except (ValueError, TypeError, KeyError) as error:
-            raise InvalidInputError("gRPC input cannot be serialized using its declared protobuf codec") from error
+            raise InvalidInputError(
+                "gRPC input cannot be serialized using its declared protobuf codec"
+            ) from error
         if not isinstance(payload, bytes) or len(payload) > 1048576:
             raise InvalidInputError("gRPC serialized request exceeds message limit")
         # Channel instance is operator-owned; remote address/credentials are not
         # accepted from arguments. gRPC performs exactly one call, without retries.
         method = self.channel.unary_unary(
-            operation.target, request_serializer=lambda v: v,
+            operation.target,
+            request_serializer=lambda v: v,
             response_deserializer=lambda v: v,
         )
         try:
@@ -101,16 +115,30 @@ class ApprovedGrpcAdapter:
         except (asyncio.CancelledError, KeyboardInterrupt):
             raise
         except Exception:
-            return ApiCallResult(operation.fingerprint,
-                                 "failed" if operation.effect_class == "read_only" else "indeterminate",
-                                 None, "grpc_unavailable", attempts=1)
+            return ApiCallResult(
+                operation.fingerprint,
+                "failed" if operation.effect_class == "read_only" else "indeterminate",
+                None,
+                "grpc_unavailable",
+                attempts=1,
+            )
         if not isinstance(response, bytes) or len(response) > operation.max_output_bytes:
-            return ApiCallResult(operation.fingerprint, "failed" if operation.effect_class == "read_only" else "indeterminate",
-                                 None, "grpc_response_too_large", attempts=1)
+            return ApiCallResult(
+                operation.fingerprint,
+                "failed" if operation.effect_class == "read_only" else "indeterminate",
+                None,
+                "grpc_response_too_large",
+                attempts=1,
+            )
         try:
             value = codec.deserialize(response)
             validate_json(operation.output_schema_json, value, label="gRPC decoded response")
         except Exception:
-            return ApiCallResult(operation.fingerprint, "failed" if operation.effect_class == "read_only" else "indeterminate",
-                                 None, "grpc_response_invalid", attempts=1)
+            return ApiCallResult(
+                operation.fingerprint,
+                "failed" if operation.effect_class == "read_only" else "indeterminate",
+                None,
+                "grpc_response_invalid",
+                attempts=1,
+            )
         return ApiCallResult(operation.fingerprint, "succeeded", value, None, attempts=1)

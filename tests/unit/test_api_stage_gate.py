@@ -1,4 +1,5 @@
 """T02.4 verification reporting is explicitly not security attestation."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -27,7 +28,9 @@ def test_junit_skips_are_counted(tmp_path: Path) -> None:
     assert module.suite_stats(path) == {"tests": 4, "failures": 0, "errors": 0, "skipped": 2}
 
 
-def test_successful_fixtures_do_not_imply_production_qualification(tmp_path: Path, monkeypatch) -> None:
+def test_successful_fixtures_do_not_imply_production_qualification(
+    tmp_path: Path, monkeypatch
+) -> None:
     module = _stage_module()
     for name in module.SOURCES:
         file = tmp_path / name
