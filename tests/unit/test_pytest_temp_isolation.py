@@ -39,8 +39,11 @@ def _environment(temp_root: Path) -> dict[str, str]:
 
 
 def _base(output: str) -> Path:
-    records = [line.split("POTBOT_BASETEMP=", 1)[1].strip()
-               for line in output.splitlines() if "POTBOT_BASETEMP=" in line]
+    records = [
+        line.split("POTBOT_BASETEMP=", 1)[1].strip()
+        for line in output.splitlines()
+        if "POTBOT_BASETEMP=" in line
+    ]
     assert len(records) == 1, output
     return Path(records[0])
 
