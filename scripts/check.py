@@ -79,6 +79,14 @@ def main() -> int:
         run("lint", [sys.executable, "-m", "ruff", "check", "."])
         run("format", [sys.executable, "-m", "ruff", "format", "--check", "."])
         run("types", [sys.executable, "-m", "mypy"])
+        run(
+            "hierarchy-assets",
+            [sys.executable, str(ROOT / "scripts/generate_type_hierarchy.py"), "--check"],
+        )
+        run(
+            "agent-security-assets",
+            [sys.executable, str(ROOT / "scripts/generate_agent_security.py"), "--check"],
+        )
         with tempfile.TemporaryDirectory(prefix="potbot-check-") as temporary:
             temp = Path(temporary)
             junit = temp / "tests.xml"
@@ -88,6 +96,7 @@ def main() -> int:
                     run(
                         label,
                         [sys.executable, "-m", "pytest", "-m", selector, f"--junitxml={junit}"],
+                        timeout=600 if label == "postgres" else 240,
                     )
                 finally:
                     if junit.exists():
@@ -156,13 +165,43 @@ def main() -> int:
                 cwd=temp,
                 environment=clean_environment,
             )
-            for command in ("patch", "credentials", "dependencies", "models", "serve", "jobs"):
+            for command in (
+                "patch",
+                "credentials",
+                "dependencies",
+                "models",
+                "serve",
+                "jobs",
+                "identity",
+            ):
                 run(
                     f"installed-{command}-help",
                     [str(clean_cli), command, "--help"],
                     cwd=temp,
                     environment=clean_environment,
                 )
+            run(
+                "installed-identity-resources",
+                [
+                    str(clean_python),
+                    "-I",
+                    "-c",
+                    "from pathlib import Path; import sys; "
+                    "from potbot.security.broker import native_source_directory; "
+                    "from potbot.semantics.agent_security import security_type_snapshot; "
+                    "from potbot.semantics.catalog import merge_types; "
+                    "source = native_source_directory(); "
+                    "assert source.is_relative_to(Path(sys.prefix).resolve()); "
+                    "assert (source / 'Cargo.lock').is_file(); "
+                    "assert (source / 'src' / 'secure.rs').is_file(); "
+                    "assert len(merge_types(security_type_snapshot())) == 715; "
+                    "assert 'cryptography' not in sys.modules; "
+                    "assert 'psycopg' not in sys.modules; "
+                    "print('installed native sources and Agent security catalog verified')",
+                ],
+                cwd=temp,
+                environment=clean_environment,
+            )
             run(
                 "installed-semantic-catalog",
                 [
@@ -175,6 +214,12 @@ def main() -> int:
                     "assert len(registry.inventory('retrieval_profile')) == 7; "
                     "print('installed semantic catalog verified: ' + registry.fingerprint)",
                 ],
+                cwd=temp,
+                environment=clean_environment,
+            )
+            run(
+                "installed-hierarchy",
+                [str(clean_cli), "syn", "hierarchy", "--summary"],
                 cwd=temp,
                 environment=clean_environment,
             )

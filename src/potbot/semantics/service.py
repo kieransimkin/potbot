@@ -17,6 +17,7 @@ from potbot.domain.errors import InvalidInputError, RevisionConflictError, Scope
 from potbot.domain.serialization import canonical_json, content_hash
 from potbot.domain.syn import (
     MAX_SYN_SNAPSHOT_BYTES,
+    SYN_KINDS,
     SynnyRef,
     SynRef,
     SynSnapshot,
@@ -399,11 +400,19 @@ class SynService:
         type_ref: str | None,
         primary_data_type: str | None,
         include_subtypes: bool,
+        primitive_kind: str | None = None,
     ) -> tuple[str, list[Any], dict[str, Any]]:
         if type(include_subtypes) is not bool:
             raise InvalidInputError("include_subtypes must be boolean")
+        if primitive_kind is not None and (
+            not isinstance(primitive_kind, str) or primitive_kind not in SYN_KINDS - {"type"}
+        ):
+            raise InvalidInputError("primitive_kind must name a native SYN instance kind")
         clauses = ["o.workspace_id=%s", "o.snapshot_id=%s"]
         values: list[Any] = [context.workspace_id, snapshot_id]
+        if primitive_kind is not None:
+            clauses.append("o.kind=%s")
+            values.append(primitive_kind)
         native = parse_type_ref(type_ref) if type_ref is not None else None
         primary = data_type_ref(primary_data_type) if primary_data_type is not None else None
         if native is not None:
@@ -432,15 +441,15 @@ class SynService:
             else:
                 clauses.append("%s::text=%s::text")
                 values.extend((record_type, str(primary)))
-        return (
-            " AND ".join(clauses),
-            values,
-            {
-                "type_ref": str(native) if native is not None else None,
-                "primary_data_type_ref": str(primary) if primary is not None else None,
-                "include_subtypes": include_subtypes,
-            },
-        )
+        query: dict[str, Any] = {
+            "type_ref": str(native) if native is not None else None,
+            "primary_data_type_ref": str(primary) if primary is not None else None,
+            "include_subtypes": include_subtypes,
+        }
+        # Omitting an unused filter preserves previously issued cursor hashes.
+        if primitive_kind is not None:
+            query["primitive_kind"] = primitive_kind
+        return " AND ".join(clauses), values, query
 
     def list_objects(
         self,
@@ -450,6 +459,7 @@ class SynService:
         type_ref: str | None = None,
         primary_data_type: str | None = None,
         include_subtypes: bool = False,
+        primitive_kind: str | None = None,
         page_size: int = 100,
         cursor: UUID | None = None,
     ) -> dict[str, Any]:
@@ -471,6 +481,7 @@ class SynService:
                 type_ref,
                 primary_data_type,
                 include_subtypes,
+                primitive_kind,
             )
             query_hash = content_hash({"query": query, "page_size": page_size})
             last_ref = None
@@ -585,6 +596,7 @@ class SynService:
         type_ref: str | None = None,
         primary_data_type: str | None = None,
         include_subtypes: bool = False,
+        primitive_kind: str | None = None,
         record_kind: str = "objects",
     ) -> dict[str, Any]:
         self._check_embeddings(embeddings)
@@ -595,7 +607,12 @@ class SynService:
         with self.database.transaction(context) as conn:
             snapshot = self._snapshot(conn, context, snapshot_id)
             if record_kind == "types":
-                if type_ref is not None or primary_data_type is not None or include_subtypes:
+                if (
+                    type_ref is not None
+                    or primary_data_type is not None
+                    or include_subtypes
+                    or primitive_kind is not None
+                ):
                     raise InvalidInputError(
                         "instance type filters do not apply to type definitions"
                     )
@@ -618,6 +635,7 @@ class SynService:
                     type_ref,
                     primary_data_type,
                     include_subtypes,
+                    primitive_kind,
                 )
                 rows = conn.execute(
                     f"""SELECT o.ref,o.kind,o.type_ref,o.source_id,o.artifact_id FROM syn_objects o

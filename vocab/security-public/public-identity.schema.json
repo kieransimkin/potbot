@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/public-identity-descriptor/v2",
+  "x-type-ref": "synny://type/schema-specification",
+  "title": "Potbot published identity descriptor v2",
+  "description": "Published raw base Ed25519 verification key and its stable SHA-256 fingerprint. Private key material and chain codes are excluded.",
+  "$comment": "The verifier computes SHA-256 over exactly the 32 raw public-key bytes and compares both signer_hash and its independently trusted expected identity. A descriptor or a self-signature cannot establish that initial identity trust. syn and synny type aliases have one identity. New output uses synny.",
+  "type": "object",
+  "properties": {
+    "type_ref": {
+      "enum": [
+        "synny://type/public-identity-descriptor",
+        "syn://type/public-identity-descriptor"
+      ]
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 2
+    },
+    "profile_id": {
+      "const": "potbot-identity-v1"
+    },
+    "hash_algorithm": {
+      "const": "SHA-256"
+    },
+    "signer_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "public_key_algorithm": {
+      "const": "Ed25519"
+    },
+    "public_key_encoding": {
+      "const": "base64"
+    },
+    "public_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=(?![\\s\\S])",
+      "minLength": 44,
+      "maxLength": 44,
+      "description": "Exactly 32 raw Ed25519 public-key bytes in canonical padded standard Base64."
+    }
+  },
+  "required": [
+    "type_ref",
+    "schema_version",
+    "profile_id",
+    "hash_algorithm",
+    "signer_hash",
+    "public_key_algorithm",
+    "public_key_encoding",
+    "public_key"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,53 @@
+{
+  "type_ref": "synny://type/key-derivation-profile",
+  "schema_version": 1,
+  "profile_id": "potbot-public-verification-v1",
+  "identity_profile": "potbot-identity-v1",
+  "hourly_signing_profile": "potbot-hourly-signing-v1",
+  "base_path": "m/6969'/420'/0'/0/0",
+  "hourly_path_template": "m/6969'/420'/0'/0/0/1'/{signing_epoch}'",
+  "publication": {
+    "base_public_key": true,
+    "hourly_public_key": true,
+    "base_signer_hash": true,
+    "base_signed_hourly_delegation": true,
+    "private_key": false,
+    "chain_code": false,
+    "mnemonic": false
+  },
+  "canonicalization": {
+    "name": "RFC-8785-JCS restricted ASCII/integer/object subset",
+    "maximum_bytes": 65536,
+    "duplicate_keys": false,
+    "floats": false,
+    "nonfinite_numbers": false,
+    "booleans": false,
+    "null": false,
+    "arrays": false,
+    "signed_aliases": "preserve exact received spelling"
+  },
+  "delegation": {
+    "schema": "synny://schema/hourly-key-delegation/v1",
+    "message_prefix_ascii": "potbot-hourly-delegation-v1",
+    "prefix_terminator_byte": 0,
+    "omit_only_field": "signature",
+    "signing_key": "derived base identity key",
+    "binding": "fixed profile, base signer hash, hourly raw public key, integer epoch, exact epoch interval"
+  },
+  "signature": {
+    "schema": "synny://schema/signature-envelope/v2",
+    "message_prefix_ascii": "potbot-signature-v2",
+    "prefix_terminator_byte": 0,
+    "omit_only_field": "signature",
+    "signing_key": "hardened hourly key",
+    "maximum_validity_seconds": 300,
+    "maximum_clock_skew_seconds": 30
+  },
+  "trust": {
+    "expected_base_signer_hash": "independently pinned by verifier",
+    "self_signature_establishes_identity": false,
+    "scope": "independent audience, workspace UUID, domain, and registered payload type allowlist",
+    "repeatable_verification": "does not authorize effects or consume request IDs",
+    "one_time_acceptance": "atomic durable signer_hash/request_id reservation through expiry plus permitted skew"
+  }
+}

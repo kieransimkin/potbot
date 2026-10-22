@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/public-signature-bundle/v1",
+  "x-type-ref": "synny://type/schema-specification",
+  "title": "Potbot publicly verifiable signature bundle v1",
+  "description": "A published base identity, base-authenticated hourly delegation, and hourly message signature.",
+  "$comment": "Strict JSON parsing rejects duplicate fields, invalid UTF-8, floats, nonfinite values and unsupported versions. Max input 65536 bytes. Protocol fields are printable ASCII strings, integer counters in the exact JSON range, and closed objects. Sorting ASCII keys and emitting compact JSON is the RFC 8785 JCS subset used for signatures. A bundle transports evidence, not a new trust anchor or authority grant.",
+  "type": "object",
+  "properties": {
+    "type_ref": {
+      "enum": [
+        "synny://type/public-signature-bundle",
+        "syn://type/public-signature-bundle"
+      ]
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "delegation": {
+      "$ref": "#/$defs/delegation"
+    },
+    "envelope": {
+      "$ref": "#/$defs/envelope"
+    }
+  },
+  "required": [
+    "type_ref",
+    "schema_version",
+    "identity",
+    "delegation",
+    "envelope"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "identity": {
+      "x-type-ref": "synny://type/schema-specification",
+      "title": "Potbot published identity descriptor v2",
+      "description": "Published raw base Ed25519 verification key and its stable SHA-256 fingerprint. Private key material and chain codes are excluded.",
+      "$comment": "The verifier computes SHA-256 over exactly the 32 raw public-key bytes and compares both signer_hash and its independently trusted expected identity. A descriptor or a self-signature cannot establish that initial identity trust. syn and synny type aliases have one identity. New output uses synny.",
+      "type": "object",
+      "properties": {
+        "type_ref": {
+          "enum": [
+            "synny://type/public-identity-descriptor",
+            "syn://type/public-identity-descriptor"
+          ]
+        },
+        "schema_version": {
+          "type": "integer",
+          "const": 2
+        },
+        "profile_id": {
+          "const": "potbot-identity-v1"
+        },
+        "hash_algorithm": {
+          "const": "SHA-256"
+        },
+        "signer_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "public_key_algorithm": {
+          "const": "Ed25519"
+        },
+        "public_key_encoding": {
+          "const": "base64"
+        },
+        "public_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=(?![\\s\\S])",
+          "minLength": 44,
+          "maxLength": 44,
+          "description": "Exactly 32 raw Ed25519 public-key bytes in canonical padded standard Base64."
+        }
+      },
+      "required": [
+        "type_ref",
+        "schema_version",
+        "profile_id",
+        "hash_algorithm",
+        "signer_hash",
+        "public_key_algorithm",
+        "public_key_encoding",
+        "public_key"
+      ],
+      "additionalProperties": false
+    },
+    "delegation": {
+      "x-type-ref": "synny://type/schema-specification",
+      "title": "Potbot public hourly delegation v1",
+      "description": "Base-key signature binding exactly one hourly Ed25519 public key to the fixed identity and derivation profiles.",
+      "$comment": "Signing bytes are ASCII potbot-hourly-delegation-v1 followed by NUL and canonical JSON of this object with only signature removed. Verify with the pinned base public key. Runtime enforces the exact epoch interval and profile. The interval governs issuance; a signature legitimately issued before its end may remain fresh for its own bounded expiry across the hour boundary. The base key signs this fixed certificate domain only, never arbitrary caller-selected messages.",
+      "type": "object",
+      "properties": {
+        "type_ref": {
+          "enum": [
+            "synny://type/hourly-key-delegation",
+            "syn://type/hourly-key-delegation"
+          ]
+        },
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "profile_id": {
+          "const": "potbot-identity-v1"
+        },
+        "signing_profile_id": {
+          "const": "potbot-hourly-signing-v1"
+        },
+        "signer_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "signing_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "valid_from": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7730941132800,
+          "description": "Exactly signing_epoch * 3600, in nonnegative POSIX seconds."
+        },
+        "valid_until": {
+          "type": "integer",
+          "minimum": 3600,
+          "maximum": 7730941132800,
+          "description": "Exactly (signing_epoch + 1) * 3600, exclusive."
+        },
+        "public_key_algorithm": {
+          "const": "Ed25519"
+        },
+        "public_key_encoding": {
+          "const": "base64"
+        },
+        "public_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=(?![\\s\\S])",
+          "minLength": 44,
+          "maxLength": 44,
+          "description": "The raw 32-byte public key derived at base_path/1'/signing_epoch'; no chain code."
+        },
+        "signature_algorithm": {
+          "const": "Ed25519"
+        },
+        "signature_encoding": {
+          "const": "base64"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==(?![\\s\\S])",
+          "minLength": 88,
+          "maxLength": 88
+        }
+      },
+      "required": [
+        "type_ref",
+        "schema_version",
+        "profile_id",
+        "signing_profile_id",
+        "signer_hash",
+        "signing_epoch",
+        "valid_from",
+        "valid_until",
+        "public_key_algorithm",
+        "public_key_encoding",
+        "public_key",
+        "signature_algorithm",
+        "signature_encoding",
+        "signature"
+      ],
+      "additionalProperties": false
+    },
+    "envelope": {
+      "x-type-ref": "synny://type/schema-specification",
+      "title": "Potbot hourly signature envelope v2",
+      "description": "Version 2 hourly Ed25519 envelope, publicly verified using the accompanying authenticated hourly delegation.",
+      "$comment": "Signing bytes retain ASCII potbot-signature-v2 followed by NUL and canonical JSON excluding only signature. Verify the exact received fields; never rewrite signed type aliases. Runtime checks the trusted catalog and independent payload type/domain/audience/workspace policy, digest of exact original payload bytes, identity/certificate binding, epoch=floor(issued_at/3600), validity 1..300 seconds and clock skew <=30 seconds. One-time acceptance additionally consumes signer_hash/request_id durably. No historical or legacy acceptance is implied.",
+      "type": "object",
+      "properties": {
+        "type_ref": {
+          "enum": [
+            "synny://type/signature-envelope",
+            "syn://type/signature-envelope"
+          ]
+        },
+        "schema_version": {
+          "type": "integer",
+          "const": 2
+        },
+        "profile_id": {
+          "const": "potbot-identity-v1"
+        },
+        "signer_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "domain": {
+          "enum": [
+            "potbot.artifact.v2",
+            "potbot.event.v2",
+            "potbot.challenge.v2"
+          ]
+        },
+        "workspace_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?![\\s\\S])",
+          "minLength": 36,
+          "maxLength": 36,
+          "format": "uuid"
+        },
+        "payload_type_ref": {
+          "type": "string",
+          "pattern": "^(?:syn|synny)://type/(?=[a-z0-9_-]{1,255}(?![\\s\\S]))[a-z0-9]+(?:[-_][a-z0-9]+)*(?![\\s\\S])",
+          "minLength": 12,
+          "maxLength": 268
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "audience": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}(?![\\s\\S])",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}(?![\\s\\S])",
+          "minLength": 36,
+          "maxLength": 36,
+          "format": "uuid"
+        },
+        "issued_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])",
+          "minLength": 20,
+          "maxLength": 20,
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])",
+          "minLength": 20,
+          "maxLength": 20,
+          "format": "date-time"
+        },
+        "signature_algorithm": {
+          "const": "Ed25519"
+        },
+        "signature_encoding": {
+          "const": "base64"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==(?![\\s\\S])",
+          "minLength": 88,
+          "maxLength": 88
+        },
+        "signing_profile_id": {
+          "const": "potbot-hourly-signing-v1"
+        },
+        "signing_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "type_ref",
+        "schema_version",
+        "profile_id",
+        "signer_hash",
+        "domain",
+        "workspace_id",
+        "payload_type_ref",
+        "payload_sha256",
+        "audience",
+        "request_id",
+        "issued_at",
+        "expires_at",
+        "signature_algorithm",
+        "signature_encoding",
+        "signature",
+        "signing_profile_id",
+        "signing_epoch"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

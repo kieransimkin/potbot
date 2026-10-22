@@ -161,6 +161,10 @@ def test_populated_published_histories_upgrade_with_original_rows_timestamps_and
         )
         assert ledger[5]["name"] == ("syn_schema" if lineage == "main" else "repository_schema")
         assert ledger[8]["name"] == ("execution_schema" if lineage == "main" else "syn_schema")
+        versions = {row["name"]: row["version"] for row in ledger}
+        assert versions["jobs_schema"] == 11
+        assert versions["hosted_schema"] == 12
+        assert versions["ember_schema"] == 13
         # Regrant is independently required to recognize both published histories.
         connection.execute(
             sql.SQL("REVOKE ALL ON implementation_contracts FROM {}").format(sql.Identifier(role))
@@ -177,6 +181,10 @@ def test_populated_published_histories_upgrade_with_original_rows_timestamps_and
                 ]
             assert upgraded == rows, table
         assert connection.execute("SELECT * FROM implementation_contracts").fetchall() == []
+        # Both recognized histories install the public/owner Ember boundary and
+        # regrant these new tables to the existing restricted application login.
+        assert connection.execute("SELECT * FROM syn_ember_public_bundles").fetchall() == []
+        assert connection.execute("SELECT * FROM syn_ember_owner_bundles").fetchall() == []
         connection.execute(
             "INSERT INTO implementation_contracts(workspace_id,id,episode_id,contract_revision_id,"
             "base_state_id,content,content_digest) VALUES(%s,%s,%s,%s,%s,%s,%s)",

@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "profile_id": "urn:potbot:semantic-placement:0.1.0",
+  "profile_status": "draft",
+  "profile_hash": "55949f5bc5a91550eb753d041b2e64cb62363a71a239bcef28eb22b910666cb7",
+  "profile_file": "src/potbot/semantics/hierarchy_profile.json",
+  "profile_file_sha256": "b1f1935d65ade19f2cec6587a4a1eabeee8a66342126880a92e1ea3d7be492e4",
+  "repository_text_hash_policy": "UTF-8 with CRLF normalized to LF; archived source hashes retain their original byte meaning.",
+  "source_aps_archive": {
+    "name": "AI-Primitive-Specifications-0.2.0-draft.zip",
+    "sha256": "97c1cf0dadbef222315cca6f1662ee651a93a44f04c4f94f82a05f242be421b9"
+  },
+  "source_aps_snapshot_sha256": "58cc3988c83c56a8574e0b017dc6cb558ec8754f681ed0a6dce7416dd4a829fc",
+  "explicit_type_migration_file": "vocab/ai-primitives-type-migration.json",
+  "explicit_type_migration_sha256": "0c85800c44272d791eae5dedf3c7fdcb9623fca8b80b833941878e61d068bb98",
+  "native_and_protected_catalog_sha256": "928bdfd9a08ab84116bb3be1c930116c6e941f709fff9c8a91fc5c1fb149ee33",
+  "export_file": "vocab/potbot-hierarchy.snapshot.json",
+  "export_file_sha256": "6bbb2f7ec97e0a3c73e135c7a2d7e08ffaf97233c2f5cd92a08ca04c108d159e",
+  "export_fingerprint": "a616627adf1e3ef4b5a6941d24d6836d1f3ef3b3e78c93546d79480c9ade5855",
+  "effective_catalog_hash": "a816d9be341d4be1683bc189063864aca03e566877dd7bd4b40ad11678f19e6d",
+  "counts": {
+    "native": 529,
+    "protected_legacy": 47,
+    "preserved_aps_authored": 80,
+    "new_authored": 34,
+    "authored": 114,
+    "effective": 690,
+    "effective_direct_parent_edges": 1050,
+    "effective_ancestor_pairs_including_self": 4580,
+    "explicit_placement_decisions": 165,
+    "native_reuse_decisions": 51,
+    "objects": 0
+  },
+  "equivalence": "Same-slug syn://type/ and synny://type/ references count once.",
+  "placement_enforcement": "Advisory only; existing imports and payload validation unchanged.",
+  "regenerate": "uv run --locked python scripts/generate_type_hierarchy.py",
+  "check": "uv run --locked python scripts/generate_type_hierarchy.py --check"
+}

@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "feature": "Agent public verification, native password custody and inherited Ember contracts",
+  "recorded_at": "2026-10-22T01:02:15.929898+00:00",
+  "base_commit": "f02c7baf3c3a0d9a1a723f1174ca06c65fb9be4c",
+  "status": "implemented_with_host_custody_qualification_pending",
+  "profile": "potbot-native-password-v1",
+  "source_freeze": "Production source was frozen after integrating the hosted-APIs commit and placing Ember migration 13 after committed jobs 11 and hosted 12; documentation/report finalization follows verification.",
+  "application": {
+    "command": "python scripts/check.py",
+    "result": {
+      "schema_version": 1,
+      "started_at": "2026-10-22T00:55:22.810284+00:00",
+      "finished_at": "2026-10-22T00:56:21.390284+00:00",
+      "postgres_requested": false,
+      "sandbox_requested": false,
+      "success": true,
+      "checks": [
+        {
+          "check": "lint",
+          "exit_code": 0
+        },
+        {
+          "check": "format",
+          "exit_code": 0
+        },
+        {
+          "check": "types",
+          "exit_code": 0
+        },
+        {
+          "check": "hierarchy-assets",
+          "exit_code": 0
+        },
+        {
+          "check": "agent-security-assets",
+          "exit_code": 0
+        },
+        {
+          "check": "unit-and-git",
+          "exit_code": 0
+        },
+        {
+          "check": "wheel-build",
+          "exit_code": 0
+        },
+        {
+          "check": "wheel-environment",
+          "exit_code": 0
+        },
+        {
+          "check": "wheel-install",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-version",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-domain",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-execution-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-patch-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-credentials-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-dependencies-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-models-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-serve-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-jobs-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-identity-help",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-identity-resources",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-semantic-catalog",
+          "exit_code": 0
+        },
+        {
+          "check": "installed-hierarchy",
+          "exit_code": 0
+        }
+      ]
+    },
+    "unit_and_git": {
+      "passed": 1514,
+      "deselected": 315,
+      "seconds": 48.76,
+      "warnings": 1
+    },
+    "python_version": "3.12.14",
+    "strict_mypy_source_files": 127,
+    "formatted_python_files": 247,
+    "warning": "The committed FastAPI/Starlette TestClient emits a deprecation warning for its httpx backend; no test failed.",
+    "evidence": "Sanitized per-gate logs and unit-and-git JUnit retained in the update package."
+  },
+  "postgresql": {
+    "command": "python -m pytest -p no:cacheprovider -m postgres -q --tb=short --junitxml=artifacts/postgres-integration.xml",
+    "fixture": "Disposable local PostgreSQL 17.11 with pgvector 0.8.7; no production database used.",
+    "status": "passed",
+    "exit_code": 0,
+    "evidence": "Sanitized postgres-integration.log and postgres-integration.xml retained in the update package.",
+    "coverage": [
+      "Populated main and phase3-preview histories preserve jobs 11 and hosted 12 before Ember 13",
+      "Immutable scoped public and owner Ember bundles",
+      "Restricted real-login owner row-level security",
+      "Concurrent imports and deterministic exact-Type enumeration",
+      "Agent/Credential/locking-Cog registration and public/private projections",
+      "Committed hosted invocation accounting, durable jobs and HTTP API persistence"
+    ],
+    "passed": 309,
+    "deselected": 1520,
+    "warnings": 1,
+    "seconds": 339.26,
+    "warning": "The committed FastAPI/Starlette TestClient emits a deprecation warning for its httpx backend; no test failed.",
+    "populated_history_upgrade_cases": {
+      "passed": 3,
+      "evidence": "All three tests in test_phase4_upgrade.py are present and passing in this same full PostgreSQL JUnit report.",
+      "committed_migrations_preserved": {
+        "jobs_schema": 11,
+        "hosted_schema": 12
+      },
+      "new_migration": {
+        "ember_schema": 13
+      },
+      "application_grants": "Both new Ember tables remain accessible under the existing restricted application login after regrant."
+    }
+  },
+  "native": {
+    "toolchain": "Rust 1.90.0",
+    "signing_provider": "ed25519-bip32 0.5.0",
+    "provider_dependency": "cryptoxide 0.6.6",
+    "format": "cargo fmt --check passed",
+    "tests": {
+      "command": "cargo test --locked --release",
+      "library_passed": 8,
+      "production_gate_ignored_by_default": 1,
+      "result": "passed"
+    },
+    "linux_release_build": "passed",
+    "windows_gnu_all_targets": "cargo check --locked --all-targets --target x86_64-pc-windows-gnu passed without warnings; not runtime qualification",
+    "independent_interoperability": "The retained Rust-generated identity/delegation/envelope fixture verified using Python cryptography 50.0.2 and an independently supplied base-key fingerprint.",
+    "preflight": {
+      "platform": "linux",
+      "ready": false,
+      "exit_code": 78,
+      "reason": "locked-memory-limit",
+      "locked_memory_limit_bytes": 8388608,
+      "required_locked_memory_bytes": 100663296
+    },
+    "actual_init_refusal": "Refused before policy/password access or vault-directory creation; stdout empty.",
+    "explicit_production_acceptance": {
+      "command": "cargo test --locked --release --test production_boundary -- --ignored",
+      "result": "blocked_by_unqualified_host",
+      "exit_code": 101,
+      "observed": "The test failed its explicit qualified-host precondition because native preflight was not ready; no fallback was used.",
+      "evidence": "custody-acceptance-unqualified.log retained in the update package.",
+      "final_test_only_change": "A bounded wait of at most 31 seconds prevents starting the first signing operation near an hourly boundary. Formatting and compilation passed after this test-only change; production source and binary were unchanged."
+    },
+    "not_established": [
+      "Successful production private-custody execution on this host",
+      "Windows runtime custody qualification",
+      "Formal verification",
+      "Cryptographic build attestation"
+    ],
+    "unchanged_across_upstream_integration": {
+      "result": "identical",
+      "from_base": "2a451a906334f8f0654730939aa46d4f1e44444c",
+      "to_base": "f02c7baf3c3a0d9a1a723f1174ca06c65fb9be4c",
+      "files": [
+        {
+          "path": "native/potbot-identity/Cargo.lock",
+          "sha256": "23894f29b2e5e0322ed36df3afc56830dfd4dd5d022fbb9391b6a5db8d980730"
+        },
+        {
+          "path": "native/potbot-identity/Cargo.toml",
+          "sha256": "a84f0dfbd6cf0260e81a84f0982afa368a593469efd0ea84c37069095fa1d962"
+        },
+        {
+          "path": "native/potbot-identity/rust-toolchain.toml",
+          "sha256": "9cbde07377abdce69bc9580adb0315d52e2a09d6494a2005550a7e6733d9688b"
+        },
+        {
+          "path": "native/potbot-identity/src/files.rs",
+          "sha256": "980a9f84b043e21743262be9473a025c828453ba4de9176ab4d80c7734bee3d4"
+        },
+        {
+          "path": "native/potbot-identity/src/lib.rs",
+          "sha256": "47f4848831f0fcad666ab7c69e26b9f89d48ff312172c4ba74e82790a1f84b83"
+        },
+        {
+          "path": "native/potbot-identity/src/main.rs",
+          "sha256": "9ed7a7a5fb5df43229396fc01ed95ca4aec7a38d0d511a779ff517cd3c8ce1d0"
+        },
+        {
+          "path": "native/potbot-identity/src/secure.rs",
+          "sha256": "d87325ecea7726bfd34fe558839553ac85003bbed7e65c9abc2907af279baefa"
+        },
+        {
+          "path": "native/potbot-identity/tests/production_boundary.rs",
+          "sha256": "f4390a0cdd14e50ac0b8ffa3fa2d2a2c366a4c76f037e55986328460bd21fc32"
+        },
+        {
+          "path": "src/potbot/security/public.py",
+          "sha256": "dc70e6e1da42b616d41482918a4a880bf1c038f993be1a1c52c058fad75edeac"
+        }
+      ]
+    }
+  },
+  "semantic_registry": {
+    "native_types": 529,
+    "protected_representation_aliases": 47,
+    "default_effective_types": 576,
+    "hierarchy_authored_extensions": 114,
+    "hierarchy_effective_types": 690,
+    "security_authored_extensions": 25,
+    "security_effective_types": 715,
+    "scheme_equivalence": "syn://type/<slug> and synny://type/<slug> identify the same Type within the selected catalog.",
+    "migration_revision": 13
+  },
+  "public_contract_audit": {
+    "result": "passed",
+    "checks": [
+      "All four public schema field sets match runtime constants",
+      "Bundle definitions match standalone schemas",
+      "Native public fixture passes schemas and independent pinned verification",
+      "Base and hourly verification keys are 32 bytes; signatures are 64 bytes",
+      "Alias comparison preserves signed bytes",
+      "Wheel source declarations include pinned native inputs and no build targets or private artifacts"
+    ]
+  },
+  "explicit_remaining_gates": [
+    "Run the retained production-boundary acceptance test on a Linux host that meets locked-memory and file-protection requirements.",
+    "Qualify the native Windows custody path on each intended Windows deployment.",
+    "The existing six process-sandbox tests were not rerun in this delivery; CI remains configured to run them.",
+    "The PowerShell delivery helper requires runtime validation on Windows; Git patch/content validation is performed separately in the package."
+  ],
+  "profile_limits": [
+    "One-shot native password unlock; no resident/unattended unlocked broker, idle sealing or persistent operation-handle tier.",
+    "No hardware, passkey or biometric custody tier.",
+    "Software replay/epoch state is not hardware-anchored anti-rollback.",
+    "Old encrypted backups remain accessible with their old passwords.",
+    "Source hashes and current implementation-Ember checks do not prove binary provenance or implementation correctness.",
+    "Published verification keys do not establish initial trust; recipients must independently pin the expected identity and message scope."
+  ],
+  "integration_note": "The remote repository advanced during delivery preparation. The implementation was preserved, merged into an isolated f02c7ba checkout, and the complete combined Python/wheel and PostgreSQL gates were rerun. Hosted APIs, jobs, pinned dependencies, and existing migration identities are preserved.",
+  "base_subject": "hosted APIs",
+  "prior_checkpoint": {
+    "base_commit": "2a451a906334f8f0654730939aa46d4f1e44444c",
+    "unit_and_git_passed": 1230,
+    "postgresql_passed": 271,
+    "postgresql_seconds": 348.39,
+    "migration_follow_up": {
+      "command": "python -m pytest -p no:cacheprovider -q tests/integration/test_phase4_upgrade.py --tb=short",
+      "passed": 3,
+      "seconds": 2.85,
+      "exit_code": 0,
+      "reason": "After adding direct revision-11 and restricted-application table-grant assertions.",
+      "evidence": "Observed pytest tool output; no separate raw log retained."
+    },
+    "note": "Historical development checkpoint only; the combined current-base results above supersede these counts and migration numbering."
+  },
+  "dependency_integration": {
+    "version": "0.5.0.dev2",
+    "upstream_package_version_source_records_preserved": 71,
+    "new_extra": "security",
+    "cryptography": "50.0.2",
+    "environment": "Independent clean environment with postgres, semantics, credentials, providers, web, security and dev dependencies.",
+    "existing_hosted_api_and_jobs": "Preserved; included in combined tests and clean installed-help checks."
+  }
+}

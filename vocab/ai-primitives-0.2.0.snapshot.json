@@ -1,0 +1,824 @@
+{
+  "schema_version": 1,
+  "source_label": "Authored APS/Potbot concise hierarchy; approved design SHA-256 e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581; new type identities only; no migration executed.",
+  "catalog_mode": "extend_builtin",
+  "types": [
+    {
+      "ref": "synny://type/agent-definition",
+      "name": "agentDefinition",
+      "parents": [
+        "synny://type/agent-record",
+        "synny://type/definition-record"
+      ],
+      "definition": "A checked specification record describing an agent definition over an identified source revision. The generic type is used when no role is declared; it does not replace the authoritative owning definition record or assert a deployed agent exists.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked specification record describing an agent definition over an identified source revision. The generic type is used when no role is declared; it does not replace the authoritative owning definition record or assert a deployed agent exists.\",\"definition_version\":1,\"id\":\"synny://type/agent-definition\",\"is_a\":[\"synny://type/agent-record\",\"synny://type/definition-record\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[{\"relation\":\"defines\",\"target_type_url\":\"syn://type/software-agent\"}]}"
+    },
+    {
+      "ref": "synny://type/agent-deployment-record",
+      "name": "agentDeploymentRecord",
+      "parents": [
+        "synny://type/agent-record",
+        "synny://type/deployment-record"
+      ],
+      "definition": "A checked record describing one agent deployment bound to exactly one checked agent definition revision and checked runtime bindings. It is not the deployed agent, an agent definition, or an execution occurrence.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/agent-deployment-record\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked record describing one agent deployment bound to exactly one checked agent definition revision and checked runtime bindings. It is not the deployed agent, an agent definition, or an execution occurrence.\",\"definition_version\":1,\"id\":\"synny://type/agent-deployment-record\",\"is_a\":[\"synny://type/agent-record\",\"synny://type/deployment-record\"],\"payload_kind\":\"agent_deployment\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"about\",\"target_type_url\":\"syn://type/software-agent\"}]}"
+    },
+    {
+      "ref": "synny://type/agent-record",
+      "name": "agentRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "The family of checked records describing agent definitions, deployment bindings, and executions. These records are representations about agents, not native agent instances.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/agent-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of checked records describing agent definitions, deployment bindings, and executions. These records are representations about agents, not native agent instances.\",\"definition_version\":1,\"id\":\"synny://type/agent-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"about\",\"target_type_url\":\"syn://type/software-agent\"}]}"
+    },
+    {
+      "ref": "synny://type/agent-run-record",
+      "name": "agentRunRecord",
+      "parents": [
+        "synny://type/agent-record",
+        "synny://type/execution-record"
+      ],
+      "definition": "A checked record describing an agent execution and bound to a checked definition and deployment with consistent definition lineage. Execution state remains owned by the authoritative run service; this record is not itself the execution occurrence.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/agent-run-record\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked record describing an agent execution and bound to a checked definition and deployment with consistent definition lineage. Execution state remains owned by the authoritative run service; this record is not itself the execution occurrence.\",\"definition_version\":1,\"id\":\"synny://type/agent-run-record\",\"is_a\":[\"synny://type/agent-record\",\"synny://type/execution-record\"],\"payload_kind\":\"agent_run\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"records\",\"target_type_url\":\"syn://type/execution\"},{\"relation\":\"about\",\"target_type_url\":\"syn://type/software-agent\"}]}"
+    },
+    {
+      "ref": "synny://type/agent-specification",
+      "name": "agentSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for agent.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/agent-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for agent.\",\"definition_version\":1,\"id\":\"synny://type/agent-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/agents-md-file",
+      "name": "agentsMdFile",
+      "parents": [
+        "synny://type/file-occurrence"
+      ],
+      "definition": "A file whose exact basename is AGENTS.md under the named v1 classifier. The role asserts neither Markdown validity nor trust, applicability, or instruction authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/agents-md-file\",\"authored_type_definition\":{\"abstract\":false,\"classifier_rule\":\"filename-agents-md-exact-v1\",\"definition\":\"A file whose exact basename is AGENTS.md under the named v1 classifier. The role asserts neither Markdown validity nor trust, applicability, or instruction authority.\",\"definition_version\":1,\"id\":\"synny://type/agents-md-file\",\"is_a\":[\"synny://type/file-occurrence\"],\"payload_kind\":\"file\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"file-occurrence\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/array-value",
+      "name": "arrayValue",
+      "parents": [
+        "synny://type/value-occurrence"
+      ],
+      "definition": "An ordered structured array occurrence whose materialized elements retain distinct occurrence identities.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/array-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An ordered structured array occurrence whose materialized elements retain distinct occurrence identities.\",\"definition_version\":1,\"id\":\"synny://type/array-value\",\"is_a\":[\"synny://type/value-occurrence\"],\"payload_kind\":\"array\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"represents\",\"target_type_url\":\"syn://type/sequence\"}]}"
+    },
+    {
+      "ref": "synny://type/boolean-value",
+      "name": "booleanValue",
+      "parents": [
+        "synny://type/value-occurrence"
+      ],
+      "definition": "A Boolean value; never classified through Python's bool-is-an-int implementation detail.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/boolean-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A Boolean value; never classified through Python's bool-is-an-int implementation detail.\",\"definition_version\":1,\"id\":\"synny://type/boolean-value\",\"is_a\":[\"synny://type/value-occurrence\"],\"payload_kind\":\"boolean\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"represents\",\"target_type_url\":\"syn://type/boolean\"}]}"
+    },
+    {
+      "ref": "synny://type/bundle-manifest",
+      "name": "bundleManifest",
+      "parents": [
+        "synny://type/manifest"
+      ],
+      "definition": "A manifest binding package paths to exact byte digests and typed descriptor references.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/bundle-manifest\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A manifest binding package paths to exact byte digests and typed descriptor references.\",\"definition_version\":1,\"id\":\"synny://type/bundle-manifest\",\"is_a\":[\"synny://type/manifest\"],\"payload_kind\":\"record\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"bundle-manifest\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/byte-sequence",
+      "name": "byteSequence",
+      "parents": [
+        "synny://type/data-representation"
+      ],
+      "definition": "An explicit byte-sequence representation. Unknown encoding or format does not make its primary type unresolved.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/byte-sequence\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An explicit byte-sequence representation. Unknown encoding or format does not make its primary type unresolved.\",\"definition_version\":1,\"id\":\"synny://type/byte-sequence\",\"is_a\":[\"synny://type/data-representation\"],\"payload_kind\":\"bytes\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/checked-record",
+      "name": "checkedRecord",
+      "parents": [
+        "synny://type/data-representation",
+        "syn://type/record"
+      ],
+      "definition": "A checked application record representation validated against an identified schema; the original owning service remains authoritative.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/checked-record\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked application record representation validated against an identified schema; the original owning service remains authoritative.\",\"definition_version\":1,\"id\":\"synny://type/checked-record\",\"is_a\":[\"synny://type/data-representation\",\"syn://type/record\"],\"payload_kind\":\"record\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/coding-agent-definition",
+      "name": "codingAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role coding. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/coding-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"coding\",\"definition\":\"An agent definition with the single declared role coding. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/coding-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/coding-workflow-definition",
+      "name": "codingWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with the single declared kind coding; this type does not grant deployment, verification, or other policy authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/coding-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_kind\":\"coding\",\"definition\":\"A workflow definition with the single declared kind coding; this type does not grant deployment, verification, or other policy authority.\",\"definition_version\":1,\"id\":\"synny://type/coding-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/composite-agent-definition",
+      "name": "compositeAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with two or more explicit declared roles. Roles are checked facets, not additional primary types or inferred capabilities.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/composite-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An agent definition with two or more explicit declared roles. Roles are checked facets, not additional primary types or inferred capabilities.\",\"definition_version\":1,\"id\":\"synny://type/composite-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/composite-skill-definition",
+      "name": "compositeSkillDefinition",
+      "parents": [
+        "synny://type/skill-definition"
+      ],
+      "definition": "A reusable skill explicitly composing at least two distinct skill definitions.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/composite-skill-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A reusable skill explicitly composing at least two distinct skill definitions.\",\"definition_version\":1,\"id\":\"synny://type/composite-skill-definition\",\"is_a\":[\"synny://type/skill-definition\"],\"payload_kind\":\"skill_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"skill-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/composite-workflow-definition",
+      "name": "compositeWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with multiple explicit declared kinds; the kinds are facets and the primary type remains unique.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/composite-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A workflow definition with multiple explicit declared kinds; the kinds are facets and the primary type remains unique.\",\"definition_version\":1,\"id\":\"synny://type/composite-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/conformance-specification",
+      "name": "conformanceSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for conformance.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/conformance-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for conformance.\",\"definition_version\":1,\"id\":\"synny://type/conformance-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/coordination-agent-definition",
+      "name": "coordinationAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role coordination. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/coordination-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"coordination\",\"definition\":\"An agent definition with the single declared role coordination. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/coordination-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/data-representation",
+      "name": "dataRepresentation",
+      "parents": [
+        "syn://type/representation"
+      ],
+      "definition": "An identified data occurrence or derived representation within a checked source ownership boundary. This representation is an information object; its represented referent is identified separately when applicable.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/data-representation\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"An identified data occurrence or derived representation within a checked source ownership boundary. This representation is an information object; its represented referent is identified separately when applicable.\",\"definition_version\":1,\"id\":\"synny://type/data-representation\",\"is_a\":[\"syn://type/representation\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/decimal-value",
+      "name": "decimalValue",
+      "parents": [
+        "synny://type/numeric-value"
+      ],
+      "definition": "An exact decimal value. JSON number lexemes with a decimal point or exponent retain this type even if their mathematical value is integral.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/decimal-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An exact decimal value. JSON number lexemes with a decimal point or exponent retain this type even if their mathematical value is integral.\",\"definition_version\":1,\"id\":\"synny://type/decimal-value\",\"is_a\":[\"synny://type/numeric-value\"],\"payload_kind\":\"decimal\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/decoded-text",
+      "name": "decodedText",
+      "parents": [
+        "synny://type/data-representation"
+      ],
+      "definition": "A decoded text representation with a pinned successful decoding rule; a file name alone does not establish it.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/decoded-text\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A decoded text representation with a pinned successful decoding rule; a file name alone does not establish it.\",\"definition_version\":1,\"id\":\"synny://type/decoded-text\",\"is_a\":[\"synny://type/data-representation\"],\"payload_kind\":\"text\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/definition-record",
+      "name": "definitionRecord",
+      "parents": [
+        "synny://type/checked-record",
+        "syn://type/specification"
+      ],
+      "definition": "A checked record specifying the identity, structure, behavior, or constraints of a represented referent. The record is a specification; the referent is linked separately and is not inherited as an is_a parent.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/definition-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A checked record specifying the identity, structure, behavior, or constraints of a represented referent. The record is a specification; the referent is linked separately and is not inherited as an is_a parent.\",\"definition_version\":1,\"id\":\"synny://type/definition-record\",\"is_a\":[\"synny://type/checked-record\",\"syn://type/specification\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/deployment-record",
+      "name": "deploymentRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "A checked record describing a bound deployment or installation configuration. It is not the deployed agent or software system and does not assert an execution occurred.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/deployment-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A checked record describing a bound deployment or installation configuration. It is not the deployed agent or software system and does not assert an execution occurred.\",\"definition_version\":1,\"id\":\"synny://type/deployment-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/deployment-workflow-definition",
+      "name": "deploymentWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with the single declared kind deployment; this type does not grant deployment, verification, or other policy authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/deployment-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_kind\":\"deployment\",\"definition\":\"A workflow definition with the single declared kind deployment; this type does not grant deployment, verification, or other policy authority.\",\"definition_version\":1,\"id\":\"synny://type/deployment-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/derived-representation",
+      "name": "derivedRepresentation",
+      "parents": [
+        "synny://type/data-representation"
+      ],
+      "definition": "The family of explicitly derived representations. Derivation is represented through provenance links and is not subtype inheritance from the source primary type.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/derived-representation\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of explicitly derived representations. Derivation is represented through provenance links and is not subtype inheritance from the source primary type.\",\"definition_version\":1,\"id\":\"synny://type/derived-representation\",\"is_a\":[\"synny://type/data-representation\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/discovery-specification",
+      "name": "discoverySpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for discovery.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/discovery-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for discovery.\",\"definition_version\":1,\"id\":\"synny://type/discovery-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/evaluation-workflow-definition",
+      "name": "evaluationWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with the single declared kind evaluation; this type does not grant deployment, verification, or other policy authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/evaluation-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_kind\":\"evaluation\",\"definition\":\"A workflow definition with the single declared kind evaluation; this type does not grant deployment, verification, or other policy authority.\",\"definition_version\":1,\"id\":\"synny://type/evaluation-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/execution-record",
+      "name": "executionRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "A checked record describing an execution occurrence and its authoritative owner. The record is not itself a process, event, execution, or authorization to execute.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/execution-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A checked record describing an execution occurrence and its authoritative owner. The record is not itself a process, event, execution, or authorization to execute.\",\"definition_version\":1,\"id\":\"synny://type/execution-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"records\",\"target_type_url\":\"syn://type/execution\"}]}"
+    },
+    {
+      "ref": "synny://type/file-occurrence",
+      "name": "fileOccurrence",
+      "parents": [
+        "synny://type/data-representation",
+        "syn://type/file"
+      ],
+      "definition": "A file occurrence bound to its checked source revision and provider path identity.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/file-occurrence\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A file occurrence bound to its checked source revision and provider path identity.\",\"definition_version\":1,\"id\":\"synny://type/file-occurrence\",\"is_a\":[\"synny://type/data-representation\",\"syn://type/file\"],\"payload_kind\":\"file\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"file-occurrence\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/instruction-set",
+      "name": "instructionSet",
+      "parents": [
+        "synny://type/data-representation"
+      ],
+      "definition": "A data representation containing scoped instructions interpreted according to an identified host contract. Applicability, precedence, provenance, and authority remain explicit properties rather than inferred type ancestry.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/instruction-set\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A data representation containing scoped instructions interpreted according to an identified host contract. Applicability, precedence, provenance, and authority remain explicit properties rather than inferred type ancestry.\",\"definition_version\":1,\"id\":\"synny://type/instruction-set\",\"is_a\":[\"synny://type/data-representation\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/instruction-set-specification",
+      "name": "instructionSetSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for instruction set.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/instruction-set-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for instruction set.\",\"definition_version\":1,\"id\":\"synny://type/instruction-set-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/integer-value",
+      "name": "integerValue",
+      "parents": [
+        "synny://type/numeric-value"
+      ],
+      "definition": "An exact integer value. In the JSON profile, the source numeric lexeme has no decimal point or exponent.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/integer-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An exact integer value. In the JSON profile, the source numeric lexeme has no decimal point or exponent.\",\"definition_version\":1,\"id\":\"synny://type/integer-value\",\"is_a\":[\"synny://type/numeric-value\"],\"payload_kind\":\"integer\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/json-declared-file",
+      "name": "jsonDeclaredFile",
+      "parents": [
+        "synny://type/file-occurrence"
+      ],
+      "definition": "A file declared to carry JSON by the checked source role or the exact lowercase .json suffix rule; successful strict-profile parsing is separate.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/json-declared-file\",\"authored_type_definition\":{\"abstract\":false,\"classifier_rule\":\"declared-json-file-v1\",\"definition\":\"A file declared to carry JSON by the checked source role or the exact lowercase .json suffix rule; successful strict-profile parsing is separate.\",\"definition_version\":1,\"id\":\"synny://type/json-declared-file\",\"is_a\":[\"synny://type/file-occurrence\"],\"payload_kind\":\"file\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"file-occurrence\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/json-document",
+      "name": "jsonDocument",
+      "parents": [
+        "synny://type/parsed-document"
+      ],
+      "definition": "A complete document accepted by the strict JSON profile; JSON grammar acceptance and additional profile constraints are separately identified.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/json-document\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A complete document accepted by the strict JSON profile; JSON grammar acceptance and additional profile constraints are separately identified.\",\"definition_version\":1,\"id\":\"synny://type/json-document\",\"is_a\":[\"synny://type/parsed-document\"],\"payload_kind\":\"json_document\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/json-schema",
+      "name": "jsonSchema",
+      "parents": [
+        "synny://type/validation-schema"
+      ],
+      "definition": "A JSON Schema document bound to an exact dialect and schema identifier.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/json-schema\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A JSON Schema document bound to an exact dialect and schema identifier.\",\"definition_version\":1,\"id\":\"synny://type/json-schema\",\"is_a\":[\"synny://type/validation-schema\"],\"payload_kind\":\"json_schema\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"schema\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/manifest",
+      "name": "manifest",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "A checked record enumerating the contents, identities, or integrity bindings of a collection or package.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/manifest\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A checked record enumerating the contents, identities, or integrity bindings of a collection or package.\",\"definition_version\":1,\"id\":\"synny://type/manifest\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/markdown-document",
+      "name": "markdownDocument",
+      "parents": [
+        "synny://type/parsed-document"
+      ],
+      "definition": "A Markdown document representation produced under a registered parser profile, separate from its source file role.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/markdown-document\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A Markdown document representation produced under a registered parser profile, separate from its source file role.\",\"definition_version\":1,\"id\":\"synny://type/markdown-document\",\"is_a\":[\"synny://type/parsed-document\"],\"payload_kind\":\"markdown_document\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/mcp-tool-definition",
+      "name": "mcpToolDefinition",
+      "parents": [
+        "synny://type/tool-definition"
+      ],
+      "definition": "An MCP tool interface with its server binding, schemas and declared effects. No permission or availability is implied.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/mcp-tool-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An MCP tool interface with its server binding, schemas and declared effects. No permission or availability is implied.\",\"definition_version\":1,\"id\":\"synny://type/mcp-tool-definition\",\"is_a\":[\"synny://type/tool-definition\"],\"payload_kind\":\"tool_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"tool-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/memory-curation-agent-definition",
+      "name": "memoryCurationAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role memory_curation. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/memory-curation-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"memory_curation\",\"definition\":\"An agent definition with the single declared role memory_curation. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/memory-curation-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/memory-curation-workflow-definition",
+      "name": "memoryCurationWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with the single declared kind memory_curation; this type does not grant deployment, verification, or other policy authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/memory-curation-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_kind\":\"memory_curation\",\"definition\":\"A workflow definition with the single declared kind memory_curation; this type does not grant deployment, verification, or other policy authority.\",\"definition_version\":1,\"id\":\"synny://type/memory-curation-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/null-value",
+      "name": "nullValue",
+      "parents": [
+        "synny://type/value-occurrence"
+      ],
+      "definition": "An explicit null value; distinct from absence, unknown, failed parsing, and unresolved classification.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/null-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An explicit null value; distinct from absence, unknown, failed parsing, and unresolved classification.\",\"definition_version\":1,\"id\":\"synny://type/null-value\",\"is_a\":[\"synny://type/value-occurrence\"],\"payload_kind\":\"null\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/numeric-value",
+      "name": "numericValue",
+      "parents": [
+        "synny://type/value-occurrence"
+      ],
+      "definition": "A numeric value occurrence; Boolean is not a subtype.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/numeric-value\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A numeric value occurrence; Boolean is not a subtype.\",\"definition_version\":1,\"id\":\"synny://type/numeric-value\",\"is_a\":[\"synny://type/value-occurrence\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"represents\",\"target_type_url\":\"syn://type/number\"}]}"
+    },
+    {
+      "ref": "synny://type/object-value",
+      "name": "objectValue",
+      "parents": [
+        "synny://type/value-occurrence"
+      ],
+      "definition": "A structured object occurrence with explicitly named members and checked child locators.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/object-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A structured object occurrence with explicitly named members and checked child locators.\",\"definition_version\":1,\"id\":\"synny://type/object-value\",\"is_a\":[\"synny://type/value-occurrence\"],\"payload_kind\":\"object\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/opaque-bytes",
+      "name": "opaqueBytes",
+      "parents": [
+        "synny://type/byte-sequence"
+      ],
+      "definition": "A byte payload explicitly represented as opaque data, with no asserted text or structured interpretation. This is distinct from a pending or failed format classifier.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/opaque-bytes\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A byte payload explicitly represented as opaque data, with no asserted text or structured interpretation. This is distinct from a pending or failed format classifier.\",\"definition_version\":1,\"id\":\"synny://type/opaque-bytes\",\"is_a\":[\"synny://type/byte-sequence\"],\"payload_kind\":\"bytes\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/parsed-document",
+      "name": "parsedDocument",
+      "parents": [
+        "synny://type/data-representation",
+        "syn://type/document"
+      ],
+      "definition": "A structured document representation established by its declared parsing profile.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/parsed-document\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A structured document representation established by its declared parsing profile.\",\"definition_version\":1,\"id\":\"synny://type/parsed-document\",\"is_a\":[\"synny://type/data-representation\",\"syn://type/document\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/planning-agent-definition",
+      "name": "planningAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role planning. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/planning-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"planning\",\"definition\":\"An agent definition with the single declared role planning. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/planning-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/primitive-core-specification",
+      "name": "primitiveCoreSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for core.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/primitive-core-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for core.\",\"definition_version\":1,\"id\":\"synny://type/primitive-core-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/primitive-specification",
+      "name": "primitiveSpecification",
+      "parents": [
+        "synny://type/specification-document"
+      ],
+      "definition": "The family of specifications defining this explicit AI primitive contract.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/primitive-specification\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of specifications defining this explicit AI primitive contract.\",\"definition_version\":1,\"id\":\"synny://type/primitive-specification\",\"is_a\":[\"synny://type/specification-document\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/procedural-skill-definition",
+      "name": "proceduralSkillDefinition",
+      "parents": [
+        "synny://type/skill-definition"
+      ],
+      "definition": "A reusable skill describing a procedure; this type does not imply automatic execution.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/procedural-skill-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A reusable skill describing a procedure; this type does not imply automatic execution.\",\"definition_version\":1,\"id\":\"synny://type/procedural-skill-definition\",\"is_a\":[\"synny://type/skill-definition\"],\"payload_kind\":\"skill_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"skill-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/reference-skill-definition",
+      "name": "referenceSkillDefinition",
+      "parents": [
+        "synny://type/skill-definition"
+      ],
+      "definition": "A reusable reference skill whose instructions explain how to apply reference knowledge.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/reference-skill-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A reusable reference skill whose instructions explain how to apply reference knowledge.\",\"definition_version\":1,\"id\":\"synny://type/reference-skill-definition\",\"is_a\":[\"synny://type/skill-definition\"],\"payload_kind\":\"skill_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"skill-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/registry",
+      "name": "registry",
+      "parents": [
+        "synny://type/checked-record",
+        "syn://type/dataset"
+      ],
+      "definition": "A checked registry record containing an identified collection of registered entries and their declared bindings.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/registry\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A checked registry record containing an identified collection of registered entries and their declared bindings.\",\"definition_version\":1,\"id\":\"synny://type/registry\",\"is_a\":[\"synny://type/checked-record\",\"syn://type/dataset\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/repository-instructions",
+      "name": "repositoryInstructions",
+      "parents": [
+        "synny://type/instruction-set"
+      ],
+      "definition": "An instruction set scoped to a source repository. The source file role, path scope, applicability, trust, and host precedence remain separate declarations.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/repository-instructions\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An instruction set scoped to a source repository. The source file role, path scope, applicability, trust, and host precedence remain separate declarations.\",\"definition_version\":1,\"id\":\"synny://type/repository-instructions\",\"is_a\":[\"synny://type/instruction-set\"],\"payload_kind\":\"instruction_set\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"instruction-set\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/research-agent-definition",
+      "name": "researchAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role research. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/research-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"research\",\"definition\":\"An agent definition with the single declared role research. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/research-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/research-workflow-definition",
+      "name": "researchWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with the single declared kind research; this type does not grant deployment, verification, or other policy authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/research-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_kind\":\"research\",\"definition\":\"A workflow definition with the single declared kind research; this type does not grant deployment, verification, or other policy authority.\",\"definition_version\":1,\"id\":\"synny://type/research-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/review-agent-definition",
+      "name": "reviewAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role review. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/review-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"review\",\"definition\":\"An agent definition with the single declared role review. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/review-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/skill-definition",
+      "name": "skillDefinition",
+      "parents": [
+        "synny://type/skill-record",
+        "synny://type/definition-record"
+      ],
+      "definition": "A checked specification record describing a reusable skill with explicit applicability and instructions. It defines reusable guidance and does not assert an agent possesses or has executed the skill.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/skill-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked specification record describing a reusable skill with explicit applicability and instructions. It defines reusable guidance and does not assert an agent possesses or has executed the skill.\",\"definition_version\":1,\"id\":\"synny://type/skill-definition\",\"is_a\":[\"synny://type/skill-record\",\"synny://type/definition-record\"],\"payload_kind\":\"skill_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"skill-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/skill-record",
+      "name": "skillRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "The family of checked records describing reusable skill definitions; a record does not assert that an agent possesses the represented capability.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/skill-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of checked records describing reusable skill definitions; a record does not assert that an agent possesses the represented capability.\",\"definition_version\":1,\"id\":\"synny://type/skill-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/skill-specification",
+      "name": "skillSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for skill.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/skill-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for skill.\",\"definition_version\":1,\"id\":\"synny://type/skill-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/specification-document",
+      "name": "specificationDocument",
+      "parents": [
+        "synny://type/parsed-document",
+        "syn://type/specification"
+      ],
+      "definition": "The family of normative specification documents.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/specification-document\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of normative specification documents.\",\"definition_version\":1,\"id\":\"synny://type/specification-document\",\"is_a\":[\"synny://type/parsed-document\",\"syn://type/specification\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/sql-declared-file",
+      "name": "sqlDeclaredFile",
+      "parents": [
+        "synny://type/file-occurrence"
+      ],
+      "definition": "A file declared to carry SQL by the checked source role or the exact lowercase .sql suffix rule; successful SQL parsing and dialect are separate.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/sql-declared-file\",\"authored_type_definition\":{\"abstract\":false,\"classifier_rule\":\"declared-sql-file-v1\",\"definition\":\"A file declared to carry SQL by the checked source role or the exact lowercase .sql suffix rule; successful SQL parsing and dialect are separate.\",\"definition_version\":1,\"id\":\"synny://type/sql-declared-file\",\"is_a\":[\"synny://type/file-occurrence\"],\"payload_kind\":\"file\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"file-occurrence\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/sql-document",
+      "name": "sqlDocument",
+      "parents": [
+        "synny://type/parsed-document"
+      ],
+      "definition": "A complete SQL document accepted by a pinned parser and dialect grammar; syntax acceptance is not semantic validity, authorization, or execution success.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/sql-document\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A complete SQL document accepted by a pinned parser and dialect grammar; syntax acceptance is not semantic validity, authorization, or execution success.\",\"definition_version\":1,\"id\":\"synny://type/sql-document\",\"is_a\":[\"synny://type/parsed-document\"],\"payload_kind\":\"sql_document\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/string-value",
+      "name": "stringValue",
+      "parents": [
+        "synny://type/value-occurrence"
+      ],
+      "definition": "A string value; numeric-looking characters do not establish numeric type.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/string-value\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A string value; numeric-looking characters do not establish numeric type.\",\"definition_version\":1,\"id\":\"synny://type/string-value\",\"is_a\":[\"synny://type/value-occurrence\"],\"payload_kind\":\"string\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/syn-object-record",
+      "name": "synObjectRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "A checked public SYN instance record in an explicit immutable snapshot, with exact source reference and native semantic class. Native assertions confer no Potbot authority or verification status.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/syn-object-record\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked public SYN instance record in an explicit immutable snapshot, with exact source reference and native semantic class. Native assertions confer no Potbot authority or verification status.\",\"definition_version\":1,\"id\":\"synny://type/syn-object-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":\"record\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"note\":\"The instance record retains its actual native semantic class from the checked immutable snapshot; this broad link is not a replacement for that class.\",\"relation\":\"about\",\"target_type_url\":\"syn://type/thing\"}]}"
+    },
+    {
+      "ref": "synny://type/syn-type-definition",
+      "name": "synTypeDefinition",
+      "parents": [
+        "synny://type/type-definition"
+      ],
+      "definition": "A checked SYN class definition in an explicit immutable snapshot, with declared parents, direct property constraints and preserved public metadata. It is a type definition, not a native class instance.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/syn-type-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked SYN class definition in an explicit immutable snapshot, with declared parents, direct property constraints and preserved public metadata. It is a type definition, not a native class instance.\",\"definition_version\":1,\"id\":\"synny://type/syn-type-definition\",\"is_a\":[\"synny://type/type-definition\"],\"payload_kind\":\"record\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"defines\",\"target_type_url\":\"syn://type/type\"}]}"
+    },
+    {
+      "ref": "synny://type/text-fragment",
+      "name": "textFragment",
+      "parents": [
+        "synny://type/derived-representation",
+        "synny://type/decoded-text"
+      ],
+      "definition": "A decoded UTF-8 text representation of a checked byte-range from a bound primitive source. It retains its own identity, source type reference, and exact byte boundaries; it is not a subtype of the source semantic class.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/text-fragment\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A decoded UTF-8 text representation of a checked byte-range from a bound primitive source. It retains its own identity, source type reference, and exact byte boundaries; it is not a subtype of the source semantic class.\",\"definition_version\":1,\"id\":\"synny://type/text-fragment\",\"is_a\":[\"synny://type/derived-representation\",\"synny://type/decoded-text\"],\"payload_kind\":\"text_chunk\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"text-chunk\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/tool-definition",
+      "name": "toolDefinition",
+      "parents": [
+        "synny://type/tool-interface-record",
+        "synny://type/definition-record",
+        "syn://type/api"
+      ],
+      "definition": "A checked specification of an explicitly bound callable tool interface, including its input and output contract. This API specification is distinct from a deployed service, an invocation, or authority to use it.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/tool-definition\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A checked specification of an explicitly bound callable tool interface, including its input and output contract. This API specification is distinct from a deployed service, an invocation, or authority to use it.\",\"definition_version\":1,\"id\":\"synny://type/tool-definition\",\"is_a\":[\"synny://type/tool-interface-record\",\"synny://type/definition-record\",\"syn://type/api\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/tool-interface-record",
+      "name": "toolInterfaceRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "The family of checked records describing callable tool interfaces. These records are not material tools, deployed services, or permission grants.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/tool-interface-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of checked records describing callable tool interfaces. These records are not material tools, deployed services, or permission grants.\",\"definition_version\":1,\"id\":\"synny://type/tool-interface-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/tool-specification",
+      "name": "toolSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for tool.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/tool-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for tool.\",\"definition_version\":1,\"id\":\"synny://type/tool-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/type-definition",
+      "name": "typeDefinition",
+      "parents": [
+        "synny://type/definition-record"
+      ],
+      "definition": "A versioned definition of one registered semantic data type. Its own primary type is this metatype.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/type-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A versioned definition of one registered semantic data type. Its own primary type is this metatype.\",\"definition_version\":1,\"id\":\"synny://type/type-definition\",\"is_a\":[\"synny://type/definition-record\"],\"payload_kind\":\"record\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"type-definition\",\"semantic_links\":[{\"relation\":\"defines\",\"target_type_url\":\"syn://type/type\"}]}"
+    },
+    {
+      "ref": "synny://type/type-registry",
+      "name": "typeRegistry",
+      "parents": [
+        "synny://type/registry"
+      ],
+      "definition": "An immutable composed registry release of explicit semantic type definitions and profile bindings.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/type-registry\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"An immutable composed registry release of explicit semantic type definitions and profile bindings.\",\"definition_version\":1,\"id\":\"synny://type/type-registry\",\"is_a\":[\"synny://type/registry\"],\"payload_kind\":\"record\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"type-registry\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/type-system-specification",
+      "name": "typeSystemSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for type system.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/type-system-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for type system.\",\"definition_version\":1,\"id\":\"synny://type/type-system-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/unclassified-representation",
+      "name": "unclassifiedRepresentation",
+      "parents": [
+        "synny://type/data-representation"
+      ],
+      "definition": "The primary kind of this admitted occurrence has not been established; not a wildcard and not a negative type assertion.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/unclassified-representation\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"The primary kind of this admitted occurrence has not been established; not a wildcard and not a negative type assertion.\",\"definition_version\":1,\"id\":\"synny://type/unclassified-representation\",\"is_a\":[\"synny://type/data-representation\"],\"payload_kind\":\"unresolved\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/validation-schema",
+      "name": "validationSchema",
+      "parents": [
+        "synny://type/parsed-document",
+        "syn://type/schema"
+      ],
+      "definition": "The family of explicitly identified validation schemas.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/validation-schema\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of explicitly identified validation schemas.\",\"definition_version\":1,\"id\":\"synny://type/validation-schema\",\"is_a\":[\"synny://type/parsed-document\",\"syn://type/schema\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/value-occurrence",
+      "name": "valueOccurrence",
+      "parents": [
+        "synny://type/data-representation"
+      ],
+      "definition": "A typed value occurrence with a checked location and source revision.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/value-occurrence\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"A typed value occurrence with a checked location and source revision.\",\"definition_version\":1,\"id\":\"synny://type/value-occurrence\",\"is_a\":[\"synny://type/data-representation\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/verification-assistance-agent-definition",
+      "name": "verificationAssistanceAgentDefinition",
+      "parents": [
+        "synny://type/agent-definition"
+      ],
+      "definition": "An agent definition with the single declared role verification_assistance. This declaration does not grant capabilities, permissions, or decision authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/verification-assistance-agent-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_role\":\"verification_assistance\",\"definition\":\"An agent definition with the single declared role verification_assistance. This declaration does not grant capabilities, permissions, or decision authority.\",\"definition_version\":1,\"id\":\"synny://type/verification-assistance-agent-definition\",\"is_a\":[\"synny://type/agent-definition\"],\"payload_kind\":\"agent_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"agent-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/verification-workflow-definition",
+      "name": "verificationWorkflowDefinition",
+      "parents": [
+        "synny://type/workflow-definition"
+      ],
+      "definition": "A workflow definition with the single declared kind verification; this type does not grant deployment, verification, or other policy authority.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/verification-workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"declared_kind\":\"verification\",\"definition\":\"A workflow definition with the single declared kind verification; this type does not grant deployment, verification, or other policy authority.\",\"definition_version\":1,\"id\":\"synny://type/verification-workflow-definition\",\"is_a\":[\"synny://type/workflow-definition\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[]}"
+    },
+    {
+      "ref": "synny://type/workflow-definition",
+      "name": "workflowDefinition",
+      "parents": [
+        "synny://type/workflow-record",
+        "synny://type/definition-record"
+      ],
+      "definition": "A checked specification record describing a workflow definition over an identified source revision. Generic definitions have no declared workflow kind. The represented workflow is a procedure; this record is a specification of it and implies no execution.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/workflow-definition\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked specification record describing a workflow definition over an identified source revision. Generic definitions have no declared workflow kind. The represented workflow is a procedure; this record is a specification of it and implies no execution.\",\"definition_version\":1,\"id\":\"synny://type/workflow-definition\",\"is_a\":[\"synny://type/workflow-record\",\"synny://type/definition-record\"],\"payload_kind\":\"workflow_definition\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"workflow-definition\",\"semantic_links\":[{\"relation\":\"defines\",\"target_type_url\":\"syn://type/workflow\"}]}"
+    },
+    {
+      "ref": "synny://type/workflow-record",
+      "name": "workflowRecord",
+      "parents": [
+        "synny://type/checked-record"
+      ],
+      "definition": "The family of checked records describing workflow definitions and workflow executions. Definition records and execution records are separate branches; neither is asserted to be its represented referent.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/workflow-record\",\"authored_type_definition\":{\"abstract\":true,\"definition\":\"The family of checked records describing workflow definitions and workflow executions. Definition records and execution records are separate branches; neither is asserted to be its represented referent.\",\"definition_version\":1,\"id\":\"synny://type/workflow-record\",\"is_a\":[\"synny://type/checked-record\"],\"payload_kind\":null},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"about\",\"target_type_url\":\"syn://type/workflow\"}]}"
+    },
+    {
+      "ref": "synny://type/workflow-run-record",
+      "name": "workflowRunRecord",
+      "parents": [
+        "synny://type/workflow-record",
+        "synny://type/execution-record"
+      ],
+      "definition": "A checked record describing a workflow execution and bound to a checked workflow definition revision. It is not itself the execution occurrence and is not a subtype of a workflow-definition record.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/workflow-run-record\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A checked record describing a workflow execution and bound to a checked workflow definition revision. It is not itself the execution occurrence and is not a subtype of a workflow-definition record.\",\"definition_version\":1,\"id\":\"synny://type/workflow-run-record\",\"is_a\":[\"synny://type/workflow-record\",\"synny://type/execution-record\"],\"payload_kind\":\"workflow_run\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"semantic_links\":[{\"relation\":\"records\",\"target_type_url\":\"syn://type/execution\"},{\"relation\":\"about\",\"target_type_url\":\"syn://type/workflow\"}]}"
+    },
+    {
+      "ref": "synny://type/workflow-specification",
+      "name": "workflowSpecification",
+      "parents": [
+        "synny://type/primitive-specification"
+      ],
+      "definition": "A normative AI primitive specification for workflow.",
+      "properties": [],
+      "metadata_json": "{\"authored_preferred_ref\":\"synny://type/workflow-specification\",\"authored_type_definition\":{\"abstract\":false,\"definition\":\"A normative AI primitive specification for workflow.\",\"definition_version\":1,\"id\":\"synny://type/workflow-specification\",\"is_a\":[\"synny://type/primitive-specification\"],\"payload_kind\":\"specification\"},\"hierarchy_design\":{\"file\":\"proposed-type-hierarchy.json\",\"sha256\":\"e04c307f1d4b01ec064f52a0bb0de7143a96d15132dca853acfa7a06e3ad4581\"},\"metadata_semantics\":\"Authoring annotations retained verbatim; the pinned SYN loader does not enforce APS profiles or semantic-link relations.\",\"ontology\":\"ai-primitive-hierarchy\",\"ontologyVersion\":1,\"origin\":\"authored_extension\",\"profile_binding\":\"specification\",\"semantic_links\":[]}"
+    }
+  ],
+  "objects": []
+}

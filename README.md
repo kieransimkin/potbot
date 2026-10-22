@@ -21,6 +21,14 @@ model discovery, explicit disclosure/rate policy and durable usage accounting.
 A PostgreSQL job queue, REST API, WebSocket streams and browser dashboard expose
 generation progress and retained output.
 
+The Agent security extension adds published Ed25519 verification keys, base-certified
+hourly signatures, a one-shot native password custody tier, inherited Ember contracts
+and owner-separated PostgreSQL storage. Semantic signing checks inherited implementation
+revisions against installed source inputs before invoking the broker. This source
+policy does not attest the executable or qualify a deployment host. See the
+[implementation addendum](docs/agent-identity-and-ember-runtime.md) for commands,
+exact Type inventory, custody limits and recorded verification results.
+
 The current execution flow uses operator-selected tools and scripted proposals.
 Multi-model reasoning-tree selection, local-model live qualification, learned memory
 admission, live web discovery, IBM MCP, DanceFlow MCP, and the custom semantic embedding
@@ -60,13 +68,14 @@ bash ./start.sh dependencies download
 For development, use Python 3.12, Git, and [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --dev
+uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --dev
 uv run --locked potbot info
 uv run --locked python scripts/check.py
 ```
 
 The core package has no mandatory third-party runtime dependencies. The PostgreSQL
-driver, semantic validation, credential vault, hosted providers, web server and local encoder are separate extras. Domain imports and
+driver, semantic validation, credential vault, hosted providers, web server, public
+signature verification and local encoder are separate extras. Domain imports and
 CLI help need neither model weights nor running services. `uv.lock` pins the complete
 dependency resolution.
 
@@ -258,6 +267,30 @@ Every lookup selects an explicit immutable snapshot within the authenticated wor
 Import and exact reads load no encoder. The [SYN integration guide](docs/syn-semantic-integration.md)
 covers migration 6, read-only export, type/representation distinctions, stable pagination,
 hashes, coverage limits, and the `potbot syn` commands.
+
+### Expanded hierarchy and native primitive placement
+
+The opt-in [Potbot hierarchy](docs/type-hierarchy-and-syn-primitives.md) adds the
+80 APS 0.2 declarations and 34 process, event, question, evidence, assessment,
+and definition specializations. Its complete graph contains 690 unique types,
+including the unchanged native and protected legacy catalogs. New public type
+references use full URLs, with concise authored slugs and preferred `synny://`
+spelling. The default catalog and existing snapshots retain their current content.
+
+```bash
+uv run --locked potbot syn hierarchy --summary
+uv run --locked potbot syn placement --type-ref synny://type/agent-run-record
+uv run --locked potbot syn placement --type-ref synny://type/verification-assessment
+```
+
+Placement cards explain when an item fits a Thing, Cog, Event, Ember, Enigma,
+Pondle, Snug, Om, Credential or Type. They are versioned recommendations; imports
+preserve the source's actual primitive kind. Exact inventory and vector search
+accept `--primitive-kind` together with their semantic type filters. The
+[types-only extension](vocab/potbot-hierarchy.snapshot.json) can be imported
+explicitly through the existing snapshot command. See the
+[full hierarchy reference](docs/type-hierarchy-reference.md) for all authored
+classes, exact parents and placement decisions.
 
 ## Semantic types and release identities
 

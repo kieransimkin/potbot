@@ -1,4 +1,4 @@
-.venv/
+.venv
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -16,3 +16,5 @@ artifacts/
 /models/
 # Project-local bootstrap runtime, package cache, and dependency state.
 /.potbot/
+# Native identity build products are local, never source artifacts.
+/native/potbot-identity/target/

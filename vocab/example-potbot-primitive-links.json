@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "profile_id": "urn:potbot:semantic-placement:0.1.0",
+  "profile_hash": "55949f5bc5a91550eb753d041b2e64cb62363a71a239bcef28eb22b910666cb7",
+  "snapshot_fingerprint": "07fea37bc16a9b2ccb32f757205dbf4c8e3d34cbb15aa5a1dfe2d7928e64fa1a",
+  "synthetic": true,
+  "status": "illustrative_only_not_imported_by_syn_snapshot_service",
+  "links": [
+    {
+      "source_ref": "syn://ember/example-definition",
+      "relation": "defines",
+      "target_ref": "syn://thing/example-agent"
+    },
+    {
+      "source_ref": "syn://cog/example-process",
+      "relation": "uses-definition",
+      "target_ref": "syn://ember/example-definition"
+    },
+    {
+      "source_ref": "syn://event/example-execution",
+      "relation": "uses-definition",
+      "target_ref": "syn://ember/example-definition"
+    },
+    {
+      "source_ref": "syn://event/example-execution",
+      "relation": "part-of-process",
+      "target_ref": "syn://cog/example-process"
+    },
+    {
+      "source_ref": "syn://event/example-execution",
+      "relation": "produces",
+      "target_ref": "syn://ember/example-outcome"
+    },
+    {
+      "source_ref": "syn://ember/example-run-record",
+      "relation": "records",
+      "target_ref": "syn://event/example-execution"
+    },
+    {
+      "source_ref": "syn://ember/example-run-record",
+      "relation": "about",
+      "target_ref": "syn://thing/example-agent"
+    },
+    {
+      "source_ref": "syn://ember/example-outcome",
+      "relation": "produced-by",
+      "target_ref": "syn://event/example-execution"
+    },
+    {
+      "source_ref": "syn://pondle/example-assessment",
+      "relation": "evaluates",
+      "target_ref": "syn://thing/example-file"
+    },
+    {
+      "source_ref": "syn://pondle/example-assessment",
+      "relation": "uses-definition",
+      "target_ref": "syn://ember/example-criterion"
+    },
+    {
+      "source_ref": "syn://pondle/example-assessment",
+      "relation": "answers",
+      "target_ref": "syn://enigma/example-question"
+    },
+    {
+      "source_ref": "syn://ember/example-preference",
+      "relation": "about",
+      "target_ref": "syn://thing/example-agent"
+    },
+    {
+      "source_ref": "syn://ember/example-budget",
+      "relation": "about",
+      "target_ref": "syn://cog/example-process"
+    }
+  ]
+}

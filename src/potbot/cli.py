@@ -41,6 +41,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.semantics.cli import main as syn_main
 
         return syn_main(args[1:])
+    if args and args[0] == "identity":
+        from potbot.security.cli import main as identity_main
+
+        return identity_main(args[1:])
     if args and args[0] == "execution":
         from potbot.tools.execution_cli import main as execution_main
 
@@ -86,6 +90,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("jobs", help="inspect the durable queue and run hosted-model workers")
     commands.add_parser("embedding", help="set up, index, and query local Qwen embeddings")
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
+    commands.add_parser("identity", help="manage native signing and verify published Agent keys")
     commands.add_parser("execution", help="capture repositories and run qualified isolated tools")
     commands.add_parser("patch", help="run, resume and export the scripted verified patch workflow")
     commands.add_parser(
@@ -118,6 +123,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "model_deployment_and_invocation_records",
                         "local_standard_vector_embeddings",
                         "scoped_syn_references_and_exact_type_inventory",
+                        "scoped_inherited_ember_contracts",
+                        "public_agent_identity_and_hourly_signature_verification",
+                        "native_local_identity_broker",
                         "named_embedding_spaces",
                         "immutable_repository_snapshots",
                         "fenced_candidate_workspaces",

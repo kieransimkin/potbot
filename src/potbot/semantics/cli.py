@@ -5,21 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from potbot.dependencies import (
-    MODEL_DIRECTORY,
-    ConsoleProgress,
-    ensure_standard_model,
-    project_root,
-)
 from potbot.domain.embeddings import DEFAULT_EMBEDDING_NAME
 from potbot.domain.errors import DomainError, InvalidInputError
-from potbot.domain.syn import MAX_SYN_SNAPSHOT_BYTES, SynSnapshot, parse_type_ref
+from potbot.domain.syn import MAX_SYN_SNAPSHOT_BYTES, SYN_KINDS, SynSnapshot, parse_type_ref
 
 from .catalog import (
     builtin_types,
@@ -29,11 +23,36 @@ from .catalog import (
     extension_types,
 )
 
+if TYPE_CHECKING:
+    from potbot.dependencies import DownloadProgress
+
+
+def ensure_standard_model(
+    root: Path,
+    *,
+    model_dir: Path | None = None,
+    progress: Callable[[DownloadProgress], None] | None = None,
+) -> dict[str, Any]:
+    """Keep model preparation lazy and separately replaceable by CLI callers."""
+    from potbot.dependencies import ensure_standard_model as prepare_model
+
+    return prepare_model(root, model_dir=model_dir, progress=progress)
+
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == "embers":
+        from .ember_cli import main as ember_main
+
+        return ember_main(arguments[1:])
+    if arguments and arguments[0] == "agent-security":
+        from .agent_security_cli import main as agent_security_main
+
+        return agent_security_main(arguments[1:])
     parser = argparse.ArgumentParser(prog="potbot syn", description=__doc__)
-    default_model_dir = project_root() / "models" / MODEL_DIRECTORY
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("embers", help="validate, store and resolve scoped inherited Ember contracts")
+    sub.add_parser("agent-security", help="publish typed Agent, Credential and locking Cog views")
     catalog = sub.add_parser(
         "catalog", help="inspect bundled native classes and protected data aliases offline"
     )
@@ -46,6 +65,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     catalog.add_argument("--principal-id", type=UUID)
     catalog.add_argument("--schema", default="potbot")
     catalog.add_argument("--artifact-root", type=Path, default=Path("artifacts/objects"))
+    hierarchy = sub.add_parser("hierarchy", help="inspect the opt-in Potbot hierarchy offline")
+    hierarchy.add_argument("--type-ref", help="exact syn://type or synny://type URL")
+    hierarchy.add_argument("--include-subtypes", action="store_true")
+    hierarchy.add_argument("--primitive-kind", choices=sorted(SYN_KINDS))
+    hierarchy.add_argument("--summary", action="store_true")
+    hierarchy.add_argument("--limit", type=int, default=100)
+    hierarchy.add_argument("--offset", type=int, default=0)
+    placement = sub.add_parser("placement", help="explain an advisory native primitive placement")
+    placement.add_argument("--type-ref", required=True, help="exact type URL; no compact aliases")
+    placement.add_argument("--check-kind", choices=sorted(SYN_KINDS))
     for name in ("import", "resolve", "list", "index", "search"):
         command = sub.add_parser(name)
         command.add_argument("--workspace-id", type=UUID, required=True)
@@ -66,6 +95,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "--data-type", help="checked record representation, as dt: ID or SYN alias"
             )
             command.add_argument("--include-subtypes", action="store_true")
+            command.add_argument(
+                "--primitive-kind",
+                choices=sorted(SYN_KINDS - {"type"}),
+                help="require this stored native instance kind as well as any type filters",
+            )
         if name == "list":
             command.add_argument("--page-size", type=int, default=100)
             command.add_argument("--cursor", type=UUID)
@@ -74,15 +108,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             command.add_argument("--space-id", type=UUID, required=True)
             command.add_argument("--embedding-name", default=DEFAULT_EMBEDDING_NAME)
             command.add_argument("--runtime-budget-ms", type=int, default=60_000)
-            command.add_argument("--model-dir", type=Path, default=default_model_dir)
+            command.add_argument("--model-dir", type=Path)
             command.add_argument("--max-input-tokens", type=int, default=2048)
         if name == "search":
             command.add_argument("--query", required=True)
             command.add_argument("--limit", type=int, default=5)
             command.add_argument("--record-kind", choices=("objects", "types"), default="objects")
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     try:
-        if args.command == "catalog" and args.snapshot_id is None:
+        if args.command == "hierarchy":
+            from .hierarchy import inspect_hierarchy
+
+            output: dict[str, Any] = inspect_hierarchy(
+                type_ref=args.type_ref,
+                include_subtypes=args.include_subtypes,
+                primitive_kind=args.primitive_kind,
+                summary=args.summary,
+                limit=args.limit,
+                offset=args.offset,
+            )
+        elif args.command == "placement":
+            from .hierarchy import inspect_placement
+
+            output = inspect_placement(args.type_ref, check_kind=args.check_kind)
+        elif args.command == "catalog" and args.snapshot_id is None:
             if args.workspace_id is not None or args.principal_id is not None:
                 raise InvalidInputError("select --snapshot-id when inspecting a workspace catalog")
             types = tuple(sorted((*builtin_types(), *extension_types()), key=lambda row: row.ref))
@@ -95,7 +144,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 types = tuple(row for row in types if row.ref.slug == ref.slug)
                 if not types:
                     raise InvalidInputError("type is absent from the bundled catalog")
-            output: dict[str, Any] = {
+            output = {
                 "schema_version": 1,
                 "native_type_count": len(builtin_types()),
                 "data_type_alias_count": len(extension_types()),
@@ -113,6 +162,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
             from .service import SynService
 
+            if (
+                args.command == "search"
+                and args.primitive_kind is not None
+                and args.record_kind == "types"
+            ):
+                raise InvalidInputError("primitive-kind applies only to object searches")
             if args.workspace_id is None or args.principal_id is None:
                 raise InvalidInputError("snapshot operations require workspace-id and principal-id")
             dsn = resolve_postgres_dsn()
@@ -142,18 +197,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                     type_ref=args.type_ref,
                     primary_data_type=args.data_type,
                     include_subtypes=args.include_subtypes,
+                    primitive_kind=args.primitive_kind,
                     page_size=args.page_size,
                     cursor=args.cursor,
                 )
             else:
+                from potbot.dependencies import MODEL_DIRECTORY, ConsoleProgress, project_root
                 from potbot.memory.embedding_profile import EmbeddingProfile
                 from potbot.memory.embeddings import EmbeddingService
                 from potbot.memory.local_encoder import QwenLocalEncoder
 
+                root = project_root()
+                if args.model_dir is None:
+                    args.model_dir = root / "models" / MODEL_DIRECTORY
                 profile = replace(EmbeddingProfile(), max_input_tokens=args.max_input_tokens)
-                ensure_standard_model(
-                    project_root(), model_dir=args.model_dir, progress=ConsoleProgress()
-                )
+                ensure_standard_model(root, model_dir=args.model_dir, progress=ConsoleProgress())
                 embeddings = EmbeddingService(
                     database, artifacts, QwenLocalEncoder(args.model_dir, profile)
                 )
@@ -183,6 +241,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         primary_data_type=args.data_type,
                         include_subtypes=args.include_subtypes,
                         record_kind=args.record_kind,
+                        primitive_kind=args.primitive_kind,
                     )
         print(json.dumps(output, sort_keys=True, default=str))
         return 0

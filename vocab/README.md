@@ -116,3 +116,58 @@ The [SYN integration guide](../docs/syn-semantic-integration.md) explains migrat
 read-only export coverage, immutable workspace/namespace/snapshot scope, exact
 type enumeration, and named-vector ranking. These additions leave every published
 0.1.0 JSON and DOCX contract unchanged.
+
+## Expanded hierarchy and native primitive placement
+
+The opt-in [`potbot-hierarchy.snapshot.json`](potbot-hierarchy.snapshot.json)
+contains 114 authored type declarations and no instances: 80 unchanged APS 0.2
+declarations plus 34 additions for processes, events, questions, evidence,
+assessments and definition records. Combined with the 529 native and 47 protected
+legacy definitions, it gives 690 unique type identities. It does not replace the
+default bundled catalog or migrate existing objects.
+
+The versioned source is
+[`hierarchy_profile.json`](../src/potbot/semantics/hierarchy_profile.json), with
+[`potbot-hierarchy-profile.schema.json`](potbot-hierarchy-profile.schema.json).
+Its recommendations explain a preferred native primitive kind, or an explicit
+abstract no-default decision, for each authored class and selected native classes.
+They do not enforce primitive compatibility
+on imported source assertions or grant APS payload-profile support.
+
+[`ai-primitives-0.2.0.snapshot.json`](ai-primitives-0.2.0.snapshot.json) preserves
+the exact 80-class source extension. The corresponding
+[explicit URL migration evidence](ai-primitives-type-migration.json) remains a
+separate design mapping; changed slugs are not automatic aliases.
+
+See the [placement guide](../docs/type-hierarchy-and-syn-primitives.md) and
+[complete authored hierarchy](../docs/type-hierarchy-reference.md). The new
+offline `potbot syn hierarchy` and `potbot syn placement` commands require no
+database or encoder. Stored instance inventory and search use `--primitive-kind`
+as an additional exact filter within their selected immutable snapshot.
+
+The [generated provenance](potbot-hierarchy.provenance.json) pins the source hashes,
+catalog composition, and reproducible export. The
+[synthetic object example](example-potbot-primitive-views.snapshot.json) and
+[illustrative links](example-potbot-primitive-links.json) show distinct native
+identities for the record, process, occurrence, question, and assessment views.
+The link file is descriptive and is not imported by the snapshot service.
+Regenerate these assets with `uv run --locked python scripts/generate_type_hierarchy.py`;
+the regular check runner verifies them with `--check`.
+
+## Agent security and Ember contracts
+
+`agent-security.snapshot.json` is an opt-in snapshot extending the preserved Potbot
+hierarchy with 25 security Types (715 effective Types). Potbot-authored names prefer
+`synny://type/`; matching `syn://type/` spellings are the same Type identities.
+
+`ember-contract-bundle.schema.json` defines scoped Type defaults, slot declarations,
+instance bindings, exact Ember revisions, and explicit public/owner projections.
+`security-public/` contains the public identity, delegation and signature schemas.
+Implementation Embers publish exact source content and pinned build inputs. Semantic
+signing requires their complete inherited revision set to match the current local
+implementation; that content policy does not attest a binary or authorize imported
+code execution. Public and owner projections retain independent content identities,
+and private operation handles are available only through the authorized owner view.
+See [the runtime addendum](../docs/agent-identity-and-ember-runtime.md) for validated
+semantics, deterministic Ember Type inventory, private storage boundaries, custody
+limits and command examples.

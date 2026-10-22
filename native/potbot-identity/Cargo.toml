@@ -1,0 +1,39 @@
+[package]
+name = "potbot-identity"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+description = "Native local custody and hourly Ed25519-BIP32 signing for Potbot"
+license = "MIT"
+
+[dependencies]
+aes-gcm = { version = "=0.10.3", features = ["zeroize"] }
+aes-kw = "=0.2.1"
+argon2 = { version = "=0.5.3", features = ["zeroize"] }
+base64 = "=0.22.1"
+bip39 = { version = "=2.2.0", features = ["zeroize"] }
+ed25519-bip32 = "=0.5.0"
+getrandom = "=0.2.16"
+hkdf = "=0.12.4"
+libc = "=0.2.177"
+pbkdf2 = "=0.12.2"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"
+subtle = "=2.6.1"
+time = { version = "=0.3.44", features = ["formatting", "parsing", "macros"] }
+zeroize = { version = "=1.8.2", features = ["derive"] }
+rpassword = "=7.4.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_Memory", "Win32_System_Threading", "Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+hex = "=0.4.3"
+tempfile = "=3.23.0"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"

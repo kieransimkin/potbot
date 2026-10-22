@@ -1,0 +1,396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:potbot:schema:ember-contract-bundle:1",
+  "title": "Scoped Type/Ember contract bundle",
+  "description": "Immutable property/default/instance contracts over one selected SYN catalog. Runtime checks revision hashes, duplicate/aliased identities, scalar bounds, references, Type ancestry, monotonic constraints, inherited defaults, visibility and forbidden secret material. A public projection cannot prove owner conformance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "projection",
+    "scope",
+    "type_contracts",
+    "embers",
+    "instances"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "projection": {
+      "enum": [
+        "owner",
+        "public"
+      ]
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "type_contracts": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/typeContract"
+      }
+    },
+    "embers": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/ember"
+      }
+    },
+    "instances": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/instance"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "projection": {
+            "const": "public"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "embers": {
+            "items": {
+              "properties": {
+                "visibility": {
+                  "const": "public"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspace_id",
+        "namespace",
+        "snapshot_id",
+        "catalog_hash"
+      ],
+      "properties": {
+        "workspace_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "snapshot_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "catalog_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "pointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "revision"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^syn://ember/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 280
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_ref",
+        "name",
+        "ember_type_ref",
+        "value_type_ref",
+        "minimum",
+        "maximum",
+        "source",
+        "visibility",
+        "override"
+      ],
+      "properties": {
+        "slot_ref": {
+          "type": "string",
+          "pattern": "^syn://thing/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 280
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "ember_type_ref": {
+          "type": "string",
+          "pattern": "^syn(ny)?://type/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 268
+        },
+        "value_type_ref": {
+          "type": "string",
+          "pattern": "^syn(ny)?://type/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 268
+        },
+        "minimum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "source": {
+          "enum": [
+            "effective",
+            "instance"
+          ]
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private"
+          ]
+        },
+        "override": {
+          "enum": [
+            "fixed",
+            "replace",
+            "append"
+          ]
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_ref",
+        "embers"
+      ],
+      "properties": {
+        "slot_ref": {
+          "type": "string",
+          "pattern": "^syn://thing/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 280
+        },
+        "embers": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/pointer"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "ember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "type_ref",
+        "value_type_ref",
+        "value_kind",
+        "visibility",
+        "value",
+        "revision"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^syn://ember/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 280
+        },
+        "type_ref": {
+          "type": "string",
+          "pattern": "^syn(ny)?://type/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 268
+        },
+        "value_type_ref": {
+          "type": "string",
+          "pattern": "^syn(ny)?://type/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 268
+        },
+        "value_kind": {
+          "enum": [
+            "json",
+            "object_ref",
+            "private_handle"
+          ]
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "value_kind": {
+                "const": "private_handle"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "visibility": {
+                "const": "private"
+              },
+              "value": {
+                "type": "string",
+                "pattern": "^secret://[a-z0-9][a-z0-9._/-]{0,1022}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "value_kind": {
+                "const": "object_ref"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "pattern": "^syn://(?:type|thing|event|ember|cog|credential|enigma|pondle|snug|om)/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+                "maxLength": 280
+              }
+            }
+          }
+        }
+      ]
+    },
+    "typeContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type_ref",
+        "slots",
+        "defaults",
+        "revision"
+      ],
+      "properties": {
+        "type_ref": {
+          "type": "string",
+          "pattern": "^syn(ny)?://type/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 268
+        },
+        "slots": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/slot"
+          }
+        },
+        "defaults": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_ref",
+        "type_ref",
+        "bindings",
+        "revision"
+      ],
+      "properties": {
+        "object_ref": {
+          "type": "string",
+          "pattern": "^syn://(?:thing|event|ember|cog|credential|enigma|pondle|snug|om)/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 280
+        },
+        "type_ref": {
+          "type": "string",
+          "pattern": "^syn(ny)?://type/[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+          "maxLength": 268
+        },
+        "bindings": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    }
+  }
+}

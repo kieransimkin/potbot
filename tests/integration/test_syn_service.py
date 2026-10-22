@@ -14,14 +14,15 @@ from jsonschema import Draft202012Validator
 
 from potbot.controller.budgets import BudgetLedger
 from potbot.domain.errors import InvalidInputError, RevisionConflictError, ScopeDeniedError
-from potbot.domain.serialization import canonical_json
-from potbot.domain.syn import SynObject, SynRef, SynSnapshot, SynType
+from potbot.domain.serialization import canonical_json, content_hash
+from potbot.domain.syn import SYN_KINDS, SynObject, SynRef, SynSnapshot, SynType
 from potbot.memory.embedding_profile import EmbeddingBatch
 from potbot.persistence.artifacts import ArtifactIntegrityError, ArtifactStore, LocalArtifactBackend
 from potbot.persistence.database import RepositoryStore, provision_principal
 from potbot.persistence.syn_schema import WORKSPACE_TABLES
 from potbot.semantics import service as service_module
 from potbot.semantics.catalog import data_type_ref, extension_types
+from potbot.semantics.hierarchy import profile_snapshot
 from potbot.semantics.service import SynService
 from tests.integration.test_named_embeddings import NamedViewProvider, setup_service
 
@@ -299,6 +300,115 @@ def test_cursor_binds_snapshot_query_page_size_and_authenticated_principal(app_e
         service.list_objects(app_env.context, identity, cursor=uuid4(), **options)
 
 
+def test_primitive_inventory_selects_each_native_kind_with_the_same_semantic_type(
+    app_env: Any,
+) -> None:
+    service = _service(app_env)
+    kinds = sorted(SYN_KINDS - {"type"})
+    objects = tuple(_object(f"syn://{kind}/same-class", LEAF) for kind in kinds)
+    identity, _ = _import(app_env, service, _snapshot(objects=objects))
+    unfiltered = service.list_objects(app_env.context, identity, type_ref=str(LEAF))
+    assert unfiltered["total_count"] == 9 and "primitive_kind" not in unfiltered["query"]
+    for kind in kinds:
+        exact = service.list_objects(
+            app_env.context,
+            identity,
+            type_ref=str(LEAF),
+            primary_data_type="dt:syn.object_record",
+            primitive_kind=kind,
+        )
+        assert _refs(exact) == [f"syn://{kind}/same-class"]
+        assert exact["query"]["primitive_kind"] == kind
+        assert exact["items"][0]["semantic_type_ref"] == str(LEAF)
+        assert exact["total_count"] == exact["delivered_count"] == 1
+        assert exact["complete"] and exact["next_cursor"] is None
+    assert (
+        service.list_objects(app_env.context, identity, type_ref=str(LEFT), primitive_kind="event")[
+            "items"
+        ]
+        == []
+    )
+
+
+def test_primitive_inventory_pages_bind_kind_and_accept_equivalent_type_aliases(
+    app_env: Any,
+) -> None:
+    service = _service(app_env)
+    snapshot = _snapshot(
+        objects=(
+            _object("syn://cog/a", LEAF),
+            _object("syn://event/a", LEAF),
+            _object("syn://event/b", LEFT),
+            _object("syn://event/c", LEAF),
+            _object("syn://event/z", EMPTY),
+            _object("syn://thing/a", LEAF),
+        )
+    )
+    identity, _ = _import(app_env, service, snapshot)
+    options = {
+        "type_ref": str(LEFT),
+        "primary_data_type": "dt:syn.object_record",
+        "include_subtypes": True,
+        "primitive_kind": "event",
+        "page_size": 1,
+    }
+    first = service.list_objects(app_env.context, identity, **options)
+    assert _refs(first) == ["syn://event/a"]
+    assert first["total_count"] == 3 and first["delivered_count"] == 1
+    cursor = UUID(first["next_cursor"])
+    for changed_kind in ("cog", None):
+        with pytest.raises(ScopeDeniedError, match="cursor"):
+            service.list_objects(
+                app_env.context,
+                identity,
+                cursor=cursor,
+                **(options | {"primitive_kind": changed_kind}),
+            )
+    aliases = options | {
+        "type_ref": "synny://type/test-left",
+        "primary_data_type": "syn://type/potbot-data-syn-object-record",
+    }
+    second = service.list_objects(app_env.context, identity, cursor=cursor, **aliases)
+    replay = service.list_objects(app_env.context, identity, cursor=cursor, **options)
+    assert second["query"] == replay["query"] == first["query"]
+    assert second["items"] == replay["items"]
+    third = service.list_objects(
+        app_env.context, identity, cursor=UUID(second["next_cursor"]), **aliases
+    )
+    assert _refs(first) + _refs(second) + _refs(third) == [
+        "syn://event/a",
+        "syn://event/b",
+        "syn://event/c",
+    ]
+    assert third["complete"] and third["next_cursor"] is None
+    assert third["total_count"] == third["delivered_count"] == 3
+
+
+def test_invalid_primitive_filters_fail_without_embedding_dispatch_or_charge(app_env: Any) -> None:
+    embeddings, provider, episode = setup_service(app_env)
+    service = SynService(app_env.db, embeddings.artifacts)
+    identity, _ = _import(app_env, service)
+    context = app_env.context
+    space = embeddings.register_space(context, embedding_name="semantic_text")
+    before = BudgetLedger(app_env.db).inspect(context, episode)
+    for invalid in ("type", "unknown", "Thing", "", True, False, 0, [], {}):
+        with pytest.raises(InvalidInputError, match="primitive_kind"):
+            service.list_objects(context, identity, primitive_kind=invalid)
+        with pytest.raises(InvalidInputError, match="primitive_kind"):
+            service.search(
+                context,
+                identity,
+                "find",
+                embeddings,
+                episode,
+                space["id"],
+                embedding_name="semantic_text",
+                primitive_kind=invalid,
+            )
+    assert provider.calls == 0
+    assert BudgetLedger(app_env.db).inspect(context, episode) == before
+
+
 def test_representation_aliases_are_canonical_and_do_not_retype_semantic_assertions(
     app_env: Any,
 ) -> None:
@@ -415,7 +525,24 @@ def test_equivalent_type_filter_spellings_can_continue_the_same_cursor(app_env: 
     }
     first = service.list_objects(app_env.context, identity, **options)
     cursor = UUID(first["next_cursor"])
+    legacy_query = {
+        "type_ref": str(ROOT),
+        "primary_data_type_ref": str(data_type_ref("dt:syn.object_record")),
+        "include_subtypes": True,
+    }
+    assert first["query"] == legacy_query
+    with app_env.db.transaction(app_env.context) as connection:
+        stored = connection.execute(
+            "SELECT query_hash FROM syn_inventory_cursors WHERE workspace_id=%s AND id=%s",
+            (app_env.context.workspace_id, cursor),
+        ).fetchone()
+    assert stored["query_hash"] == content_hash({"query": legacy_query, "page_size": 2})
     canonical = service.list_objects(app_env.context, identity, cursor=cursor, **options)
+    explicitly_unfiltered = service.list_objects(
+        app_env.context, identity, cursor=cursor, primitive_kind=None, **options
+    )
+    assert explicitly_unfiltered["items"] == canonical["items"]
+    assert explicitly_unfiltered["query"] == legacy_query
     equivalent = service.list_objects(
         app_env.context,
         identity,
@@ -589,6 +716,58 @@ def test_named_search_filters_snapshot_and_exact_type_before_vector_ranking(app_
     assert provider.calls == 6
 
 
+def test_named_search_excludes_a_higher_scoring_wrong_primitive_before_limit(app_env: Any) -> None:
+    embeddings, _, episode = setup_service(app_env, RankedProvider())
+    service = SynService(app_env.db, embeddings.artifacts)
+    context = app_env.context
+    space = embeddings.register_space(context, embedding_name="semantic_text")
+    allowed = _object("syn://event/allowed", LEAF, rank="far")
+    wrong_kind = _object("syn://cog/wrong-kind", LEAF, rank="near")
+    wrong_type = _object("syn://event/wrong-type", EMPTY, rank="near")
+    identity, _ = _import(app_env, service, _snapshot(objects=(allowed, wrong_kind, wrong_type)))
+    indexed = {}
+    for obj in (allowed, wrong_kind, wrong_type):
+        indexed[obj.ref] = service.index(
+            context,
+            identity,
+            str(obj.ref),
+            embeddings,
+            episode,
+            space["id"],
+            embedding_name="semantic_text",
+        )
+    options = {
+        "type_ref": "synny://type/test-left",
+        "include_subtypes": True,
+        "embedding_name": "semantic_text",
+        "limit": 1,
+    }
+    without_kind = service.search(
+        context, identity, "find", embeddings, episode, space["id"], **options
+    )
+    assert _refs(without_kind) == [str(wrong_kind.ref)]
+    assert without_kind["candidate_count"] == 2
+    assert "primitive_kind" not in without_kind["filters"]
+    result = service.search(
+        context,
+        identity,
+        "find",
+        embeddings,
+        episode,
+        space["id"],
+        primitive_kind="event",
+        **options,
+    )
+    assert result["candidate_count"] == 1
+    assert _refs(result) == [str(allowed.ref)]
+    assert result["filters"]["primitive_kind"] == "event"
+    assert result["filters"]["type_ref"] == str(LEFT)
+    selected = result["items"][0]
+    assert selected["source_id"] == indexed[allowed.ref]["source_id"]
+    assert selected["embedding"]["vector_id"] == indexed[allowed.ref]["embedding"]["id"]
+    assert selected["embedding"]["embedding_name"] == "semantic_text"
+
+
 def test_shared_bytes_keep_source_scoped_manifests_and_retirement_preserves_inventory(
     app_env: Any,
 ) -> None:
@@ -656,7 +835,12 @@ def test_empty_exact_candidates_do_not_dispatch_or_charge_query_embedding(app_en
     identity, _ = _import(app_env, service)
     space = embeddings.register_space(context, embedding_name="semantic_text")
     before = BudgetLedger(app_env.db).inspect(context, episode)
-    for filters in ({"type_ref": str(EMPTY)}, {"primary_data_type": "dt:value.integer"}):
+    for filters in (
+        {"type_ref": str(EMPTY)},
+        {"primary_data_type": "dt:value.integer"},
+        {"primitive_kind": "event"},
+        {"primitive_kind": "cog", "type_ref": str(RIGHT), "include_subtypes": True},
+    ):
         result = service.search(
             context,
             identity,
@@ -708,18 +892,19 @@ def test_type_definition_vectors_are_separate_from_object_inventory(app_env: Any
         )["items"]
         == []
     )
-    with pytest.raises(InvalidInputError, match="instance type filters"):
-        service.search(
-            context,
-            identity,
-            "find",
-            embeddings,
-            episode,
-            space["id"],
-            embedding_name="type_text",
-            record_kind="types",
-            type_ref=str(ROOT),
-        )
+    for filters in ({"type_ref": str(ROOT)}, {"primitive_kind": "thing"}):
+        with pytest.raises(InvalidInputError, match="instance type filters"):
+            service.search(
+                context,
+                identity,
+                "find",
+                embeddings,
+                episode,
+                space["id"],
+                embedding_name="type_text",
+                record_kind="types",
+                **filters,
+            )
 
 
 def test_snapshot_repository_and_named_view_must_match_before_dispatch(app_env: Any) -> None:
@@ -844,3 +1029,86 @@ def test_actual_database_catalog_retains_every_native_definition_and_parent_edge
     inventory = service.list_objects(app_env.context, identity)
     assert inventory["items"] == [] and inventory["total_count"] == 0
     assert inventory["complete"] and inventory["next_cursor"] is None
+
+
+def test_expanded_profile_import_keeps_linked_primitive_views_distinct(app_env: Any) -> None:
+    service = _service(app_env)
+    context = app_env.context
+    process = _object("syn://cog/agent-process", SynRef("syn://type/agent-process"))
+    occurrence = _object(
+        "syn://event/agent-execution",
+        SynRef("syn://type/agent-execution"),
+        partOfProcess=str(process.ref),
+        occurredAt="2026-10-21T12:00:00Z",
+    )
+    run_record = _object(
+        "syn://ember/agent-run",
+        SynRef("syn://type/agent-run-record"),
+        records=str(occurrence.ref),
+        about=str(process.ref),
+    )
+    assessment = _object(
+        "syn://pondle/verification",
+        SynRef("syn://type/verification-assessment"),
+        evaluates=str(occurrence.ref),
+        evidenceRefs=[str(run_record.ref)],
+    )
+    objects = (process, occurrence, run_record, assessment)
+    snapshot = replace(
+        profile_snapshot(),
+        source_label="synthetic linked primitive views in the expanded profile",
+        objects=objects,
+    )
+    identity, imported = _import(app_env, service, snapshot, namespace="hierarchy-example")
+    assert imported["type_count"] == 529 + 47 + 114
+    assert imported["object_count"] == 4
+    assert service.catalog(context, identity, summary=True)["selected_count"] == 690
+    inventory = service.list_objects(context, identity)
+    assert _refs(inventory) == sorted(str(obj.ref) for obj in objects)
+    assert inventory["total_count"] == inventory["delivered_count"] == 4
+    for obj in objects:
+        resolved = service.resolve(context, identity, str(obj.ref))
+        assert resolved["payload_json"] == obj.payload_json
+        assert resolved["kind"] == obj.ref.kind
+        assert resolved["semantic_type_ref"] == str(obj.type_ref)
+        assert resolved["primary_data_type"] == "dt:syn.object_record"
+        native = service.list_objects(
+            context, identity, type_ref=str(obj.type_ref), primitive_kind=obj.ref.kind
+        )
+        alias = service.list_objects(
+            context,
+            identity,
+            type_ref=f"synny://type/{obj.type_ref.slug}",
+            primitive_kind=obj.ref.kind,
+        )
+        assert native["items"] == alias["items"]
+        assert native["query"] == alias["query"]
+        assert _refs(native) == [str(obj.ref)] and native["complete"]
+    native_type = service.resolve(context, identity, str(process.type_ref))
+    alias_type = service.resolve(context, identity, "synny://type/agent-process")
+    assert native_type["source_id"] == alias_type["source_id"]
+    assert native_type["artifact_id"] == alias_type["artifact_id"]
+    assert native_type["payload_json"] == alias_type["payload_json"]
+    records = service.list_objects(
+        context,
+        identity,
+        type_ref="synny://type/execution-record",
+        include_subtypes=True,
+        primitive_kind="ember",
+    )
+    assert _refs(records) == [str(run_record.ref)]
+    occurrences = service.list_objects(
+        context,
+        identity,
+        type_ref="syn://type/execution",
+        include_subtypes=True,
+        primitive_kind="event",
+    )
+    assert _refs(occurrences) == [str(occurrence.ref)]
+    wrong_view = service.list_objects(
+        context,
+        identity,
+        type_ref="synny://type/agent-run-record",
+        primitive_kind="cog",
+    )
+    assert wrong_view["items"] == [] and wrong_view["total_count"] == 0

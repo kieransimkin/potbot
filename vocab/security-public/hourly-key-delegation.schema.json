@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/hourly-key-delegation/v1",
+  "x-type-ref": "synny://type/schema-specification",
+  "title": "Potbot public hourly delegation v1",
+  "description": "Base-key signature binding exactly one hourly Ed25519 public key to the fixed identity and derivation profiles.",
+  "$comment": "Signing bytes are ASCII potbot-hourly-delegation-v1 followed by NUL and canonical JSON of this object with only signature removed. Verify with the pinned base public key. Runtime enforces the exact epoch interval and profile. The interval governs issuance; a signature legitimately issued before its end may remain fresh for its own bounded expiry across the hour boundary. The base key signs this fixed certificate domain only, never arbitrary caller-selected messages.",
+  "type": "object",
+  "properties": {
+    "type_ref": {
+      "enum": [
+        "synny://type/hourly-key-delegation",
+        "syn://type/hourly-key-delegation"
+      ]
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "profile_id": {
+      "const": "potbot-identity-v1"
+    },
+    "signing_profile_id": {
+      "const": "potbot-hourly-signing-v1"
+    },
+    "signer_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "signing_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "valid_from": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7730941132800,
+      "description": "Exactly signing_epoch * 3600, in nonnegative POSIX seconds."
+    },
+    "valid_until": {
+      "type": "integer",
+      "minimum": 3600,
+      "maximum": 7730941132800,
+      "description": "Exactly (signing_epoch + 1) * 3600, exclusive."
+    },
+    "public_key_algorithm": {
+      "const": "Ed25519"
+    },
+    "public_key_encoding": {
+      "const": "base64"
+    },
+    "public_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=(?![\\s\\S])",
+      "minLength": 44,
+      "maxLength": 44,
+      "description": "The raw 32-byte public key derived at base_path/1'/signing_epoch'; no chain code."
+    },
+    "signature_algorithm": {
+      "const": "Ed25519"
+    },
+    "signature_encoding": {
+      "const": "base64"
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{85}[AQgw]==(?![\\s\\S])",
+      "minLength": 88,
+      "maxLength": 88
+    }
+  },
+  "required": [
+    "type_ref",
+    "schema_version",
+    "profile_id",
+    "signing_profile_id",
+    "signer_hash",
+    "signing_epoch",
+    "valid_from",
+    "valid_until",
+    "public_key_algorithm",
+    "public_key_encoding",
+    "public_key",
+    "signature_algorithm",
+    "signature_encoding",
+    "signature"
+  ],
+  "additionalProperties": false
+}

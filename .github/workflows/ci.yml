@@ -9,6 +9,33 @@ permissions:
   contents: read
 
 jobs:
+  native-identity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: native/potbot-identity
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned native toolchain
+        run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt
+      - name: Check native source formatting
+        run: cargo fmt --check
+      - name: Verify native cryptographic and vault contracts
+        run: cargo test --locked --release --lib
+      - name: Build protected native executable
+        run: cargo build --locked --release
+      - name: Qualify Linux production custody boundary using synthetic test keys
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo prlimit --pid $$ --memlock=268435456:268435456
+          cargo test --locked --release --test production_boundary -- --ignored
+
   windows-launchers:
     runs-on: windows-latest
     timeout-minutes: 5
@@ -32,7 +59,7 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Install locked application and development dependencies
-        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --dev
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --dev
       - name: Install required Linux process isolation
         run: |
           sudo apt-get update
