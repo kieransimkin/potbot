@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Self, cast
 from uuid import UUID
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
@@ -206,11 +206,11 @@ class ToolCapabilityDescriptor:
 
     @property
     def input_schema(self) -> dict[str, Any]:
-        return json.loads(self.input_schema_json)
+        return cast(dict[str, Any], json.loads(self.input_schema_json))
 
     @property
     def output_schema(self) -> dict[str, Any]:
-        return json.loads(self.output_schema_json)
+        return cast(dict[str, Any], json.loads(self.output_schema_json))
 
     @property
     def fingerprint(self) -> str:

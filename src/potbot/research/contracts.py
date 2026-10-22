@@ -128,10 +128,15 @@ class ResearchScope:
         if not isinstance(value, dict) or set(value) != set(cls.__dataclass_fields__):
             raise InvalidInputError("research scope fields are invalid")
         return cls(
-            **{
-                k: value[k] if k == "semantic_release_digest" else _parse_uuid(value[k], k)
-                for k in cls.__dataclass_fields__
-            }
+            workspace_id=_parse_uuid(value["workspace_id"], "workspace_id"),
+            task_id=_parse_uuid(value["task_id"], "task_id"),
+            contract_revision_id=_parse_uuid(value["contract_revision_id"], "contract_revision_id"),
+            need_id=_parse_uuid(value["need_id"], "need_id"),
+            need_revision_id=_parse_uuid(value["need_revision_id"], "need_revision_id"),
+            repository_state_id=_parse_uuid(value["repository_state_id"], "repository_state_id"),
+            semantic_release_digest=_digest(
+                value["semantic_release_digest"], "semantic_release_digest"
+            ),
         )
 
 
