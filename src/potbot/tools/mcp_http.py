@@ -18,12 +18,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+
 from potbot.domain.errors import (
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
 )
-
 from potbot.tools.mcp_protocol import (
     MAX_NOTIFICATION_MESSAGES,
     MAX_WIRE_BYTES,

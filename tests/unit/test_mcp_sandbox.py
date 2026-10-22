@@ -9,13 +9,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError, StateMismatchError
 from potbot.domain.execution import CapabilityContext, ToolDefinition, ToolRegistry
-from potbot.workspace_sandbox import WorkspaceSandbox
-
 from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
 from potbot.tools.mcp_protocol import McpProtocolError
 from potbot.tools.mcp_sandbox import ReadOnlyMcpGrant, SandboxedMcpClient
+from potbot.workspace_sandbox import WorkspaceSandbox
 
 SERVER = Path(__file__).resolve().parents[1] / "fixtures" / "mcp_stdio_server.py"
 

@@ -4,11 +4,11 @@ from dataclasses import replace
 from uuid import uuid4
 
 import pytest
+
+from potbot.controller.research_solve_bridge import observation_view
 from potbot.domain.errors import InvalidInputError, RevisionConflictError
 from potbot.domain.search_graph import KnowledgeView
 from potbot.research.contracts import ResearchScope
-
-from potbot.controller.research_solve_bridge import observation_view
 
 
 def _values():

@@ -3,9 +3,9 @@
 from uuid import uuid4
 
 import pytest
+
 from potbot.controller.research_worker import ResearchLease, ResearchRunStore
 from potbot.domain.errors import InvalidInputError
-
 from potbot.persistence.schema import application_migrations
 from potbot.research.worker_cli import main
 

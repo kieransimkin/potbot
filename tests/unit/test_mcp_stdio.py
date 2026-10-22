@@ -7,13 +7,13 @@ import sys
 from pathlib import Path
 
 import pytest
+
 from potbot.domain.errors import (
     CapabilityUnavailableError,
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
 )
-
 from potbot.tools.mcp_protocol import McpClient, McpProtocolError
 from potbot.tools.mcp_stdio import McpStdioTransport
 

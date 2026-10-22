@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+
 from potbot.domain.errors import (
     CapabilityUnavailableError,
     InvalidInputError,
     ScopeDeniedError,
     StateMismatchError,
 )
-
 from potbot.tools.mcp_protocol import (
     LEGACY,
     MODERN,

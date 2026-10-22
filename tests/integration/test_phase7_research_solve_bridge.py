@@ -3,13 +3,13 @@
 from uuid import UUID, uuid4
 
 import pytest
+
+from potbot.controller.research_solve_bridge import ResearchSolveBridge
 from potbot.controller.research_worker import LocalResearchWorker
 from potbot.controller.solve_store import SolveStore
 from potbot.domain.errors import RevisionConflictError, ScopeDeniedError, StateMismatchError
 from potbot.domain.search_graph import KnowledgeView, SolvePolicy
 from potbot.persistence.artifacts import ArtifactStore
-
-from potbot.controller.research_solve_bridge import ResearchSolveBridge
 
 from .test_phase7_research_worker import _queued
 

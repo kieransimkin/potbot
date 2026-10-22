@@ -14,13 +14,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from potbot.domain.execution import ActionProposal, CapabilityContext, ToolDefinition, ToolRegistry
-from potbot.tools.supervisor import ProcessSupervisor
-from potbot.workspace_sandbox import WorkspaceSandbox
 
+from potbot.domain.execution import ActionProposal, CapabilityContext, ToolDefinition, ToolRegistry
 from potbot.tools.cli_adapter import ApprovedCliAdapter
 from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
 from potbot.tools.mcp_sandbox import ReadOnlyMcpGrant, SandboxedMcpClient
+from potbot.tools.supervisor import ProcessSupervisor
+from potbot.workspace_sandbox import WorkspaceSandbox
 
 pytestmark = pytest.mark.sandbox
 

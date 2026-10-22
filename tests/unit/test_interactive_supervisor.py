@@ -8,10 +8,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from potbot.domain.errors import CapabilityUnavailableError
-from potbot.tools.supervisor import ProcessRequest
 
+from potbot.domain.errors import CapabilityUnavailableError
 from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
+from potbot.tools.supervisor import ProcessRequest
 
 
 class LocalOnlyFixtureBackend:

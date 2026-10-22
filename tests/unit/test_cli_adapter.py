@@ -8,12 +8,12 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.execution import ActionProposal, CapabilityContext, ToolDefinition, ToolRegistry
+from potbot.tools.cli_adapter import ApprovedCliAdapter
 from potbot.tools.supervisor import ProcessResult, ProcessSupervisor
 from potbot.workspace_sandbox import WorkspaceSandbox
-
-from potbot.tools.cli_adapter import ApprovedCliAdapter
 
 
 class RecordingSupervisor(ProcessSupervisor):

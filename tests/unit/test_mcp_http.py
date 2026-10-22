@@ -7,12 +7,12 @@ import json
 
 import httpx
 import pytest
+
 from potbot.domain.errors import (
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
 )
-
 from potbot.tools.mcp_http import McpHttpTransport
 from potbot.tools.mcp_protocol import McpClient, McpProtocolError
 

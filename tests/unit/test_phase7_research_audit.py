@@ -8,12 +8,12 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+
+from potbot.controller.research_audit import replay_source_batch
 from potbot.domain.errors import StateMismatchError
 from potbot.domain.serialization import canonical_json
 from potbot.research.contracts import ResearchOperation
 from tests.unit.test_phase7_research import action, context, inspector, query
-
-from potbot.controller.research_audit import replay_source_batch
 
 
 def _bundle(tmp_path):

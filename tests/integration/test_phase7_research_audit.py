@@ -5,11 +5,11 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import pytest
+
+from potbot.controller.research_audit import ResearchAuditStore
 from potbot.controller.research_worker import LocalResearchWorker
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 from potbot.persistence.artifacts import ArtifactStore
-
-from potbot.controller.research_audit import ResearchAuditStore
 
 from .test_phase7_research_worker import _queued
 

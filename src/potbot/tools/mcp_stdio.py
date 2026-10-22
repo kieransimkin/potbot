@@ -12,7 +12,6 @@ import asyncio
 from typing import Any
 
 from potbot.domain.errors import IndeterminateExecutionError, InvalidInputError
-
 from potbot.tools.mcp_protocol import (
     MAX_NOTIFICATION_MESSAGES,
     MAX_WIRE_BYTES,

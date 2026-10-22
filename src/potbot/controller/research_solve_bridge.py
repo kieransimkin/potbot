@@ -12,6 +12,7 @@ from dataclasses import replace
 from typing import Any
 from uuid import UUID, uuid4
 
+from potbot.controller.research_audit import ResearchAuditStore
 from potbot.controller.research_worker import _action, _current
 from potbot.controller.research_worker import _run as _research_run
 from potbot.controller.solve_store import (
@@ -37,8 +38,6 @@ from potbot.domain.serialization import content_hash
 from potbot.persistence.artifacts import ArtifactStore
 from potbot.persistence.database import Database, idempotent_command
 from potbot.research.contracts import ResearchCategory, ResearchScope
-
-from potbot.controller.research_audit import ResearchAuditStore
 
 _PRODUCER = "potbot.repository_research"
 _TYPE_REF = "synny://type/potbot-research-solve-link"

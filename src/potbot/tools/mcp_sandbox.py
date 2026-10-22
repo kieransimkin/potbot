@@ -29,9 +29,6 @@ from potbot.domain.errors import (
 )
 from potbot.domain.execution import ActionProposal, CapabilityContext, ToolRegistry
 from potbot.domain.serialization import content_hash
-from potbot.tools.supervisor import ProcessRequest
-from potbot.workspace_sandbox import WorkspaceSandbox
-
 from potbot.tools.interactive_supervisor import (
     InteractiveExit,
     InteractiveProcessSupervisor,
@@ -39,6 +36,8 @@ from potbot.tools.interactive_supervisor import (
 )
 from potbot.tools.mcp_protocol import McpCallResult, McpCatalog, McpClient, McpToolInfo
 from potbot.tools.mcp_stdio import McpStdioTransport
+from potbot.tools.supervisor import ProcessRequest
+from potbot.workspace_sandbox import WorkspaceSandbox
 
 # A function installed by the trusted controller that throws if the selected
 # tool/arguments are not covered by the active task's durable permission grant.
