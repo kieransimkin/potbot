@@ -234,7 +234,8 @@ def schemas() -> dict[str, dict[str, Any]]:
             for name in ("output_hash", "artifact_sha256"):
                 props[name] = {"anyOf": [HASH, {"type": "null"}]}
             props["error_code"] = {"anyOf": [TEXT, {"type": "null"}]}
-    return result
+    # No mutable schema nodes (including shared scalar definitions) escape.
+    return json.loads(canonical_json(result))  # type: ignore[no-any-return]
 
 
 def require_compatible_schema(before: dict[str, Any], after: dict[str, Any]) -> None:

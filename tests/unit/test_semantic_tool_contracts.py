@@ -189,6 +189,22 @@ def test_all_six_contracts_and_linked_invocation_round_trip():
         verify_observation_link(intent, replace(observation, invocation_hash="0" * 64), capability)
 
 
+def test_schema_inspection_cannot_mutate_installed_definitions_or_data_ancestry():
+    registry, host, _, _ = runtime()
+    fingerprint = registry.snapshot.fingerprint
+    inspected = schemas()
+    inspected[QUERY]["properties"]["schema_version"]["const"] = 99
+    assert schemas()[QUERY]["properties"]["schema_version"]["const"] == 1
+    assert BoundCogRegistry.tool_contracts().snapshot.fingerprint == fingerprint
+    descriptor = records(host.monitor.actor)[0]
+    with pytest.raises(InvalidInputError):
+        host.catalog.validate(
+            TypedCogValue(
+                CAPABILITY, replace(descriptor, output_type_ref="syn://type/cog").to_dict()
+            )
+        )
+
+
 def test_search_validation_and_conversion_cogs_have_own_lifecycles():
     registry, host, events, artifacts = runtime()
     source = {"schema_version": 1, "text": "Python", "limit": 8}
