@@ -30,3 +30,22 @@ No supplied event service means no new routes. Existing `/v1/jobs` contracts rem
 4. Evaluated example adaptations and need resolution verified independently against a qualified sandbox.
 5. Truly held-out live model comparisons with complete invocation and verification receipts, actual costs and hardware/provider revisions. Existing synthetic fixture scores are not model performance claims.
 6. Instrumenting model/MCP/tools and terminal metrics is a later execution-monitoring increment; this patch exposes persisted events but does not create them automatically for every job.
+
+## Syn integration consequence
+
+The [Syn planning amendment](implementation/07-syn-integration-plan-impact.md)
+adds two-service qualification, scoped credentials, safe event export and fenced
+delivery/inbox recovery to the existing programme. Source inspection/research
+events, semantic release activation, graph admission and actual task verification
+retain their current owners and gates. A remote receipt cannot resolve a need,
+authorize a tool, activate a Cog or qualify a model.
+
+![Proposed delivery and incoming-message admission between Potbot and Syn](media/syn-plan-boundaries.svg)
+
+*Generated planning illustration, not a demonstration of the proposed relay/inbox.*
+
+The integration draft's first remote checks failed before application tests at
+private Syn submodule checkout. Establish explicitly authorized CI access and
+then re-run the required exact-head gates; existing local Syn/client fixtures do
+not replace Phase 7 PostgreSQL, sandbox or live-model qualification. The initial
+manual `sync-events` command is not the automatic outbox delivery planned here.

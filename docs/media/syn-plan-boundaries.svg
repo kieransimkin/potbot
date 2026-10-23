@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="680" viewBox="0 0 1280 680" role="img" aria-labelledby="t d">
+<title id="t">Proposed reliable communication between Potbot and Syn</title><desc id="d">Potbot commits execution and an outbox intent locally. A proposed relay sends approved data to Syn and checks receipts. Incoming messages pass through a proposed Potbot admission boundary before work may be scheduled. Dashed boxes represent future work.</desc>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10" fill="#305b94"/></marker></defs>
+<rect width="1280" height="680" fill="#f2f6fc" rx="20"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#162a43">
+<text x="42" y="52" font-size="27" font-weight="700">Syn changes delivery and evidence boundaries</text>
+<text x="42" y="83" font-size="17">Planning illustration · solid = existing component · dashed = proposed integration work</text>
+<g fill="#fff" stroke="#7392b5" stroke-width="2"><rect x="42" y="130" width="340" height="180" rx="14"/><rect x="898" y="130" width="340" height="180" rx="14"/></g>
+<rect x="470" y="130" width="340" height="180" rx="14" fill="#eef4ff" stroke="#456ba8" stroke-width="2" stroke-dasharray="9 6"/>
+<g font-size="23" font-weight="700"><text x="65" y="169">Potbot transaction</text><text x="493" y="169">Fenced outbox relay</text><text x="921" y="169">Syn service</text></g>
+<g font-size="17"><text x="65" y="204">Tasks, budgets and causal events</text><text x="65" y="235">Existing scoped PostgreSQL owner</text><text x="65" y="267">Add export intent in same commit</text><text x="493" y="204">Approved projection + stable ID</text><text x="493" y="235">Send after database commit</text><text x="493" y="267">Verify and retain acknowledgement</text><text x="921" y="204">Workspace messages and replay</text><text x="921" y="235">Independent receipt sequence</text><text x="921" y="267">Hash chain + external anchor</text></g>
+<g stroke="#305b94" stroke-width="3" marker-end="url(#a)" fill="none"><path d="M392 220H455"/><path d="M820 220H883"/><path d="M1068 320V357H640V320"/></g>
+<text x="690" y="350" font-size="16">Receipt is delivery evidence</text>
+<g fill="white" stroke="#7392b5" stroke-width="2"><rect x="42" y="420" width="340" height="150" rx="14"/><rect x="898" y="420" width="340" height="150" rx="14"/></g>
+<rect x="470" y="420" width="340" height="150" rx="14" fill="#eef4ff" stroke="#456ba8" stroke-width="2" stroke-dasharray="9 6"/>
+<g font-size="23" font-weight="700"><text x="65" y="460">Existing task admission</text><text x="493" y="460">Typed receiving inbox</text><text x="921" y="460">Incoming Syn message</text></g>
+<g font-size="17"><text x="65" y="497">Controller chooses and authorizes</text><text x="65" y="528">One durable execution scheduler</text><text x="493" y="497">Dedupe, scope, evidence, policy</text><text x="493" y="528">Received data remains a proposal</text><text x="921" y="497">Transport identity and content</text><text x="921" y="528">Cannot supply execution authority</text></g>
+<g stroke="#305b94" stroke-width="3" marker-end="url(#a)"><path d="M888 500H825"/><path d="M460 500H397"/></g>
+<text x="42" y="623" font-size="17">Two cursor domains · separate service migrations · retained semantic releases · explicit disclosure and deletion rules</text>
+<text x="42" y="652" font-size="16">Current manual event export does not implement the dashed relay or inbox. Consensus and peer replication remain future decisions.</text>
+</g></svg>

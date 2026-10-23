@@ -1,11 +1,19 @@
 # Potbot Universal Tool, MCP and Reasoning Integration — Master Implementation Plan
 
-**Document version:** 1.2 (universal agent/MCP/tool job observability requirements; planning only)  
+**Document version:** 1.3 (Syn service ownership, delivery and qualification amendment; planning only)
 **Prepared:** 22 October 2026  
 **Target:** `kieransimkin/potbot` / Syn-Synny semantic ecosystem  
 **Observed GitHub baseline:** `main` at `74dac45d5535595975e10f545fd6d9cb1652e6a8` (read-only inspection, 22 October 2026)  
 **Scope:** 12 phases × 4 incremental stages = **48 independently testable deliverables**.  
 **Status:** Design document only; the 48 stages are **not represented as implemented** merely by this plan.
+
+**Syn review, 23 October 2026:** reviewed `main` at `e2f7b2e`, integration source
+at `833612b` and its Syn pin `57da1be`. The [plan impact amendment](../implementation/07-syn-integration-plan-impact.md)
+reconciles the original 204-step implementation plan, current increments and all
+48 tool stages. Existing partial code is reused; this review changes no stage's
+recorded status or prerequisites. Its [impact map](syn-integration-impact.json)
+is additive to the existing JSON/CSV trackers and accounts for the separate,
+unmerged plugin-discovery strategy branch.
 
 > Integration rule: build on the existing Potbot jobs/API/WebSocket, workspace sandbox, hosted model gateway, Ed25519 identity and locking Cogs, semantic Type catalogs, inherited Embers, typed Cog transformations, artifact and receipt mechanisms, and Phase 6 graph search. Do not recreate these as parallel systems. An existing feature should be marked **reuse**, **extend**, **qualify**, or **missing** before any implementation ticket is started.
 
@@ -20,6 +28,7 @@ Repository references inspected: [README](https://github.com/kieransimkin/potbot
 | REST / WebSocket / dashboard | Add tool capabilities and projections to existing service boundaries. |
 | Agent identity, Ed25519 verification, Credential and locking Cog | Publish verification keys as designed; private keys never exposed; respect installed custody tiers and runtime qualification. |
 | Syn/Synny catalog / inherited Ember contracts | Use full syn:// or synny:// Type URLs; no shorthand or duplicate ontology. |
+| Syn communication service / pinned client | Reuse workspace messaging, replay and receipt verification. Potbot keeps task/semantic authority; add fenced delivery/admission through its existing outbox rather than another scheduler. |
 | Cog transformations | Each Cog maps exactly one registered input Type to one output Type, with pinned implementation binding; transformations confer no execution authority. |
 | Workspace registered sandbox roots | All downloaded dependencies, binaries, model weights, caches, copies, tests and outputs within workspace root; qualified Linux isolation or fail closed. |
 | Phase 6 controller/benchmarks | Extend search and Cog receipts; do not infer live qualification from synthetic fixtures. |
@@ -43,23 +52,21 @@ Repository references inspected: [README](https://github.com/kieransimkin/potbot
 
 ## 2. Canonical capability ontology and interface contracts
 
-Example semantic hierarchy (extend the installed hierarchy, do **not** add parallel roots if matching types already exist):
+Conceptual capability families to reconcile with the installed hierarchy are
+shown below. These are planning labels, **not literal Syn ObjectRefs**. Current
+reference syntax uses a known primitive kind and one canonical slug; slash-nested
+type paths and invented instance kinds must not be copied into implementations.
+Bind actual Types through the selected sealed release rather than adding parallel
+roots. Existing opt-in catalog definitions include `synny://type/tool-definition`,
+`synny://type/mcp-tool-definition` and `synny://type/tool-invocation`; source presence
+does not activate them for a task.
 
 ```text
-syn://type/tool
-syn://type/tool/research/web-search
-syn://type/tool/browser/automation
-syn://type/tool/code/repository
-syn://type/tool/data/sql-query
-syn://type/tool/reasoning/smt-solver
-syn://type/tool/verification/formal-proof
-syn://type/tool/implementation
-syn://type/tool/installed-instance
-syn://type/tool/invocation
-syn://type/tool/result
-syn://type/tool/evidence
-syn://type/tool/approval
-syn://type/workflow/tool-graph
+Capability families: research/web search, browser automation, repository tooling,
+                    SQL query, SMT reasoning, formal verification
+Record roles:       definition, implementation, installed instance, invocation,
+                    result, evidence, approval
+Composition:        typed workflow graph
 ```
 
 ### Core entities and contracts
@@ -81,12 +88,12 @@ Recommended normalized invocation envelope (illustrative mapping onto existing s
 ```json
 {
   "schema_version": "tool-invocation-v1",
-  "tool_type_ref": "syn://type/tool/research/web-search",
-  "implementation_ref": "syn://tool-implementation/brave-search/pinned-build",
-  "input_type_ref": "syn://type/data/search-query",
-  "output_type_ref": "syn://type/data/search-results",
+  "tool_type_ref": "<registered-capability-type-ref>",
+  "implementation_ref": "<registered-instance-ref>",
+  "input_type_ref": "<registered-request-type-ref>",
+  "output_type_ref": "<registered-result-type-ref>",
   "workspace_id": "<uuid>",
-  "agent_identity_ref": "syn://agent/<id>",
+  "agent_identity_ref": "<authenticated-agent-instance-ref>",
   "input_artifact_sha256": "<sha256>",
   "policy_revision_sha256": "<sha256>",
   "effect_class": "read-only",
@@ -122,6 +129,36 @@ An agent root input can fan out to independent subagent, model, MCP, tool and Co
 The existing PostgreSQL `job_events` table requires a concrete `job_id` and **cannot directly persist all standalone executions**. Plan an additive generalized execution-event ledger or equivalent migration that reuses a single transactionally ordered **workspace cursor**, preserves historic job clients, and does not introduce an independent uncoordinated stream. The REST/WebSocket API and dashboard must serve an authenticated, redacted **universal agent-execution tree**, with precise per-event cause and child drill-down independent of transport/protocol.
 
 **Normative scope, MCP correlation model, mixed agent→model→MCP→tool→Cog→subagent example, test matrix and risk controls:** [SYN universal agent-work event specification](../implementation/05-syn-execution-monitoring.md), section 7. These are **requirements for future implementation**, not deployed capabilities. The existing 48 stages and statuses remain unchanged; mandatory work is allocated to T01.3, T02.1–T02.4, T03.4, T10.1–T10.3, T11.2 and T12.2.
+
+## 2C. Syn service integration and implementation order
+
+The [Syn plan amendment](../implementation/07-syn-integration-plan-impact.md)
+defines ownership and new acceptance work. Syn supplies communication and a
+separate receipt chain; Potbot retains scoped execution transactions, causal
+events, budget/lease/approval checks, semantic release admission, memory and
+verification. A Syn message or receipt grants no execution authority. Its receipt
+sequence must not be substituted for the existing Potbot workspace event cursor.
+
+![Proposed event delivery and incoming-message admission around existing owners](../media/syn-plan-boundaries.svg)
+
+*Generated planning diagram. Dashed relay/inbox components are proposed, not
+implemented. The existing manual export and HTTP fixture do not qualify them.*
+
+Bring dependency-specific T12.1 work into the T01.1/T01.4 foundation gate: the
+private Syn submodule currently blocks Potbot CI before tests. Then complete
+T01.2/T01.3 semantic/causal admission and T03.1/T03.3 disclosure/credentials; add
+the transactionally committed export intent and fenced relay under T03.4; add
+typed, deduplicated incoming-agent admission under T03.4/T10.1/T10.2; qualify
+recovery and the two-service deployment under T11/T12. Keep all existing stage
+prerequisites. Browser, solver and other independent offline work need not wait
+for a Syn credential, but cannot claim cross-service qualification without it.
+
+Preserve the separate plugin strategy's T04.1–T04.4 admission/ranking work when
+composing branches. Shared catalog messages remain untrusted candidate evidence.
+Memory/source export also needs P085–P094 retention/deletion review: immutable
+communication must not become an uncontrolled copy of private or deletable text.
+Federation, signed message authorship and consensus require separate Syn protocol
+work; they are not supplied by the current HTTP hash chain or peer discovery.
 
 ## 3. Release slices and dependencies
 
@@ -701,6 +738,15 @@ Store a stage outcome and a traceable link to reports under `docs/implementation
 
 A stage only passes when all mandatory checks ran and passed. An absent host prerequisite yields `blocked`, **never** `passed` or a silent skip. Gates are immutable once published; subsequent requalification creates a new report.
 
+For a gate that exercises Syn, also retain both source commits, client/protocol
+version, each service's independent DB revision, deployment/config identity,
+workspace/recipient scope, required-versus-deferred delivery policy and any
+independently retained head anchor. Report local event commit, remote delivery,
+chain verification and execution/factual verification separately. See the
+[amendment](../implementation/07-syn-integration-plan-impact.md) for failure cases;
+this is an added evidence requirement, not a claim that the gate schema or relay
+already implements those fields.
+
 ## 9. Pull-request and implementation slicing
 
 Prefer **one PR per stage**, subdividing risky stages into narrow implementation PRs but preserving a single explicit acceptance gate. Each PR description references exactly one primary stage and can identify prerequisites. Commit generated adapters, tests and documentation together; freeze new interfaces before expanding provider sets. Run offline contracts first, then SQL+sandbox, then optional credentialed live runs. Do not merge implementation-specific features from concurrent chats without rebasing and re-running relevant gates on a single pinned commit.
@@ -788,6 +834,9 @@ Estimates below are rough **engineering-week ranges for focused workstreams**, n
 | Unbounded provider costs | High | Retry/parallel plan exceeds budget | Enforce budget before reservation/dispatch; halt run |
 | Drifting external APIs | Medium | Schema/endpoint differs from pinned contract | Quarantine adapter revision and require qualification |
 | Concurrent changes in Potbot | High | Overlapping migrations/contracts/phase work | Rebase pinned SHA and execute upgrade/full CI |
+| Private Syn dependency unavailable to CI | High | Submodule checkout denied before tests | Establish explicitly authorized source access and qualify the exact two-service tuple; no false test pass |
+| Receipt or shared message mistaken for authority/truth | Critical | Sender assertion or chain entry dispatches work or promotes memory | Require existing controller/semantic/memory admission and independent evidence checks |
+| Cross-service crash, restore or retention mismatch | High | Lost acknowledgement, divergent anchor, or private data copied into immutable history | Fenced idempotent relay, external checkpoints, minimized projections and explicit deletion/correction policy |
 
 **Suggested ownership:** one core semantics/DB owner, one execution/security owner, one integration/adapters owner, one evaluation/CI owner, and reviewers familiar with the existing Cog and identity architecture. External API cost and policy approval remains an operator responsibility. Resist adding a separate workflow scheduler or second authority engine simply for convenience.
 
@@ -795,5 +844,11 @@ Estimates below are rough **engineering-week ranges for focused workstreams**, n
 
 The programme is complete only when: (a) all 48 stage-gate reports are passing or have explicitly approved documented scope reductions; (b) real qualified-host PostgreSQL, sandbox, API, browser, tool, reasoning and adversarial tests pass; (c) the agent autonomously discovers and composes authorized tools through typed cogs while preserving the boundaries between discovery, transformation, execution and verification; (d) benchmark data establishes real rather than assumed reasoning benefits; and (e) a reproducible tagged release with upgrade/rollback instructions and known limitations is published.
 
-**Next executable task:** Implement `T01.1` on a fresh pinned repository branch: emit the current-state inventory JSON, produce a code-to-stage traceability map, identify missing/duplicate components, and add an automated consistency test. No production code changes should be required in that first PR.
+**Next executable task:** Refresh the existing T01.1 inventory against a pinned
+composition of current Potbot, the Syn integration and separately reviewed plugin
+strategy. Record existing partial implementations and missing qualification.
+Resolve the private-submodule CI prerequisite, then follow the dependency-ordered
+causal-contract, credential, outbox/inbox and recovery slices in the
+[Syn amendment](../implementation/07-syn-integration-plan-impact.md). Do not rebuild
+the existing inventory/adapters or mark stages complete from source presence.
 

@@ -1,5 +1,11 @@
 # Syn communication and ledger integration
 
+For how this changes the original 204-step implementation plan and the separate
+48-stage tool programme, see the [planning amendment](implementation/07-syn-integration-plan-impact.md)
+and its [complete stage impact map](potbot-tool-mcp-implementation-bundle/syn-integration-impact.json).
+They distinguish current manual export from proposed reliable delivery/inbox
+work and retain Potbot's existing task, semantic and memory authority.
+
 Potbot pins Syn as the Git submodule `vendor/syn`. The Python `syn` extra installs
 only the dependency-free `syn-client` package from that submodule. Syn runs as a
 separate service; it owns durable communication and hash-chain receipts. Potbot's
