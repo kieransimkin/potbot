@@ -199,6 +199,65 @@ def validate_postgres_url(value: str) -> str:
     return value
 
 
+def connection_failure_reason(error: Exception) -> str:
+    """Classify trusted driver diagnostics without returning their private text."""
+    state = getattr(error, "sqlstate", None)
+    if state in {"28P01", "28000"}:
+        return "authentication_or_access_rejected"
+    if state == "3D000":
+        return "database_not_found"
+    # libpq connection failures often have no SQLSTATE. Match only known
+    # diagnostic fragments and emit a fixed label, never the matched text.
+    diagnostic = str(error).lower()
+    categories = (
+        (
+            "host_resolution_failed",
+            (
+                "could not translate host name",
+                "name or service not known",
+                "getaddrinfo failed",
+                "failed to resolve host",
+            ),
+        ),
+        (
+            "authentication_or_access_rejected",
+            (
+                "password authentication failed",
+                "no password supplied",
+                "no pg_hba.conf entry",
+                "authentication failed",
+            ),
+        ),
+        (
+            "tls_connection_failed",
+            (
+                "certificate verify failed",
+                "ssl error",
+                "tls error",
+                "server does not support ssl",
+                "ssl is required",
+                "root certificate file",
+                "certificate validation failed",
+            ),
+        ),
+        ("connection_refused", ("connection refused", "actively refused")),
+        (
+            "connection_timed_out",
+            (
+                "connection timeout",
+                "connection timed out",
+                "timeout expired",
+            ),
+        ),
+    )
+    if re.search(r'\bdatabase "[^"\r\n]+" does not exist\b', diagnostic):
+        return "database_not_found"
+    for reason, fragments in categories:
+        if any(fragment in diagnostic for fragment in fragments):
+            return reason
+    return "unclassified_connection_failure"
+
+
 def validate_connection(dsn: str) -> None:
     """Check connectivity read-only, with bounded connect and statement timeouts.
 
@@ -221,8 +280,9 @@ def validate_connection(dsn: str) -> None:
         raise CapabilityUnavailableError(
             "PostgreSQL support is missing; run the uv startup launcher."
         ) from None
-    except Exception:
-        raise SourceUnavailableError(_CONNECTION_ERROR) from None
+    except Exception as error:
+        reason = connection_failure_reason(error)
+        raise SourceUnavailableError(f"{_CONNECTION_ERROR} Diagnostic: {reason}.") from None
 
 
 def _interactive_allowed(interactive: bool | None, environment: Mapping[str, str]) -> bool:

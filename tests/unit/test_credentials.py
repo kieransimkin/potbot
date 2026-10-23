@@ -350,3 +350,42 @@ def test_empty_explicit_profile_does_not_silently_select_default(
 ) -> None:
     assert credentials.main(["--profile", "", "status"]) == 1
     assert json.loads(capsys.readouterr().err)["error"]["code"] == "invalid_input"
+
+
+@pytest.mark.parametrize(
+    ("message", "sqlstate", "reason"),
+    [
+        (
+            "password authentication failed for private-user",
+            "28P01",
+            "authentication_or_access_rejected",
+        ),
+        ("missing private-database", "3D000", "database_not_found"),
+        ("could not translate host name private-host", None, "host_resolution_failed"),
+        ("connection refused at private-host", None, "connection_refused"),
+        ("connection timed out at private-host", None, "connection_timed_out"),
+        ("SSL error: certificate verify failed for private-host", None, "tls_connection_failed"),
+        ("no pg_hba.conf entry for private-user", None, "authentication_or_access_rejected"),
+        ("opaque private diagnostic", None, "unclassified_connection_failure"),
+    ],
+)
+def test_connection_failure_reports_fixed_reason_without_private_driver_text(
+    monkeypatch: pytest.MonkeyPatch, message: str, sqlstate: str | None, reason: str
+) -> None:
+    class DriverFailure(Exception):
+        pass
+
+    failure = DriverFailure(message + " " + SECRET)
+    failure.sqlstate = sqlstate  # type: ignore[attr-defined]
+
+    def connect(*args: object, **kwargs: object) -> Any:
+        raise failure
+
+    monkeypatch.setitem(sys.modules, "psycopg", SimpleNamespace(connect=connect))
+    with pytest.raises(SourceUnavailableError) as error:
+        credentials.validate_connection(SECRET)
+    rendered = str(error.value)
+    assert f"Diagnostic: {reason}." in rendered
+    assert SECRET not in rendered
+    assert "private-" not in rendered
+    assert error.value.__suppress_context__ is True

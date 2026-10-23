@@ -118,6 +118,8 @@ class ToolDefinition:
     environment: tuple[tuple[str, str], ...] = ()
     secret_refs: tuple[tuple[str, str], ...] = ()
     accepts_stdin: bool = False
+    memory_bytes: int | None = None
+    cpu_seconds: int | None = None
 
     def __post_init__(self) -> None:
         ActionProposal(self.name)
@@ -135,6 +137,12 @@ class ToolDefinition:
             raise InvalidInputError("Tool deadline must be between 1 ms and one hour.")
         if type(self.max_output_bytes) is not int or not 1 <= self.max_output_bytes <= 16 * 1024**2:
             raise InvalidInputError("Invalid tool capture limit.")
+        for name, value, minimum, maximum in (
+            ("memory_bytes", self.memory_bytes, 16_777_216, 1024**4),
+            ("cpu_seconds", self.cpu_seconds, 1, 3600),
+        ):
+            if value is not None and (type(value) is not int or not minimum <= value <= maximum):
+                raise InvalidInputError(f"Tool {name} is outside its supported bound.")
         for field in ("environment", "secret_refs"):
             pairs = getattr(self, field)
             if (
@@ -159,6 +167,9 @@ class ToolDefinition:
         fields = {name: getattr(self, name) for name in self.__dataclass_fields__}
         if not self.accepts_stdin:
             fields.pop("accepts_stdin")  # Preserve every Phase 3 definition identity.
+        for name in ("memory_bytes", "cpu_seconds"):
+            if fields[name] is None:
+                fields.pop(name)  # Keep historical definition fingerprints stable.
         return content_hash(fields)
 
     def admit(self, proposal: ActionProposal) -> None:
