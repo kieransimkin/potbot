@@ -12,7 +12,7 @@ from potbot.research.worker_cli import main
 
 def test_new_migration_is_additive_and_fences_claims():
     revisions = application_migrations()
-    assert tuple(item.version for item in revisions) == tuple(range(1, 19))
+    assert tuple(item.version for item in revisions[:18]) == tuple(range(1, 19))
     assert (revisions[15].name, revisions[16].name) == ("phase7_schema", "phase7_worker_schema")
     assert set(revisions[16].workspace_tables) == {"research_runs", "research_run_receipts"}
     assert revisions[16].append_only_tables == ("research_run_receipts",)

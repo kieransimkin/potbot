@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
+<title id="title">Potbot plugin discovery strategy</title><desc id="desc">Task intent and source evidence feed an ownership-neutral shortlist. Existing authority gates installation and qualification before verified use. Evidence returns to the continuing research loop.</desc>
+<rect width="1200" height="440" rx="24" fill="#111827"/>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0L8 3L0 6" fill="none" stroke="#71ddca" stroke-width="1.5"/></marker></defs>
+<g font-family="DejaVu Sans, sans-serif" fill="#f3f4f6"><text x="40" y="55" font-size="30" font-weight="700">Potbot: discover, inspect, admit, qualify</text>
+<text x="40" y="90" font-size="18" fill="#bdc8d8">Proposed strategy · separate evidence states · no ownership preference</text>
+<g fill="#202c42" stroke="#60728e" stroke-width="2"><rect x="40" y="140" width="230" height="145" rx="12"/><rect x="330" y="140" width="230" height="145" rx="12"/><rect x="620" y="140" width="230" height="145" rx="12"/><rect x="910" y="140" width="250" height="145" rx="12"/></g>
+<g fill="#71ddca" font-size="21" font-weight="700"><text x="60" y="180">Intent and evidence</text><text x="350" y="180">Fair shortlist</text><text x="640" y="180">Admit installation</text><text x="930" y="180">Qualify and use</text></g>
+<g font-size="17"><text x="60" y="220">Types and task language</text><text x="60" y="250">Pinned source metadata</text><text x="350" y="220">Filter denied routes</text><text x="350" y="250">Explain fit and unknowns</text><text x="640" y="220">Exact existing authority</text><text x="640" y="250">Version, hash and scopes</text><text x="930" y="220">Health and isolation</text><text x="930" y="250">Verified task outcome</text></g>
+<g fill="none" stroke="#71ddca" stroke-width="2.5" marker-end="url(#a)"><path d="M274 212H315"/><path d="M564 212H605"/><path d="M854 212H895"/><path d="M1035 290V335H155V300"/></g>
+<text x="310" y="369" font-size="18">Continuing research: controlled comparisons, source updates and measured outcomes</text>
+<text x="40" y="414" font-size="16" fill="#bdc8d8">Generated planning illustration. A candidate, signature, tool annotation or model response never grants permission.</text></g></svg>

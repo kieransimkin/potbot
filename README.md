@@ -35,6 +35,11 @@ admission, live web discovery, IBM MCP, DanceFlow MCP, and the custom semantic e
 space remain later stages. The five default reasoning and coding models are registered
 as **unqualified catalog entries**; a name is never treated as a tested deployment.
 
+The [plugin discovery strategy](docs/implementation/plugin-discovery-strategy.md)
+plans task-led capability search, inspectable installation choices and qualification
+gates, including continuing research across agent ecosystems. It preserves the
+tool platform's existing stage statuses; this roadmap does not establish live discovery.
+
 ## Install and check
 
 Run the entry point for your platform from the extracted checkout:
