@@ -40,6 +40,11 @@ plans task-led capability search, inspectable installation choices and qualifica
 gates, including continuing research across agent ecosystems. It preserves the
 tool platform's existing stage statuses; this roadmap does not establish live discovery.
 
+The [tool-plan gap audit](docs/implementation/09-tool-plan-gap-audit.md) defines
+18 additional requirement groups, concrete acceptance scenarios and independent
+core/Python/specialist qualification gates. The [mandatory SYN tool-Cog contract](docs/implementation/10-syn-tool-cogs.md) specifies one typed input/output, handler binding, controller-mediated effects and the Cog-driven Python debugger test. These remain planned work; validate
+the synchronized 48-stage roadmap with `python scripts/check_tool_plan.py`.
+
 ## Install and check
 
 Run the entry point for your platform from the extracted checkout:

@@ -38,6 +38,9 @@ Before/after performance comparisons use the same workload, build configuration,
 
 ## 3. Interactive debugger adapters
 
+Implement every operation below as an installed, single-input/single-output SYN Cog under the [tool-Cog contract](10-syn-tool-cogs.md). DAP/debugpy and phone/probe protocols remain internal implementations. Full Python-first integration must drive registered Cogs through controller admission and retain Cog, dispatch and execution receipts; a direct backend harness alone is insufficient.
+
+
 Use the Debug Adapter Protocol (DAP) as the common structured route where supported, with debugpy for Python and independently qualified adapters such as lldb-dap for native languages. Admit GDB, Node Inspector/CDP and other runtime-specific debuggers through the same tool contracts when DAP is not the appropriate route. Declare supported launch/attach, breakpoint, stepping, stack, variable and exception capabilities per adapter; unsupported operations return an explicit unavailable result.
 
 Bind every debug session to an authorized workspace, exact executable/source snapshot, process start identity, interpreter/runtime, adapter version, source/path mapping, host/device lease and a unique session ID. Expose no unauthenticated public listener. Launch and attach, interrupt/pause, continue/step, variable writes, expression evaluation, code injection, restart and process termination are separately classified operations. A debugger can execute target code and read secrets even when displaying variables; redact projections, limit depth/bytes/time and never infer read-only evaluation from its syntax. Function/property rendering and conditional breakpoint expressions may execute code too. Production/system-process attachment and privilege elevation require their own explicit scope.
