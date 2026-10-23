@@ -4,6 +4,9 @@
 metadata summaries and preview. No outbox, inbox, remote dispatch, production
 configuration or full semantic/producer admission is introduced. See the
 [architecture](09-syn-potbot-architecture.md) and [programme amendment](07-syn-integration-plan-impact.md).
+The subsequent [one-Syn-per-Agent requirement](11-syn-private-agent-mesh.md)
+sets the target transport. This v1 summary remains an application payload to the
+Agent's own Syn; it is not an encrypted or account-authenticated peer envelope.
 
 ![Potbot event ownership and the separate Syn delivery boundary](../media/syn-plan-boundaries.svg)
 

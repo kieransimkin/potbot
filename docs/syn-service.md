@@ -6,6 +6,10 @@ and its [complete stage impact map](potbot-tool-mcp-implementation-bundle/syn-in
 The [broad architecture](implementation/09-syn-potbot-architecture.md) explains
 component roles; the [exchange contract](implementation/10-syn-exchange-contracts.md)
 defines the first metadata-only export profile.
+The [required Agent mesh](implementation/11-syn-private-agent-mesh.md) gives
+each unique Agent its own Syn instance and operator-assigned account key. Configure
+this adapter for that Agent's own Syn. Private encrypted Syn-to-Syn pub-sub is
+required future work; the current HTTP integration does not implement it.
 They distinguish current manual export from proposed reliable delivery/inbox
 work and retain Potbot's existing task, semantic and memory authority.
 

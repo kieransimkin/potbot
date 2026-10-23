@@ -49,6 +49,9 @@ The optional `syn` runtime extra connects Potbot to Syn's durable communication
 service and verifiable hash-chain receipts. See the [service integration guide](docs/syn-service.md),
 [two-system architecture](docs/implementation/09-syn-potbot-architecture.md) and
 [metadata exchange contract](docs/implementation/10-syn-exchange-contracts.md).
+The [required private Agent mesh](docs/implementation/11-syn-private-agent-mesh.md)
+assigns one Syn instance and operator-provisioned account key to each Agent;
+encrypted Syn-only peer communication remains to be implemented and qualified.
 
 ![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
 

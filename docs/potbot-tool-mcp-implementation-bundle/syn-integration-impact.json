@@ -3,6 +3,25 @@
   "review_date": "2026-10-23",
   "state": "planning_only",
   "authoritative_document": "docs/implementation/07-syn-integration-plan-impact.md",
+  "authoritative_target_document": "docs/implementation/11-syn-private-agent-mesh.md",
+  "superseding_owner_requirement": {
+    "date": "2026-10-23",
+    "status": "required_target_not_implemented_mesh",
+    "syn_instance_per_unique_agent": true,
+    "inter_agent_communication": "exclusively_via_syn_private_encrypted_p2p_pubsub",
+    "agent_keys": "operator_derived_hardened_unique_numbered_accounts_from_secret_base_address_key",
+    "group_key": "separate_domain_separated_derivation_from_operator_secret_base_key",
+    "key_distribution_owner": "operator",
+    "duplicate_agent_key_prevention_owner": "operator",
+    "agent_receives_parent_seed_or_base_private_key": false,
+    "must_precede_automatic_outbox": [
+      "versioned_account_membership_and_group_envelope_contracts",
+      "operator_provisioning_and_restricted_account_vaults",
+      "qualified_encrypted_syn_pubsub_and_persistent_account_peer_binding",
+      "two_agent_two_syn_negative_recovery_and_rotation_acceptance",
+      "richer_potbot_semantic_causal_and_producer_admission"
+    ]
+  },
   "baselines": {
     "potbot_main": "e2f7b2e423ceb7360df76b18b076de09bf39936a",
     "potbot_integration": "833612ba8b60df6b0cc86e29b9d5ad3ff4d91aad",

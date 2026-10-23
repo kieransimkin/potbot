@@ -11,6 +11,11 @@ The [architecture](09-syn-potbot-architecture.md) and
 [exchange contract increment](10-syn-exchange-contracts.md) add manually approved
 metadata summaries, preview and explicit legacy identity migration. Full
 semantic/producer admission, automatic delivery and receiving remain pending.
+**Later owner requirement:** [one Syn per Agent and private encrypted pub-sub](11-syn-private-agent-mesh.md)
+supersedes this review's single-managed-service target. Operator-provisioned unique
+account keys, restricted account vaults and qualified Syn-only peer transport are
+now required before the automatic outbox. Historical review observations below
+remain evidence of their original baselines, not the new target architecture.
 
 **Recommendation:** use Syn as Potbot's communication and externally checkable
 receipt service. Keep Potbot's task decisions and durable execution transactions

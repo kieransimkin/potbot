@@ -10,7 +10,15 @@ knowledge. Syn supplies semantic objects, relationships, provenance and receipts
 The submodule pins compatible source. At runtime these remain separately managed
 services with explicit interfaces and independent migration ownership.
 
-## System map
+**Updated owner requirement:** every unique Agent has its own Syn instance.
+Agents communicate exclusively through Syn, using a private encrypted P2P
+pub-sub group. The operator derives/distributes unique numbered Agent account
+keys and the derived group key, and owns non-duplication. The
+[private Agent mesh contract](11-syn-private-agent-mesh.md) controls this target
+and supersedes a shared central Syn service. Current HTTP and summary code is
+the local Potbot-to-own-Syn foundation; the encrypted mesh is still pending.
+
+## Components inside each Agent
 
 Solid arrows identify existing integration paths; dashed arrows identify proposed
 work. Execution/research modules exist, but this map does not qualify the complete
@@ -45,19 +53,21 @@ flowchart TB
         FEEDS --> GRAPH
     end
     EXTERNAL["Models, repositories, tools, external services"]
-    PEERS["Other authorized applications or agents"]
+    PEERS["Other Agents: each with its own Syn instance"]
     USER --> CONTROL
     EXEC <--> EXTERNAL
     CLIENT <-->|HTTPS messages and receipts| API
     GRAPH -->|Explicit snapshot import| SEM
-    PEERS -.->|Future typed collaboration| API
+    PEERS -.->|Required encrypted Syn-to-Syn pub-sub, pending| API
     style OUTBOX stroke-dasharray: 5 5
     style INBOX stroke-dasharray: 5 5
 ```
 
 ![Potbot execution and separate Syn delivery/admission boundaries](../media/syn-plan-boundaries.svg)
 
-*Architecture illustrations, not runtime captures. The first manual metadata
+*This component map repeats for each unique Agent; the two-Agent topology is
+drawn in the mesh contract. Architecture illustrations, not runtime captures.
+The first manual metadata
 summary is implemented; outbox and inbox remain future work. This backend design
 has no new graphical UI. A recording of proposed components would not establish
 implementation; actual HTTP evidence is retained through the service guide.*
@@ -156,10 +166,12 @@ does not make all Syn objects immutable.
    service foundation.
 2. Implement exchange/disclosure contracts. The [metadata-only increment](10-syn-exchange-contracts.md)
    exists; richer semantic admission, artifact disclosure and producer qualification remain open.
-3. Add a durable outbox after freezing the selected profile/delivery identity and
-   qualifying recovery cases.
-4. Add an authenticated, deduplicated inbox with local admission before dispatch.
+3. Freeze and implement the operator-provisioned account, restricted vault and
+   encrypted private Syn pub-sub contracts, then qualify two Agent-owned instances.
+4. Complete richer semantic/causal admission before adding the durable local
+   outbox to the Agent's own Syn and the admitted receiving path.
 5. Qualify outages, rotation, restore, bounded backlogs, correction/deletion,
-   adversarial input and retained anchors. Federation is a separate Syn design.
+   adversarial input and retained anchors. Syn owns all inter-agent transport;
+   consensus remains separate.
 
 No existing P/T programme stage is renumbered or marked complete here.
