@@ -48,7 +48,7 @@
 <text x="65" y="795" class="title">Installed typed memory Cogs</text>
 <text x="65" y="832" class="small">One request Type and one result Type; controller admission and common eligibility</text>
 <text x="65" y="861" class="small">Existing jobs, leases, budgets, deletion lineage and start/progress/terminal monitoring</text>
-<path d="M800 675 L800 755" class="line" marker-end="url(#arrow)"/>
+<path d="M1385 675 L1385 755" class="line" marker-end="url(#arrow)"/>
 <rect x="45" y="960" width="1510" height="115" rx="16" class="box"/>
 <text x="65" y="995" class="title">Qualified context packet</text>
 <text x="65" y="1032" class="small">Selected graphs + pinned revisions + evidence and exceptions + exact token budget</text>
