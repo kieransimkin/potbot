@@ -3,6 +3,7 @@
   "title": "Syn blockchain and transaction integration work packages",
   "status": "implementation_started",
   "date": "2026-10-23",
+  "progress_as_of": "2026-10-24",
   "document": "13-syn-blockchain-transaction-plan.md",
   "source_baselines": {
     "potbot": "058612c66c2569750bb661f29092f745caba1ac4",
@@ -42,6 +43,12 @@
       "id": "SBT01",
       "title": "Freeze domain, node and per-Type authority",
       "status": "in_progress",
+      "implemented_progress": [
+        "explicit local epoch-one genesis manifests with independently provisioned pins",
+        "atomic durable domain anchors and cross-catalog conflict namespace ownership",
+        "authenticated exact reads and Potbot adoption-pin resolution"
+      ],
+      "remaining_gate": "Signed Type-governance genesis authority, governed transitions and runtime admission remain pending; local administrative genesis is not a governance certificate.",
       "depends_on": [],
       "owners": [
         "Syn",
@@ -63,6 +70,12 @@
       "id": "SBT02",
       "title": "Freeze typed records and canonical consensus policies",
       "status": "in_progress",
+      "implemented_progress": [
+        "canonical policy, Type/release, node-hash and immutable PolicyContext contracts",
+        "domain-separated explicit local genesis codec and portable synthetic fixture",
+        "strict persisted-document validation and incompatible atomic write refusal"
+      ],
+      "remaining_gate": "Native Rust/Python byte and signature parity, roster credentials and policy-bound intent contracts remain pending.",
       "depends_on": [
         "SBT01"
       ],

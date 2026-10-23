@@ -115,9 +115,11 @@ different responsibility from Potbot's local application outbox.
 The [first contract foundation](15-syn-consensus-foundation.md) starts SBT01/SBT02:
 first-class draft Type policies, canonical release contracts, node-key/hash checks
 and offline pinned resolution, consumed by Potbot. Syn-owned application, client
-portability and PostgreSQL workflows now replace the former CI gap. Durable
-adoption, native ledger signing, protected startup, mesh and consensus remain
-pending; neither work package is marked complete.
+portability and PostgreSQL workflows now replace the former CI gap. On 24 October,
+explicit local genesis adds durable domain anchors, cross-catalog namespace
+ownership and authenticated reads checked against independent Potbot trust pins.
+Governed policy replacement, native ledger signing, protected startup, mesh and
+consensus remain pending; neither work package is marked complete.
 
 Syn's current receipt chain is a local ordered journal. It does not supply shared
 consensus, validator finality or a global sequence. The new protocol preserves

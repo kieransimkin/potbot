@@ -15,6 +15,7 @@ from syn_client.consensus import (
 
 from potbot.domain.errors import InvalidInputError
 from potbot.semantics.consensus import (
+    adopted_policy_resolver,
     node_identity_from_membership,
     pinned_policy_resolver,
     resolve_policy_write_set,
@@ -72,6 +73,46 @@ def test_remote_document_cannot_choose_its_own_trust_pin(selected):
         options.update(changes)
         with pytest.raises(InvalidInputError):
             pinned_policy_resolver(release.to_json(), **options)
+
+
+def test_durable_syn_adoption_uses_independent_workspace_and_adoption_pin(selected):
+    from unittest.mock import Mock
+
+    from syn_client import SynClient
+    from syn_client.policy_adoption import GenesisPolicyAdoption
+
+    release, binding, pin = selected
+    document = GenesisPolicyAdoption(STREAM, release, (binding,))
+    client = Mock(spec=SynClient)
+    client.policy_adoption.return_value = document
+    resolver = adopted_policy_resolver(
+        client, workspace_id=STREAM, catalog_id=CATALOG, expected_adoption_digest=document.digest
+    )
+    assert resolver.resolve(pin).binding == binding
+    client.policy_adoption.assert_called_once_with(
+        STREAM, catalog_id=CATALOG, expected_adoption_digest=document.digest
+    )
+    for options in ({"workspace_id": DOMAIN}, {"expected_adoption_digest": "f" * 64}):
+        with pytest.raises(InvalidInputError):
+            adopted_policy_resolver(
+                client,
+                **dict(
+                    workspace_id=STREAM,
+                    catalog_id=CATALOG,
+                    expected_adoption_digest=document.digest,
+                )
+                | options,
+            )
+    from syn_client import SynError
+
+    client.policy_adoption.side_effect = SynError("unavailable")
+    with pytest.raises(InvalidInputError):
+        adopted_policy_resolver(
+            client,
+            workspace_id=STREAM,
+            catalog_id=CATALOG,
+            expected_adoption_digest=document.digest,
+        )
 
 
 def test_node_reference_matches_existing_native_account_fingerprint():

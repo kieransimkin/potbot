@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from potbot.domain.errors import InvalidInputError
 
 if TYPE_CHECKING:
+    from syn_client import SynClient
     from syn_client.consensus import (
         CanonicalTypePolicyResolver,
         NodeIdentity,
@@ -29,8 +30,8 @@ def pinned_policy_resolver(
 ) -> CanonicalTypePolicyResolver:
     """Use caller-trusted pins, never hashes taken from the received document.
 
-    First-release trust selection is explicit. Governance-approved transitions,
-    sealed database persistence and consensus execution remain later work.
+    First-release trust selection is explicit. Governance-approved transitions
+    and consensus execution remain later work.
     """
     from syn_client.consensus import (
         CanonicalTypePolicyResolver,
@@ -47,6 +48,26 @@ def pinned_policy_resolver(
         )
     except PolicyError as error:
         raise InvalidInputError(str(error)) from error
+
+
+def adopted_policy_resolver(
+    client: SynClient, *, workspace_id: str, catalog_id: str, expected_adoption_digest: str
+) -> CanonicalTypePolicyResolver:
+    """Resolve Syn's durable genesis using independently provisioned trust pins."""
+    from syn_client import SynError
+    from syn_client.consensus import PolicyError
+
+    try:
+        document = client.policy_adoption(
+            workspace_id, catalog_id=catalog_id, expected_adoption_digest=expected_adoption_digest
+        )
+        return document.resolver(
+            expected_workspace_id=workspace_id,
+            expected_catalog_id=catalog_id,
+            expected_adoption_digest=expected_adoption_digest,
+        )
+    except (PolicyError, SynError, ValueError) as error:
+        raise InvalidInputError("Pinned Syn policy adoption is unavailable or invalid") from error
 
 
 def resolve_policy_write_set(

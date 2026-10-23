@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="465" viewBox="0 0 1160 465" role="img" aria-labelledby="t d">
+<title id="t">Durable Syn policy genesis and independent Potbot trust pins</title>
+<desc id="d">An operator reviews one genesis manifest and independently retains its digest. Local administrative initialization atomically stores the document, domain anchors and namespace owners. Syn serves authenticated exact reads. Potbot verifies its own pin before resolving a Type. Replacement requires future governance verification.</desc>
+<rect width="1160" height="465" rx="18" fill="#f4f7fa"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#47677e"/></marker></defs>
+<g font-family="Arial,sans-serif" fill="#17374a">
+<text x="28" y="42" font-size="25" font-weight="bold">Persist the reviewed policy. Verify it against an independent pin.</text>
+<rect x="28" y="80" width="330" height="200" rx="12" fill="#fff1d6" stroke="#9d7938"/>
+<rect x="415" y="80" width="330" height="200" rx="12" fill="#e7eff8" stroke="#5d7996"/>
+<rect x="802" y="80" width="330" height="200" rx="12" fill="#e2f3e9" stroke="#4d866c"/>
+<text x="48" y="115" font-size="21" font-weight="bold">Operator trust selection</text>
+<text x="48" y="151" font-size="17">Review release + stream bindings</text><text x="48" y="182" font-size="17">Pin workspace, catalog, digest</text><text x="48" y="213" font-size="17">Keep pin outside this database</text><text x="48" y="253" font-size="17">Explicit local initialization</text>
+<text x="435" y="115" font-size="21" font-weight="bold">Syn atomic genesis store</text>
+<text x="435" y="151" font-size="17">Immutable document + anchors</text><text x="435" y="182" font-size="17">One owner per domain namespace</text><text x="435" y="213" font-size="17">Exact retry; reject replacement</text><text x="435" y="253" font-size="17">Authenticated exact read only</text>
+<text x="822" y="115" font-size="21" font-weight="bold">Potbot policy resolution</text>
+<text x="822" y="151" font-size="17">Use independently retained pin</text><text x="822" y="182" font-size="17">Check document + scope</text><text x="822" y="213" font-size="17">Resolve exact Type/write set</text><text x="822" y="253" font-size="17">Return immutable PolicyContext</text>
+<g fill="none" stroke="#47677e" stroke-width="2" marker-end="url(#a)"><path d="M362 180H405"/><path d="M749 180H792"/><path d="M193 285V320H967V286" stroke-dasharray="7 5"/></g>
+<text x="440" y="345" font-size="16">Independent trust-pin provisioning</text>
+<text x="28" y="394" font-size="18">Initial local trust configuration is implemented. Governance replacement and consensus finality remain pending.</text>
+<text x="28" y="433" font-size="17">Generated architecture illustration · no private keys · local service boundary · no peer-mesh claim</text>
+</g></svg>

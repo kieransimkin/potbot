@@ -1,7 +1,8 @@
 # Implemented Type consensus foundation
 
 23 October 2026. SBT01/SBT02 have started. Contracts and offline resolution are
-implemented. Runtime binding, encrypted transport, native ledger signing, governed
+implemented. 24 October adds durable explicit local genesis and authenticated
+reads against independent Potbot trust pins. Runtime binding, encrypted transport, native ledger signing, governed
 adoption, consensus engines and automatic delivery remain pending.
 
 ![Canonical Type policies select the intended operator or federated consensus profile](../media/syn-type-consensus.svg)
@@ -48,8 +49,44 @@ protected signing remain mandatory before new ledger signatures are used.
 
 Canonical Type releases are distinct from advisory `metadata_json`. Legacy Types
 remain readable for local features but cannot resolve shared policies without an
-explicit definition. Initial trust currently means caller-selected offline pins;
-durable adoption and old-policy-approved governance transitions remain pending.
+explicit definition. Initial trust means independently selected pins. It can now
+be persisted as explicit local genesis; old-policy-approved governance transitions
+remain pending.
+
+## Durable genesis and independent trust
+
+![Operator-selected pins gate Syn's immutable genesis store and Potbot verifies them again](../media/syn-policy-genesis.svg)
+
+*Generated architecture illustration of the implemented local storage/read path.*
+
+Syn's `syn.policy-genesis/1` document commits the workspace, complete canonical
+release and epoch-one stream bindings. An operator explicitly reviews and
+provisions its digest through a trusted channel separate from the database/response.
+`python -m syn.policy_bootstrap initialize` requires explicit configuration,
+manifest and workspace/catalog/adoption pins; it performs no implicit migration.
+
+Migration 0014 atomically stores the immutable adoption, domain genesis anchors
+and namespace owners. Initialization serializes across catalogs in one workspace.
+Exact retries return the existing document; changed pins, domain forks and a
+second catalog claiming the same namespace are refused. PostgreSQL triggers
+reject updates, deletes and truncation. Independent pins remain necessary against
+a database owner who can bypass SQL protection.
+
+The workspace-authenticated Syn API serves only an exact catalog/adoption digest.
+`SynClient.policy_adoption` parses bounded strict JSON and checks the independent
+pins. Potbot's optional `adopted_policy_resolver` rechecks them before returning
+the existing Type/write-set resolver. No automatic startup adoption or unqualified
+latest route is added. Service bearer tokens grant local reads; they are distinct
+from account signing keys and private group keys. All future inter-Agent traffic
+still belongs exclusively to the encrypted Syn mesh.
+
+Local genesis is an administrative trust choice, not signed governance proof or
+finality. Policy replacement remains held until a versioned successor format,
+old-policy proof, Type governance and atomic namespace transfer can be verified.
+Runtime admission must bind the selected workspace/domain to the assigned Agent;
+choosing another workspace cannot grant authority over an existing transaction.
+See [Syn's genesis guide](https://github.com/Synsphere/syn/blob/codex/potbot-communication-service/docs/development/policy-genesis.md)
+for the command, registry scope, failure behaviour and remaining gates.
 
 ## Repository workflows and compatibility
 
@@ -60,7 +97,7 @@ The [Syn workflow design](https://github.com/Synsphere/syn/blob/codex/potbot-com
 defines triggers, permissions and qualification limits. Manual dispatch may need
 the workflow to reach the default branch before GitHub exposes it.
 
-The first client matrix passed. PostgreSQL bootstrap exposed a historical scratch
+The first client matrix passed. PostgreSQL bootstrap exposed historical scratch
 tables surviving until transaction commit. Migrations 0006/0007 now drop completed
 scratch tables before 0010 changes the ObjectRef domain. Migration IDs and
 persistent schema remain intact; applied revisions are not rerun. The new service
@@ -78,7 +115,7 @@ combinations, missing policies, namespace bypass and incompatible atomic writes.
 API tests check draft exports and omission/null semantics. PostgreSQL acceptance
 exercises upgrade, the policy-object constraint and downgrade/re-upgrade.
 
-Next: complete the authority/genesis ADR and adoption store, native cross-language
+Next: signed Type-governance/genesis authority and transition proofs, native cross-language
 vectors, live account/instance binding, encrypted two-Agent exchange and admitted
 producers. Qualify each agreement adapter and independent outcome verifier before
 live shared transactions. An offline PolicyContext is not finality evidence.
