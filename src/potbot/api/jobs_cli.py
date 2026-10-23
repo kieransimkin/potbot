@@ -40,7 +40,8 @@ def protected_values(database: Database, credentials: ServiceCredentials) -> tup
     """Known secrets are capture filters, never job payloads or printed settings."""
     from psycopg.conninfo import conninfo_to_dict
 
-    from potbot.domain.errors import CapabilityUnavailableError
+    from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
+    from potbot.domain.syn_credentials import SynCredentialScope
     from potbot.service_credentials import PROVIDER_ENVIRONMENT
 
     values = [database.dsn]
@@ -50,6 +51,17 @@ def protected_values(database: Database, credentials: ServiceCredentials) -> tup
     references = ["secret://api/access-token"] + [
         f"secret://providers/{provider}" for provider in PROVIDER_ENVIRONMENT
     ]
+    # Invalid scope configuration must not turn off redaction of injected tokens.
+    syn_token = credentials.environment.get("POTBOT_SYN_TOKEN")
+    if syn_token:
+        values.append(syn_token)
+    if credentials.environment.get("POTBOT_SYN_URL"):
+        try:
+            references.append(
+                SynCredentialScope.from_environment(credentials.environment).reference
+            )
+        except InvalidInputError:
+            pass
     for reference in references:
         try:
             values.append(credentials.resolve(reference))

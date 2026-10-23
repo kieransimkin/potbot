@@ -45,7 +45,11 @@ authorize a tool, activate a Cog or qualify a model.
 *Generated planning illustration, not a demonstration of the proposed relay/inbox.*
 
 The integration draft's first remote checks failed before application tests at
-private Syn submodule checkout. Establish explicitly authorized CI access and
-then re-run the required exact-head gates; existing local Syn/client fixtures do
-not replace Phase 7 PostgreSQL, sandbox or live-model qualification. The initial
-manual `sync-events` command is not the automatic outbox delivery planned here.
+private Syn submodule checkout. Authorized read-only source access now succeeds;
+the restored run exposed three historical migration assertions, which were
+corrected without changing migration SQL. Continue to require all exact-head
+gates. The [first credential increment](implementation/08-syn-scoped-credentials.md)
+adds installation/workspace/origin binding and Syn token capture filters.
+Existing local Syn/client fixtures do not replace Phase 7 PostgreSQL, sandbox
+or live-model qualification. The initial manual `sync-events` command is not
+the automatic outbox delivery planned here.

@@ -22,9 +22,13 @@ from potbot.domain.errors import InvalidInputError
 
 def test_client_is_optional_and_validates_transport_before_use():
     assert configured_client({}) is None
+    scope = {
+        "POTBOT_INSTALLATION_ID": str(uuid4()),
+        "POTBOT_SYN_WORKSPACE_ID": str(uuid4()),
+    }
     for url in ("http://remote.example", "https://user:password@remote.example"):
         with pytest.raises(InvalidInputError):
-            configured_client({"POTBOT_SYN_URL": url, "POTBOT_SYN_TOKEN": "x" * 40})
+            configured_client({**scope, "POTBOT_SYN_URL": url, "POTBOT_SYN_TOKEN": "x" * 40})
     with pytest.raises(InvalidInputError):
         configured_client({"POTBOT_SYN_URL": "http://127.0.0.1:8000"})
 

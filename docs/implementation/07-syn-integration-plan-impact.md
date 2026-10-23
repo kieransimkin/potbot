@@ -4,6 +4,10 @@ Review date: **23 October 2026**. This is a planning amendment to the existing
 programme. It does not implement the proposed relay, inbox, federation or security
 work, advance stage completion, or qualify the integration for production.
 
+Subsequent implementation: [scoped credentials and CI access](08-syn-scoped-credentials.md)
+records the first completed code increment. The review below retains its original
+source baselines; this is not a claim that all proposed gates are now complete.
+
 **Recommendation:** use Syn as Potbot's communication and externally checkable
 receipt service. Keep Potbot's task decisions and durable execution transactions
 under their existing owners. Build reliable event delivery before remote-agent

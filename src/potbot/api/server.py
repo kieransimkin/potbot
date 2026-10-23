@@ -49,6 +49,8 @@ from potbot.models.profiles import default_model_profiles
 if TYPE_CHECKING:
     from syn_client import SynClient
 
+    from potbot.controller.syn_service import ScopedSynClient
+
 
 class JobOperations(Protocol):
     """Synchronous transaction boundary implemented by the PostgreSQL JobService."""
@@ -348,7 +350,7 @@ def create_app(
     invocation_reader: InvocationReader | None = None,
     invocation_list_reader: InvocationReader | None = None,
     execution_events: ExecutionEventOperations | None = None,
-    syn_service: SynClient | None = None,
+    syn_service: SynClient | ScopedSynClient | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""

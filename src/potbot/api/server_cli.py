@@ -76,7 +76,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         invocation_reader=gateway.inspect,
         invocation_list_reader=gateway.list_for_job,
         execution_events=ExecutionEventService(database),
-        syn_service=configured_client(),
+        syn_service=configured_client(workspace_id=context.workspace_id, credentials=credentials),
         settings=settings,
     )
 

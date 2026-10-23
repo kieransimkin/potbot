@@ -38,17 +38,37 @@ Git pins an exact Syn commit; `git submodule update --remote` is not part of set
 Review and commit any future pin changes with corresponding lock and contract
 checks. GitHub-generated source ZIPs omit submodule files. Use a recursive clone
 or a complete distribution that includes the pinned source. The launchers detect
-a missing client before attempting runtime downloads. CI checks out submodules.
+a missing client before attempting runtime downloads. CI resolves the exact Syn
+gitlink and checks out that revision with a dedicated read-only key; see
+[scoped credentials and CI access](implementation/08-syn-scoped-credentials.md).
 
 Configure and run Syn separately using `vendor/syn/config.example.toml` as a
 template, then run `uv run --project vendor/syn syn-server --config <config-path>`.
 Its usual migration applies the ledger tables. Put a per-workspace random token
 in Syn's secret `SYN_COMMUNICATION_TOKENS` JSON mapping. Set `POTBOT_SYN_URL` to
 the HTTPS service origin (loopback HTTP is supported) and `POTBOT_SYN_TOKEN` to
-that workspace's matching token. Keep tokens in service environment injection;
+that workspace's matching token, or use the scoped native-vault commands below.
+Set `POTBOT_INSTALLATION_ID` to a retained installation UUID and
+`POTBOT_SYN_WORKSPACE_ID` to the authenticated workspace UUID. A URL/token-only
+configuration now fails closed until these explicit bindings are present.
+Keep tokens in native storage or service environment injection;
 never commit, log, embed in model prompts or reuse them for browser/API clients.
 The integration is inactive when `POTBOT_SYN_URL` is absent. Syn's existing P2P
 discovery is independent; this HTTP integration does not replicate via libp2p.
+
+```sh
+uv run potbot credentials syn-set \
+  --installation-id <UUID> --workspace-id <UUID> --url https://<Syn-origin>
+```
+
+The hidden prompt stores a credential bound to this installation, workspace and
+canonical service origin. Matching environment injection takes precedence and
+is never autosaved. `syn-status` and `syn-delete` use the same scope arguments.
+
+![Illustrated local checks before a Syn token can be used](media/syn-credential-scope.svg)
+
+*Explanatory illustration of implemented scope checks and known-secret filters;
+not a screenshot or evidence of remote-agent admission.*
 
 ## Read and send
 

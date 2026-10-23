@@ -35,7 +35,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sync.add_argument("--limit", type=int, default=50)
     args = parser.parse_args(argv)
     try:
-        client = configured_client()
+        client = configured_client(workspace_id=args.workspace_id)
         if client is None:
             raise CapabilityUnavailableError("Set POTBOT_SYN_URL and workspace POTBOT_SYN_TOKEN.")
         workspace = str(args.workspace_id)

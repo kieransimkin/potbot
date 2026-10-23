@@ -60,7 +60,7 @@ def rig(monkeypatch, tmp_path):
             return provider_key
         raise CapabilityUnavailableError("missing unrelated provider")
 
-    credentials = SimpleNamespace(resolve=Mock(side_effect=resolve))
+    credentials = SimpleNamespace(resolve=Mock(side_effect=resolve), environment={})
     constructors = {}
     for name, instance in (
         ("potbot.persistence.database.Database", database),
