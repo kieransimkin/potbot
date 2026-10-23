@@ -30,9 +30,9 @@
     "name": "Execution envelope and provenance contracts",
     "prerequisites": "T01.2",
     "deliverable": "Signed, immutable invocation/result/receipt envelope and lifecycle schema",
-    "implementation": "Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions.",
-    "acceptance": "Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected.",
-    "demonstration": "Replay an immutable read-only invocation and inspect the linked receipt chain.",
+    "implementation": "Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions. Standardize one pinned, typed syn://event/<id> occurrence for every workflow/model/tool start, update, output, nested call and terminal state; require the exact semantic Type/version, unique process run ID, initiating process/input artifact and SHA-256, authenticated direct trigger, emitter, causal parent, timestamps, and private/redacted parameter projections.",
+    "acceptance": "Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected. Every event—including progress/console/completion—has a resolvable cause and emitter; reject orphan, self-causal, cross-workspace, wrong-release, forged-input and unversioned event records; verify deterministic lineage and output receipts.",
+    "demonstration": "Replay an immutable read-only invocation and inspect the linked receipt chain. Replay a typed workflow-to-model-to-tool causal chain from a user input to each child run and its output receipt.",
     "status": "not_started"
   },
   {
@@ -138,9 +138,9 @@
     "name": "Durable tool gateway and approvals",
     "prerequisites": "T02.*,T03.1\u2013T03.3",
     "deliverable": "First end-to-end authorized tool runner",
-    "implementation": "Add invocation admission, budget reservation, durable queue claim/lease fencing, immutable result, approval handshake, cancellation, reconciliation and side-effect-aware retries via existing PostgreSQL jobs; preserve typed Cog separation: transforming data does not authorize external execution.",
-    "acceptance": "100 simulated worker crashes result in no unauthorized repeat of side-effecting call; concurrent claims do not double execute; denied approval means zero side effects; read-only invocations replay safely.",
-    "demonstration": "An operator approves a restricted tool invocation from CLI/API; job/receipt appears in WebSocket replay.",
+    "implementation": "Add invocation admission, budget reservation, durable queue claim/lease fencing, immutable result, approval handshake, cancellation, reconciliation and side-effect-aware retries via existing PostgreSQL jobs; preserve typed Cog separation: transforming data does not authorize external execution. Record fenced start/progress/output/tool-invocation/completion/failure events transactionally with actual dispatch/admission decisions; require the trigger process or input, lease generation, typed run and authorization identity on each event. Preserve existing job_events/evidence_events and shared workspace cursor semantics.",
+    "acceptance": "100 simulated worker crashes result in no unauthorized repeat of side-effecting call; concurrent claims do not double execute; denied approval means zero side effects; read-only invocations replay safely. A denied, unleased or stale-generation execution cannot emit a valid start/completion or forged causal reference; duplicate or uncertain side effects remain un-replayed and explicit.",
+    "demonstration": "An operator approves a restricted tool invocation from CLI/API; job/receipt appears in WebSocket replay. Follow an approved tool's start, progress, child invocation and terminal events by immutable run ID; reject a spoofed trigger.",
     "status": "not_started"
   },
   {
@@ -450,9 +450,9 @@
     "name": "Durable parallel workflow runtime",
     "prerequisites": "T10.1,T03.4",
     "deliverable": "Resumable DAG executor and event stream",
-    "implementation": "Extend existing PostgreSQL queue/REST/WebSocket jobs with graph node scheduling, deduplication, lease fences, bounded concurrency, pause/resume, approval handoff, checkpointing and compensation proposals; avoid replaying uncertain non-idempotent effects.",
-    "acceptance": "Kill workers at 5 fault points and require no double side effects; event cursor replay identical after restart; fan-in waits for all required verified inputs; budget exhaustion halts safely.",
-    "demonstration": "Run fan-out multi-source research workflow with injected worker crash.",
+    "implementation": "Extend existing PostgreSQL queue/REST/WebSocket jobs with graph node scheduling, deduplication, lease fences, bounded concurrency, pause/resume, approval handoff, checkpointing and compensation proposals; avoid replaying uncertain non-idempotent effects. Instrument workflow DAG nodes and nested model/tool processes with unique run IDs, immutable input snapshots and parent syn://event causation; emit lifecycle, safe console output and progress events via the existing durable cursor, and retain finished/indeterminate metrics, tool-run links and typed output artifacts.",
+    "acceptance": "Kill workers at 5 fault points and require no double side effects; event cursor replay identical after restart; fan-in waits for all required verified inputs; budget exhaustion halts safely. Every nested execution is traceable to its parent process or exact input through restart/replay; no missing parent, duplicated event, false completion or repeated side effect; terminal events carry measured/estimated/unknown wall time and resource metrics.",
+    "demonstration": "Run fan-out multi-source research workflow with injected worker crash. Stream a parallel workflow live, inspect the exact input/process triggering every event, reconnect from the last cursor and expand its model/tool run tree.",
     "status": "not_started"
   },
   {
@@ -462,9 +462,9 @@
     "name": "Model reasoning controller and independent critics",
     "prerequisites": "T10.1,T10.2,T09.*",
     "deliverable": "Tool-aware reasoning and independent challenge workflow",
-    "implementation": "Extend existing multi-model selection, provider gateway and Phase 6 graph/search instead of creating competing planner; add tool proposals with confidence/uncertainty, bounded alternative plan search, independent verifier role, contradiction tests and grounded action selection.",
-    "acceptance": "Planted false claims challenged, unsupported conclusions labeled; reviewer cannot self-approve writes; no added model call bypasses budget; role context isolation passes.",
-    "demonstration": "Run same coding problem with and without tool/critic loop and compare verified outcomes.",
+    "implementation": "Extend existing multi-model selection, provider gateway and Phase 6 graph/search instead of creating competing planner; add tool proposals with confidence/uncertainty, bounded alternative plan search, independent verifier role, contradiction tests and grounded action selection. Emit version-pinned model and critic start/progress/output/completion events with independent run identifiers, triggering workflow/context packet, provider/deployment revision, elapsed clock time, tokens, CPU/GPU/memory where observable, cost and all nested external tool run IDs.",
+    "acceptance": "Planted false claims challenged, unsupported conclusions labeled; reviewer cannot self-approve writes; no added model call bypasses budget; role context isolation passes. Each local or hosted model event has an authenticated causal input and exact selected model/deployment identity; unavailable provider revisions and resource measurements remain explicitly unknown, never invented or zero-filled.",
+    "demonstration": "Run same coding problem with and without tool/critic loop and compare verified outcomes. Trace two distinct reasoning/coding model runs and their external tool invocations with different model revisions and independent accounting receipts.",
     "status": "not_started"
   },
   {
@@ -498,9 +498,9 @@
     "name": "Evidence integrity and factual verification",
     "prerequisites": "T11.1,T01.3,T05.4",
     "deliverable": "Evidence checker and provenance audit",
-    "implementation": "Implement immutable citations, external source hashes, assertion\u2192support mapping, independent execution checks, source freshness, contradictory evidence and replay audit; integrate with patch verification and solver result retention.",
-    "acceptance": "Tampered citation/patch/proof hash detected; unsupported claims fail; stale docs flagged; reproducible receipts for offline tasks; partial tool success not promoted to verified claim.",
-    "demonstration": "Show accepted claim, challenged claim and unresolved claim with source chain.",
+    "implementation": "Implement immutable citations, external source hashes, assertion→support mapping, independent execution checks, source freshness, contradictory evidence and replay audit; integrate with patch verification and solver result retention. Audit every syn://event occurrence against the exact triggering process/input, parent event, workspace, typed semantic release, run/lease generation, output hash, terminal metrics provenance and external tool receipt chain.",
+    "acceptance": "Tampered citation/patch/proof hash detected; unsupported claims fail; stale docs flagged; reproducible receipts for offline tasks; partial tool success not promoted to verified claim. Tampered parent event or input SHA-256, unregistered Type/version, cross-workspace causal link, forged emitter, missing triggered-by identity or fabricated resource measure fails acceptance.",
+    "demonstration": "Show accepted claim, challenged claim and unresolved claim with source chain. Render a verified event ancestry and show a rejected event with a falsified initiating workflow step or source input.",
     "status": "not_started"
   },
   {
@@ -546,9 +546,9 @@
     "name": "Operator UI, monitoring and controls",
     "prerequisites": "T10.*,T04.4,T11.*",
     "deliverable": "Unified tool dashboard and API surfaces",
-    "implementation": "Extend current web dashboard/REST/WebSocket with catalog, permissions, health, active DAG, tool calls, prompts/resources, evidence, cost budgets, approvals, audit and diagnostic outputs; filter by workspace.",
-    "acceptance": "Read-only users cannot approve; replay cursor shows same state after reconnect; all secret fields redacted; API and UI agree on execution status and verification state.",
-    "demonstration": "Operator inspects running workflow, approves a safe write and sees immutable result.",
+    "implementation": "Extend current web dashboard/REST/WebSocket with catalog, permissions, health, active DAG, tool calls, prompts/resources, evidence, cost budgets, approvals, audit and diagnostic outputs; filter by workspace. Add workspace-scoped live execution REST read models and resumable WebSocket streams for running workflows, model calls, child tools, typed syn://event history, per-event triggering process/input, timelines, progress, bounded/redacted console, wall time, resource/cost metrics and final output artifact links; retain legacy job clients.",
+    "acceptance": "Read-only users cannot approve; replay cursor shows same state after reconnect; all secret fields redacted; API and UI agree on execution status and verification state. API, WebSocket replay and dashboard agree on each event's Type/version, unique run ID, direct cause, emitter, parent-child trace, status and accounting; unauthorized clients cannot access private inputs or cross-workspace events; slow subscribers resume without loss.",
+    "demonstration": "Operator inspects running workflow, approves a safe write and sees immutable result. Open the running-workflows dashboard, inspect every start/update/completion, drill into exactly what triggered a model/tool event, and replay the same timeline after reconnecting.",
     "status": "not_started"
   },
   {

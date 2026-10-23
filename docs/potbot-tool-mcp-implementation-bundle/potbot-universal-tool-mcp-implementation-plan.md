@@ -1,6 +1,6 @@
 # Potbot Universal Tool, MCP and Reasoning Integration — Master Implementation Plan
 
-**Document version:** 1.0 (planning baseline)  
+**Document version:** 1.1 (typed live-execution observability requirements; planning only)  
 **Prepared:** 22 October 2026  
 **Target:** `kieransimkin/potbot` / Syn-Synny semantic ecosystem  
 **Observed GitHub baseline:** `main` at `74dac45d5535595975e10f545fd6d9cb1652e6a8` (read-only inspection, 22 October 2026)  
@@ -38,6 +38,8 @@ Repository references inspected: [README](https://github.com/kieransimkin/potbot
 10. **Budgeted boundedness:** limits on runtime, tokens, spend, redirects, pages, recursion, concurrency, output size, retries and network access.
 11. **Portable but honest:** Windows and macOS launchers may manage dependencies, but untrusted code executes only under a demonstrably qualified containment backend.
 12. **Data minimality:** external queries use least disclosure and scoped credentials; every outbound disclosure is assessed by policy.
+
+13. **Event causal provenance:** every typed execution event must identify the authenticated process or immutable input that directly triggered it, as well as the emitting run; no orphan/forged causal edges or inferred authorization.
 
 ## 2. Canonical capability ontology and interface contracts
 
@@ -99,6 +101,18 @@ Recommended normalized invocation envelope (illustrative mapping onto existing s
 
 Real Type URIs, identities and field contracts must be checked against the authoritative Syn catalog and existing code before committing any schema. Multiple input arguments can be wrapped in a single registered **request envelope Type**, consistent with the current one-in/one-out Cog rule.
 
+## 2A. Required SYN event causal tracking and live execution API
+
+**New mandatory requirement:** every execution occurrence (`syn://event/<id>`) must have a resolvable, authenticated **direct trigger**—the process, workflow step, user/API input, schedule occurrence, or external callback that caused it. Every event also records the actual **emitting process**. This applies to start, progress, console output, child tool calls, completion, failure, cancellation and indeterminate outcomes, not merely the first event in a run.
+
+- Start events bind the precise event/subject Type (`syn://type/...` or `synny://type/...`), pinned type/schema version, actual model/workflow/tool implementation or provider revision, unique run UUID, parent-run/step, immutable **typed input parameters** (secure artifact + SHA-256, with a separately redacted public projection), causal trigger and UTC started-at time.
+- Progress events carry stage, bounded console/stdout/stderr or typed progress/resource updates, stream chunk identity, original run, emitter and the **specific source process/event** that generated the update.
+- Terminal events carry finished-at UTC, elapsed wall-clock milliseconds and timing basis, CPU/RAM/GPU/network/IO/token/cost usage with explicit measured/estimated/unavailable markers, every external tool's unique child-run ID/type/version/receipt, and typed output artifacts with SHA-256; never equate completed generation with independent verification.
+- All event identities and links are tenant-scoped, append-only and replayable under the existing PostgreSQL job/evidence stores and commit-ordered WebSocket cursor; do **not** implement a second uncoordinated event stream. Unknown external side effects remain `indeterminate` pending explicit reconciliation. Type declarations must be activated through a reviewed sealed SYN semantic release.
+- Extend the existing API with **planned** `/v1/executions`, `/v1/executions/{run_id}`, `/v1/executions/{run_id}/events`, `/v1/executions/{run_id}/tree`, `/v1/events/{event_id}/cause`, and matching authenticated/resumable `/v1/executions/stream` WebSockets. The operator UI must expose active workflow/model/tool timelines and direct cause/input drill-down, subject to authorization and redaction.
+
+**Complete event schema, privacy controls, sequencing, sample start/completion payloads and negative tests:** [Typed live execution monitoring](../implementation/05-syn-execution-monitoring.md). The 48 planned stages are unchanged; requirements are assigned to T01.3, T03.4, T10.2, T10.3, T11.2 and T12.2. This subsection describes **planned work**, not deployed functionality.
+
 ## 3. Release slices and dependencies
 
 | Milestone | Scope | First useful capability | Hard gate |
@@ -135,9 +149,9 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T01.3 — Execution envelope and provenance contracts
 - **Prerequisites:** T01.2.
 - **Deliverable:** Signed, immutable invocation/result/receipt envelope and lifecycle schema.
-- **Implementation:** Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions.
-- **Automated acceptance:** Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected.
-- **Demonstration:** Replay an immutable read-only invocation and inspect the linked receipt chain.
+- **Implementation:** Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions. Standardize one pinned, typed syn://event/<id> occurrence for every workflow/model/tool start, update, output, nested call and terminal state; require the exact semantic Type/version, unique process run ID, initiating process/input artifact and SHA-256, authenticated direct trigger, emitter, causal parent, timestamps, and private/redacted parameter projections.
+- **Automated acceptance:** Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected. Every event—including progress/console/completion—has a resolvable cause and emitter; reject orphan, self-causal, cross-workspace, wrong-release, forged-input and unversioned event records; verify deterministic lineage and output receipts.
+- **Demonstration:** Replay an immutable read-only invocation and inspect the linked receipt chain. Replay a typed workflow-to-model-to-tool causal chain from a user input to each child run and its output receipt.
 - **Evidence required:** `tests/` report for `T01.3`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 #### T01.4 — Build matrix and stage acceptance harness
@@ -215,9 +229,9 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T03.4 — Durable tool gateway and approvals
 - **Prerequisites:** T02.*,T03.1–T03.3.
 - **Deliverable:** First end-to-end authorized tool runner.
-- **Implementation:** Add invocation admission, budget reservation, durable queue claim/lease fencing, immutable result, approval handshake, cancellation, reconciliation and side-effect-aware retries via existing PostgreSQL jobs; preserve typed Cog separation: transforming data does not authorize external execution.
-- **Automated acceptance:** 100 simulated worker crashes result in no unauthorized repeat of side-effecting call; concurrent claims do not double execute; denied approval means zero side effects; read-only invocations replay safely.
-- **Demonstration:** An operator approves a restricted tool invocation from CLI/API; job/receipt appears in WebSocket replay.
+- **Implementation:** Add invocation admission, budget reservation, durable queue claim/lease fencing, immutable result, approval handshake, cancellation, reconciliation and side-effect-aware retries via existing PostgreSQL jobs; preserve typed Cog separation: transforming data does not authorize external execution. Record fenced start/progress/output/tool-invocation/completion/failure events transactionally with actual dispatch/admission decisions; require the trigger process or input, lease generation, typed run and authorization identity on each event. Preserve existing job_events/evidence_events and shared workspace cursor semantics.
+- **Automated acceptance:** 100 simulated worker crashes result in no unauthorized repeat of side-effecting call; concurrent claims do not double execute; denied approval means zero side effects; read-only invocations replay safely. A denied, unleased or stale-generation execution cannot emit a valid start/completion or forged causal reference; duplicate or uncertain side effects remain un-replayed and explicit.
+- **Demonstration:** An operator approves a restricted tool invocation from CLI/API; job/receipt appears in WebSocket replay. Follow an approved tool's start, progress, child invocation and terminal events by immutable run ID; reject a spoofed trigger.
 - **Evidence required:** `tests/` report for `T03.4`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 **Phase 03 exit gate:** Agent can execute a permitted tool in a qualified sandbox through existing jobs, while every denied filesystem, network, credential and destructive action fails closed.
@@ -451,17 +465,17 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T10.2 — Durable parallel workflow runtime
 - **Prerequisites:** T10.1,T03.4.
 - **Deliverable:** Resumable DAG executor and event stream.
-- **Implementation:** Extend existing PostgreSQL queue/REST/WebSocket jobs with graph node scheduling, deduplication, lease fences, bounded concurrency, pause/resume, approval handoff, checkpointing and compensation proposals; avoid replaying uncertain non-idempotent effects.
-- **Automated acceptance:** Kill workers at 5 fault points and require no double side effects; event cursor replay identical after restart; fan-in waits for all required verified inputs; budget exhaustion halts safely.
-- **Demonstration:** Run fan-out multi-source research workflow with injected worker crash.
+- **Implementation:** Extend existing PostgreSQL queue/REST/WebSocket jobs with graph node scheduling, deduplication, lease fences, bounded concurrency, pause/resume, approval handoff, checkpointing and compensation proposals; avoid replaying uncertain non-idempotent effects. Instrument workflow DAG nodes and nested model/tool processes with unique run IDs, immutable input snapshots and parent syn://event causation; emit lifecycle, safe console output and progress events via the existing durable cursor, and retain finished/indeterminate metrics, tool-run links and typed output artifacts.
+- **Automated acceptance:** Kill workers at 5 fault points and require no double side effects; event cursor replay identical after restart; fan-in waits for all required verified inputs; budget exhaustion halts safely. Every nested execution is traceable to its parent process or exact input through restart/replay; no missing parent, duplicated event, false completion or repeated side effect; terminal events carry measured/estimated/unknown wall time and resource metrics.
+- **Demonstration:** Run fan-out multi-source research workflow with injected worker crash. Stream a parallel workflow live, inspect the exact input/process triggering every event, reconnect from the last cursor and expand its model/tool run tree.
 - **Evidence required:** `tests/` report for `T10.2`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 #### T10.3 — Model reasoning controller and independent critics
 - **Prerequisites:** T10.1,T10.2,T09.*.
 - **Deliverable:** Tool-aware reasoning and independent challenge workflow.
-- **Implementation:** Extend existing multi-model selection, provider gateway and Phase 6 graph/search instead of creating competing planner; add tool proposals with confidence/uncertainty, bounded alternative plan search, independent verifier role, contradiction tests and grounded action selection.
-- **Automated acceptance:** Planted false claims challenged, unsupported conclusions labeled; reviewer cannot self-approve writes; no added model call bypasses budget; role context isolation passes.
-- **Demonstration:** Run same coding problem with and without tool/critic loop and compare verified outcomes.
+- **Implementation:** Extend existing multi-model selection, provider gateway and Phase 6 graph/search instead of creating competing planner; add tool proposals with confidence/uncertainty, bounded alternative plan search, independent verifier role, contradiction tests and grounded action selection. Emit version-pinned model and critic start/progress/output/completion events with independent run identifiers, triggering workflow/context packet, provider/deployment revision, elapsed clock time, tokens, CPU/GPU/memory where observable, cost and all nested external tool run IDs.
+- **Automated acceptance:** Planted false claims challenged, unsupported conclusions labeled; reviewer cannot self-approve writes; no added model call bypasses budget; role context isolation passes. Each local or hosted model event has an authenticated causal input and exact selected model/deployment identity; unavailable provider revisions and resource measurements remain explicitly unknown, never invented or zero-filled.
+- **Demonstration:** Run same coding problem with and without tool/critic loop and compare verified outcomes. Trace two distinct reasoning/coding model runs and their external tool invocations with different model revisions and independent accounting receipts.
 - **Evidence required:** `tests/` report for `T10.3`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 #### T10.4 — Adaptive selection, caching and capability utility
@@ -487,9 +501,9 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T11.2 — Evidence integrity and factual verification
 - **Prerequisites:** T11.1,T01.3,T05.4.
 - **Deliverable:** Evidence checker and provenance audit.
-- **Implementation:** Implement immutable citations, external source hashes, assertion→support mapping, independent execution checks, source freshness, contradictory evidence and replay audit; integrate with patch verification and solver result retention.
-- **Automated acceptance:** Tampered citation/patch/proof hash detected; unsupported claims fail; stale docs flagged; reproducible receipts for offline tasks; partial tool success not promoted to verified claim.
-- **Demonstration:** Show accepted claim, challenged claim and unresolved claim with source chain.
+- **Implementation:** Implement immutable citations, external source hashes, assertion→support mapping, independent execution checks, source freshness, contradictory evidence and replay audit; integrate with patch verification and solver result retention. Audit every syn://event occurrence against the exact triggering process/input, parent event, workspace, typed semantic release, run/lease generation, output hash, terminal metrics provenance and external tool receipt chain.
+- **Automated acceptance:** Tampered citation/patch/proof hash detected; unsupported claims fail; stale docs flagged; reproducible receipts for offline tasks; partial tool success not promoted to verified claim. Tampered parent event or input SHA-256, unregistered Type/version, cross-workspace causal link, forged emitter, missing triggered-by identity or fabricated resource measure fails acceptance.
+- **Demonstration:** Show accepted claim, challenged claim and unresolved claim with source chain. Render a verified event ancestry and show a rejected event with a falsified initiating workflow step or source input.
 - **Evidence required:** `tests/` report for `T11.2`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 #### T11.3 — Statistical evaluation and regression policies
@@ -523,9 +537,9 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T12.2 — Operator UI, monitoring and controls
 - **Prerequisites:** T10.*,T04.4,T11.*.
 - **Deliverable:** Unified tool dashboard and API surfaces.
-- **Implementation:** Extend current web dashboard/REST/WebSocket with catalog, permissions, health, active DAG, tool calls, prompts/resources, evidence, cost budgets, approvals, audit and diagnostic outputs; filter by workspace.
-- **Automated acceptance:** Read-only users cannot approve; replay cursor shows same state after reconnect; all secret fields redacted; API and UI agree on execution status and verification state.
-- **Demonstration:** Operator inspects running workflow, approves a safe write and sees immutable result.
+- **Implementation:** Extend current web dashboard/REST/WebSocket with catalog, permissions, health, active DAG, tool calls, prompts/resources, evidence, cost budgets, approvals, audit and diagnostic outputs; filter by workspace. Add workspace-scoped live execution REST read models and resumable WebSocket streams for running workflows, model calls, child tools, typed syn://event history, per-event triggering process/input, timelines, progress, bounded/redacted console, wall time, resource/cost metrics and final output artifact links; retain legacy job clients.
+- **Automated acceptance:** Read-only users cannot approve; replay cursor shows same state after reconnect; all secret fields redacted; API and UI agree on execution status and verification state. API, WebSocket replay and dashboard agree on each event's Type/version, unique run ID, direct cause, emitter, parent-child trace, status and accounting; unauthorized clients cannot access private inputs or cross-workspace events; slow subscribers resume without loss.
+- **Demonstration:** Operator inspects running workflow, approves a safe write and sees immutable result. Open the running-workflows dashboard, inspect every start/update/completion, drill into exactly what triggered a model/tool event, and replay the same timeline after reconnecting.
 - **Evidence required:** `tests/` report for `T12.2`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 #### T12.3 — Developer docs, SDK, examples and migration guides
@@ -609,6 +623,8 @@ A named product below is a **candidate implementation**, not a declaration that 
 
 **WF08 — DanceFlow domain task:** Discover Stemlab/DanceFlow MCP tools and inspect source/fixtures; choose relevant capabilities; generate evidence-backed test/report. **Pass:** Lazy-load song-specific resources, no site-wide asset bloat; one complete receipt chain.
 
+**WF09 — Live workflow/model/tool event trace:** Launch a typed workflow from an authenticated input; stream each unique SYN event with initiating process/input, version, model/tool child run ID, progress and safe output; complete with elapsed time, resource/cost accounting and typed output receipts. **Pass:** every event's exact cause can be inspected, no orphan/cross-workspace edges, lossless replay after restart.
+
 ## 7. CI, test tiers and measurable exit criteria
 
 | Tier | Mandatory frequency | Scope | Pass requirement |
@@ -633,6 +649,7 @@ A named product below is a **candidate implementation**, not a declaration that 
 - **Routing:** ≥90% class-level recall@3 on a versioned 40-task capability-matching golden suite initially, raised after baseline measurements; 0 policy-forbidden executable selections.
 - **Reasoning:** report paired verified success, false positive, failure, token+money cost and latency against model-only, per task family; improvement is an empirical decision gate rather than an assumed result.
 - **Durability:** every workflow node transitions through valid states; event replay and immutable artifacts survive abrupt worker termination.
+- **Live observability:** 100% of started/updated/output/tool/terminal events in qualified fixtures have a typed versioned `syn://event/<id>` occurrence, exact run identity, authenticated initiating process or input, emitting process, replay-safe causation and redacted data projection; terminal events retain measured/estimated/unknown wall-clock, resource, tool-run and output receipt data.
 - **Deployment:** fresh qualified host setup and rollback validated; unqualified hosts fail closed for dangerous operations.
 
 Targets are proposed gates to calibrate against realistic task difficulty and reproducibility, not measurements of the current repository.
