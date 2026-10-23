@@ -1,0 +1,1070 @@
+{
+  "schema": "potbot.object-memory-plan.v1",
+  "document_version": "1.0",
+  "date": "2026-10-23",
+  "source_baseline": "0bbf4bbf90c397c626528504e881c66eb5c77422",
+  "implementation_status": "not_started",
+  "scope": "Planning consistency only; no runtime or migration version reservation.",
+  "native_kinds": [
+    "type",
+    "thing",
+    "event",
+    "ember",
+    "cog",
+    "credential",
+    "enigma",
+    "pondle",
+    "snug",
+    "om"
+  ],
+  "graph_identity": [
+    "workspace_id",
+    "namespace_id",
+    "canonical_owner_key"
+  ],
+  "callable_acceptance_prerequisites": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07"
+  ],
+  "requirements": [
+    {
+      "id": "R01",
+      "requirement": "One graph for every admitted native Syn object including Types and contract/memory Embers"
+    },
+    {
+      "id": "R02",
+      "requirement": "Stable namespace-scoped identities and correct Type-only alias handling"
+    },
+    {
+      "id": "R03",
+      "requirement": "Finite allocation without memory-of-memory or telemetry recursion"
+    },
+    {
+      "id": "R04",
+      "requirement": "Atomic import, immutable source occurrences and stable graphs across snapshots"
+    },
+    {
+      "id": "R05",
+      "requirement": "Coverage-audited bounded backfill before authoritative activation"
+    },
+    {
+      "id": "R06",
+      "requirement": "Type owners remain class declarations and use shared effective-contract resolution"
+    },
+    {
+      "id": "R07",
+      "requirement": "Existing inheritance, defaults, cardinalities and fixed/replace/append semantics"
+    },
+    {
+      "id": "R08",
+      "requirement": "Existing Ember wire/hash validation with separate own and value Types"
+    },
+    {
+      "id": "R09",
+      "requirement": "No owner-private content, identity or digest leakage through projections or fallback"
+    },
+    {
+      "id": "R10",
+      "requirement": "Installed typed graph-locator, request and result schemas without fake native kinds"
+    },
+    {
+      "id": "R11",
+      "requirement": "Compatible source-consistent base and relationship sidecar with bounded endpoint validation"
+    },
+    {
+      "id": "R12",
+      "requirement": "Distinct graph perspectives and common-source evidence grouping"
+    },
+    {
+      "id": "R13",
+      "requirement": "Checked evidence targets and revision-specific provenance relationships"
+    },
+    {
+      "id": "R14",
+      "requirement": "Single original immutable candidate and deterministic admission lifecycle"
+    },
+    {
+      "id": "R15",
+      "requirement": "Compare-and-swap accepted heads with atomic lifecycle and outbox"
+    },
+    {
+      "id": "R16",
+      "requirement": "Valid time and recording time with late corrections and disputed states"
+    },
+    {
+      "id": "R17",
+      "requirement": "Constrained applicability, evaluator-versioned caching and targeted invalidation"
+    },
+    {
+      "id": "R18",
+      "requirement": "Restricted-role workspace and graph isolation including composite endpoints"
+    },
+    {
+      "id": "R19",
+      "requirement": "Deterministic complete visible exact lookup and explicit empty/unresolved states"
+    },
+    {
+      "id": "R20",
+      "requirement": "Common eligibility for lexical and independent named-vector spaces"
+    },
+    {
+      "id": "R21",
+      "requirement": "Bounded typed traversal with indivisible qualifications and explicit truncation"
+    },
+    {
+      "id": "R22",
+      "requirement": "Reproducible MemoryBundle packets and explicit context expansion revisions"
+    },
+    {
+      "id": "R23",
+      "requirement": "Installed Cog-only callable operations with one input and one output Type"
+    },
+    {
+      "id": "R24",
+      "requirement": "Canonical start/progress/terminal monitoring and direct causal identities"
+    },
+    {
+      "id": "R25",
+      "requirement": "Collector origin filtering and source-graph-profile replay idempotency"
+    },
+    {
+      "id": "R26",
+      "requirement": "Resumable budgeted consolidation with fencing and generation checks"
+    },
+    {
+      "id": "R27",
+      "requirement": "Derived summary/index/cache lineage and local dirty-path refresh"
+    },
+    {
+      "id": "R28",
+      "requirement": "Authorised forgetting, shared-source retention and deletion-safe restore"
+    },
+    {
+      "id": "R29",
+      "requirement": "Explicit bounded per-target federation without permission propagation"
+    },
+    {
+      "id": "R30",
+      "requirement": "Existing API/CLI/operator surfaces with truthful states and qualified receipts"
+    },
+    {
+      "id": "R31",
+      "requirement": "Matched evidence/quality/cost/freshness evaluations without unsupported gains"
+    },
+    {
+      "id": "R32",
+      "requirement": "Contiguous migrations, safe rollout/rollback and independently verified releases"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "A01",
+      "scenario": "Every native kind, effective Type, contract Ember and explicitly admitted placeholder receives exactly one graph; empty graphs require zero model calls.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A02",
+      "scenario": "Identical instance references in two namespaces yield distinct graphs; valid Type aliases in one scope converge; invalid instance aliases fail.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A03",
+      "scenario": "Import, contract-bundle and memory-Ember registration allocates finite descriptors without recursive object creation or collector runs.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A04",
+      "scenario": "Concurrent/replayed imports and a later snapshot preserve graph IDs and atomic seals; rollback leaves no published partial coverage.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A05",
+      "scenario": "Old-source backfill resumes after crash, reports visible coverage correctly and blocks feature activation while owners are missing.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A06",
+      "scenario": "A native Type graph resolves inherited declarations/defaults; constructing a Type as `EmberInstance` continues to fail.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A07",
+      "scenario": "Diamond inheritance, fixed/replace/append, cardinality narrowing, instance-required versus effective values and incompatible parents match the existing resolver.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A08",
+      "scenario": "Ember own Type/value Type, catalog/bundle/source revisions and payload schema are checked; equal bytes with different provenance remain distinguishable.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A09",
+      "scenario": "Owner-private fields, identifiers/digests and hidden counts never reach public results, vectors, artifacts or provider input; denial cannot trigger inherited-secret fallback.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A10",
+      "scenario": "A JSON graph locator validates as a locator; unsupported native kinds, fake authority and uninstalled request/result Types fail before dispatch.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A11",
+      "scenario": "Base/sidecar exports share an actual source snapshot boundary; wrong digest, unknown local endpoint, coverage or namespace fails atomically.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A12",
+      "scenario": "Two graph perspectives cite one joint Event and original result; common-source grouping prevents invented independent witnesses or duplicate occurrences.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A13",
+      "scenario": "Evidence variants have actual ownership/target FKs and exactly-one target checks; malformed sources/spans and cross-workspace endpoints fail.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A14",
+      "scenario": "A proposal survives restart independently of admission; deterministic rejection/defer reasons do not change accepted heads.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A15",
+      "scenario": "Two writers admit against the same predecessor: one CAS wins; the other proposal remains recoverable with conflict, and outbox publication is atomic.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A16",
+      "scenario": "Late correction, overlapping disagreement, unknown/open times and `valid_at`/`known_at` queries preserve both historical belief and current applicability.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A17",
+      "scenario": "Version/contract/environment/file changes invalidate only affected assessments and reopen appropriate questions; unsupported guards return `unknown_requires_check`.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A18",
+      "scenario": "Restricted application-role queries reject cross-graph read/write, forged scope and cross-graph local endpoints even when IDs are known.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A19",
+      "scenario": "Exact inventory is complete/deterministic for the visible basis; unresolved, empty and inaccessible states remain distinct without leaking hidden totals.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A20",
+      "scenario": "Lexical and exact vector channels use the same eligible graph population; equal-dimensional incompatible spaces fail and query plans/recall are retained.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A21",
+      "scenario": "Traversal storms, cycles and hubs remain within limits; a necessary exception/contradiction cannot be dropped while retaining its claim.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A22",
+      "scenario": "Concurrent writes produce independently reproducible qualified packets with exact token/template/deployment identities; expansions produce new packets.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A23",
+      "scenario": "Every operation runs through its registered Cog with one input/output Type; wrong signatures, changed handler bindings or raw API/CLI bypass prove zero dispatch.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A24",
+      "scenario": "Real start/progress/terminal and nested tool statistics have direct trigger/emitter/lease identities; missing metrics are unavailable and monitor loss reconciles uncertain effects.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A25",
+      "scenario": "Remembering collector/monitoring Events does not create an unbounded recursive run stream; per-source/graph/profile replay is idempotent.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A26",
+      "scenario": "Consolidation job restart, cancellation and stale lease/source/policy/generation cannot duplicate admission, publish stale content or fabricate completed cost.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A27",
+      "scenario": "Source/policy corrections dirty only dependent summaries/indexes/caches; a missing qualification yields a gap rather than stale guidance.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A28",
+      "scenario": "Forgetting immediately excludes targeted content, finishes the derived closure, preserves unrelated authorised shared evidence and prevents restore/reimport resurrection.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A29",
+      "scenario": "Explicit federation applies per-target access and budgets before expansion/reranking; denied graphs contribute no data or private existence.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A30",
+      "scenario": "CLI/API/operator views show exact owner, states, lineage and real child runs; no-memory/no-access/source-unavailable and requested/completed cancellation are accurate.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A31",
+      "scenario": "Matched held-out synthetic and coding-task ablations report evidence precision/recall, abstention, stale/unsupported use, p50/p95 freshness/latency and full build/query cost; no unearned quality claim.",
+      "runtime_status": "not_run"
+    },
+    {
+      "id": "A32",
+      "scenario": "Upgrade/rollback/restore, full existing CI and Cog/host acceptance pass at exact published source; release assets/hashes/semantic pins and any configured registry are independently read back.",
+      "runtime_status": "not_run"
+    }
+  ],
+  "stages": [
+    {
+      "id": "MG01.1",
+      "title": "Normalize graph owner and source identity",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [],
+      "requirements": [
+        "R01",
+        "R02",
+        "R03"
+      ],
+      "acceptance": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "original_steps": [
+        "P085",
+        "P097"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG01.2",
+      "title": "Add graph registry and role isolation",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG01.1"
+      ],
+      "requirements": [
+        "R04",
+        "R18"
+      ],
+      "acceptance": [
+        "A04",
+        "A18"
+      ],
+      "original_steps": [
+        "P085"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG01.3",
+      "title": "Allocate graphs at admitted source boundaries",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG01.2"
+      ],
+      "requirements": [
+        "R01",
+        "R03",
+        "R04"
+      ],
+      "acceptance": [
+        "A01",
+        "A03",
+        "A04"
+      ],
+      "original_steps": [
+        "P085",
+        "P093"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG01.4",
+      "title": "Backfill and reconcile graph coverage",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG01.3"
+      ],
+      "requirements": [
+        "R05",
+        "R32"
+      ],
+      "acceptance": [
+        "A05"
+      ],
+      "original_steps": [
+        "P085",
+        "P143"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG02.1",
+      "title": "Review semantic reuse and payload schemas",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG01.1"
+      ],
+      "requirements": [
+        "R08",
+        "R10",
+        "R23"
+      ],
+      "acceptance": [
+        "A08",
+        "A10"
+      ],
+      "original_steps": [
+        "P085",
+        "P100"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG02.2",
+      "title": "Resolve effective Type declarations through the existing resolver",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG02.1"
+      ],
+      "requirements": [
+        "R06",
+        "R07"
+      ],
+      "acceptance": [
+        "A06",
+        "A07"
+      ],
+      "original_steps": [
+        "P090"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG02.3",
+      "title": "Pin inherited and graph-specific policy receipts",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG02.2"
+      ],
+      "requirements": [
+        "R07",
+        "R09",
+        "R17"
+      ],
+      "acceptance": [
+        "A07",
+        "A09",
+        "A17"
+      ],
+      "original_steps": [
+        "P088",
+        "P090",
+        "P091"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG02.4",
+      "title": "Persist canonical memory Embers with safe projections",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG02.3",
+        "MG01.3"
+      ],
+      "requirements": [
+        "R08",
+        "R09",
+        "R10"
+      ],
+      "acceptance": [
+        "A08",
+        "A09",
+        "A10"
+      ],
+      "original_steps": [
+        "P085",
+        "P093"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG03.1",
+      "title": "Define backward-compatible relationship sidecar",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG01.1"
+      ],
+      "requirements": [
+        "R11"
+      ],
+      "acceptance": [
+        "A11"
+      ],
+      "original_steps": [
+        "P086",
+        "P093"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG03.2",
+      "title": "Import consistent sources and validate endpoints",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG03.1",
+        "MG01.3"
+      ],
+      "requirements": [
+        "R04",
+        "R11",
+        "R13"
+      ],
+      "acceptance": [
+        "A04",
+        "A11",
+        "A13"
+      ],
+      "original_steps": [
+        "P086"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG03.3",
+      "title": "Retain graph perspectives and common evidence",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG03.2",
+        "MG02.4"
+      ],
+      "requirements": [
+        "R12",
+        "R13"
+      ],
+      "acceptance": [
+        "A12",
+        "A13"
+      ],
+      "original_steps": [
+        "P086",
+        "P087"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG03.4",
+      "title": "Track source-to-derived revision lineage",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG03.3"
+      ],
+      "requirements": [
+        "R13",
+        "R27",
+        "R28"
+      ],
+      "acceptance": [
+        "A13",
+        "A27",
+        "A28"
+      ],
+      "original_steps": [
+        "P093",
+        "P094"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG04.1",
+      "title": "Extend canonical immutable candidate lifecycle",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG02.4",
+        "MG03.2"
+      ],
+      "requirements": [
+        "R14"
+      ],
+      "acceptance": [
+        "A14"
+      ],
+      "original_steps": [
+        "P085",
+        "P086"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG04.2",
+      "title": "Admit conflicts and accepted heads atomically",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG04.1",
+        "MG03.3"
+      ],
+      "requirements": [
+        "R14",
+        "R15"
+      ],
+      "acceptance": [
+        "A14",
+        "A15"
+      ],
+      "original_steps": [
+        "P087",
+        "P088",
+        "P089"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG04.3",
+      "title": "Implement temporal revisions and as-of queries",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG04.2"
+      ],
+      "requirements": [
+        "R16"
+      ],
+      "acceptance": [
+        "A16"
+      ],
+      "original_steps": [
+        "P087",
+        "P089"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG04.4",
+      "title": "Evaluate and invalidate applicability guards",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG04.3",
+        "MG02.3"
+      ],
+      "requirements": [
+        "R17"
+      ],
+      "acceptance": [
+        "A17"
+      ],
+      "original_steps": [
+        "P090",
+        "P091",
+        "P092"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG05.1",
+      "title": "Share eligibility across exact lookup and inventory",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG04.4",
+        "MG01.4"
+      ],
+      "requirements": [
+        "R18",
+        "R19"
+      ],
+      "acceptance": [
+        "A18",
+        "A19"
+      ],
+      "original_steps": [
+        "P095",
+        "P096",
+        "P097"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG05.2",
+      "title": "Qualify scoped lexical and named-vector baseline",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG05.1",
+        "MG03.4"
+      ],
+      "requirements": [
+        "R20"
+      ],
+      "acceptance": [
+        "A20"
+      ],
+      "original_steps": [
+        "P098",
+        "P099",
+        "P100",
+        "P102",
+        "P103",
+        "P104"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG05.3",
+      "title": "Traverse bounded qualified evidence bundles",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG05.2"
+      ],
+      "requirements": [
+        "R21"
+      ],
+      "acceptance": [
+        "A21"
+      ],
+      "original_steps": [
+        "P101",
+        "P105",
+        "P106"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG05.4",
+      "title": "Build consistent qualified context packets",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG05.3"
+      ],
+      "requirements": [
+        "R22"
+      ],
+      "acceptance": [
+        "A22"
+      ],
+      "original_steps": [
+        "P107",
+        "P108"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG06.1",
+      "title": "Dispatch monitored memory Cogs without recursion",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG02.3",
+        "MG04.2"
+      ],
+      "requirements": [
+        "R23",
+        "R24",
+        "R25"
+      ],
+      "acceptance": [
+        "A23",
+        "A24",
+        "A25"
+      ],
+      "original_steps": [
+        "P074",
+        "P112",
+        "P113"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG06.2",
+      "title": "Resume budgeted consolidation under fencing",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG06.1",
+        "MG05.4"
+      ],
+      "requirements": [
+        "R26"
+      ],
+      "acceptance": [
+        "A26"
+      ],
+      "original_steps": [
+        "P112",
+        "P113",
+        "P114",
+        "P115"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG06.3",
+      "title": "Refresh derived projections and caches incrementally",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG06.2",
+        "MG03.4"
+      ],
+      "requirements": [
+        "R27"
+      ],
+      "acceptance": [
+        "A27"
+      ],
+      "original_steps": [
+        "P092",
+        "P093"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG06.4",
+      "title": "Purge authorised derivation closures and restore safely",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG06.1",
+        "MG03.4",
+        "MG05.4"
+      ],
+      "requirements": [
+        "R28"
+      ],
+      "acceptance": [
+        "A28"
+      ],
+      "original_steps": [
+        "P094",
+        "P143"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG07.1",
+      "title": "Authorise explicit cross-graph query plans",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG05.4",
+        "MG06.1"
+      ],
+      "requirements": [
+        "R29"
+      ],
+      "acceptance": [
+        "A29"
+      ],
+      "original_steps": [
+        "P095",
+        "P096",
+        "P101"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG07.2",
+      "title": "Reconcile federated source grouping and rank provenance",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG07.1"
+      ],
+      "requirements": [
+        "R12",
+        "R21",
+        "R29"
+      ],
+      "acceptance": [
+        "A12",
+        "A21",
+        "A29"
+      ],
+      "original_steps": [
+        "P086",
+        "P105",
+        "P106"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG07.3",
+      "title": "Add CLI and HTTP adapters through installed Cogs",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG06.1",
+        "MG07.2"
+      ],
+      "requirements": [
+        "R23",
+        "R30"
+      ],
+      "acceptance": [
+        "A23",
+        "A30"
+      ],
+      "original_steps": [
+        "P095",
+        "P108"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG07.4",
+      "title": "Extend existing operator graph and run views",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG07.3"
+      ],
+      "requirements": [
+        "R24",
+        "R30"
+      ],
+      "acceptance": [
+        "A24",
+        "A30"
+      ],
+      "original_steps": [
+        "P107",
+        "P108"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG08.1",
+      "title": "Qualify upgrade, backfill, rollback and restore",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG01.4",
+        "MG06.4"
+      ],
+      "requirements": [
+        "R05",
+        "R28",
+        "R32"
+      ],
+      "acceptance": [
+        "A05",
+        "A28",
+        "A32"
+      ],
+      "original_steps": [
+        "P094",
+        "P143"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG08.2",
+      "title": "Measure matched retrieval and task ablations",
+      "status": "not_started",
+      "effort": "L",
+      "depends_on": [
+        "MG05.4",
+        "MG06.4",
+        "MG07.2"
+      ],
+      "requirements": [
+        "R31"
+      ],
+      "acceptance": [
+        "A31"
+      ],
+      "original_steps": [
+        "P104",
+        "P105",
+        "P109"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG08.3",
+      "title": "Capture real admitted-Cog end-to-end evidence",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG07.4",
+        "MG08.1",
+        "MG08.2"
+      ],
+      "requirements": [
+        "R23",
+        "R24",
+        "R30",
+        "R31"
+      ],
+      "acceptance": [
+        "A23",
+        "A24",
+        "A30",
+        "A31"
+      ],
+      "original_steps": [
+        "P107",
+        "P108"
+      ],
+      "runtime_evidence": []
+    },
+    {
+      "id": "MG08.4",
+      "title": "Publish exact tested implementation and qualify rollout",
+      "status": "not_started",
+      "effort": "M",
+      "depends_on": [
+        "MG08.3"
+      ],
+      "requirements": [
+        "R32"
+      ],
+      "acceptance": [
+        "A32"
+      ],
+      "original_steps": [
+        "P143"
+      ],
+      "runtime_evidence": []
+    }
+  ],
+  "source_paths": [
+    "src/potbot/semantics/service.py",
+    "src/potbot/semantics/embers.py",
+    "src/potbot/semantics/ember_service.py",
+    "src/potbot/models/context.py",
+    "src/potbot/memory/embeddings.py",
+    "src/potbot/cogs/contracts.py",
+    "src/potbot/cogs/registry.py",
+    "src/potbot/persistence/schema.py",
+    "docs/implementation/10-syn-tool-cogs.md",
+    "docs/implementation/05-syn-execution-monitoring.md",
+    "docs/Multi_Model_Coding_Agent_Implementation_Plan.docx"
+  ]
+}

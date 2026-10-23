@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+<title id="title">Separate Syn object memory graphs integrated with existing contracts</title>
+<desc id="desc">Proposed composition. Existing source namespaces and Type and Ember contracts feed a graph registry. Every admitted Type, Cog, Event and Ember has a separate memory graph. Registered memory Cogs enforce eligibility and monitoring before creating a qualified context packet.</desc>
+<style>text{font-family:Verdana,sans-serif;fill:#edf5fa}.head{font-size:34px;font-weight:bold}.title{font-size:24px;font-weight:bold}.small{font-size:20px;fill:#c4d4df}.line{stroke:#7cd8cf;stroke-width:3;fill:none}.box{fill:#22354b;stroke:#607d96;stroke-width:2}.graph{fill:#173e43;stroke:#7cd8cf;stroke-width:2}</style>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="#7cd8cf"/></marker></defs>
+<rect width="1600" height="1120" fill="#102034"/>
+<text x="45" y="60" class="head">One separate memory graph for every Syn object</text>
+<text x="45" y="103" class="small">Implementation plan 1.0 · proposed composition · no runtime feature claimed</text>
+<rect x="45" y="145" width="715" height="150" rx="16" class="box"/>
+<text x="65" y="180" class="title">Existing source authority</text>
+<text x="65" y="217" class="small">Namespace + sealed snapshot + exact object identity</text>
+<text x="65" y="246" class="small">Original P085–P108 memory lifecycle and evidence</text>
+<rect x="805" y="145" width="750" height="150" rx="16" class="box"/>
+<text x="825" y="180" class="title">Existing Type and Ember contracts</text>
+<text x="825" y="217" class="small">Shared resolver; defaults and instance requirements</text>
+<text x="825" y="246" class="small">Type declarations remain distinct from instances</text>
+<rect x="45" y="345" width="1510" height="115" rx="16" class="box"/>
+<text x="65" y="380" class="title">Graph registry and policy receipts</text>
+<text x="65" y="417" class="small">Stable owner mapping; allocate empty graphs once; pin sources and resolved contracts</text>
+<path d="M400 295 L400 340" class="line" marker-end="url(#arrow)"/>
+<path d="M1180 295 L1180 340" class="line" marker-end="url(#arrow)"/>
+<rect x="45" y="515" width="340" height="160" rx="16" class="graph"/>
+<text x="65" y="550" class="title">G(Type T)</text>
+<text x="65" y="587" class="small">Contract history</text>
+<text x="65" y="616" class="small">Own scope and revisions</text>
+<text x="65" y="645" class="small">Claims + sources + time</text>
+<path d="M215 460 L215 510" class="line" marker-end="url(#arrow)"/>
+<rect x="435" y="515" width="340" height="160" rx="16" class="graph"/>
+<text x="455" y="550" class="title">G(Cog C)</text>
+<text x="455" y="587" class="small">Configured computation</text>
+<text x="455" y="616" class="small">Own scope and revisions</text>
+<text x="455" y="645" class="small">Claims + sources + time</text>
+<path d="M605 460 L605 510" class="line" marker-end="url(#arrow)"/>
+<rect x="825" y="515" width="340" height="160" rx="16" class="graph"/>
+<text x="845" y="550" class="title">G(Event E)</text>
+<text x="845" y="587" class="small">One invocation</text>
+<text x="845" y="616" class="small">Own scope and revisions</text>
+<text x="845" y="645" class="small">Claims + sources + time</text>
+<path d="M995 460 L995 510" class="line" marker-end="url(#arrow)"/>
+<rect x="1215" y="515" width="340" height="160" rx="16" class="graph"/>
+<text x="1235" y="550" class="title">G(Ember R)</text>
+<text x="1235" y="587" class="small">One knowledge record</text>
+<text x="1235" y="616" class="small">Own scope and revisions</text>
+<text x="1235" y="645" class="small">Claims + sources + time</text>
+<path d="M1385 460 L1385 510" class="line" marker-end="url(#arrow)"/>
+<text x="45" y="718" class="small">References connect objects; each extra graph read requires permission. No memory inheritance.</text>
+<rect x="45" y="760" width="1510" height="150" rx="16" class="box"/>
+<text x="65" y="795" class="title">Installed typed memory Cogs</text>
+<text x="65" y="832" class="small">One request Type and one result Type; controller admission and common eligibility</text>
+<text x="65" y="861" class="small">Existing jobs, leases, budgets, deletion lineage and start/progress/terminal monitoring</text>
+<path d="M800 675 L800 755" class="line" marker-end="url(#arrow)"/>
+<rect x="45" y="960" width="1510" height="115" rx="16" class="box"/>
+<text x="65" y="995" class="title">Qualified context packet</text>
+<text x="65" y="1032" class="small">Selected graphs + pinned revisions + evidence and exceptions + exact token budget</text>
+<path d="M800 910 L800 955" class="line" marker-end="url(#arrow)"/>
+</svg>
