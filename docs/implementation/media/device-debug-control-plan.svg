@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="580" viewBox="0 0 1080 580" role="img" aria-labelledby="title desc">
+  <title id="title">Planned Potbot phone, profiler and debugger adapters</title>
+  <desc id="desc">Approved tasks flow through the shared typed gateway to Android and iOS phone control, profiling and language-neutral interactive debugging, tested with Python first. All routes return target-bound execution events and evidence. Dashed arrows indicate planned work.</desc>
+  <rect width="1080" height="580" fill="#101b2b"/>
+  <g fill="#edf4ff" font-family="monospace" text-anchor="middle">
+    <text x="540" y="38" font-size="24">Potbot: proposed control and diagnosis routes</text>
+    <text x="540" y="65" font-size="15" fill="#a8c2dc">Planning illustration • adapters and real-host acceptance remain future work</text>
+    <rect x="280" y="90" width="520" height="75" rx="12" fill="#243e58"/>
+    <text x="540" y="120" font-size="20">Shared typed tool gateway</text>
+    <text x="540" y="147" font-size="16">Target scope • leases • effects • budgets</text>
+    <g stroke="#a3bbd5" stroke-width="2" stroke-dasharray="7 5" fill="none">
+      <path d="M540 165 V188 H185 V215 M540 188 V215 M540 188 H895 V215"/>
+      <path d="M185 390 V423 H540 M540 390 V450 M895 390 V423 H540"/>
+    </g>
+    <g fill="#1d3145" stroke="#7498ba">
+      <rect x="25" y="215" width="320" height="175" rx="12"/>
+      <rect x="380" y="215" width="320" height="175" rx="12"/>
+      <rect x="735" y="215" width="320" height="175" rx="12"/>
+    </g>
+    <text x="185" y="248" font-size="21">Phone control</text>
+    <text x="185" y="280" font-size="16">ADB • Appium • scrcpy</text>
+    <text x="185" y="307" font-size="16">iOS: qualified Mac host</text>
+    <text x="185" y="343" font-size="16">Inspect → act → read back</text>
+    <text x="185" y="372" font-size="15" fill="#a8c2dc">Device / app / session identity</text>
+    <text x="540" y="248" font-size="21">Profiling</text>
+    <text x="540" y="280" font-size="16">Perfetto • CDP • OS / Python</text>
+    <text x="540" y="307" font-size="16">CPU • memory • UI timing</text>
+    <text x="540" y="343" font-size="16">Capture → analyze → compare</text>
+    <text x="540" y="372" font-size="15" fill="#a8c2dc">Trace / workload / clock identity</text>
+    <text x="895" y="248" font-size="21">Interactive debugging</text>
+    <text x="895" y="280" font-size="16">Any language • Python first</text>
+    <text x="895" y="307" font-size="16">Breakpoints → step → inspect</text>
+    <text x="895" y="343" font-size="16">Stack frames • locals • args</text>
+    <text x="895" y="372" font-size="15" fill="#a8c2dc">Process / source / stop identity</text>
+    <rect x="160" y="450" width="760" height="85" rx="12" fill="#243e58"/>
+    <text x="540" y="482" font-size="20">Existing durable execution events and artifact receipts</text>
+    <text x="540" y="511" font-size="16">Exact targets • hashes • outcomes • redaction • verified cleanup</text>
+    <text x="540" y="565" font-size="15" fill="#a8c2dc">48 existing stages retained; no runtime capability is claimed by this diagram.</text>
+  </g>
+</svg>
