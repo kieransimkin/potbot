@@ -36,6 +36,9 @@ def test_root_event_requires_verifiable_input_and_type():
         {"trigger_kind": "unknown"},
         {"stage": "made-up"},
         {"elapsed_ms": -1},
+        {"telemetry_json": "[]"},
+        {"telemetry_json": '{"usage": NaN}'},
+        {"telemetry_json": "x" * 32769},
     ):
         with pytest.raises(InvalidInputError):
             replace(item, **change)

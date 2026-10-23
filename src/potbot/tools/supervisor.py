@@ -42,8 +42,11 @@ class ProcessRequest:
     cpu_seconds: int = 60
     max_file_bytes: int = 128 * 1024**2
     max_open_files: int = 256
+    ipc_profile: Literal["none", "private-loopback-v1"] = "none"
 
     def __post_init__(self) -> None:
+        if self.ipc_profile not in {"none", "private-loopback-v1"}:
+            raise InvalidInputError("Process IPC profile is not supported")
         if (
             not isinstance(self.argv, tuple)
             or not 1 <= len(self.argv) <= 256
@@ -167,6 +170,7 @@ class ProcessSupervisor:
                 cpu_seconds=request.cpu_seconds,
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
+                ipc_profile=request.ipc_profile,
             )
             environment = {
                 "PATH": "/usr/bin:/bin",

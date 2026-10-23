@@ -1,0 +1,89 @@
+name: Publish tested source preview
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      UV_CACHE_DIR: ${{ github.workspace }}/.potbot/uv-cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: false
+      - name: Install locked build and verification environment
+        run: uv sync --locked --dev
+      - name: Build exact-version distributions and verify clean installation
+        run: uv run --locked python scripts/build_release.py --tag "$RELEASE_TAG"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tested-source-preview-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  github-assets:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tested-source-preview-distributions
+          path: dist
+      - name: Attach the verified distributions without replacing published assets
+        run: gh release upload "$RELEASE_TAG" dist/*
+
+  pypi:
+    needs: build
+    # Enable only after the project owner configures this exact trusted publisher.
+    if: vars.POTBOT_PUBLISH_PYPI == 'true'
+    runs-on: ubuntu-24.04
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tested-source-preview-distributions
+          path: dist
+      - name: Select only Python distributions for the registry
+        run: |
+          mkdir packages
+          cp dist/*.whl dist/*.tar.gz packages/
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
+        with:
+          packages-dir: packages
+          attestations: true
+      - name: Verify registry bytes independently
+        run: |
+          python3 - <<'PY'
+          import json
+          import urllib.request
+          from pathlib import Path
+          manifest = json.loads(Path('dist/release-manifest.json').read_text())
+          url = 'https://pypi.org/pypi/potbot/' + manifest['version'] + '/json'
+          with urllib.request.urlopen(url, timeout=30) as reply:
+              published = json.load(reply)
+          actual = {item['filename']: item['digests']['sha256'] for item in published['urls']}
+          assert all(actual.get(name) == digest for name, digest in manifest['assets'].items())
+          print('PyPI version and distribution hashes verified')
+          PY

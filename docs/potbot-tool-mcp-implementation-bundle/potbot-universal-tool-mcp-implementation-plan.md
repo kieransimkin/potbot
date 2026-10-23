@@ -6,7 +6,7 @@
 **Observed GitHub baseline:** `main` at `74dac45d5535595975e10f545fd6d9cb1652e6a8` (read-only inspection, 22 October 2026)  
 **Expansion source baseline:** `main` at `24696ac6665878d9b10c0b5adb8b55abebbd34c3` (23 October 2026; historical baseline above retained).
 **Scope:** 12 phases × 4 incremental stages = **48 independently testable deliverables**.  
-**Status:** Design document only; the 48 stages are **not represented as implemented** merely by this plan.
+**Status:** Requirements with incremental implementation tracking. T07.3 is **in progress** for the Python debugger Cog slice; no complete stage is inferred from this document.
 
 > Integration rule: build on the existing Potbot jobs/API/WebSocket, workspace sandbox, hosted model gateway, Ed25519 identity and locking Cogs, semantic Type catalogs, inherited Embers, typed Cog transformations, artifact and receipt mechanisms, and Phase 6 graph search. Do not recreate these as parallel systems. An existing feature should be marked **reuse**, **extend**, **qualify**, or **missing** before any implementation ticket is started.
 
@@ -404,6 +404,7 @@ The [plugin discovery strategy](../implementation/plugin-discovery-strategy.md) 
 - **Evidence required:** `tests/` report for `T07.2`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
 
 #### T07.3 — Build/test/static/security toolchain
+- **Implementation state:** In progress: the [Python-first debugger Cog slice](../implementation/08-debugger-python-first.md); remaining language/profiling/toolchain scope is unqualified.
 - **Prerequisites:** T07.2,T03.2.
 - **Deliverable:** Normalized verification runner.
 - **Implementation:** Use uv-managed pytest and language-specific tests, lint, types, formatting, Semgrep/CodeQL where available, OSV/Trivy/Syft and configurable SBOM; record exit codes, commands, tool versions, environment digests and logs. Add bounded CPU/memory/allocation profiling and language-neutral interactive debugging through a common DAP-compatible contract. Implement shared schemas/state/conformance first and exercise Python/debugpy first: launch/attach, verified line/exception breakpoints, step over/into/out, continue/pause, thread/stack/frame/scopes/locals/arguments inspection and permitted watches/evaluation; later qualify other language adapters. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G05, G11, G12, G13, G14 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.
@@ -889,3 +890,5 @@ The programme is complete only when: (a) all 48 stage-gate reports are passing o
 
 
 **Current Python-first continuation:** preserve the separate in-progress debugger branch, map its evidence to T02.3/T03.2/T07.3 and G11/G12/G15, then finish neutral-contract, real Python and sandbox/CI gates before claiming implementation. This planning release does not certify that branch.
+
+**Implementation update, 23 October 2026:** T07.3 now tracks the language-neutral SYN debugger Cog implementation as in progress. See the [runtime/source acceptance guide](../implementation/08-debugger-python-first.md) for exact test tiers, start/progress/completion statistics and limits. Other programme-stage statuses remain unchanged.

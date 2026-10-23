@@ -83,7 +83,12 @@ def validate(
     graph = {}
     for stage in stages:
         identity = stage["id"]
-        require(stage["status"] == "not_started", f"Planning changed status: {identity}")
+        states = {
+            "not_started": "Not started",
+            "in_progress": "In progress",
+            "complete": "Complete",
+        }
+        require(stage["status"] in states, f"Invalid implementation state: {identity}")
         require(stage["phase"] == int(identity[1:3]), f"Stage phase: {identity}")
         require(stage["stage"] == int(identity[4:]), f"Stage number: {identity}")
         edges = dependencies(stage["prerequisites"], ids)
@@ -98,7 +103,7 @@ def validate(
         row = csv_by_id[identity]
         require(row["Stage name"] == stage["name"], f"CSV name: {identity}")
         require(row["Phase"] == f"Phase {stage['phase']:02}", f"CSV phase: {identity}")
-        require(row["Status"] == "Not started", f"CSV status: {identity}")
+        require(row["Status"] == states[stage["status"]], f"CSV status: {identity}")
         for field, label, column in (
             ("prerequisites", "Prerequisites", "Prerequisites"),
             ("deliverable", "Deliverable", "Deliverable"),

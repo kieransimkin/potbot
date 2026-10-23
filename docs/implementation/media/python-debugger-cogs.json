@@ -1,0 +1,927 @@
+{
+  "schema": "potbot-public-cog-recording-v1",
+  "runtime": "Python 3.12.13",
+  "adapter": "debugpy 1.8.22",
+  "qualification": "Real Python SYN Cogs; local test journals. Durable/sandbox acceptance is a separate CI gate.",
+  "source_sha256": "34884fa8cc140a3d7fc31129adfa00781bff442c66f871c9b7f59a4959a8a310",
+  "private_recording_sha256": "8496552c53f822661027298d83109a2e22d011be650df25b712d096be9edf594",
+  "observations": [
+    {
+      "action": "breakpoint",
+      "stop_revision": 1,
+      "reason": "breakpoint",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 12,
+          "locals": {
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 18,
+          "locals": {}
+        }
+      ]
+    },
+    {
+      "action": "expired_frame_rejected"
+    },
+    {
+      "action": "step_over",
+      "stop_revision": 2,
+      "reason": "step",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 13,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 18,
+          "locals": {}
+        }
+      ]
+    },
+    {
+      "action": "step_into",
+      "stop_revision": 3,
+      "reason": "step",
+      "frames": [
+        {
+          "function": "leaf",
+          "line": 7,
+          "locals": {
+            "value": "10"
+          }
+        },
+        {
+          "function": "outer",
+          "line": 13,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        }
+      ]
+    },
+    {
+      "action": "step_over_leaf",
+      "stop_revision": 4,
+      "reason": "step",
+      "frames": [
+        {
+          "function": "leaf",
+          "line": 8,
+          "locals": {
+            "result": "11",
+            "value": "10"
+          }
+        },
+        {
+          "function": "outer",
+          "line": 13,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        }
+      ]
+    },
+    {
+      "action": "step_out",
+      "stop_revision": 5,
+      "reason": "step",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 13,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 18,
+          "locals": {}
+        }
+      ]
+    },
+    {
+      "action": "caller_assignment",
+      "stop_revision": 6,
+      "reason": "step",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 14,
+          "locals": {
+            "adjusted": "10",
+            "result": "11",
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 18,
+          "locals": {}
+        }
+      ]
+    },
+    {
+      "action": "natural_exit",
+      "exit_code": 0
+    }
+  ],
+  "event_count": 170,
+  "runs": [
+    {
+      "operation": "initialize",
+      "progress_count": 12,
+      "elapsed_ms": 11688,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 15
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "launch",
+      "progress_count": 18,
+      "elapsed_ms": 17937,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "set-breakpoints",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 15
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "configure-exceptions",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "configuration-done",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "wait-stopped",
+      "progress_count": 2,
+      "elapsed_ms": 1500,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "threads",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "stack",
+      "progress_count": 1,
+      "elapsed_ms": 15,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 15
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "step-over",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "stack",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "step-into",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "stack",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "step-over",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "stack",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "step-out",
+      "progress_count": 1,
+      "elapsed_ms": 15,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 15
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "stack",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "step-over",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "stack",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "scopes",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "variables",
+      "progress_count": 1,
+      "elapsed_ms": 16,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "set-breakpoints",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "continue",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "wait-terminated",
+      "progress_count": 1,
+      "elapsed_ms": 594,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    },
+    {
+      "operation": "terminate",
+      "progress_count": 1,
+      "elapsed_ms": 0,
+      "terminal": "completed",
+      "controller_cpu_ms": {
+        "provenance": "measured",
+        "scope": "controller_process_interval",
+        "unit": "ms",
+        "value": 0
+      },
+      "target_cpu_ms": {
+        "provenance": "unavailable",
+        "unit": "ms",
+        "value": null
+      }
+    }
+  ]
+}

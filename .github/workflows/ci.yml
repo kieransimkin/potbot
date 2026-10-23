@@ -47,11 +47,12 @@ jobs:
 
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       # Disposable fixture credentials; never a production connection string.
       POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
       UV_PYTHON: "3.12"
+      POTBOT_DEBUGGER_EVIDENCE_DIR: artifacts/debugger-cogs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -59,7 +60,7 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Install locked application and development dependencies
-        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --dev
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --extra debugger --dev
       - name: Verify tool-plan parity, dependencies and requirement coverage
         run: uv run --locked python scripts/check_tool_plan.py
       - name: Verify per-object memory plan and acceptance coverage
@@ -87,6 +88,11 @@ jobs:
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify application, repositories, migrations, and database isolation
         run: uv run --locked python scripts/check.py --with-postgres --with-sandbox
+      - name: Verify source-preview release packaging and clean wheel install
+        shell: bash
+        run: |
+          potbot_release_tag="v$(uv run --locked python -c 'import potbot; print(potbot.__version__)')"
+          uv run --locked python scripts/build_release.py --tag "$potbot_release_tag" --output artifacts/release-packages
       - name: Capture sanitized database diagnostics
         if: failure()
         shell: bash
@@ -96,6 +102,14 @@ jobs:
       - name: Remove disposable database service and volumes
         if: always()
         run: docker compose down --volumes --remove-orphans --timeout 10
+      - name: Retain authored Python Cog end-to-end evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-debugger-cog-evidence
+          path: artifacts/debugger-cogs/
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload sanitized failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
