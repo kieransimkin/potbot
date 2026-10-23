@@ -22,15 +22,18 @@ The host captures an explicit committed revision with the existing `RepositorySt
 
 ```python
 registry = BoundCogRegistry.tool_inventory()
-context = CogRunContext(registry.snapshot.fingerprint, task_revision_id,
-                        repository_state_id, invocation_id)
-request = TypedCogValue(SIGNATURE.input_type_ref, {
-    "schema_version": 1,
-    "profile": "core",
-    "expected_content_digest": admitted_repository_content_digest,
-})
-outcome = await registry.invoke(str(SIGNATURE.cog_ref), request,
-                                context, controller=controller)
+context = CogRunContext(
+    registry.snapshot.fingerprint, task_revision_id, repository_state_id, invocation_id
+)
+request = TypedCogValue(
+    SIGNATURE.input_type_ref,
+    {
+        "schema_version": 1,
+        "profile": "core",
+        "expected_content_digest": admitted_repository_content_digest,
+    },
+)
+outcome = await registry.invoke(str(SIGNATURE.cog_ref), request, context, controller=controller)
 ```
 
 The controller checks the exact installed catalog, task and repository state, one-use invocation identity and immutable input. Admission is checked before starting work and again immediately before dispatch. Direct handler calls, type/profile mismatch, stale content, denied/revoked rights and missing monitoring cannot read the snapshot. Every successful call records start, actual component progress and completion through `CogWorkMonitor`, typed input/output artifacts and its separate Cog receipt. Unknown target/resource/cost quantities remain unavailable. Storage uncertainty poisons that controller for reconciliation without automatically retrying.
