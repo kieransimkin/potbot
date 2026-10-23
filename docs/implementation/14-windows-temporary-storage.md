@@ -6,6 +6,11 @@ the native broker's **public policy staging** use this helper. Atomic output
 files remain beside their destination and are closed before replacement.
 Native vault custody and its private ACL contract remain separate.
 
+![Actual Windows access probe, rendered as a comparison chart](media/windows-scratch-observation.svg)
+
+*Observed in this task's restricted Windows source checkout. This chart renders
+the actual file I/O result; it is not a screenshot or a blanket access guarantee.*
+
 ```mermaid
 flowchart LR
     A[Explicit root or POTBOT_TEMP_ROOT] --> B[Fresh unpredictable owned directory]

@@ -79,6 +79,8 @@ def main() -> None:
             "controller/execution_journal.py",
             "controller/execution_receipts.py",
             "tools/execution_contracts.py",
+            "tools/temporary.py",
+            "tools/patch_worker.py",
             "persistence/execution_provenance_schema.py",
         ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():

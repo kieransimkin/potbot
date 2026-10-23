@@ -1,5 +1,10 @@
 # Execution envelopes and signed historical receipts
 
+Open the [recorded-trace viewer](../../examples/tools/provenance.html) and select
+`execution-provenance.json` from the retained `execution-provenance-cog-evidence`
+CI artifact. Its user-controlled fixed-interval replay displays the original
+observations and metrics. It neither runs tools nor verifies signatures itself.
+
 The opt-in `BoundCogRegistry.provenance()` profile installs 17 work-kind Cogs and
 two receipt Cogs alongside the four existing pure transforms. Each has one
 registered input and output Type, an installed handler binding and inherited

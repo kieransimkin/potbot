@@ -39,11 +39,17 @@ class WorkspaceTempFactory:
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     supplied = config.option.basetemp
+    configured = os.environ.get("POTBOT_TEMP_ROOT")
     parent = (
-        Path(supplied).absolute() if supplied else Path(__file__).parent / ".potbot" / "temporary"
+        Path(supplied).absolute()
+        if supplied
+        else Path(configured).absolute()
+        if configured
+        else Path(__file__).parent / ".potbot" / "temporary"
     )
     owner = TemporaryDirectory(prefix="potbot-pytest-", dir=parent)
     base = create_directory(Path(owner.name) / "run")
+    config.option.basetemp = str(Path(supplied).absolute() if supplied else base)
     config.stash[_FACTORY] = WorkspaceTempFactory(base)
     # Cache writes must inherit the same tested parent ACL, including v/cache.
     cache = create_directory(Path(owner.name) / "cache" / "v" / "cache").parents[1]

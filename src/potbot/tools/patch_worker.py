@@ -121,7 +121,9 @@ def apply_payload(payload: object, root: Path) -> list[str]:
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_TERMINAL_PROMPT": "0",
-        "GIT_CEILING_DIRECTORIES": str(root),
+        # Git does not treat its initial cwd as a discovery ceiling. Stop at
+        # its parent so workspace-local scratch cannot inherit an outer repo.
+        "GIT_CEILING_DIRECTORIES": str(root.resolve().parent),
     }
 
     def git(*arguments: str) -> bytes:

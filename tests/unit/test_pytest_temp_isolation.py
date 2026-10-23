@@ -30,7 +30,7 @@ def _project(tmp_path: Path) -> Path:
 
 def _environment(temp_root: Path) -> dict[str, str]:
     env = os.environ.copy()
-    for name in ("TMPDIR", "TMP", "TEMP"):
+    for name in ("TMPDIR", "TMP", "TEMP", "POTBOT_TEMP_ROOT"):
         env[name] = str(temp_root)
     env.pop("PYTEST_ADDOPTS", None)
     env.pop("PYTEST_PLUGINS", None)
