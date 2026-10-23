@@ -1,0 +1,1334 @@
+{
+  "qualification": "Real committed Git and SYN Cog, local test journals; not durable/host qualification",
+  "inventory": {
+    "schema_version": 1,
+    "status": "source_inventory_verified",
+    "profile": "python_debugger",
+    "source": {
+      "commit_id": "a0ed55d37659e7b40badf39a56db28c1fe8d1b36",
+      "tree_id": "0b6771a6629ed1521ffa2505a5996c227f5b977b",
+      "source_kind": "committed",
+      "content_digest": "fff22a1ddca89ec7976feb853cd3c9e177f3589635d024e9bc4840be8c4977fe",
+      "lock_identity": "6e40eebe61a303157cc8ec490f3f383944da6dae3595558c8a7a3ef7907f04d6"
+    },
+    "source_version": "0.5.0.dev3",
+    "submodule_references": {},
+    "components": [
+      {
+        "id": "api",
+        "integration_owner": "existing authenticated REST/WebSocket service",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/api/__init__.py",
+            "sha256": "3737598cc8268e75ca65916810fef668f5fcbe0e92deace04ccdad989db2a02d",
+            "size": 61
+          },
+          {
+            "path": "src/potbot/api/dashboard.py",
+            "sha256": "ea0f014cbde84703bc520df73f326b3a84a254248d425ea1b00bef9eb3f4cfe6",
+            "size": 19074
+          },
+          {
+            "path": "src/potbot/api/jobs_cli.py",
+            "sha256": "a1c54f170a501855e15e58d1a9577bd47115010989bec084353214bfbdf81b44",
+            "size": 11971
+          },
+          {
+            "path": "src/potbot/api/server.py",
+            "sha256": "7dfd7c70e53fada7b3a2353c65525e6e84552fd3a3007d94b616b350bfc492ae",
+            "size": 34276
+          },
+          {
+            "path": "src/potbot/api/server_cli.py",
+            "sha256": "e6baf6bce9b31be628877f720e8b66386cc9e2f1e457d2528afa2664576854a2",
+            "size": 4543
+          },
+          {
+            "path": "src/potbot/api/task_cli.py",
+            "sha256": "acffd833e5bb80cefd15b8232437ffcd0bbf9c9c20b29ebd8c8dc754ecabbf91",
+            "size": 5833
+          },
+          {
+            "path": "src/potbot/api/tasks.py",
+            "sha256": "81385095816240d923462f824e8c8b8b2a86709c546357b7b6ef22a57024607c",
+            "size": 8875
+          },
+          {
+            "path": "src/potbot/api/wire.py",
+            "sha256": "c44fa2517d3b18b623fc2ec54eb4a360bdb51663321382c54d778eff34a648f0",
+            "size": 6077
+          }
+        ],
+        "stage_refs": [
+          "T10.2",
+          "T12.2"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "cogs",
+        "integration_owner": "sealed SYN Cog registry",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/cogs/__init__.py",
+            "sha256": "3f2f50454d890e3dec7e5c4219072b2f07cb78c950a9d5cf82c5396cee5913cd",
+            "size": 655
+          },
+          {
+            "path": "src/potbot/cogs/builtin.py",
+            "sha256": "6eedcfcbc532e01bbe5be8d992e442f295837b72fbacb66f13c340c1160b4073",
+            "size": 4102
+          },
+          {
+            "path": "src/potbot/cogs/contracts.py",
+            "sha256": "ad80726438990f3971379e9c7ea0f689f62fae04e5cba84eeabafe0ff32674d9",
+            "size": 9216
+          },
+          {
+            "path": "src/potbot/cogs/debugger.py",
+            "sha256": "5b48f5ebc225298acd8ca14f7ff242060a3ab52e6e520ec1b33bd6f0444b0eb4",
+            "size": 4526
+          },
+          {
+            "path": "src/potbot/cogs/registry.py",
+            "sha256": "6b498e15c7238004c8ea509307088182c20c77728ff8d56587c129f9928f9e40",
+            "size": 18091
+          }
+        ],
+        "stage_refs": [
+          "T01.2",
+          "T10.1"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "controller",
+        "integration_owner": "existing task/job/budget/execution controllers",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/controller/__init__.py",
+            "sha256": "26a156c80c2a5d05721de24ef12bee0cbd24044f17a1abe6d3793420d39dabed",
+            "size": 77
+          },
+          {
+            "path": "src/potbot/controller/budgets.py",
+            "sha256": "f3b63673ebcba8a5059a5b64ee3ba6336f7481f6c2fe15c5c7ab3d91112811b0",
+            "size": 12419
+          },
+          {
+            "path": "src/potbot/controller/coding.py",
+            "sha256": "26af7feb19e86ce4683f8cd42ad43ce9c32443c02513f04e30bae4463916680e",
+            "size": 6979
+          },
+          {
+            "path": "src/potbot/controller/cog_bridge.py",
+            "sha256": "4a78f272617bb4145633adbe8416bf6949bc2d039e0cb17c8fb740f1dc8f67a4",
+            "size": 9557
+          },
+          {
+            "path": "src/potbot/controller/cog_work.py",
+            "sha256": "7a26b90c6a5ec2389817c021b12b69f99d4a67e34a35b400ee4026b3f5938700",
+            "size": 7915
+          },
+          {
+            "path": "src/potbot/controller/execution.py",
+            "sha256": "06af3aaece77465b9befc20cf0f2ee1f3229f90d8df128f39721b60ab94a816e",
+            "size": 13191
+          },
+          {
+            "path": "src/potbot/controller/execution_events.py",
+            "sha256": "e2d2d2a4a404a7a76a0463fc202bf55ced5bd2f6d199d5974d47717203a7e110",
+            "size": 6352
+          },
+          {
+            "path": "src/potbot/controller/information_needs.py",
+            "sha256": "1e0ff1882cb0cb9bed43a9ab65745e04bbdb32a582daa50042ff2f6588aa51d9",
+            "size": 11637
+          },
+          {
+            "path": "src/potbot/controller/job_runner.py",
+            "sha256": "4bc43b83ca74c2c206a0cc28a296f7c539d1e6449ed22751c21a2b65379e27e0",
+            "size": 8864
+          },
+          {
+            "path": "src/potbot/controller/jobs.py",
+            "sha256": "3397898b6f574a862a77838946d3c6a8e0bb28dfe4ddd960f376ef7ec98f2e1f",
+            "size": 26990
+          },
+          {
+            "path": "src/potbot/controller/model_coding.py",
+            "sha256": "14547b632060d43150456866cd403be8264103b0b848ba868492084ebdf56b3c",
+            "size": 16729
+          },
+          {
+            "path": "src/potbot/controller/patch_exports.py",
+            "sha256": "c929151a40e2748a2f2f465c95c2b56f39aba0f75fbfd9b34b1d58dd2e33568d",
+            "size": 16139
+          },
+          {
+            "path": "src/potbot/controller/patch_pipeline.py",
+            "sha256": "09e16e98972a590a6260ed35df1f8a11c2c6738ab5eac58ada1a1b041c9a9838",
+            "size": 19697
+          },
+          {
+            "path": "src/potbot/controller/research_audit.py",
+            "sha256": "f543057c662ca6119709f7a2bfdbb0932e1bff39554ee3578ed37a59ab778efd",
+            "size": 11554
+          },
+          {
+            "path": "src/potbot/controller/research_solve_bridge.py",
+            "sha256": "b0bb51a14a896abfed6d30bdbff390b779c32e70a02e41f2ef954652fa9199af",
+            "size": 20322
+          },
+          {
+            "path": "src/potbot/controller/research_store.py",
+            "sha256": "8a3c54a3a7384bb4e93f5072716b2669c113b27d7f0394d98a2368e86e41f3d7",
+            "size": 14233
+          },
+          {
+            "path": "src/potbot/controller/research_worker.py",
+            "sha256": "28f6ff5b624ddc24ab4783092119e4e439600b0caf62507b47e9bcd3fcf9d1c1",
+            "size": 24987
+          },
+          {
+            "path": "src/potbot/controller/reuse.py",
+            "sha256": "568140ac69c6fda68cda173146d343586ee59299893a063af2c73001bdd1db97",
+            "size": 3215
+          },
+          {
+            "path": "src/potbot/controller/search_scheduler.py",
+            "sha256": "878902ff4afd7cfa81a7b45901d67e993cd9df05852a7c1dbceb3034e20a9dff",
+            "size": 10591
+          },
+          {
+            "path": "src/potbot/controller/solve_store.py",
+            "sha256": "93a00ca95ea73a3d1f86daaceb926fb47a706dab996b42dd2c3926dca04e1830",
+            "size": 30012
+          },
+          {
+            "path": "src/potbot/controller/tasks.py",
+            "sha256": "3193c8ccd0ba89a356b129f733224e166b33eed440b50ea4a01a853358a94c11",
+            "size": 20739
+          },
+          {
+            "path": "src/potbot/controller/verification.py",
+            "sha256": "e811fab1d8d531871c7877f0422bb7cac36537c46d40c06bf6458a7d4c2114d4",
+            "size": 35282
+          }
+        ],
+        "stage_refs": [
+          "T01.3",
+          "T03.4",
+          "T10.2"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "debugging",
+        "integration_owner": "language-neutral session and Python adapter",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/debugging/__init__.py",
+            "sha256": "228a8a3d66172c39998699c0924abf609e0a0a6fade621749ddfb4e880c4bdbf",
+            "size": 491
+          },
+          {
+            "path": "src/potbot/debugging/acceptance.py",
+            "sha256": "38fe40a6f8b6d6e7fc52744d95775ea981259a3b1111c2148e0ac1ca466d6830",
+            "size": 3764
+          },
+          {
+            "path": "src/potbot/debugging/cog_acceptance.py",
+            "sha256": "1ae238e2c7d4270a1c6ea2ac3d9025688f7620f491906fc4d16baef2658ee0c1",
+            "size": 4774
+          },
+          {
+            "path": "src/potbot/debugging/cog_client.py",
+            "sha256": "1aa7ff5fded138d3c076f28fed0d2bc3884e51efb61543225282ec106fba20f6",
+            "size": 1576
+          },
+          {
+            "path": "src/potbot/debugging/cog_runtime.py",
+            "sha256": "a2ad14ab7314b6f61b83b6dcd9af157a602b9165a22868d79c9001d7e21b21ce",
+            "size": 20319
+          },
+          {
+            "path": "src/potbot/debugging/contracts.py",
+            "sha256": "41087dde4fe6bd3ddd1e589f2ef6e29f2654cadf4febc95464d57ed34b550b45",
+            "size": 4759
+          },
+          {
+            "path": "src/potbot/debugging/dap.py",
+            "sha256": "8c050617ebd0f569dcca5dfeac2c2a1e0d7c29f555132aef9874c10ade5a5bbc",
+            "size": 12475
+          },
+          {
+            "path": "src/potbot/debugging/python.py",
+            "sha256": "366a9335f4502aee74145c1cca23ce1e16bd69b650b4f2a4152df84ba4095d00",
+            "size": 1321
+          },
+          {
+            "path": "src/potbot/debugging/sandbox.py",
+            "sha256": "0dad40036608fab05d9e04b72fa1c91d50b3b030d2c9127ed1f16e5fa8b402fd",
+            "size": 4209
+          },
+          {
+            "path": "src/potbot/debugging/session.py",
+            "sha256": "88f12cca4f1540f450207d8aab6928ee785cf8c76f0dd4711d5baf95c987633a",
+            "size": 25040
+          }
+        ],
+        "stage_refs": [
+          "T07.3"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "domain",
+        "integration_owner": "existing versioned domain contracts",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/domain/__init__.py",
+            "sha256": "4289ce977454a1ef807e1ea047ab9acdad84ae1e6baa9ab0162bbf4187cf9928",
+            "size": 2000
+          },
+          {
+            "path": "src/potbot/domain/auth.py",
+            "sha256": "b9348afa1811004718718d6f2933b042b4197b70f2a5a5647eb60306aa57d645",
+            "size": 768
+          },
+          {
+            "path": "src/potbot/domain/coding.py",
+            "sha256": "10d8870a46b77bcd68b66e28a6cdbd5f763c11f6a317735ef4cc66bd789554c8",
+            "size": 6565
+          },
+          {
+            "path": "src/potbot/domain/configuration.py",
+            "sha256": "26aab5c63c8e83035fe6155e49ffba9ca772ef1c35521ebaa4d09fb719f10c72",
+            "size": 5819
+          },
+          {
+            "path": "src/potbot/domain/embeddings.py",
+            "sha256": "5574cb34d8bfc4083e6571ebfb31a647709823428f492cc185dab2f8c99e9e9c",
+            "size": 10757
+          },
+          {
+            "path": "src/potbot/domain/errors.py",
+            "sha256": "224af134795e6eeee75f9177f8ae0751e6da762bb3dfb01eeabf55312c319649",
+            "size": 2276
+          },
+          {
+            "path": "src/potbot/domain/execution.py",
+            "sha256": "ab4dbae7d5f3a27c03854324c19f1d9a2bd5867918cac928bc64ed50e23e37b6",
+            "size": 9490
+          },
+          {
+            "path": "src/potbot/domain/execution_events.py",
+            "sha256": "9dd6abf19900572024d5589f881eaf29723ba2dc9aa5a651b03b6f930d8d3699",
+            "size": 5434
+          },
+          {
+            "path": "src/potbot/domain/jobs.py",
+            "sha256": "cf83b9dc7c409b03ba6a2825452dd69e452777cb0d81198a21950764ced56c07",
+            "size": 8894
+          },
+          {
+            "path": "src/potbot/domain/model_proposals.py",
+            "sha256": "b5acab1474a577315b5e7fd0cf07731d3da62a323772fd357e08da02a4bb7700",
+            "size": 31783
+          },
+          {
+            "path": "src/potbot/domain/records.py",
+            "sha256": "a7fe61a633c5d6bb6135b20bc86f86fec5cc450f616afa9e35c86bf7ffe0a551",
+            "size": 14202
+          },
+          {
+            "path": "src/potbot/domain/reuse.py",
+            "sha256": "d025978ed55de9e70a9ac21a19806dd4e60acffaaf7a13f9e6b7fcb7de764434",
+            "size": 15075
+          },
+          {
+            "path": "src/potbot/domain/search_graph.py",
+            "sha256": "f835ddeb8ea184e6de13cf8e3eb05fb8d023f8fabdbe00f9c44ca5afc58c4c52",
+            "size": 10461
+          },
+          {
+            "path": "src/potbot/domain/serialization.py",
+            "sha256": "ec3554ae03b6340b531c115bb7d64240dcecd7b16256f84a4fd40ac7052f1be6",
+            "size": 1324
+          },
+          {
+            "path": "src/potbot/domain/syn.py",
+            "sha256": "32aa43220e3ff78ffa89e486717a897e90a47d2f0641f92dd6f49630ea4a0b78",
+            "size": 17703
+          },
+          {
+            "path": "src/potbot/domain/tasks.py",
+            "sha256": "86af219a0cf9a4dcad37ee4fc12fd72cd0236db8c419183b63e15f3b80b70263",
+            "size": 9974
+          },
+          {
+            "path": "src/potbot/domain/verification.py",
+            "sha256": "177127d5f97f7ab76d5ff4aa358e6fbb8c70281f3abe1d9c289c8b3ec09439fa",
+            "size": 6001
+          }
+        ],
+        "stage_refs": [
+          "T01.2",
+          "T01.3"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "evaluation",
+        "integration_owner": "existing fixture/acceptance harness",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/evaluation/__init__.py",
+            "sha256": "5e6cb731a7677275ed8fcb16d72fe2988820842025dc268ba15beb87124dc560",
+            "size": 75
+          },
+          {
+            "path": "src/potbot/evaluation/benchmark_ledger.py",
+            "sha256": "139e57ecb009bef416b153b25b33dd40887a597e90620c0dc0c1c9ecda5eef86",
+            "size": 13366
+          },
+          {
+            "path": "src/potbot/evaluation/benchmark_manifest.py",
+            "sha256": "4ee01f85ee908c512ae0a24d3035ff7f24b6df99fec3714a2134dfdbda8f0737",
+            "size": 8660
+          },
+          {
+            "path": "src/potbot/evaluation/diagnostics.py",
+            "sha256": "169ff2f07f63dd32250c1bb0a52dd8d1e244f27b1ab20150311918c5379b88d1",
+            "size": 2131
+          },
+          {
+            "path": "src/potbot/evaluation/patch_fixture.py",
+            "sha256": "d9ec73f3d8ba8965d1bac357692e9f2465754594cff28370b39a8f5958e81e01",
+            "size": 3677
+          },
+          {
+            "path": "src/potbot/evaluation/phase6_bench.py",
+            "sha256": "4062d4f417451b79c50088ba223bb6f18caff91df2eb9559856b77dae7248e7b",
+            "size": 18748
+          },
+          {
+            "path": "src/potbot/evaluation/repository_fixture.py",
+            "sha256": "ed95125c0e2e1e26dc62d2f34b17e8dc7135c55b70eb5d5cd0a8b2cf083b7c7b",
+            "size": 14339
+          }
+        ],
+        "stage_refs": [
+          "T01.4",
+          "T11.1",
+          "T11.4"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "memory",
+        "integration_owner": "existing evidence and memory service",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/memory/__init__.py",
+            "sha256": "ae2f58296998b5a8195d1ba50ade16d97a758e7a862fa9faa082471aea13f026",
+            "size": 71
+          },
+          {
+            "path": "src/potbot/memory/embedding_cli.py",
+            "sha256": "8359050352ec773b69f023ddf36102ae73813cffd933bab9b9a15adf8a3c80be",
+            "size": 9909
+          },
+          {
+            "path": "src/potbot/memory/embedding_profile.py",
+            "sha256": "eaa00912925c14670ef52f064e31fc9a9183b215f9c247ec1e608345462e1e60",
+            "size": 5587
+          },
+          {
+            "path": "src/potbot/memory/embedding_worker.py",
+            "sha256": "2eb7e8b5880c2b9adc29bd22475ef8351ece791958eea7c0bf4400811ff83e2c",
+            "size": 2420
+          },
+          {
+            "path": "src/potbot/memory/embeddings.py",
+            "sha256": "8e981b2b974f7d3d1601500b627ead6fd12c223eb05095c35dd0db731a3adb74",
+            "size": 22324
+          },
+          {
+            "path": "src/potbot/memory/local_encoder.py",
+            "sha256": "5a1b95849bf94299de16e4626369d003f39220f6223d125c1b2033d261a96b38",
+            "size": 8108
+          },
+          {
+            "path": "src/potbot/memory/supervised_encoder.py",
+            "sha256": "9a56c83ce4d307e5536dbcbcde3527a99d7c2a22eded042a6932fdbb949c7fd1",
+            "size": 8465
+          }
+        ],
+        "stage_refs": [
+          "T08.2",
+          "T10.4"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "models",
+        "integration_owner": "existing model gateway and operator-selected local tools",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/models/__init__.py",
+            "sha256": "579943397a94dd6f90eb02fc09952f105c63ac0345a74472c9d468b159ee040c",
+            "size": 85
+          },
+          {
+            "path": "src/potbot/models/cli.py",
+            "sha256": "93727b1215c2c615c571fa57b5e064de0098cdfae0d80d1077520623c82686ec",
+            "size": 3747
+          },
+          {
+            "path": "src/potbot/models/configuration.py",
+            "sha256": "8b475be2c3d64ae34c03d63f908b7050cbf45d2afa47a3f9d3074616d6e44965",
+            "size": 5937
+          },
+          {
+            "path": "src/potbot/models/context.py",
+            "sha256": "64e6e8bb2125decf31820756220cd4a47ee81c83c6329ad4c2ac4d440f0cd8eb",
+            "size": 40236
+          },
+          {
+            "path": "src/potbot/models/envelopes.py",
+            "sha256": "cf15e8ecc34cd4a80dfeeba6ea6fdda0905ca34d19b2223ed9cee986a3f0ba3b",
+            "size": 14565
+          },
+          {
+            "path": "src/potbot/models/gateway.py",
+            "sha256": "e4ee940c2f2ee8bb006811c5ac83c7be4e733bf01898ea6407526c51dcc3fe47",
+            "size": 35406
+          },
+          {
+            "path": "src/potbot/models/hosted_catalog.py",
+            "sha256": "2c8b1e098a51c23f7857ec68cf3a0cf6fc65db7505958b00e4edf034ec20fe34",
+            "size": 10510
+          },
+          {
+            "path": "src/potbot/models/hosted_gateway.py",
+            "sha256": "db8a7a8378c77ac06ed2e7ca12cf88f860a73b15b14895320a48e10f9b887941",
+            "size": 23844
+          },
+          {
+            "path": "src/potbot/models/hosted_policy.py",
+            "sha256": "012cb50c2dc19c28b7ebf846c9f84bdb73cd25ad6601896ed07eef9b00f37992",
+            "size": 11075
+          },
+          {
+            "path": "src/potbot/models/invocations.py",
+            "sha256": "e59c0e366e187d9ff11368bc2de9915056933cf4e06813f6c97d6f0fadff8354",
+            "size": 14160
+          },
+          {
+            "path": "src/potbot/models/local_tool.py",
+            "sha256": "c0afdc1490981c67b218ad5c41db8fed012e55960d69bdc2a4cf336495e1c0bc",
+            "size": 7446
+          },
+          {
+            "path": "src/potbot/models/preflight.py",
+            "sha256": "13bc3d6e7ed51f5657a84508b2bf9491ca5a0680dd0cdcb17d238f48835ede62",
+            "size": 19841
+          },
+          {
+            "path": "src/potbot/models/profiles.py",
+            "sha256": "d0140c5a07a2301b28e2b8be227e39721eacfefa977ca56afa7389462e9b43f5",
+            "size": 6552
+          },
+          {
+            "path": "src/potbot/models/providers/__init__.py",
+            "sha256": "d52c7400266fb30d7925afa626416282c29b83a31c53eb74c5e9053b13cde533",
+            "size": 847
+          },
+          {
+            "path": "src/potbot/models/providers/client.py",
+            "sha256": "39db506aa319b79421e6b2c59038734e74031856edda4a577500f4ee72c9a730",
+            "size": 19994
+          },
+          {
+            "path": "src/potbot/models/providers/contracts.py",
+            "sha256": "142cc474dfc3bf41e2886c8f4b7e8faeefcf88c480b742743494dfbfbb41e3a6",
+            "size": 10666
+          },
+          {
+            "path": "src/potbot/models/providers/protocols.py",
+            "sha256": "f6518e261c948837a3ba4b5f343c7b4f7f51da053a789fa8f8098f1676203a23",
+            "size": 16587
+          },
+          {
+            "path": "src/potbot/models/registry.py",
+            "sha256": "9c951b7b6d4cab700f144edb6b1844dce55ebbc0b0105e559d2e900c65e33dde",
+            "size": 9663
+          },
+          {
+            "path": "src/potbot/models/scripted.py",
+            "sha256": "67a0fd7b4fbbcf6f9648f7fb54cf6564816c67960e8d9bef5fc1c51903f8ecc7",
+            "size": 14743
+          },
+          {
+            "path": "src/potbot/models/stream_redaction.py",
+            "sha256": "eb0b48c4b2eed180fbe42d66691493829c4a1bf528ed5a5b95714f1e059a5f94",
+            "size": 1464
+          },
+          {
+            "path": "src/potbot/models/transport.py",
+            "sha256": "9e559cc958b3d9e388aa0e9a5a1167b2261393b97726e77eecb04ceb52616b0c",
+            "size": 3857
+          }
+        ],
+        "stage_refs": [
+          "T10.3"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "persistence",
+        "integration_owner": "existing PostgreSQL schemas and artifact store",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/persistence/__init__.py",
+            "sha256": "00063baf17ede59ff0188c34ca4f9df12ac6a9b0103421aae5fb3328d1eacfe2",
+            "size": 182
+          },
+          {
+            "path": "src/potbot/persistence/admin_cli.py",
+            "sha256": "850dddc9327eb401b406f51333a9095326c007999a90284f25739b4c92231f3e",
+            "size": 6232
+          },
+          {
+            "path": "src/potbot/persistence/artifacts.py",
+            "sha256": "a04f08351266128fb403a5a82dac10f7b63c53472d21a7c0ce33c1c431e7447f",
+            "size": 14387
+          },
+          {
+            "path": "src/potbot/persistence/coding_schema.py",
+            "sha256": "2e4cda78cc994dc328aa2be74a19e90d1446c0a12c8a8ff50555ef1a5f044d5e",
+            "size": 4880
+          },
+          {
+            "path": "src/potbot/persistence/database.py",
+            "sha256": "551d271057d692e17f48c452039ea1eeccef2ca23b14a8afe1c93e963a944f7f",
+            "size": 24112
+          },
+          {
+            "path": "src/potbot/persistence/embedding_sources.py",
+            "sha256": "33d1fe04c7fc8f52f734e432f9c22ab86cd1fe2dd62a8c9881385da6ce688325",
+            "size": 3611
+          },
+          {
+            "path": "src/potbot/persistence/ember_schema.py",
+            "sha256": "1166717c951c48edf2399f6166dc71e6c4774a7cc418e46b8aa35f7d4cc79d0c",
+            "size": 2968
+          },
+          {
+            "path": "src/potbot/persistence/evidence.py",
+            "sha256": "62a1ae33e841bab8f1c65aad741330fa514003a6c05829db3025659fda0b28c2",
+            "size": 8441
+          },
+          {
+            "path": "src/potbot/persistence/evidence_schema.py",
+            "sha256": "f56281f787dcb20e26857ea43de16388031cb8eaebaa47a9ac32d8a831d4bf34",
+            "size": 3965
+          },
+          {
+            "path": "src/potbot/persistence/execution_events_schema.py",
+            "sha256": "aac50d140e0af65c8d5decbacd1d9a969414226417f7e4bfce2d23eb17557e33",
+            "size": 2184
+          },
+          {
+            "path": "src/potbot/persistence/execution_schema.py",
+            "sha256": "c14ae7cf7985346e3dbeb93ca8b7694c63261a2fb918f254fbe57ebaa53f55a3",
+            "size": 10976
+          },
+          {
+            "path": "src/potbot/persistence/execution_telemetry_schema.py",
+            "sha256": "b6f7f8e413b5ce5fe749af9e61e77727be650207ba7b8885163b905e02978420",
+            "size": 343
+          },
+          {
+            "path": "src/potbot/persistence/harness.py",
+            "sha256": "ea3f584f2d97f46fe63ffcc327be54d3e53ae2d16e89993ac748338974231d6c",
+            "size": 27545
+          },
+          {
+            "path": "src/potbot/persistence/hosted_schema.py",
+            "sha256": "21e307f41a496e51ad5e370c751194d965181fb6febf849338db95304fcf95ed",
+            "size": 3009
+          },
+          {
+            "path": "src/potbot/persistence/jobs_schema.py",
+            "sha256": "3587a88879de8ae7f69b143894aeb901f6cbb653fb20eb6bdaf4fbdf97ba92cc",
+            "size": 3180
+          },
+          {
+            "path": "src/potbot/persistence/model_schema.py",
+            "sha256": "7ea554ecc469c30f59473338b965e05d9a3d2bdb3598c373692b68ad28b1f782",
+            "size": 9509
+          },
+          {
+            "path": "src/potbot/persistence/named_vector_schema.py",
+            "sha256": "f71315c47bc9502948c8766a433de8d4d2d74bf3a846bb04026ea17943654031",
+            "size": 2006
+          },
+          {
+            "path": "src/potbot/persistence/outbox.py",
+            "sha256": "f2b45a5522562970f5fe23f912ce2f217b6793aa629bb3a2dde17b3e7293b320",
+            "size": 15145
+          },
+          {
+            "path": "src/potbot/persistence/phase4_schema.py",
+            "sha256": "8310e9cebcfe7fe0ae675d71736818f9f5a243b407fa13b7a1d051e4422a1e92",
+            "size": 642
+          },
+          {
+            "path": "src/potbot/persistence/phase6_schema.py",
+            "sha256": "87cfb460511883bb6a62249f1844c88467d39db8a967799a018665103958e6f6",
+            "size": 8400
+          },
+          {
+            "path": "src/potbot/persistence/phase7_graph_schema.py",
+            "sha256": "ef9a6fafafbf6ede2d959e584378975301f51c60901fe0ac2c6a1ed37664c577",
+            "size": 2918
+          },
+          {
+            "path": "src/potbot/persistence/phase7_schema.py",
+            "sha256": "c91178e503dbfdb15d9a2b7ac83550edfc65676a071e6e8bcd88c48c62d4b8a3",
+            "size": 4247
+          },
+          {
+            "path": "src/potbot/persistence/phase7_worker_schema.py",
+            "sha256": "6960a44bc5b19ff372b4806d74198c7c023f777aa21365584c540b56c84c16b1",
+            "size": 3063
+          },
+          {
+            "path": "src/potbot/persistence/repository_schema.py",
+            "sha256": "7feb4638c49a8a59d08ea54495603c0f1c440b595b3497fa41c029daa0840dce",
+            "size": 6303
+          },
+          {
+            "path": "src/potbot/persistence/schema.py",
+            "sha256": "b0b792c558768b720edb4b43e3ca71f8d306d44e48b3f4fd2f926edeed1c0a61",
+            "size": 6651
+          },
+          {
+            "path": "src/potbot/persistence/semantic_schema.py",
+            "sha256": "148c2a397d95b1f621737de7527d06298ec6b87c9cfe2f120ab2b5c07cba4c40",
+            "size": 3596
+          },
+          {
+            "path": "src/potbot/persistence/syn_schema.py",
+            "sha256": "d42b2aff307e63b910c95db22c89586b33d134e32e4598ac9da30215b72897c5",
+            "size": 14070
+          },
+          {
+            "path": "src/potbot/persistence/task_schema.py",
+            "sha256": "6d311144ec77773d61e1bcfde778d76bd12df7b4b31c6cd466aa93d49fd9dadd",
+            "size": 3301
+          },
+          {
+            "path": "src/potbot/persistence/verification_schema.py",
+            "sha256": "2b4913e8077819facfea4df8a52265d8967b814cd49d3ec149f0d92efb2c1a56",
+            "size": 6795
+          },
+          {
+            "path": "src/potbot/persistence/worker_cli.py",
+            "sha256": "01c002e2288e268f55142cfd1f9d26e56e7b4ab99c5f7449a7f21bcc2f4cd87b",
+            "size": 3108
+          },
+          {
+            "path": "src/potbot/persistence/workspace_sandbox_schema.py",
+            "sha256": "5211a20de509be34259650d4e55a12c4344b690ef1474e14dc3a20882de62851",
+            "size": 702
+          }
+        ],
+        "stage_refs": [
+          "T01.3",
+          "T03.4"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "research",
+        "integration_owner": "existing research/retrieval service",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/research/__init__.py",
+            "sha256": "da346d37f0f6bc1b2c87b75269ce2e567bbc7a477168f9a9d20e96bcb80c8e3b",
+            "size": 92
+          },
+          {
+            "path": "src/potbot/research/cog.py",
+            "sha256": "19d0fe6ae35d783682f87abb2ca2dcefc334e82e2c5f6545c9ba759590765c7a",
+            "size": 5080
+          },
+          {
+            "path": "src/potbot/research/contracts.py",
+            "sha256": "24a94f1f14f0208e89ff1a43f8e8e89f61bbe7c09e425462ae85f47961bf9e7e",
+            "size": 20700
+          },
+          {
+            "path": "src/potbot/research/http_transport.py",
+            "sha256": "3afd937d996fd2dc1e20f60e51e7e417cb3fd3172d28f3a11598c619133fb34c",
+            "size": 6696
+          },
+          {
+            "path": "src/potbot/research/repository.py",
+            "sha256": "4e4d42f8e3be61a83dfbeca676a09c2bd23c88618b037c6b7f8496379643be42",
+            "size": 8479
+          },
+          {
+            "path": "src/potbot/research/source_policy.py",
+            "sha256": "0ddc38e3c3b8318e8674b029ff8b9955b3168171868caf8389861507057d4cbe",
+            "size": 9923
+          },
+          {
+            "path": "src/potbot/research/worker_cli.py",
+            "sha256": "a9fb2a54ad2fef578a578dac36fe2798245dd76e1bcc52a90f8c70f25c975c5e",
+            "size": 3831
+          }
+        ],
+        "stage_refs": [
+          "T05.1",
+          "T05.2",
+          "T05.4"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "security",
+        "integration_owner": "existing native credential/signing boundary",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/security/__init__.py",
+            "sha256": "78d845d2a4459c67c75afd8e5d50a64bd2b2379d20a9a3008aa06d42814348cd",
+            "size": 64
+          },
+          {
+            "path": "src/potbot/security/broker.py",
+            "sha256": "48bc488bc385e159414e55f6a340c859629e3c4413069fa1f510d5d14292c815",
+            "size": 21374
+          },
+          {
+            "path": "src/potbot/security/cli.py",
+            "sha256": "ba18667da332ff60879e63f2acb4b1c373a7d8e7da60a76934c97a313db5759b",
+            "size": 15056
+          },
+          {
+            "path": "src/potbot/security/public.py",
+            "sha256": "dc70e6e1da42b616d41482918a4a880bf1c038f993be1a1c52c058fad75edeac",
+            "size": 27493
+          }
+        ],
+        "stage_refs": [
+          "T03.3"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "semantics",
+        "integration_owner": "existing SYN catalog/import/Ember service",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/semantics/__init__.py",
+            "sha256": "ae2ff8d6347e042648925cf1b706f35027fcae729a893694da6837927c89076d",
+            "size": 491
+          },
+          {
+            "path": "src/potbot/semantics/agent_security.py",
+            "sha256": "03190ba1917941c7a7dd99b476d00c5a2b0ce4da6dd388c75f339dfa69c9b245",
+            "size": 22160
+          },
+          {
+            "path": "src/potbot/semantics/agent_security_cli.py",
+            "sha256": "541329953da50059b2ed49896fc88e22c775eb1c39cbc7f083f78f908cf65afe",
+            "size": 10258
+          },
+          {
+            "path": "src/potbot/semantics/catalog.py",
+            "sha256": "b61510b62ae23fdd05b22566704ccbefe18de92cba49f36b3b37e617c7ee88d5",
+            "size": 8969
+          },
+          {
+            "path": "src/potbot/semantics/cli.py",
+            "sha256": "3788d2468ad0972c6e542ee3c0646a7c76e653f1791d478abe60078516a084c2",
+            "size": 12563
+          },
+          {
+            "path": "src/potbot/semantics/ember_cli.py",
+            "sha256": "6ae78aec54a62484073acfc8f22cd97bd1ab8e4f1a32dc595116ec24701d4c08",
+            "size": 6160
+          },
+          {
+            "path": "src/potbot/semantics/ember_service.py",
+            "sha256": "4d02562a6b80896725d420f592eef144d53c1ad92895f9e726afdc54a566fcd5",
+            "size": 10286
+          },
+          {
+            "path": "src/potbot/semantics/embers.py",
+            "sha256": "9d8649a810c8e4199c4393c87f3018ad551a8849d9e699eb50c5ddb85ccc6acc",
+            "size": 42846
+          },
+          {
+            "path": "src/potbot/semantics/hierarchy.py",
+            "sha256": "84f82aeef4ecf68396b5ddafc3ed7dd8af875bf3e2cd8af289c6749dd87da6c8",
+            "size": 13128
+          },
+          {
+            "path": "src/potbot/semantics/registry.py",
+            "sha256": "497eeee4b12ed838cdc4f5cc74d765ac96214bfd569c77cdc7bbdaa6da191836",
+            "size": 15670
+          },
+          {
+            "path": "src/potbot/semantics/releases.py",
+            "sha256": "4d7ce313177a885fc7b91462322c10ef8f880bc5813e9c4e5939427b503e626e",
+            "size": 14950
+          },
+          {
+            "path": "src/potbot/semantics/service.py",
+            "sha256": "bd0e7a37f8ce3db87fc8b7292e0e075783a3c5bd0aa15bd7fbb8c6807e0ef770",
+            "size": 28282
+          },
+          {
+            "path": "src/potbot/semantics/validation.py",
+            "sha256": "42e47fb8b75f98676963aae7fcb7df73af6b56aeb818d33667c8f51c1b639af5",
+            "size": 16320
+          }
+        ],
+        "stage_refs": [
+          "T01.2",
+          "T10.1"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "tools",
+        "integration_owner": "existing ToolGateway and admitted transport implementations",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/tools/__init__.py",
+            "sha256": "f1bfbd4667c2340f6e3d008ab6a32efc933aae432125e777560e96ccf4ef7711",
+            "size": 80
+          },
+          {
+            "path": "src/potbot/tools/api_contracts.py",
+            "sha256": "62619bcd9836505e53209f9225b85df8dc4476748b9a5976d2904a30e8e221e6",
+            "size": 17999
+          },
+          {
+            "path": "src/potbot/tools/api_grpc.py",
+            "sha256": "afc0ea6681106813498d0b08ea87ddb482b130f96b879e1c0270aa054b47dcca",
+            "size": 6007
+          },
+          {
+            "path": "src/potbot/tools/api_http.py",
+            "sha256": "9166b27c94fe086f8fdddcda42c8757a43a685aac444cc2137e43aee4fe0b240",
+            "size": 20515
+          },
+          {
+            "path": "src/potbot/tools/api_openapi.py",
+            "sha256": "ae76be23f368f25ee0e101fabd9069f43ad43c40e11c9590c5ba5dc38983a2e6",
+            "size": 10588
+          },
+          {
+            "path": "src/potbot/tools/capability_contracts.py",
+            "sha256": "4c5e0b1acf7fc945981defe5d6e3315f35d7b0e57a5657b9c28895467227df7a",
+            "size": 22123
+          },
+          {
+            "path": "src/potbot/tools/cli_adapter.py",
+            "sha256": "a3dc60497446f51eedcc65a5ae8e30f0d92e76e1bbb43b5edd881cf0c2eccff6",
+            "size": 7734
+          },
+          {
+            "path": "src/potbot/tools/execution_cli.py",
+            "sha256": "10b90e0d299499c34ca21bacf52ded9e84b9f051e3c7cb1decbdb21105be8c7a",
+            "size": 13103
+          },
+          {
+            "path": "src/potbot/tools/gateway.py",
+            "sha256": "fe36f669de4a3d4eb5a22fdf6db5ab5cb7f08dbb3f81fcfc93255eba1eb04dfa",
+            "size": 45864
+          },
+          {
+            "path": "src/potbot/tools/interactive_supervisor.py",
+            "sha256": "2a7e3e0eb1bfbba6c0337cc730c2543cea9cd14a9cebfd57f9cbe485ee2ea5c4",
+            "size": 11498
+          },
+          {
+            "path": "src/potbot/tools/isolation.py",
+            "sha256": "37acc4cf9f28315c023c06631143f626a9a5af80bdf71e593e113f5cb0feb9bd",
+            "size": 13285
+          },
+          {
+            "path": "src/potbot/tools/mcp_http.py",
+            "sha256": "fb7cee42b8bb2af2d9312707101896b38c029d301c24443e93d8e55f927018e2",
+            "size": 10710
+          },
+          {
+            "path": "src/potbot/tools/mcp_protocol.py",
+            "sha256": "66f657bfad666af78b57d24177de4b1d4bc8b9914a42132eb951e377696e808d",
+            "size": 19825
+          },
+          {
+            "path": "src/potbot/tools/mcp_sandbox.py",
+            "sha256": "261689ab3e595e8c1f0a1f318529dd8b4c86b9f327c63b258566fbd2595cca99",
+            "size": 11766
+          },
+          {
+            "path": "src/potbot/tools/mcp_stdio.py",
+            "sha256": "5f6984813893e46121d88cafc12757ba5dc106e2aa4ff23d6b7574887bee12f4",
+            "size": 5740
+          },
+          {
+            "path": "src/potbot/tools/patch_application.py",
+            "sha256": "ddd1b9e53af9c31edc204d7de756e39a8bf8edabeb1fb54058983168e698cfec",
+            "size": 15972
+          },
+          {
+            "path": "src/potbot/tools/patch_cli.py",
+            "sha256": "d6ed8a716a2ada70a494c246556c5392d563819fb1a6e7e70b9cfb4c779c2895",
+            "size": 11195
+          },
+          {
+            "path": "src/potbot/tools/patch_worker.py",
+            "sha256": "54ba0348b1e75b2d444965f5acb150e6229fea51ca1879c1bb9bf5f20b47d7b3",
+            "size": 7752
+          },
+          {
+            "path": "src/potbot/tools/receipts.py",
+            "sha256": "63bc799adfddd55c5f1958e39424078ca9052a896a2769025103bb472d3f31b2",
+            "size": 4255
+          },
+          {
+            "path": "src/potbot/tools/repository.py",
+            "sha256": "300edde12beec8c87e3200270470e6dc513a6231615e0c29190a4637756aeef4",
+            "size": 26995
+          },
+          {
+            "path": "src/potbot/tools/repository_snapshot.py",
+            "sha256": "e1dc62d99cd8e3fc61cb7aabefb0b87e25a119ca3b50492657463bef46d92bb1",
+            "size": 24082
+          },
+          {
+            "path": "src/potbot/tools/secrets.py",
+            "sha256": "876fade707646d6f0c71a1576dd974bc2000a93c5bf323190ef5cff57b0bcb46",
+            "size": 5571
+          },
+          {
+            "path": "src/potbot/tools/supervisor.py",
+            "sha256": "b0ca5e3cfb9453610351748993e1090b4fdfbbe9272465f1e3c8d70e6f6eb6e6",
+            "size": 15037
+          }
+        ],
+        "stage_refs": [
+          "T02.1",
+          "T02.2",
+          "T02.3",
+          "T02.4",
+          "T03.4"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "entrypoints",
+        "integration_owner": "existing CLI/startup/dependency setup",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/__init__.py",
+            "sha256": "9047c6a9b9c272a0941f13fe44bcad7e94cf41e2a2837dc60b3c84d3e1638087",
+            "size": 94
+          },
+          {
+            "path": "src/potbot/__main__.py",
+            "sha256": "9587d7cfa8a6e4a702e89d14111ec83828ff469d62855595eff1bac6f4ab8a74",
+            "size": 121
+          },
+          {
+            "path": "src/potbot/cli.py",
+            "sha256": "b1d28a0411359af62f222cb034eef024538b01ffd1754d8bdbf3339e5033514c",
+            "size": 7958
+          },
+          {
+            "path": "src/potbot/dependencies.py",
+            "sha256": "89e2aa2318114e5c7c0491bb0bc03534c0bdfa5e40bb09f561f57117925250fb",
+            "size": 18753
+          },
+          {
+            "path": "src/potbot/startup.py",
+            "sha256": "9c5d05814dcfcc1b6c6d71a6e794708738da23cd7b2b56dfa2ee9399221dd6ec",
+            "size": 2049
+          }
+        ],
+        "stage_refs": [
+          "T12.1"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "credentials",
+        "integration_owner": "existing credential and service-credential stores",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/credentials.py",
+            "sha256": "dfaa1651985e8b5bb3dfb59ee6348344d8b030419dc1484eac8b04f42244d0f9",
+            "size": 18187
+          },
+          {
+            "path": "src/potbot/service_credentials.py",
+            "sha256": "568792ff170a428a2ed0f3221273aa64b677a5e2672e24f72b42ae9daee0728f",
+            "size": 2552
+          }
+        ],
+        "stage_refs": [
+          "T03.3"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "workspace",
+        "integration_owner": "existing registered workspace sandbox",
+        "source_state": "present",
+        "source_files": [
+          {
+            "path": "src/potbot/workspace_sandbox.py",
+            "sha256": "4f6d6ba6ba882fe8abfffe81eb974bbbd9a961151f315034b7d814f67581b977",
+            "size": 7261
+          }
+        ],
+        "stage_refs": [
+          "T03.2"
+        ],
+        "qualification": "not_established_by_source_inventory"
+      }
+    ],
+    "transports": [
+      {
+        "id": "mcp_stdio",
+        "source": "src/potbot/tools/mcp_stdio.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "mcp_http",
+        "source": "src/potbot/tools/mcp_http.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "cli",
+        "source": "src/potbot/tools/cli_adapter.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "http_sdk",
+        "source": "src/potbot/tools/api_http.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "grpc",
+        "source": "src/potbot/tools/api_grpc.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "openapi",
+        "source": "src/potbot/tools/api_openapi.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      },
+      {
+        "id": "python_dap",
+        "source": "src/potbot/debugging/dap.py",
+        "state": "source_present",
+        "callability": "not_established_by_source_inventory",
+        "qualification": "not_established_by_source_inventory"
+      }
+    ],
+    "specialist_routes": [
+      {
+        "id": "android",
+        "state": "unqualified",
+        "enabled": false
+      },
+      {
+        "id": "apple",
+        "state": "unqualified",
+        "enabled": false
+      },
+      {
+        "id": "remote_python",
+        "state": "unqualified",
+        "enabled": false
+      },
+      {
+        "id": "hardware_debug",
+        "state": "unqualified",
+        "enabled": false
+      },
+      {
+        "id": "profiling",
+        "state": "unqualified",
+        "enabled": false
+      }
+    ],
+    "extension_map": {
+      "database": "extend existing versioned PostgreSQL migrations; no parallel database",
+      "identity": "reuse authenticated WorkspaceContext and native security broker",
+      "dispatch": "installed SYN Cog -> controller admission -> existing ToolGateway/supervisor",
+      "monitoring": "existing SYN execution ledger, CogWorkMonitor, artifacts and shared cursor",
+      "snapshots": "existing RepositoryStateStore and canonical RepositorySnapshot"
+    },
+    "assumptions": [
+      "Source presence is not installation, host health, permission or execution qualification.",
+      "A transport module without a registered Cog binding is not agent-callable.",
+      "The selected committed snapshot may differ from the current working tree or installed runtime.",
+      "Inventory hashes are content identities, not signatures or code attestation."
+    ],
+    "inventory_sha256": "954942b02f6c3e68880b7204055fa114ed6341c382006543de2ea152e87a1f99"
+  },
+  "events": [
+    {
+      "stage": "started",
+      "phase": "executing",
+      "elapsed_ms": 0,
+      "controller_cpu_ms": 0
+    },
+    {
+      "stage": "updated",
+      "phase": "admitted_dispatch",
+      "elapsed_ms": 0,
+      "controller_cpu_ms": 0
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:1/16",
+      "elapsed_ms": 28,
+      "controller_cpu_ms": 28
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:2/16",
+      "elapsed_ms": 28,
+      "controller_cpu_ms": 28
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:3/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:4/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:5/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:6/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:7/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:8/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:9/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:10/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:11/16",
+      "elapsed_ms": 29,
+      "controller_cpu_ms": 29
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:12/16",
+      "elapsed_ms": 30,
+      "controller_cpu_ms": 30
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:13/16",
+      "elapsed_ms": 30,
+      "controller_cpu_ms": 30
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:14/16",
+      "elapsed_ms": 30,
+      "controller_cpu_ms": 30
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:15/16",
+      "elapsed_ms": 30,
+      "controller_cpu_ms": 30
+    },
+    {
+      "stage": "updated",
+      "phase": "inventory_components:16/16",
+      "elapsed_ms": 30,
+      "controller_cpu_ms": 30
+    },
+    {
+      "stage": "completed",
+      "phase": "result_received",
+      "elapsed_ms": 32,
+      "controller_cpu_ms": 32
+    }
+  ]
+}

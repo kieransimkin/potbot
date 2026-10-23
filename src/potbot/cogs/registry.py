@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from potbot.controller.tool_inventory import ToolInventoryRuntime
     from potbot.debugging.cog_runtime import DebuggerCogRuntime
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
@@ -223,8 +224,13 @@ class BoundCogRegistry:
 
     snapshot: SynSnapshot
     execution_profile: bool = False
+    inventory_profile: bool = False
 
     def installed(self) -> tuple[CogSignature, ...]:
+        if self.inventory_profile:
+            from potbot.cogs.inventory import SIGNATURE
+
+            return (*INSTALLED_COGS, SIGNATURE)
         if self.execution_profile:
             from potbot.cogs.debugger import DEBUGGER_COGS
 
@@ -233,8 +239,17 @@ class BoundCogRegistry:
 
     def __post_init__(self) -> None:
         from potbot.cogs.debugger import debugger_cog_snapshot
+        from potbot.cogs.inventory import inventory_cog_snapshot
 
-        expected = debugger_cog_snapshot() if self.execution_profile else builtin_cog_snapshot()
+        if self.execution_profile and self.inventory_profile:
+            raise ScopeDeniedError("Choose one exact installed execution profile")
+        expected = (
+            inventory_cog_snapshot()
+            if self.inventory_profile
+            else debugger_cog_snapshot()
+            if self.execution_profile
+            else builtin_cog_snapshot()
+        )
         if self.snapshot.fingerprint != expected.fingerprint:
             raise ScopeDeniedError("Cog catalogue must match the installed pinned definitions")
         declared = {type_identity(t.ref): t for t in merge_types(self.snapshot)}
@@ -283,22 +298,36 @@ class BoundCogRegistry:
 
         return cls(debugger_cog_snapshot(), execution_profile=True)
 
+    @classmethod
+    def tool_inventory(cls) -> BoundCogRegistry:
+        from potbot.cogs.inventory import inventory_cog_snapshot
+
+        return cls(inventory_cog_snapshot(), inventory_profile=True)
+
     async def invoke(
         self,
         cog_ref: str,
         source: TypedCogValue,
         context: CogRunContext,
         *,
-        controller: DebuggerCogRuntime,
+        controller: DebuggerCogRuntime | ToolInventoryRuntime,
     ) -> CogOutcome:
         """Explicit async execution path. Pure transform() never dispatches tools."""
         from potbot.cogs.debugger import DEBUGGER_COGS
+        from potbot.cogs.inventory import SIGNATURE
+        from potbot.controller.tool_inventory import ToolInventoryRuntime
         from potbot.debugging.cog_runtime import DebuggerCogRuntime
 
-        if not self.execution_profile or not isinstance(controller, DebuggerCogRuntime):
+        if self.inventory_profile and isinstance(controller, ToolInventoryRuntime):
+            selected = SIGNATURE if str(SIGNATURE.cog_ref) == cog_ref else None
+        elif self.execution_profile and isinstance(controller, DebuggerCogRuntime):
+            selected = next((s for s in DEBUGGER_COGS if str(s.cog_ref) == cog_ref), None)
+        else:
             raise ScopeDeniedError("Execution Cogs require their installed controller profile")
-        selected = next((s for s in DEBUGGER_COGS if str(s.cog_ref) == cog_ref), None)
-        if selected is None or selected.handler_ref != "potbot.cogs.debugger.execute":
+        if selected is None or selected.handler_ref not in {
+            "potbot.cogs.debugger.execute",
+            "potbot.cogs.inventory.execute",
+        }:
             raise ScopeDeniedError("Execution Cog handler is not installed")
         if context.cog_snapshot_hash != self.snapshot.fingerprint:
             raise StateMismatchError("Execution Cog catalog changed")

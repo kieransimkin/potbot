@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Potbot source inventory evidence replay</title>
+<style>body{font:16px/1.5 system-ui;background:#081722;color:#e4eff5;margin:0;padding:28px}main{max-width:1120px;margin:auto}h1{margin-top:0;color:#8ce4d4}code{overflow-wrap:anywhere}button{padding:10px 20px;background:#163e51;color:white;border:1px solid #8ce4d4;border-radius:5px;margin:8px 8px 8px 0}table{width:100%;border-collapse:collapse}td,th{padding:7px;text-align:left;border-bottom:1px solid #29414f}tr.active{background:#214d50}section{border:1px solid #34505f;border-radius:10px;padding:18px;margin:18px 0}.note{color:#ffd58c}#phase{color:#8ce4d4;font-size:20px}small{color:#bad0db}@media(max-width:650px){body{padding:16px}td,th{padding:5px;font-size:13px}}</style>
+<main><h1>Which tools are already in Potbot?</h1><p>Actual committed-source inventory and SYN Cog work records.</p>
+<p id="identity"></p><p class="note" id="qualification"></p><button id="play">Play recorded progress</button><button id="finish">Show completion</button>
+<section><div id="phase">Loading saved evidence…</div><p id="stats"></p><small>Playback uses fixed intervals. Wall time below comes from the original Cog run.</small></section>
+<section><h2>Integration owners</h2><table><thead><tr><th>Component</th><th>Source modules</th><th>Stage links</th></tr></thead><tbody id="components"></tbody></table></section>
+<section><h2>Source presence and qualification</h2><p id="transports"></p><p class="note">Source presence does not prove installation, permission, a healthy host or execution qualification.</p><p id="specialists"></p></section>
+<p>This viewer replays retained evidence. It starts no source scan, debugger, service or device connection.</p></main>
+<script type="module">
+const data=await(await fetch('../../docs/implementation/media/tool-inventory.json')).json();
+const inventory=data.inventory, events=data.events, rows=[];
+document.querySelector('#identity').textContent=`Source ${inventory.source_version} · ${inventory.source.commit_id.slice(0,12)} · ${inventory.source.content_digest.slice(0,18)}…`;
+document.querySelector('#qualification').textContent=data.qualification;
+for(const component of inventory.components){const row=document.createElement('tr');for(const value of [component.id,component.source_files.length,component.stage_refs.join(', ')]){const cell=document.createElement('td');cell.textContent=value;row.append(cell)}document.querySelector('#components').append(row);rows.push(row)}
+document.querySelector('#transports').textContent=inventory.transports.map(t=>`${t.id}: ${t.state}`).join(' · ');
+document.querySelector('#specialists').textContent='Separate unqualified routes: '+inventory.specialist_routes.map(r=>r.id).join(', ');
+let index=0,timer;function show(i){const e=events[i];document.querySelector('#phase').textContent=`${i+1}/${events.length} · ${e.stage} · ${e.phase}`;document.querySelector('#stats').textContent=`Elapsed ${e.elapsed_ms} ms · controller CPU ${e.controller_cpu_ms} ms · target/resource/cost metrics unavailable`;rows.forEach((r,n)=>r.classList.toggle('active',e.phase===`inventory_components:${n+1}/${rows.length}`))}
+document.querySelector('#play').onclick=()=>{clearInterval(timer);index=0;show(index);timer=setInterval(()=>{if(++index>=events.length){clearInterval(timer);return}show(index)},350)};
+document.querySelector('#finish').onclick=()=>{clearInterval(timer);show(events.length-1)};addEventListener('pagehide',()=>clearInterval(timer),{once:true});show(0);
+</script></html>

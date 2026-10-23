@@ -6,7 +6,7 @@
 **Observed GitHub baseline:** `main` at `74dac45d5535595975e10f545fd6d9cb1652e6a8` (read-only inspection, 22 October 2026)  
 **Expansion source baseline:** `main` at `24696ac6665878d9b10c0b5adb8b55abebbd34c3` (23 October 2026; historical baseline above retained).
 **Scope:** 12 phases × 4 incremental stages = **48 independently testable deliverables**.  
-**Status:** Requirements with incremental implementation tracking. T07.3 is **in progress** for the Python debugger Cog slice; no complete stage is inferred from this document.
+**Status:** Requirements with incremental implementation tracking. T01.1 has an implemented source-inventory Cog with a mandatory exact-source acceptance gate. T07.3 is **in progress** for the Python debugger Cog slice; other stages remain separately gated.
 
 > Integration rule: build on the existing Potbot jobs/API/WebSocket, workspace sandbox, hosted model gateway, Ed25519 identity and locking Cogs, semantic Type catalogs, inherited Embers, typed Cog transformations, artifact and receipt mechanisms, and Phase 6 graph search. Do not recreate these as parallel systems. An existing feature should be marked **reuse**, **extend**, **qualify**, or **missing** before any implementation ticket is started.
 
@@ -170,6 +170,7 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 ### Phase 01 — Foundations and non-destructive reconciliation
 
 #### T01.1 — Current-state inventory and gap analysis
+- **Implementation state:** Complete for source inventory: [monitored Cog and exact-source gate](../implementation/11-tool-source-inventory.md). This does not qualify transport or host execution.
 - **Prerequisites:** none.
 - **Deliverable:** A version-pinned capability inventory and migration-safe extension map.
 - **Implementation:** Inspect actual Potbot APIs, PostgreSQL migrations, Cog registry, Syn catalog, sandbox profiles, credentials, jobs, REST, WebSocket, models and CI; record implemented vs unqualified vs missing; identify safe extension points. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification. Apply gap requirements G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.
