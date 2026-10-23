@@ -150,7 +150,7 @@
     "name": "Curated registry and trusted package catalog",
     "prerequisites": "T02.*,T03.*",
     "deliverable": "Local signed/version-pinned capability and adapter catalog",
-    "implementation": "Provide declarative manifest for name, versions, protocol, origin, trust tier, scopes, schemas, SemVer, hashes/SBOM, update policy and dependencies; separate catalog listing from installation/execution.",
+    "implementation": "Provide declarative manifest for name, versions, protocol, origin, trust tier, scopes, schemas, SemVer, hashes/SBOM, update policy and dependencies; separate catalog listing from installation/execution. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status.",
     "acceptance": "Unpinned or unsigned high-risk package rejected by policy; stale manifest flagged; malicious package cannot gain network/filesystem grants by self-description.",
     "demonstration": "List and inspect 20 curated adapters without installing all dependencies.",
     "status": "not_started"
@@ -162,7 +162,7 @@
     "name": "MCP discovery, rescan and schema reconciliation",
     "prerequisites": "T04.1,T02.1,T02.2",
     "deliverable": "Incremental MCP search and dynamic catalog updates",
-    "implementation": "Discover enabled server toolsets, tools/resources/prompts, listChanged events, pagination, schemas and supported versions; cache with TTL/revision; ingest third-party MCP registry metadata as untrusted candidates pending operator admission.",
+    "implementation": "Discover enabled server toolsets, tools/resources/prompts, listChanged events, pagination, schemas and supported versions; cache with TTL/revision; ingest third-party MCP registry metadata as untrusted candidates pending operator admission. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status.",
     "acceptance": "Discovery is deterministic across reconnects; tool removal invalidates planner references; changed schema requires revalidation; list pagination returns every permitted tool.",
     "demonstration": "Add a fake MCP tool during an active session; see tool appear without restarting the agent.",
     "status": "not_started"
@@ -174,7 +174,7 @@
     "name": "Capability search and routing",
     "prerequisites": "T04.1,T04.2,T01.2",
     "deliverable": "Semantic + symbolic selector with cost/security filtering",
-    "implementation": "Build keyword, graph and vector search over type hierarchy, metadata and examples; rank by required data types, trust, scopes, observed quality, latency and cost; expose inspect/select and alternative suggestions; lazy-load only relevant tool definitions.",
+    "implementation": "Build keyword, graph and vector search over type hierarchy, metadata and examples; rank by required data types, trust, scopes, observed quality, latency and cost; expose inspect/select and alternative suggestions; lazy-load only relevant tool definitions. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status.",
     "acceptance": "A golden set of 40 requests routes to expected capability class; permission-disallowed option never ranks as executable; cold discovery bounded by token/tool budget.",
     "demonstration": "Ask for screenshot inspection, satisfiability solving and commit inspection without naming vendors.",
     "status": "not_started"
@@ -186,7 +186,7 @@
     "name": "Versioning, health, revocation and install lifecycle",
     "prerequisites": "T04.1\u2013T04.3",
     "deliverable": "Operator lifecycle APIs and circuit breakers",
-    "implementation": "Install/uninstall/pin/up/downgrade adapters inside workspace tools/; healthcheck schema/runtime compatibility; quarantine compromised packages, recall capability revisions and invalidate stale invocations.",
+    "implementation": "Install/uninstall/pin/up/downgrade adapters inside workspace tools/; healthcheck schema/runtime compatibility; quarantine compromised packages, recall capability revisions and invalidate stale invocations. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status.",
     "acceptance": "Rolling update preserves old active runs; revoked instance is denied immediately to new calls; rollback restores previous manifest without corrupting receipts; health state is visible.",
     "demonstration": "Disable a known-bad test tool during queued invocations and verify safe behavior.",
     "status": "not_started"
