@@ -53,6 +53,7 @@ jobs:
       POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
       UV_PYTHON: "3.12"
       POTBOT_DEBUGGER_EVIDENCE_DIR: artifacts/debugger-cogs
+      POTBOT_INVENTORY_EVIDENCE_DIR: artifacts/tool-inventory
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -93,6 +94,8 @@ jobs:
         run: |
           potbot_release_tag="v$(uv run --locked python -c 'import potbot; print(potbot.__version__)')"
           uv run --locked python scripts/build_release.py --tag "$potbot_release_tag" --output artifacts/release-packages
+      - name: Verify T01.1 exact-source inventory acceptance
+        run: uv run --locked python scripts/check_tool_inventory.py artifacts/tool-inventory/tool-inventory.json --output artifacts/tool-inventory/T01.1-gate.json
       - name: Capture sanitized database diagnostics
         if: failure()
         shell: bash
@@ -118,3 +121,11 @@ jobs:
           path: artifacts/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Retain source-inventory Cog acceptance
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tool-inventory-cog-evidence
+          path: artifacts/tool-inventory/
+          if-no-files-found: error
+          retention-days: 14

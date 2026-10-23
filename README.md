@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev3`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev4`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -46,6 +46,8 @@ core/Python/specialist qualification gates. The [mandatory SYN tool-Cog contract
 the synchronized 48-stage roadmap with `python scripts/check_tool_plan.py`.
 
 The [Python-first debugger Cog interface](docs/implementation/08-debugger-python-first.md) adds registered language-neutral operations, controller admission, stop-scoped stack/variable handles and start/progress/terminal telemetry on the existing execution ledger. Python is the first backend; the guide separates local fixture, durable PostgreSQL and qualified Linux sandbox evidence.
+
+The [source inventory Cog](docs/implementation/11-tool-source-inventory.md) implements T01.1 over existing committed repository snapshots. It maps every captured source module to its integration owner and roadmap stages, retains source/lock hashes and records monitored progress. Existing adapter code is distinguished from installation and host qualification; no inspected code is imported or executed. Its required CI gate uses real PostgreSQL, sealed SYN definitions and API replay.
 
 ## Install and check
 

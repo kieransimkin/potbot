@@ -63,7 +63,14 @@ def main() -> None:
         metadata = next(name for name in wheel.namelist() if name.endswith(".dist-info/METADATA"))
         if f"\nVersion: {version}\n" not in wheel.read(metadata).decode("utf-8"):
             raise SystemExit("Wheel version differs from release source")
-        for source in ("cogs/debugger.py", "debugging/cog_runtime.py", "controller/cog_work.py"):
+        for source in (
+            "cogs/debugger.py",
+            "debugging/cog_runtime.py",
+            "controller/cog_work.py",
+            "cogs/inventory.py",
+            "controller/tool_inventory.py",
+            "tools/inventory.py",
+        ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
                 raise SystemExit("Wheel debugger source differs from build input")
         names = wheel.namelist()
@@ -87,6 +94,7 @@ def main() -> None:
             "import potbot; from potbot.cogs.registry import BoundCogRegistry; "
             f"assert potbot.__version__ == {version!r}; "
             "assert len(BoundCogRegistry.debugger().installed()) == 25; "
+            "assert len(BoundCogRegistry.tool_inventory().installed()) == 5; "
             "print('Clean wheel version and installed SYN Cog catalog verified')",
             cwd=Path(temporary),
         )
