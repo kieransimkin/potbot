@@ -60,6 +60,8 @@ jobs:
           enable-cache: true
       - name: Install locked application and development dependencies
         run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --extra debugger --dev
+      - name: Verify tool-plan parity, dependencies and requirement coverage
+        run: uv run --locked python scripts/check_tool_plan.py
       - name: Install required Linux process isolation
         run: |
           sudo apt-get update

@@ -1,0 +1,440 @@
+{
+  "schema_version": "potbot-plan-gaps-v1",
+  "document_version": "1.4",
+  "baseline": "37e5e23cf0f69fd7f1bfb1266a033994d950767d",
+  "status": "requirements_only",
+  "gaps": [
+    {
+      "id": "G01",
+      "title": "Workspace files and atomic editing",
+      "priority": "P0",
+      "stages": [
+        "T02.3",
+        "T03.2",
+        "T07.2",
+        "T07.4"
+      ],
+      "baseline_coverage": "Repository search and the existing patch pipeline are covered; general file operations lack a typed contract.",
+      "implementation": "Add bounded list/read/search/stat, range reads, create/copy/move/delete and multi-file patch operations. Preserve encoding, BOM, newline mode, executable bits and binary identity. Bind expected base hashes, workspace roots and symlink/reparse-point resolution; use staging plus a journal and recovery for multi-file commits rather than claiming a filesystem-wide atomic rename.",
+      "acceptance": "A two-file UTF-8/CRLF fixture preserves bytes outside the patch; stale bases and symlink swaps are rejected. Inject failure between commits: recovery restores the old set or completes the journaled new set, and a partial set is never verified. Preview and readback prove the exact resulting hashes.",
+      "demonstration": "Edit two files, inject a concurrent edit and an interrupted commit, then inspect conflict and recovery receipts.",
+      "workflow": "WF16",
+      "status": "planned"
+    },
+    {
+      "id": "G02",
+      "title": "Interactive terminal sessions",
+      "priority": "P0",
+      "stages": [
+        "T02.3",
+        "T03.4",
+        "T10.2",
+        "T12.2"
+      ],
+      "baseline_coverage": "Bounded one-shot CLI pipes exist in the plan; a PTY and its session lifecycle are unspecified.",
+      "implementation": "Offer optional PTY sessions with explicit executable, cwd, environment projection, input/EOF, resize, signals and owned process-tree cleanup. Qualify POSIX PTY and Windows ConPTY separately. Gate each input against the current session lease; sanitize terminal control sequences and links before operator rendering; secrets use the credential broker, never model-entered prompts.",
+      "acceptance": "An authored interactive child accepts two inputs, resizes and exits; slow output remains bounded. Expired-session input and terminal escape injection fail; cancellation cleans the owned tree. A dropped connection cannot replay a command or claim a prompt was answered.",
+      "demonstration": "Run a local interactive fixture, disconnect once and inspect output, lease expiry and cleanup.",
+      "workflow": "WF17",
+      "status": "planned"
+    },
+    {
+      "id": "G03",
+      "title": "Remote development and compute targets",
+      "priority": "P1",
+      "stages": [
+        "T02.3",
+        "T03.2",
+        "T03.3",
+        "T08.4",
+        "T12.1"
+      ],
+      "baseline_coverage": "Remote debugger hosts and cloud candidates are named; general SSH/container/VM execution is not specified.",
+      "implementation": "Add separately admitted SSH/SFTP, container and VM targets with host-key or workload identity, fixed workspace mapping, immutable image/build identity, scoped transfer and process control. Lease port forwards, bound their destination and close owned channels. Kubernetes exec and devcontainers require their own profiles; never mount a raw Docker socket or forward an agent credential as an implicit capability.",
+      "acceptance": "A disposable SSH/container fixture transfers a hash-pinned file and runs a fixed command. Reject changed host keys, wrong cluster/namespace, escaping mounts and stale target leases; cancellation removes only the fixture's processes and forwards. Physical remote-host qualification is recorded independently.",
+      "demonstration": "Inspect a target, transfer a fixture, execute it and verify remote output hashes and teardown.",
+      "workflow": "WF18",
+      "status": "planned"
+    },
+    {
+      "id": "G04",
+      "title": "Network diagnostics and protocol clients",
+      "priority": "P1",
+      "stages": [
+        "T02.4",
+        "T03.2",
+        "T06.2",
+        "T08.3"
+      ],
+      "baseline_coverage": "HTTP APIs and CDP network traces are covered; host-level DNS/TLS/socket diagnosis is missing.",
+      "implementation": "Add scoped DNS resolution, TCP reachability, TLS certificate/chain inspection, HTTP timing and bounded WebSocket/SSE clients. Apply egress policy to resolved and redirected addresses. Treat packet capture, proxy changes, network interfaces and firewall mutation as distinct privileged capabilities; packet payload capture defaults off.",
+      "acceptance": "A local fixture distinguishes DNS failure, refused connection, expired certificate, redirect denial and slow response. WebSocket reconnect exposes a new attempt without duplicating a write. Capture size/duration is enforced and secret headers/payloads are omitted from receipts.",
+      "demonstration": "Diagnose a planted TLS/HTTP fault and compare it with a healthy endpoint using the same policy.",
+      "workflow": "WF19",
+      "status": "planned"
+    },
+    {
+      "id": "G05",
+      "title": "Processes, services and operating-system evidence",
+      "priority": "P1",
+      "stages": [
+        "T02.3",
+        "T03.1",
+        "T07.3",
+        "T08.4"
+      ],
+      "baseline_coverage": "Process execution and profiling are planned; OS/service inventory and bounded log queries are unspecified.",
+      "implementation": "Provide typed process/resource inventory, scoped service status and bounded journal/Event Log queries with time windows and cursors. Bind PID plus process start identity, user and host; service start/stop/restart, signals and dump collection are separate effects. Preserve unavailable metrics and native privilege requirements.",
+      "acceptance": "A fixture emits an error and exits; queries locate its exact process and time span. PID reuse cannot redirect a signal; an unrelated service cannot be stopped. Log flooding hits limits without losing a truthful truncation cursor or exposing a planted secret.",
+      "demonstration": "Correlate a service error with its process, log window and resource observations.",
+      "workflow": "WF20",
+      "status": "planned"
+    },
+    {
+      "id": "G06",
+      "title": "Database transactions, migrations and restore",
+      "priority": "P1",
+      "stages": [
+        "T08.1",
+        "T08.3",
+        "T11.4",
+        "T12.4"
+      ],
+      "baseline_coverage": "SQL defaults to read-only and writes require authority; safe write execution and restore acceptance are not defined.",
+      "implementation": "Add separately granted parameterized writes, explicit transaction boundaries, lock/statement timeouts, affected-row limits and optimistic concurrency. Plan schema migrations against exact schema versions, dry-run where supported, checkpoint backups and restore rehearsal. DDL auto-commit and non-transactional effects must be declared; never promise rollback when the engine cannot provide it.",
+      "acceptance": "A disposable database passes read/write isolation, stale-row rejection, mid-transaction rollback and lock timeout. Restore a hashed backup into a fresh instance and check schema/data invariants. Lost acknowledgement after commit remains indeterminate until reconciled, without repeating the write.",
+      "demonstration": "Apply and recover a small migration, then show restore evidence from a separate disposable instance.",
+      "workflow": "WF21",
+      "status": "planned"
+    },
+    {
+      "id": "G07",
+      "title": "Documents, tables, OCR and archives",
+      "priority": "P1",
+      "stages": [
+        "T05.2",
+        "T08.4",
+        "T09.1",
+        "T11.1"
+      ],
+      "baseline_coverage": "Fetch/extraction and cloud files are candidates; local document authoring and format fidelity are not acceptance-gated.",
+      "implementation": "Add scoped PDF, DOCX, XLSX, CSV/TSV and archive inspect/extract/transform adapters, plus OCR with confidence and page coordinates. Retain formulas, units, styles, page/source spans and original bytes; formula recalculation and rendering require qualified engines. Macros, external links and spreadsheet formula execution default off; bound archive expansion, nested depth and parser resources.",
+      "acceptance": "A fixture round-trips Unicode and tabular values, renders a document and traces OCR text to page boxes. Zip traversal, archive bombs, external-link fetches and formula injection are blocked. Report unsupported layout/formula features and compare rendered pages where visual fidelity matters.",
+      "demonstration": "Extract a table from an authored PDF, inspect source spans and export a reviewed spreadsheet with a rendered preview.",
+      "workflow": "WF22",
+      "status": "planned"
+    },
+    {
+      "id": "G08",
+      "title": "Image, audio and video tool composition",
+      "priority": "P1",
+      "stages": [
+        "T08.4",
+        "T09.1",
+        "T11.1",
+        "T12.3"
+      ],
+      "baseline_coverage": "DanceFlow domain tools are listed, but media IO, time bases and composition acceptance are unspecified.",
+      "implementation": "Describe typed image/audio/video inspect, decode, transform, transcript/subtitle and bounded capture contracts with MIME, dimensions, colour space, sample rate, channels, frame/time base and source hashes. Compose maintained DanceFlow tools for supported analysis/rendering rather than copying engines. Keep generation, transformation, model inference and source evidence distinct; require rights/cost/retention policy and project-local models for optional inference.",
+      "acceptance": "An authored local clip preserves expected duration, sample/frame mapping and caption offsets through a supported adapter. Reject unsupported codecs and oversized inputs explicitly; verify exported bytes and playback separately from a successful render command. No optional model download or paid generation occurs merely on discovery.",
+      "demonstration": "Inspect an authored short clip and execute one supported transformation with before/after metadata and user-controlled playback.",
+      "workflow": "WF23",
+      "status": "planned"
+    },
+    {
+      "id": "G09",
+      "title": "Inbound events, subscriptions and connector writes",
+      "priority": "P1",
+      "stages": [
+        "T02.4",
+        "T08.3",
+        "T08.4",
+        "T10.2"
+      ],
+      "baseline_coverage": "Webhooks and collaboration connectors are named; delivery, unsubscribe and uncertain-send semantics are incomplete.",
+      "implementation": "Define authenticated webhook/subscription/timer inputs with signature verification, replay windows, deduplication, ordered cursors where supported and bounded dead-letter retention. Explicitly separate drafts, sends, acknowledgements, edits and deletion; use exact-payload grants for connector writes and reconcile uncertain delivery. Subscription creation/renewal/unsubscribe and revocation are owned resources, not permanent background access.",
+      "acceptance": "A local event source delivers duplicate/out-of-order events and rotates its signing key. Only one admitted workflow is created per canonical occurrence; spoofed and expired events fail. Lost send acknowledgement cannot cause a duplicate; unsubscribe stops new delivery and reports outstanding events.",
+      "demonstration": "Trigger a workflow from a signed local event, replay it and inspect the single accepted occurrence.",
+      "workflow": "WF24",
+      "status": "planned"
+    },
+    {
+      "id": "G10",
+      "title": "Large artifacts, streaming and retention",
+      "priority": "P0",
+      "stages": [
+        "T01.3",
+        "T02.4",
+        "T03.4",
+        "T10.2",
+        "T12.2"
+      ],
+      "baseline_coverage": "Output caps and artifact hashes exist; paged access, backpressure and retention are not one shared contract.",
+      "implementation": "Specify MIME/encoding/length/hash, range and cursor reads, resumable chunk upload, bounded streaming and backpressure over the existing artifact store. Bind cursors and references to tenant, grant and revision; define expiry, redaction, retention, deletion and cache invalidation. Preserve a complete artifact separately from truncated model/operator projections; a digest alone is not an accessible output.",
+      "acceptance": "Stream an artifact above the inline cap, reconstruct exact bytes by ranges and verify its hash. Disconnect/reorder/duplicate chunks without corruption; reject foreign/expired cursors and changed revisions. Slow consumers stay within declared buffers; retention removes access and reports unavailable historical content honestly.",
+      "demonstration": "Inspect a large trace in bounded pages, reconnect and verify the retained full artifact.",
+      "workflow": "WF25",
+      "status": "planned"
+    },
+    {
+      "id": "G11",
+      "title": "Test discovery, coverage and failure reduction",
+      "priority": "P0",
+      "stages": [
+        "T07.3",
+        "T07.4",
+        "T11.1",
+        "T11.3"
+      ],
+      "baseline_coverage": "Language test/lint tools are listed; test identity, coverage and flaky-result handling lack criteria.",
+      "implementation": "Normalize test discovery, selection, subtests, parameterized cases, stdout and JUnit receipts with exact source/runtime/command. Report line/branch coverage with source maps and distinguish coverage from correctness. Add bounded property/fuzz runs and minimized counterexample artifacts; retain seeds, reruns, skips and flaky classification without converting a retry into an unqualified pass.",
+      "acceptance": "A Python-first fixture discovers parameterized tests, isolates a planted failure and records source-bound coverage. A seeded property failure reproduces from its minimized input. Changed tests invalidate prior evidence; skipped mandatory cases and a flaky rerun cannot make the original failure disappear. Qualify later language runners independently.",
+      "demonstration": "Select one failing Python case, debug it, rerun outside the debugger and inspect the source-bound test receipt.",
+      "workflow": "WF26",
+      "status": "planned"
+    },
+    {
+      "id": "G12",
+      "title": "Debugger completeness and postmortem inspection",
+      "priority": "P1",
+      "stages": [
+        "T02.3",
+        "T07.2",
+        "T07.3",
+        "T11.1"
+      ],
+      "baseline_coverage": "Live line/exception breakpoints and stepping are already required; multi-thread/process and postmortem cases need explicit gates.",
+      "implementation": "Extend negotiated debugger capabilities with breakpoint replacement/removal and pending verification, thread selection, async/logical stacks, child-process policy, source maps, optimized/missing-symbol frames and read-only core/minidump inspection. Treat logpoints, conditions, watches and pretty-printers as potentially executing target code. Distinguish attach/detach from launch/terminate; hot reload, reverse execution and instruction/data breakpoints are optional capabilities, not universal promises.",
+      "acceptance": "Local Python remains first: test breakpoint removal and delayed verification, an actual attach/detach preserving a separately owned fixture, exception stacks and thread selection where supported. Resume invalidates all frame/value handles; mismatched source maps/dumps are rejected. A read-only postmortem fixture cannot resume or mutate a live target. Unsupported async/reverse/native features remain explicit.",
+      "demonstration": "Compare a live Python exception stack with a separately qualified postmortem view; do not claim Python live acceptance qualifies dump formats.",
+      "workflow": "WF27",
+      "status": "planned"
+    },
+    {
+      "id": "G13",
+      "title": "Distributed traces and comparable profiling",
+      "priority": "P1",
+      "stages": [
+        "T01.3",
+        "T06.2",
+        "T07.3",
+        "T11.2",
+        "T12.2"
+      ],
+      "baseline_coverage": "Causal SYN events and profiling are defined; cross-host trace export and clock uncertainty need a concrete contract.",
+      "implementation": "Map optional OpenTelemetry trace/span/link identities onto canonical SYN run/event receipts without replacing authority or the durable ledger. Preserve monotonic local durations, wall clocks, units, host clock offsets/uncertainty, dropped samples and profiling overhead. Correlate logs, traces and metrics with exact workload/build/source; do not send sensitive baggage or high-cardinality private attributes by default.",
+      "acceptance": "A local two-process fixture preserves parent and fan-in links; injected wall-clock skew cannot produce fabricated negative durations or false ordering. Compare the same workload with profiler off/on and report overhead, missing counters and sampled uncertainty. Telemetry exporter failure does not lose execution receipts or authorize retries.",
+      "demonstration": "Inspect a causally linked service trace and a reproducible CPU hotspot comparison with measured overhead.",
+      "workflow": "WF28",
+      "status": "planned"
+    },
+    {
+      "id": "G14",
+      "title": "Reproducible environments and dependency updates",
+      "priority": "P0",
+      "stages": [
+        "T04.4",
+        "T07.3",
+        "T12.1",
+        "T12.4"
+      ],
+      "baseline_coverage": "Pinned packages and SBOM are planned; offline reproduction and build/update provenance need acceptance.",
+      "implementation": "Define language/runtime/compiler/OS/architecture lock identities, native library and system package prerequisites, licences and provenance. Separate dependency resolution/download/install/build/execute rights; cache only integrity-checked artifacts within project scope. Add offline replay from an approved cache, compatibility matrices, vulnerability revocation and upgrade/downgrade tests. Sign/attest published artifacts through established release routes when configured.",
+      "acceptance": "A clean offline fixture rebuilds from a pinned cache or reports exact missing artifacts, never downloading silently. Tampered wheels/binaries and incompatible ABI profiles fail before execution. An update/rollback preserves active-run pins and produces the expected source/package hashes; licence restrictions are reported before redistribution.",
+      "demonstration": "Recreate a minimal Python tool environment offline and compare its dependency and output identities.",
+      "workflow": "WF29",
+      "status": "planned"
+    },
+    {
+      "id": "G15",
+      "title": "Recovery, quotas and operator stop authority",
+      "priority": "P0",
+      "stages": [
+        "T03.4",
+        "T10.2",
+        "T11.4",
+        "T12.2",
+        "T12.4"
+      ],
+      "baseline_coverage": "Crash fencing and budgets are covered; end-to-end recovery, storage exhaustion and stop acknowledgement need cross-tool acceptance.",
+      "implementation": "Specify per-tenant admission/concurrency/fairness/storage quotas, queue backpressure, deadlines and cancellation propagation through nested tools. Stop authority remains available while a target is paused or an approval is pending. Model compensation as a separately authorized effect, not a guaranteed undo; include journal recovery, expired leases, dead-letter inspection, store backup/restore and incident runbooks. Record requested, acknowledged and independently observed cleanup states separately.",
+      "acceptance": "Inject worker death, full scratch storage, dropped cancellation and a stuck child across a bounded workflow. No new effects dispatch after revocation; owned resources reach an observed terminal state or an explicit hold within a configured deadline. Restore a disposable store and reconcile uncertain effects without replay; another tenant's queue remains responsive.",
+      "demonstration": "Cancel a nested workflow during a debugger stop and inspect target, worker, artifact and approval final states.",
+      "workflow": "WF30",
+      "status": "planned"
+    },
+    {
+      "id": "G16",
+      "title": "Operator handoffs and accessible evidence views",
+      "priority": "P1",
+      "stages": [
+        "T03.4",
+        "T06.3",
+        "T12.2",
+        "T12.3"
+      ],
+      "baseline_coverage": "The dashboard covers execution and approvals; keyboard interaction, external handoffs and bounded sessions need explicit criteria.",
+      "implementation": "Provide keyboard-accessible catalog, diff/approval, terminal, debugger stack/variables and artifact views. Render untrusted text safely and distinguish proposal, admitted, running, paused, unknown and independently verified states. Human handoffs bind exact action/source hashes, expiry, target and continuation; resume revalidates authority and fresh state. Export redacted receipts, screenshots and user-controlled demonstration media without browser-session secrets.",
+      "acceptance": "Complete one fixture by keyboard, including deny, cancel and inspection of an indeterminate result. Reject stale/changed approval payloads and cross-workspace links; terminal/HTML artifacts cannot execute in the dashboard. Closing a view does not silently terminate a target or imply cleanup. A handoff resumes exactly once after fresh state validation.",
+      "demonstration": "Review a file diff and paused stack, deny one action, then resume an authorized continuation with an auditable receipt.",
+      "workflow": "WF31",
+      "status": "planned"
+    },
+    {
+      "id": "G17",
+      "title": "Core versus specialist gates and traceability",
+      "priority": "P0",
+      "stages": [
+        "T01.1",
+        "T01.4",
+        "T10.1",
+        "T10.3",
+        "T11.1",
+        "T12.1",
+        "T12.4"
+      ],
+      "baseline_coverage": "The 48-stage outline over-couples core composition, benchmarks and installation to every optional specialist.",
+      "implementation": "Keep all 48 stage identities and historical implementation states, but encode executable hard dependencies separately from optional feature gates. Core composition needs two admitted fixture tools, not every search/database/formal-proof integration. Qualification is per enabled profile; unsupported devices/vendors remain named unavailable routes. Maintain requirement-to-stage-to-fixture-to-gate evidence; inventory source capability separately from programme completion and re-estimate expanded phases before commitment.",
+      "acceptance": "The plan checker verifies 48 unique stages, acyclic explicit hard edges, synchronized Markdown/JSON/CSV, unique gap IDs and complete requirement/fixture coverage. Missing specialist hosts cannot fail an unrelated core profile; an enabled mandatory gate cannot be skipped or declared passed by a mock. No stage status changes merely because requirements were written.",
+      "demonstration": "Render the core dependency path and show that Python-first acceptance can run without Apple, hardware probes, Wolfram or a formal prover.",
+      "workflow": "WF32",
+      "status": "planned"
+    },
+    {
+      "id": "G18",
+      "title": "Typed conversion and discovery lifecycle",
+      "priority": "P0",
+      "stages": [
+        "T01.2",
+        "T02.1",
+        "T02.2",
+        "T04.2",
+        "T10.1"
+      ],
+      "baseline_coverage": "Types and discovery are covered; lossy conversion, changing schemas and server-originated operations need cross-protocol criteria.",
+      "implementation": "Make units, locale/timezone, precision, MIME/encoding, pagination and lossiness explicit in converter Cogs; preserve source spans and require validation after conversion. Pin current MCP version and separately test legacy compatibility. Reconcile capability/list changes with active-run schema pins. Server-originated sampling, elicitation, resource subscriptions or future extensions receive explicit local admission and budgets; a server cannot confer model, filesystem or user-consent authority.",
+      "acceptance": "Reject an ambiguous date/unit conversion, precision loss beyond tolerance, incompatible schema change and an unauthorized server-originated request. A benign discovery refresh does not alter an active run; revocation blocks new dispatch. Round-trip a source-bound typed fixture and retain any declared loss; current and legacy MCP flows have separate contract tests.",
+      "demonstration": "Route a typed table through a unit converter, refresh its tool schema and inspect admission of the next invocation.",
+      "workflow": "WF33",
+      "status": "planned"
+    }
+  ],
+  "dependency_changes": [
+    {
+      "stage": "T02.2",
+      "previous": "T02.1,T01.3; security design review before remote calls",
+      "current": "T02.1,T01.3"
+    },
+    {
+      "stage": "T05.4",
+      "previous": "T05.1\u2013T05.3,T09.1 later enhancement",
+      "current": "T05.1\u2013T05.3"
+    },
+    {
+      "stage": "T10.1",
+      "previous": "T04.3,T05.*,T07.*,T08.*,T09.*",
+      "current": "T04.3,T03.4"
+    },
+    {
+      "stage": "T10.3",
+      "previous": "T10.1,T10.2,T09.*",
+      "current": "T10.1,T10.2"
+    },
+    {
+      "stage": "T10.4",
+      "previous": "T10.3; offline utility fixture (expanded by T11.1)",
+      "current": "T10.3"
+    },
+    {
+      "stage": "T11.1",
+      "previous": "T05.*,T06.*,T07.*,T08.*,T09.*",
+      "current": "T01.4,T03.4,T04.3"
+    },
+    {
+      "stage": "T12.1",
+      "previous": "T01\u2013T11",
+      "current": "T01.4,T03.2,T04.4"
+    },
+    {
+      "stage": "T12.2",
+      "previous": "T10.*,T04.4,T11.*",
+      "current": "T10.2,T04.4,T11.2"
+    },
+    {
+      "stage": "T07.2",
+      "previous": "T07.1,T02.3",
+      "current": "T02.3,T03.2"
+    }
+  ],
+  "profile_gates": {
+    "core": "Contract, policy, qualified executor, artifact and durable-gateway gates; two local admitted fixture tools. No vendor, phone, formal solver or paid-model prerequisite.",
+    "python_debug": "Shared neutral contract, qualified executor and real Python launch/attach, line/exception breakpoints, over/into/out, thread/stack/locals, stale-handle, detach/cleanup and outside-debugger test gates. A trusted local demo cannot qualify sandbox execution. Full integration additionally requires the registered SYN Cog workflow in the Cog specification; direct adapter acceptance alone is insufficient.",
+    "specialists": "Each enabled adapter requires its mapped stages plus actual language/OS/host/vendor qualification. Physical phones, Apple hosts, remote boards/probes, postmortem formats and profilers are independently gated.",
+    "full_programme": "All 48 reports plus every enabled mandatory profile, security/DB and release gate. Optional disabled integrations remain documented unavailable, never represented as passed."
+  },
+  "cog_contract": {
+    "mandatory": true,
+    "specification": "../implementation/10-syn-tool-cogs.md",
+    "agent_facing_interface": "registered_syn_cog",
+    "direct_transport_dispatch": false,
+    "single_registered_input_type": true,
+    "single_registered_output_type": true,
+    "execution_authority": "controller_minted_out_of_band",
+    "requirements": [
+      {
+        "id": "C01",
+        "requirement": "Resolve and seal full SYN input/output Types and inherited Ember contracts; one typed request to one typed result per installed Cog."
+      },
+      {
+        "id": "C02",
+        "requirement": "Pin Cog instance, registered handler/revision, binding hash, semantic release and independent executable/source digests."
+      },
+      {
+        "id": "C03",
+        "requirement": "Effectful tool Cogs require controller-only admission, grants, budgets and fenced dispatch; no raw transport bypass or authority from model/Cog output."
+      },
+      {
+        "id": "C04",
+        "requirement": "Stateful/async tools use opaque scoped session/operation references, revision checks and separate typed status/cancel operations; possession grants no authority."
+      },
+      {
+        "id": "C05",
+        "requirement": "Retain distinct transformation, authorization/dispatch, execution and verification evidence with typed hashes and causal SYN events."
+      },
+      {
+        "id": "C06",
+        "requirement": "Test typed composition, handler/Ember/type drift and denied zero-dispatch paths; drive real Python debugging end to end through registered Cogs."
+      },
+      {
+        "id": "C07",
+        "requirement": "Every tool Cog logs start, actual progress and terminal statistics through the existing durable Cog work-monitoring system, including causal identities, wall/resources/cost, child run IDs, output receipts and explicit unavailable metrics."
+      }
+    ],
+    "monitoring": {
+      "mandatory": true,
+      "specification": "../implementation/05-syn-execution-monitoring.md",
+      "lifecycle": [
+        "started",
+        "progress",
+        "terminal"
+      ],
+      "scope": "every_tool_cog_including_pure_nested_and_transport_operations",
+      "metrics": [
+        "utc_start_finish",
+        "elapsed_wall_ms",
+        "cpu_time",
+        "peak_ram",
+        "gpu_vram",
+        "disk_network_io",
+        "tokens",
+        "provider_runtime_time",
+        "cost_budget_settlement",
+        "child_run_receipts",
+        "typed_output_artifacts"
+      ],
+      "missing_metrics": "unavailable",
+      "measurement_provenance_required": true,
+      "direct_trigger_and_emitter_required": true
+    }
+  }
+}
