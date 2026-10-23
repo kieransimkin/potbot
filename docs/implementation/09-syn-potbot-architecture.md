@@ -19,6 +19,9 @@ and supersedes a shared central Syn service. Current HTTP and summary code is
 the local Potbot-to-own-Syn foundation; the encrypted mesh is still pending.
 The [provisioning increment](12-syn-agent-key-provisioning.md) now supplies
 operator-only derivation, restricted account vaults and current-group-key rotation.
+The [detailed blockchain and transaction plan](13-syn-blockchain-transaction-plan.md)
+extends this architecture into 24 dependency-ordered implementation packages,
+including shared transaction authority, consensus/proofs and effect recovery.
 
 ## Components inside each Agent
 

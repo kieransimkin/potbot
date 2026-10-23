@@ -158,6 +158,13 @@ recovery and the two-service deployment under T11/T12. Keep all existing stage
 prerequisites. Browser, solver and other independent offline work need not wait
 for a Syn credential, but cannot claim cross-service qualification without it.
 
+The [detailed Syn blockchain and transaction plan](../implementation/13-syn-blockchain-transaction-plan.md)
+and its [24-package checklist](../implementation/13-syn-blockchain-transaction-work-packages.json)
+define the next dependency order. They assign shared-state transactions to Syn,
+retain Potbot's local execution/effect owners and require private Syn-only
+consensus transport, protected signing and independent outcome proofs. SBT IDs
+are implementation work packages, not new P-steps or T-stages.
+
 Preserve the separate plugin strategy's T04.1–T04.4 admission/ranking work when
 composing branches. Shared catalog messages remain untrusted candidate evidence.
 Memory/source export also needs P085–P094 retention/deletion review: immutable

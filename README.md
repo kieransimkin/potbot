@@ -55,6 +55,9 @@ encrypted Syn-only peer communication remains to be implemented and qualified.
 The [operator provisioning guide](docs/implementation/12-syn-agent-key-provisioning.md)
 documents the implemented restricted vaults, explicit account allocation and group
 key rotation. The base private key stays with the operator.
+The [blockchain and transaction implementation plan](docs/implementation/13-syn-blockchain-transaction-plan.md)
+sets out 24 packages for signed replication, shared-state finality, verified
+outcomes and Potbot transaction/effect recovery.
 
 ![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
 
