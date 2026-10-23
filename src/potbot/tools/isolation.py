@@ -70,6 +70,21 @@ _NAMESPACE_CLONE_FLAGS = (
     0x40000000,
 )
 
+_PRIVATE_IPC_SYSCALLS = frozenset(
+    {
+        "socket",
+        "socketpair",
+        "connect",
+        "bind",
+        "listen",
+        "accept",
+        "accept4",
+        "sendto",
+        "sendmsg",
+        "sendmmsg",
+    }
+)
+
 
 class _ArgumentComparison(ctypes.Structure):
     _fields_ = [
@@ -90,7 +105,7 @@ def runtime_roots() -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def _seccomp_fd() -> int:
+def _seccomp_fd(*, private_loopback_ipc: bool = False) -> int:
     library = ctypes.util.find_library("seccomp")
     if library is None or not hasattr(os, "memfd_create"):
         raise CapabilityUnavailableError("libseccomp and Linux memfd support are required")
@@ -118,9 +133,43 @@ def _seccomp_fd() -> int:
     fd = -1
     try:
         for name in _DENIED_SYSCALLS:
+            if private_loopback_ipc and name in _PRIVATE_IPC_SYSCALLS:
+                continue
             number = lib.seccomp_syscall_resolve_name(name.encode())
             if number >= 0 and lib.seccomp_rule_add(context, 0x00050001, number, 0) != 0:
                 raise CapabilityUnavailableError("seccomp policy could not be compiled")
+        if private_loopback_ipc:
+            # Linux AF_INET/AF_INET6 stream sockets inside --unshare-net only.
+            # AF_UNIX pathname sockets remain forbidden: a shared pathname
+            # socket is not isolated merely by a network namespace.
+            socket_number = lib.seccomp_syscall_resolve_name(b"socket")
+            pair_number = lib.seccomp_syscall_resolve_name(b"socketpair")
+            if socket_number < 0 or pair_number < 0:
+                raise CapabilityUnavailableError("debugger IPC syscall policy unavailable")
+            socket_rules = [
+                _ArgumentComparison(0, 2, 2, 0),  # domain < AF_INET
+                _ArgumentComparison(0, 6, 10, 0),  # domain > AF_INET6
+                *(_ArgumentComparison(0, 4, domain, 0) for domain in range(3, 10)),
+                *(_ArgumentComparison(1, 7, 15, kind) for kind in range(16) if kind != 1),
+                _ArgumentComparison(2, 6, 6, 0),  # protocol > IPPROTO_TCP
+                *(_ArgumentComparison(2, 4, protocol, 0) for protocol in range(1, 6)),
+            ]
+            # Anonymous local wakeup channels (e.g. asyncio) carry no path or
+            # remote endpoint. Only AF_UNIX/SOCK_STREAM/protocol 0 is admitted.
+            pair_rules = [
+                _ArgumentComparison(0, 1, 1, 0),
+                *(_ArgumentComparison(1, 7, 15, kind) for kind in range(16) if kind != 1),
+                _ArgumentComparison(2, 1, 0, 0),
+            ]
+            for syscall, rules in ((socket_number, socket_rules), (pair_number, pair_rules)):
+                for comparison in rules:
+                    if (
+                        lib.seccomp_rule_add_array(
+                            context, 0x00050001, syscall, 1, ctypes.byref(comparison)
+                        )
+                        != 0
+                    ):
+                        raise CapabilityUnavailableError("debugger IPC rule compilation failed")
         # clone3 carries flags behind a pointer, which classic seccomp cannot
         # inspect. ENOSYS makes supported libc runtimes fall back to clone.
         clone3 = lib.seccomp_syscall_resolve_name(b"clone3")
@@ -177,7 +226,10 @@ class BubblewrapBackend:
         cpu_seconds: int,
         max_file_bytes: int,
         max_open_files: int,
+        ipc_profile: str = "none",
     ) -> IsolationLaunch:
+        if ipc_profile not in {"none", "private-loopback-v1"}:
+            raise InvalidInputError("Unknown explicit IPC isolation profile")
         if (
             platform.system() != "Linux"
             or platform.machine() not in {"x86_64", "aarch64"}
@@ -215,7 +267,7 @@ class BubblewrapBackend:
                 )
             if resolved not in writable:
                 writable.append(resolved)
-        seccomp = _seccomp_fd()
+        seccomp = _seccomp_fd(private_loopback_ipc=ipc_profile == "private-loopback-v1")
         try:
             arguments = [
                 str(self.prlimit),
@@ -260,15 +312,20 @@ class BubblewrapBackend:
             arguments.extend(argv)
             identity = content_hash(
                 {
-                    "backend": "bubblewrap-seccomp-v1",
+                    "backend": "bubblewrap-seccomp-v2",
                     "binary_sha256": hashlib.sha256(self.executable.read_bytes()).hexdigest(),
                     "prlimit_sha256": hashlib.sha256(self.prlimit.read_bytes()).hexdigest(),
                     "roots": [str(p) for p in roots],
                     "writable_root": str(root),
                     "writable_support_roots": [str(p) for p in writable],
                     "sandbox_root": str(sandbox),
-                    "network": "deny",
-                    "denied_syscalls": _DENIED_SYSCALLS,
+                    "network": "private-namespace-tcp" if ipc_profile != "none" else "deny",
+                    "ipc_profile": ipc_profile,
+                    "denied_syscalls": tuple(
+                        name
+                        for name in _DENIED_SYSCALLS
+                        if ipc_profile == "none" or name not in _PRIVATE_IPC_SYSCALLS
+                    ),
                     "namespace_clone_flags": _NAMESPACE_CLONE_FLAGS,
                     "clone3_policy": "enosys",
                     "memory_bytes_per_process": memory_bytes,

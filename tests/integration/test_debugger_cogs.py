@@ -62,6 +62,7 @@ def test_real_python_cogs_durable_monitoring_and_api(app_env, tmp_path, fail):
         workspace_root=candidate,
         sandbox_root=sandbox.root,
         timeout_ms=120_000,
+        ipc_profile="private-loopback-v1",
         environment=sandbox.runtime_environment(),
         writable_roots=tuple(sandbox.path(x) for x in ("tmp", "cache")),
     )

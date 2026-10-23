@@ -42,6 +42,7 @@ def test_real_debugpy_in_qualified_existing_sandbox(tmp_path):
         workspace_root=candidate,
         sandbox_root=sandbox.root,
         timeout_ms=60_000,
+        ipc_profile="private-loopback-v1",
         environment=sandbox.runtime_environment(),
         writable_roots=tuple(sandbox.path(x) for x in ("tmp", "cache")),
     )

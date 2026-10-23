@@ -40,6 +40,8 @@ class SandboxedDebugger:
             raise InvalidInputError("Debugger requires the existing interactive supervisor")
         if identity.source_root != request.workspace_root.resolve():
             raise ScopeDeniedError("Debugger source and admitted process workspace differ")
+        if identity.adapter == "debugpy" and request.ipc_profile != "private-loopback-v1":
+            raise ScopeDeniedError("debugpy requires explicitly admitted private loopback IPC")
         if not callable(admit) or not callable(record):
             raise ScopeDeniedError("Debugger admission and causal recorder are required")
         self.supervisor, self.request, self.identity = supervisor, request, identity
@@ -65,6 +67,7 @@ class SandboxedDebugger:
                 "argv": self.request.argv,
                 "workspace": str(self.identity.workspace_id),
                 "timeout_ms": self.request.timeout_ms,
+                "ipc_profile": self.request.ipc_profile,
             },
         )
         self.process = await self.supervisor.open(self.request)

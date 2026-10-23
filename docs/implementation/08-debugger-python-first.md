@@ -44,6 +44,8 @@ Every request is versioned and field/size checked. Controller authority is suppl
 
 The production `from_workspace` constructor requires the exact imported immutable Cog snapshot, matching authenticated workspace and a qualified supervisor identity beneath its registered root. On Windows/macOS, the trusted authored local fixture is useful backend evidence; production untrusted execution still requires a qualified backend. There is no unrestricted fallback.
 
+Python/debugpy requires internal TCP communication between its adapter and target. The explicit `ProcessRequest.ipc_profile="private-loopback-v1"` keeps Bubblewrap's private network namespace and admits only TCP stream sockets plus anonymous local socketpairs there. The default `none` profile still denies socket creation. Host/external connections, pathname UNIX sockets, datagram/raw/packet sockets, namespace escape and filesystem escape remain denied. The dedicated [IPC isolation gate](../../tests/integration/test_debugger_ipc_isolation.py) verifies both usable internal IPC and those boundaries; the debugger never enables host networking or disables seccomp as a fallback. See the [Linux network namespace contract](https://man7.org/linux/man-pages/man7/network_namespaces.7.html) and [libseccomp comparison definitions](https://github.com/seccomp/libseccomp/blob/main/include/seccomp.h.in).
+
 ## Compose through Cogs
 
 The host first imports `registry.snapshot` with the existing `SynService.import_snapshot`, then opens an already admitted `SandboxedDebugger(..., initialize_on_enter=False)`. The host supplies the trusted callback and authoritative revision IDs to `DebuggerCogRuntime.from_workspace`. A caller then uses typed Cog operations:
