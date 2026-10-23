@@ -68,13 +68,18 @@ rejected. Keep the independent expected answer outside every mounted root.
 The candidate's `request.json` has exactly `prompt` and `max_new_tokens`. Bounds
 are 65,536 input bytes, 16,000 prompt characters, 4,000 rendered input tokens and
 512 generated tokens. The worker uses local-only safetensors, disables remote
-model code, runs float32 CPU inference with four threads, and decodes only the
-newly generated tokens. It emits the actual text, request/model identities,
+model code and runs float32 CPU inference with four threads. Standard chat-template
+assistant continuation begins with an operator-supplied `{` to discourage Markdown
+fences. `assistant_prefix` records that input; `generated_text` contains only the
+newly generated continuation; `response_text` is their exact concatenation. The
+prefix supplies no answer keys or values and counts as input, not generated usage.
+It emits those text fields, request/model identities,
 measured token counts, elapsed time and peak resident memory. Output text is data
 to verify independently, never authority to run another command.
 
 The normal process receipt and durable action completion establish execution.
-Read the stored stdout artifact back and compare the generated result with the
+Read the stored stdout artifact back, verify the prefix/continuation composition,
+and compare the complete response with the
 independent criterion before marking the task verified. A successful worker exit
 does not establish answer correctness. Native ToolGateway accounting settles calls
 and tool time; emitted token counts are measurements, not InferenceGateway token

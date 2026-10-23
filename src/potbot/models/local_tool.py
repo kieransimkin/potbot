@@ -104,6 +104,9 @@ def main() -> int:
     tokenizer = AutoTokenizer.from_pretrained(
         str(args.model_directory), local_files_only=True, trust_remote_code=False
     )
+    # A standard assistant prefill sets structure without supplying any answer.
+    # Preserve it separately from the genuinely generated continuation below.
+    assistant_prefix = "{"
     wire = tokenizer.apply_chat_template(
         [
             {
@@ -115,9 +118,10 @@ def main() -> int:
                 ),
             },
             {"role": "user", "content": request["prompt"]},
+            {"role": "assistant", "content": assistant_prefix},
         ],
         tokenize=False,
-        add_generation_prompt=True,
+        continue_final_message=True,
     )
     encoded = tokenizer(wire, return_tensors="pt")
     input_tokens = encoded["input_ids"].shape[-1]
@@ -154,6 +158,9 @@ def main() -> int:
                 "transformers": version("transformers"),
                 "request_sha256": request["request_sha256"],
                 "generated_text": text,
+                "assistant_prefix": assistant_prefix,
+                "response_text": assistant_prefix + text,
+                "decoding": "assistant_json_object_prefill_v1",
                 "input_tokens": int(input_tokens),
                 "output_tokens": int(generated.shape[-1]),
                 "usage_origin": "measured",
