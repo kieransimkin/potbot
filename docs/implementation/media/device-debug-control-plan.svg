@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="580" viewBox="0 0 1080 580" role="img" aria-labelledby="title desc">
   <title id="title">Planned Potbot phone, profiler and debugger adapters</title>
-  <desc id="desc">Approved tasks flow through the shared typed gateway to Android and iOS phone control, profiling and language-neutral interactive debugging, tested with Python first. All routes return target-bound execution events and evidence. Dashed arrows indicate planned work.</desc>
+  <desc id="desc">Approved tasks flow through the shared typed gateway to Android and iOS phone control, profiling and language-neutral local, network and hardware debugging. Python is tested first; JTAG, SWD, ICSP and JIT routes require separate qualification. All routes return target-bound execution events and evidence. Dashed arrows indicate planned work.</desc>
   <rect width="1080" height="580" fill="#101b2b"/>
   <g fill="#edf4ff" font-family="monospace" text-anchor="middle">
     <text x="540" y="38" font-size="24">Potbot: proposed control and diagnosis routes</text>
@@ -29,8 +29,8 @@
     <text x="540" y="372" font-size="15" fill="#a8c2dc">Trace / workload / clock identity</text>
     <text x="895" y="248" font-size="21">Interactive debugging</text>
     <text x="895" y="280" font-size="16">Any language • Python first</text>
-    <text x="895" y="307" font-size="16">Breakpoints → step → inspect</text>
-    <text x="895" y="343" font-size="16">Stack frames • locals • args</text>
+    <text x="895" y="307" font-size="16">Local • remote • JTAG / ICSP</text>
+    <text x="895" y="343" font-size="16">Breakpoints • step • stack</text>
     <text x="895" y="372" font-size="15" fill="#a8c2dc">Process / source / stop identity</text>
     <rect x="160" y="450" width="760" height="85" rx="12" fill="#243e58"/>
     <text x="540" y="482" font-size="20">Existing durable execution events and artifact receipts</text>

@@ -1,4 +1,4 @@
-# Phone control, profiling and interactive debugging
+# Phone control, profiling and local/remote interactive debugging
 
 Planning requirements, 23 October 2026. This extends the [48-stage master plan](../potbot-tool-mcp-implementation-bundle/potbot-universal-tool-mcp-implementation-plan.md); it does not implement adapters or qualify a connected device. Reuse Potbot's typed tool gateway, credentials, leases, execution events and artifact stores. Candidate tools require pinned versions, licences and host acceptance before installation or use.
 
@@ -63,18 +63,37 @@ Use a shared session state machine (created, configuring, running, stopped, disc
 
 **First real implementation and test: Python/debugpy.** Use a small versioned fixture with nested calls and a known exception or incorrect variable value. Set a verified breakpoint; stop in the inner function; inspect at least two stack frames and their locals/arguments; step over, into and out; continue to an exception stop; inspect its stack; detach/terminate as appropriate. Retain a redacted DAP transcript, exact source and input hashes, screenshots and a short actual recording with captions. Separately demonstrate attach on an explicitly started authorized fixture process. A scripted transcript or mocked screenshot does not satisfy real debugpy acceptance. Each later language repeats the common conformance suite and an equivalent real-language fixture, documenting any unsupported optional operation and language-specific behavior.
 
-## 4. Stage allocation and acceptance
+## 4. Connected devices, embedded targets and remote debugging
+
+The same language-neutral session contract must extend to network-connected processes, development boards and embedded devices. Keep **debugger activation**, **host protocol**, **probe** and **target wire transport** as distinct capabilities. Include both just-in-time (JIT) debugger activation and JTAG hardware debugging; these names describe different routes. DAP here means the IDE Debug Adapter Protocol, not Arm's hardware Debug Access Port.
+
+| Route | Candidate integration | Required qualification |
+| --- | --- | --- |
+| Network/remote process debugging | A remote debugpy/DAP endpoint, GDB Remote Serial Protocol (RSP) through `gdbserver`, or LLDB remote services on an authorized host; authenticated private forwarding where the backend lacks transport protection. | Pin remote host identity, process start identity, architecture/ABI, runtime, executable/build, symbols, source mapping and server protocol. Public unauthenticated listeners are not admitted. Remote filesystem/process scope is separate from the local workspace. |
+| JTAG and SWD hardware debugging | OpenOCD, pyOCD, probe-rs or qualified vendor probe servers; explicit CMSIS-DAP, ST-Link, J-Link or other supported probe/target combinations. | Select exact probe serial, board/MCU/core, transport, target voltage and reviewed board/pin/reset configuration. Record firmware image/ELF hash, debug symbols, device revision and server/adapter versions. No implicit first-probe or guessed-target connection. |
+| ICSP and vendor in-circuit debugging | Microchip MPLAB/PICkit/ICD/Snap or a maintained supported vendor interface for the selected device. Other device-specific routes may include SWIM, debugWIRE or supported proprietary interfaces after qualification. | Check the exact device and probe's **debug** support. A programming interface or successful flash write alone does not establish halt, breakpoint, stepping or stack inspection. ICSP debug setup can require programming/debug-mode changes; expose those prerequisites as explicit effects before attachment. Never assume every ICSP target supports the same debug operations. |
+| Just-in-time (JIT) debugger activation | Supported crash/exception-triggered debugger launch or attachment for a selected host/runtime. | Model the crash/input as the causal trigger of a normal debug session. Host-wide debugger registration, service changes or crash-handler replacement are separate operator-approved setup; do not silently change the workstation or imply that JIT is a physical transport. |
+
+Expose negotiated **connect/disconnect, halt/resume, source/instruction stepping, breakpoints/watchpoints, core/thread selection, stack/unwind, register inspection, bounded memory inspection and disassembly** as device-debug extensions of the shared contract. Source-level inspection requires matching symbols and firmware; optimized-out values, unavailable unwind data, limited hardware breakpoint slots and missing target features remain explicit. Attach, halt, reset, step, resume and even memory-mapped I/O reads can affect hardware; distinguish plain memory from peripheral registers and require scoped effects rather than blanket read-only classification. Memory/register writes, flashing, erase, reset/power changes, debug unlock and configuration/fuse writes are separately admitted operations, never hidden attachment prerequisites. Do not bypass debug protection or silently erase a locked target.
+
+Bind control to an exclusive probe/target/core lease and a current halted-state revision. Invalidate stack/register/memory views after resume, step, reset or reconnect; verify target identity and firmware again on reconnect. Keep original halted/running state and the approved recovery policy: stopping an owned server is not permission to reset, power-cycle or resume the device. Remote GDB monitor commands, semihosting, RTT/serial output and vendor scripts are separate capabilities; they cannot grant arbitrary host file/process access through an otherwise scoped debugger. Do not scan networks or attach to unrelated connected devices to discover a target.
+
+**Implementation/test order:** retain the local Python/debugpy end-to-end fixture as the first real debugger acceptance. Next test an explicitly selected remote Python process through the same contract and bounded private transport. Then qualify one authorized development board/probe/firmware fixture before adding further hardware families. A simulator or mock probe may test protocol logic but does not qualify physical electrical setup or target behavior. ICSP and JIT remain separately unqualified until their exact host/device routes pass.
+
+**Required remote/hardware demonstration:** record exact host/probe/target/firmware identities, connect without an unapproved reset/flash, set a supported breakpoint, confirm the halt reason and selected core, inspect stack/registers and permitted memory, step and continue, reconnect after a controlled link loss, and cleanly release only owned resources. Include actual target/server transcripts and a board/setup photograph or debugger capture where useful. Deny wrong probe/core, stale halted-state handles, mismatched symbols, unauthorized endpoint, unsafe memory ranges, exhausted breakpoint resources, implicit erase/unlock and duplicate reset/flash commands after uncertain completion. Independently verify final target state.
+
+## 5. Stage allocation and acceptance
 
 Keep all 48 stage IDs, existing dependencies and implementation statuses. Append requirements to their existing deliverables:
 
 | Stages | Additional requirement |
 | --- | --- |
 | T01.1–T01.3 | Inventory existing routes; register device, capture, profile and debug Types without duplicate roots; extend receipts with device/process/session/stop identities, app/build/source hashes, metrics and capability support. |
-| T02.3–T02.4 | Typed ADB, scrcpy and profiler CLI adapters plus Appium/WebDriver, DAP and remote-host transports; bounded streams, exact target routing, protocol negotiation and cancellation. |
+| T02.3–T02.4 | Typed ADB, scrcpy and profiler CLI adapters plus Appium/WebDriver, DAP, GDB RSP and admitted probe/vendor/remote-host transports; bounded streams, exact target routing, protocol negotiation and cancellation. |
 | T03.1–T03.4 | Device ownership and exclusive leases, target/process confinement, credential/signing custody and operation-level effect/approval/reconciliation policy. |
 | T04.1–T04.4 | Discover and route device/profiling/debug capabilities with host/platform requirements, separate capture/control scopes, health, pinning and revocation; do not route iOS to an unqualified Windows host. |
 | T06.1–T06.4 | Browser and native phone sessions, remote mobile CDP/performance, ADB/Appium/scrcpy/iOS capture/control, native UI evidence and real/emulated device fixture reliability. |
-| T07.2–T07.4 | Source/symbol/path binding; process profiling and language-neutral interactive debugging, tested with Python/debugpy first; evidence-led performance/bug repair and independent test closure. |
+| T07.2–T07.4 | Source/symbol/path binding; process profiling and language-neutral local/remote/embedded debugging, tested with Python/debugpy first; evidence-led performance/bug repair and independent test closure. |
 | T10.2, T11.1–T11.4 | Durable per-device/session execution events; device/debug fixtures, trace integrity and repeatable measurement; crash/disconnect, replay and cross-target denial tests. |
 | T12.1–T12.3 | Optional workspace-local SDKs/drivers/profilers/adapters, qualified macOS/remote hosts; UI control, paused stack/variables and trace views; actual demonstrations and cleanup guides. |
 
@@ -82,7 +101,7 @@ Mandatory offline contract cases cover multiple/unauthorized/offline devices, se
 
 **Host qualification is separate:** mocks run without hardware in CI, Android Emulator and Apple Simulator have their own gates, then each enabled physical-device/OS/debug adapter needs an opt-in real-host smoke. An unavailable phone, Mac, signing identity, privilege or profiler counter is recorded as a named unqualified route. It cannot silently pass mandatory qualification or block unrelated headless profiles.
 
-## 5. Primary implementation references
+## 6. Primary implementation references
 
 Reviewed 23 October 2026; these identify candidate contracts, not installed tool versions. Pin implementation revisions during stage inventory.
 
@@ -91,5 +110,7 @@ Reviewed 23 October 2026; these identify candidate contracts, not installed tool
 - [scrcpy source and control documentation](https://github.com/Genymobile/scrcpy), [Chrome Android remote debugging](https://developer.chrome.com/docs/devtools/remote-debugging/).
 - [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/), [debugpy](https://github.com/microsoft/debugpy), [lldb-dap](https://lldb.llvm.org/use/lldbdap.html), [Node debugging](https://nodejs.org/en/learn/getting-started/debugging).
 - [Python 3.12 profiling](https://docs.python.org/3.12/library/profile.html), [py-spy](https://github.com/benfred/py-spy), [Windows Performance Toolkit](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/).
+- [GDB Remote Serial Protocol](https://sourceware.org/gdb/current/onlinedocs/gdb.html/Remote-Protocol.html), [OpenOCD/GDB](https://openocd.org/doc/html/GDB-and-OpenOCD.html), [JTAG/SWD adapter configuration](https://openocd.org/doc/html/Debug-Adapter-Configuration.html).
+- [pyOCD probe selection](https://pyocd.io/docs/debug_probes.html), [pyOCD GDB server](https://pyocd.io/docs/gdbserver.html), [probe-rs](https://probe.rs/docs/), [Microchip ICSP debugging](https://onlinedocs.microchip.com/oxy/GUID-1FB866E7-F8EE-4F6C-92ED-0F60E926A717-en-US-2/GUID-CADCE91D-7E9C-43C3-9795-52FE277A5A8B.html), [JIT debugger activation](https://learn.microsoft.com/en-us/visualstudio/debugger/debug-using-the-just-in-time-debugger?view=visualstudio).
 
 Apple Instruments and Linux perf remain candidates requiring an accessible current host-specific CLI reference during qualification; no commands or compatibility claims are certified here.
