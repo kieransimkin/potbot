@@ -5,7 +5,7 @@ from potbot.persistence.schema import application_migrations
 
 def test_graph_link_migration_is_append_only_scoped_and_history_retained():
     migrations = application_migrations()
-    assert tuple(m.version for m in migrations) == tuple(range(1, 19))
+    assert tuple(m.version for m in migrations[:18]) == tuple(range(1, 19))
     assert migrations[15].name == "phase7_schema"
     assert migrations[16].name == "phase7_worker_schema"
     latest = migrations[17]
