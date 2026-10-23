@@ -49,6 +49,9 @@ SOURCE_FILES = (
 
 def test_canonical_contracts_real_syn_ember_cogs_durable_stats_and_api(app_env, tmp_path):
     fixture, artifacts, states, env, state, manager = setup(app_env, tmp_path)
+    state = states.capture(
+        app_env.context, app_env.repository_id, fixture.path, env, committed_ref="HEAD"
+    )
     registry = BoundCogRegistry.tool_contracts()
     sealed = SynService(app_env.db, artifacts).import_snapshot(
         app_env.context, app_env.repository_id, "canonical-tool-contracts-v1", registry.snapshot
