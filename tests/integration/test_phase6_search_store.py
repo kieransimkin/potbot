@@ -137,7 +137,7 @@ def test_changed_task_revision_prevents_new_graph_mutations(app_env, tmp_path: P
         "review",
         idempotency_key="pause-phase6",
     )
-    assert paused["status"] == "paused"
+    assert paused["lifecycle"] == "paused"
     with pytest.raises(RevisionConflictError):
         store.add_node(
             app_env.context,

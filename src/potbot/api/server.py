@@ -78,6 +78,49 @@ class JobOperations(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class EventReadOperations(Protocol):
+    """Minimal event-source protocol shared by jobs and SYN execution streams."""
+
+    def events(
+        self,
+        context: WorkspaceContext,
+        job_id: UUID | None = None,
+        *,
+        after: int = 0,
+        limit: int = 50,
+    ) -> dict[str, Any]: ...
+
+
+class ExecutionEventOperations(Protocol):
+    """Existing workspace-scoped SYN ledger, with no execution authority."""
+
+    def events(
+        self,
+        context: WorkspaceContext,
+        *,
+        after: int = 0,
+        run_id: UUID | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]: ...
+
+
+class _ExecutionEventReadAdapter:
+    """Adapt the generic WebSocket cursor protocol to a run-scoped ledger."""
+
+    def __init__(self, service: ExecutionEventOperations) -> None:
+        self.service = service
+
+    def events(
+        self,
+        context: WorkspaceContext,
+        job_id: UUID | None = None,
+        *,
+        after: int = 0,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        return self.service.events(context, after=after, run_id=job_id, limit=limit)
+
+
 CatalogReader = Callable[[WorkspaceContext], dict[str, Any]]
 CatalogDiscovery = Callable[[WorkspaceContext, str], dict[str, Any]]
 InvocationReader = Callable[[WorkspaceContext, UUID], dict[str, Any]]
@@ -300,6 +343,7 @@ def create_app(
     discover_models: CatalogDiscovery | None = None,
     invocation_reader: InvocationReader | None = None,
     invocation_list_reader: InvocationReader | None = None,
+    execution_events: ExecutionEventOperations | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -430,6 +474,29 @@ def create_app(
     async def job_events(request: Request, job_id: str) -> JSONResponse:
         return await event_page(request, _uuid(job_id))
 
+    if execution_events is not None:
+        # Event history is read-only here. Publishing events remains a trusted
+        # controller operation, never a public HTTP/WebSocket mutation.
+        async def syn_page(request: Request, run_id: UUID | None) -> JSONResponse:
+            actor = context(request)
+            _queries(request, {"after", "limit"})
+            after = _integer(request.query_params.get("after"), 0, (1 << 53) - 1)
+            limit = _integer(request.query_params.get("limit"), 50, 200)
+            if limit == 0:
+                raise InvalidInputError("page size must be positive")
+            page = await _call(
+                execution_events.events, actor, after=after, run_id=run_id, limit=limit
+            )
+            return _response(success_response(uuid4(), page))
+
+        @app.get("/v1/executions/events")
+        async def all_execution_events(request: Request) -> JSONResponse:
+            return await syn_page(request, None)
+
+        @app.get("/v1/executions/{run_id}/events")
+        async def run_execution_events(request: Request, run_id: str) -> JSONResponse:
+            return await syn_page(request, _uuid(run_id))
+
     @app.get("/v1/jobs/{job_id}/invocations")
     async def job_invocations(request: Request, job_id: str) -> JSONResponse:
         actor = context(request)
@@ -555,6 +622,23 @@ def create_app(
             return
         await _stream(websocket, identifier, job_service, authenticate, settings)
 
+    if execution_events is not None:
+        # Reuse authenticated bounded cursor replay, no in-memory fanout.
+        event_reader = _ExecutionEventReadAdapter(execution_events)
+
+        @app.websocket("/v1/executions/stream")
+        async def stream_execution_events(websocket: WebSocket) -> None:
+            await _stream(websocket, None, event_reader, authenticate, settings)
+
+        @app.websocket("/v1/executions/{run_id}/stream")
+        async def stream_execution_run(websocket: WebSocket, run_id: str) -> None:
+            try:
+                identifier = _uuid(run_id)
+            except InvalidInputError:
+                await websocket.close(code=1008)
+                return
+            await _stream(websocket, identifier, event_reader, authenticate, settings)
+
     schema = app.openapi()
     schema.setdefault("components", {}).setdefault("securitySchemes", {})["BearerAuth"] = {
         "type": "http",
@@ -619,13 +703,35 @@ def create_app(
                 },
             ]
         )
+    if execution_events is not None:
+        for path in ("/v1/executions/events", "/v1/executions/{run_id}/events"):
+            schema["paths"][path]["get"].setdefault("parameters", []).extend(
+                [
+                    {
+                        "name": "after",
+                        "in": "query",
+                        "description": "Exclusive, commit-ordered workspace event cursor.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": (1 << 53) - 1,
+                            "default": 0,
+                        },
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+                    },
+                ]
+            )
     return app
 
 
 async def _stream(
     websocket: WebSocket,
     job_id: UUID | None,
-    service: JobOperations,
+    service: EventReadOperations,
     authenticate: Authenticator,
     settings: ServerSettings,
 ) -> None:

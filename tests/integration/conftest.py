@@ -17,6 +17,7 @@ from potbot.persistence.database import (
     RepositoryStore,
     migrate,
     provision_principal,
+    configure_workspace_sandbox,
     provision_workspace,
 )
 from potbot.persistence.harness import HarnessError, TestDatabaseConfig
@@ -72,6 +73,13 @@ def app_env(tmp_path: Path) -> Iterator[AppEnvironment]:
         migrate(admin_dsn)
         workspace = provision_workspace(admin_dsn, "potbot", "workspace-a")
         other_workspace = provision_workspace(admin_dsn, "potbot", "workspace-b")
+        # The API/CLI requires an explicitly registered root; exercise that
+        # production boundary rather than bypassing it in integration tests.
+        primary_sandbox = tmp_path / "primary-workspace"
+        configure_workspace_sandbox(admin_dsn, "potbot", workspace, primary_sandbox)
+        configure_workspace_sandbox(
+            admin_dsn, "potbot", other_workspace, tmp_path / "other-workspace"
+        )
         context = provision_principal(admin_dsn, "potbot", roles[0], workspace)
         other_context = provision_principal(admin_dsn, "potbot", roles[1], other_workspace)
         authority = f"{roles[0]}:{password}@{parsed.hostname}:{parsed.port}"
@@ -93,7 +101,7 @@ def app_env(tmp_path: Path) -> Iterator[AppEnvironment]:
             other_context,
             repository["id"],
             other_repository["id"],
-            tmp_path / "artifacts",
+            primary_sandbox / "artifacts" / "objects",
         )
     finally:
         with psycopg.connect(config.dsn, autocommit=True, connect_timeout=5) as connection:

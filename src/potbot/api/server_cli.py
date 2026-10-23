@@ -49,6 +49,7 @@ def application(args: argparse.Namespace) -> FastAPI:
     """Build explicit service dependencies; construction never starts a worker."""
     from potbot.api.server import ServerSettings, create_app
     from potbot.api.tasks import DevelopmentBearerAuth
+    from potbot.controller.execution_events import ExecutionEventService
     from potbot.controller.jobs import JobService
     from potbot.controller.tasks import TaskService
     from potbot.models.hosted_catalog import HostedModelDirectory
@@ -73,6 +74,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         discover_models=directory.discover,
         invocation_reader=gateway.inspect,
         invocation_list_reader=gateway.list_for_job,
+        execution_events=ExecutionEventService(database),
         settings=settings,
     )
 

@@ -185,7 +185,12 @@ def test_forced_shutdown_terminates_subprocess_group(tmp_path: Path):
         # either disappearance or zombie state shows it no longer executes.
         for _ in range(30):
             status = Path(f"/proc/{child_pid}/status")
-            if not status.exists() or "State:\tZ" in status.read_text():
+            try:
+                state = status.read_text()
+            except (FileNotFoundError, ProcessLookupError):
+                # /proc entries may disappear between existence and read.
+                break
+            if "State:\tZ" in state:
                 break
             await asyncio.sleep(0.05)
         else:

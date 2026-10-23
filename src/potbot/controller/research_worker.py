@@ -77,7 +77,7 @@ def _current(
     need = conn.execute(
         "SELECT n.episode_id,s.current_revision_id,s.status FROM information_needs n "
         "JOIN need_status s ON s.workspace_id=n.workspace_id AND s.need_id=n.id "
-        "WHERE n.workspace_id=%s AND n.id=%s FOR SHARE OF n,s",
+        "WHERE n.workspace_id=%s AND n.id=%s FOR SHARE OF s",
         (context.workspace_id, scope.need_id),
     ).fetchone()
     if (

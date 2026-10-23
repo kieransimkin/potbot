@@ -48,8 +48,11 @@ def test_causal_child_requires_parent_event_and_run():
     with pytest.raises(InvalidInputError):
         replace(root, parent_event_id=uuid4())
     child = replace(
-        root, trigger_kind="parent_event", parent_event_id=uuid4(),
-        parent_run_id=root.run_id, run_id=uuid4(),
+        root,
+        trigger_kind="parent_event",
+        parent_event_id=uuid4(),
+        parent_run_id=root.run_id,
+        run_id=uuid4(),
     )
     assert child.parent_run_id == root.run_id
 

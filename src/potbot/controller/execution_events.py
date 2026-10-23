@@ -54,20 +54,38 @@ class ExecutionEventService:
                 ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING *""",
                 (
-                    context.workspace_id, counter["last_sequence"], identifier,
-                    f"syn://event/{identifier}", event.event_type_ref, event.event_type_version,
-                    event.subject_type_ref, event.subject_version, event.run_id,
-                    event.parent_run_id, event.parent_event_id, event.trigger_kind,
-                    event.trigger_ref, event.trigger_input_sha256, event.emitter_run_id,
-                    context.principal_id, event.stage, event.input_artifact_ref,
-                    event.output_artifact_ref, event.output_sha256, event.elapsed_ms,
+                    context.workspace_id,
+                    counter["last_sequence"],
+                    identifier,
+                    f"syn://event/{identifier}",
+                    event.event_type_ref,
+                    event.event_type_version,
+                    event.subject_type_ref,
+                    event.subject_version,
+                    event.run_id,
+                    event.parent_run_id,
+                    event.parent_event_id,
+                    event.trigger_kind,
+                    event.trigger_ref,
+                    event.trigger_input_sha256,
+                    event.emitter_run_id,
+                    context.principal_id,
+                    event.stage,
+                    event.input_artifact_ref,
+                    event.output_artifact_ref,
+                    event.output_sha256,
+                    event.elapsed_ms,
                 ),
             ).fetchone()
             return self._public(dict(row))
 
     def events(
-        self, context: WorkspaceContext, *, after: int = 0,
-        run_id: UUID | None = None, limit: int = 50,
+        self,
+        context: WorkspaceContext,
+        *,
+        after: int = 0,
+        run_id: UUID | None = None,
+        limit: int = 50,
     ) -> dict[str, Any]:
         if type(after) is not int or not 0 <= after <= 9007199254740991:
             raise InvalidInputError("Invalid event cursor")
@@ -90,8 +108,11 @@ class ExecutionEventService:
                 ).fetchall()
         has_more = len(rows) > limit
         items = [self._public(dict(row)) for row in rows[:limit]]
-        return {"items": items, "has_more": has_more,
-                "next_cursor": items[-1]["sequence"] if items else after}
+        return {
+            "items": items,
+            "has_more": has_more,
+            "next_cursor": items[-1]["sequence"] if items else after,
+        }
 
     @staticmethod
     def _public(row: dict[str, Any]) -> dict[str, Any]:
@@ -99,10 +120,25 @@ class ExecutionEventService:
         from potbot.controller.tasks import json_record
 
         fields = (
-            "sequence", "id", "event_ref", "event_type_ref", "event_type_version",
-            "subject_type_ref", "subject_version", "run_id", "parent_run_id",
-            "parent_event_id", "trigger_kind", "trigger_ref", "trigger_input_sha256",
-            "emitter_run_id", "stage", "input_artifact_ref", "output_artifact_ref",
-            "output_sha256", "elapsed_ms", "recorded_at",
+            "sequence",
+            "id",
+            "event_ref",
+            "event_type_ref",
+            "event_type_version",
+            "subject_type_ref",
+            "subject_version",
+            "run_id",
+            "parent_run_id",
+            "parent_event_id",
+            "trigger_kind",
+            "trigger_ref",
+            "trigger_input_sha256",
+            "emitter_run_id",
+            "stage",
+            "input_artifact_ref",
+            "output_artifact_ref",
+            "output_sha256",
+            "elapsed_ms",
+            "recorded_at",
         )
         return {"schema_version": 1, **json_record({key: row[key] for key in fields})}

@@ -34,8 +34,12 @@ def test_typed_event_root_child_replay_and_cross_workspace_denial(app_env):
     root = event()
     root_record = first.append(app_env.context, root)
     child = replace(
-        event(run_id=root.run_id, trigger_kind="parent_event",
-              parent_event_id=UUID(root_record["id"]), parent_run_id=root.run_id),
+        event(
+            run_id=root.run_id,
+            trigger_kind="parent_event",
+            parent_event_id=UUID(root_record["id"]),
+            parent_run_id=root.run_id,
+        ),
         trigger_ref=root_record["event_ref"],
     )
     child_record = first.append(app_env.context, child)
