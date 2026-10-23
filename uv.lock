@@ -1067,6 +1067,9 @@ security = [
 semantics = [
     { name = "jsonschema" },
 ]
+syn = [
+    { name = "syn-client" },
+]
 web = [
     { name = "fastapi" },
     { name = "uvicorn" },
@@ -1083,6 +1086,7 @@ dev = [
     { name = "protobuf" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "syn-client" },
     { name = "types-jsonschema" },
     { name = "types-protobuf" },
     { name = "uvicorn" },
@@ -1097,13 +1101,14 @@ requires-dist = [
     { name = "jsonschema", marker = "extra == 'semantics'", specifier = ">=4.26,<5" },
     { name = "keyring", marker = "extra == 'credentials'", specifier = "==25.7.0" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2,<4" },
+    { name = "syn-client", marker = "extra == 'syn'", editable = "vendor/syn/packages/syn-client" },
     { name = "torch", marker = "(sys_platform == 'linux' and extra == 'embeddings') or (sys_platform == 'win32' and extra == 'embeddings')", specifier = "==2.9.1", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'embeddings'", specifier = "==2.9.1" },
     { name = "transformers", marker = "extra == 'embeddings'", specifier = "==4.57.6" },
     { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.34,<1" },
     { name = "websockets", marker = "extra == 'web'", specifier = ">=15,<17" },
 ]
-provides-extras = ["postgres", "embeddings", "semantics", "credentials", "providers", "web", "security"]
+provides-extras = ["syn", "postgres", "embeddings", "semantics", "credentials", "providers", "web", "security"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1115,6 +1120,7 @@ dev = [
     { name = "protobuf", specifier = ">=5,<7" },
     { name = "pytest", specifier = ">=8.3,<10" },
     { name = "ruff", specifier = ">=0.11,<1" },
+    { name = "syn-client", editable = "vendor/syn/packages/syn-client" },
     { name = "types-jsonschema", specifier = ">=4.26.0.20261006" },
     { name = "types-protobuf", specifier = ">=7.35.1.20260906" },
     { name = "uvicorn", specifier = ">=0.34,<1" },
@@ -1751,6 +1757,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
 ]
+
+[[package]]
+name = "syn-client"
+version = "0.1.0"
+source = { editable = "vendor/syn/packages/syn-client" }
 
 [[package]]
 name = "tokenizers"

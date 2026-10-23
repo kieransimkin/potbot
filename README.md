@@ -37,7 +37,17 @@ as **unqualified catalog entries**; a name is never treated as a tested deployme
 
 ## Install and check
 
-Run the entry point for your platform from the extracted checkout:
+Clone with `git clone --recurse-submodules https://github.com/kieransimkin/potbot.git`,
+or run `git submodule update --init --recursive` in an existing Git checkout.
+Syn is pinned at `vendor/syn`; GitHub source ZIPs omit this required source.
+The optional `syn` runtime extra connects Potbot to Syn's durable communication
+service and verifiable hash-chain receipts. See the [service integration guide](docs/syn-service.md).
+
+![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
+
+*Explanatory illustration; actual service behaviour is covered by the linked HTTP and PostgreSQL tests.*
+
+Run the entry point for your platform from the complete checkout:
 
 ```powershell
 # Windows Command Prompt: start.bat

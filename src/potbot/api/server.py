@@ -13,7 +13,7 @@ import math
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -40,10 +40,14 @@ from potbot.domain.errors import (
     CapabilityUnavailableError,
     DomainError,
     InvalidInputError,
+    RevisionConflictError,
     SchemaViolationError,
     ScopeDeniedError,
 )
 from potbot.models.profiles import default_model_profiles
+
+if TYPE_CHECKING:
+    from syn_client import SynClient
 
 
 class JobOperations(Protocol):
@@ -344,6 +348,7 @@ def create_app(
     invocation_reader: InvocationReader | None = None,
     invocation_list_reader: InvocationReader | None = None,
     execution_events: ExecutionEventOperations | None = None,
+    syn_service: SynClient | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -377,6 +382,59 @@ def create_app(
         )
 
     app.add_middleware(_SanitizedErrors, on_error=unknown_error)
+
+    if syn_service is not None:
+        from syn_client import MessageConflictError
+
+        async def syn_call(operation: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+            try:
+                return await _call(operation, *args, **kwargs)
+            except MessageConflictError:
+                raise RevisionConflictError(
+                    "Syn message ID already has different contents."
+                ) from None
+            except (RuntimeError, OSError, ValueError):
+                raise CapabilityUnavailableError(
+                    "Syn service unavailable or receipt invalid."
+                ) from None
+
+        @app.get("/v1/syn/head")
+        async def syn_head(request: Request) -> JSONResponse:
+            actor = context(request)
+            _queries(request, set())
+            result = await syn_call(syn_service.head, str(actor.workspace_id))
+            return _response(success_response(uuid4(), result))
+
+        @app.get("/v1/syn/messages")
+        async def syn_messages(request: Request) -> JSONResponse:
+            actor = context(request)
+            _queries(request, {"after", "limit"})
+            after = _integer(request.query_params.get("after"), 0, (1 << 53) - 1)
+            limit = _integer(request.query_params.get("limit"), 50, 100)
+            if limit == 0:
+                raise InvalidInputError("page size must be positive")
+            result = await syn_call(
+                syn_service.messages, str(actor.workspace_id), after=after, limit=limit
+            )
+            return _response(success_response(uuid4(), result))
+
+        @app.post("/v1/syn/messages", openapi_extra=_BODY_DOCUMENTATION)
+        async def syn_send(request: Request) -> JSONResponse:
+            actor = context(request)
+            _queries(request, set())
+            envelope = await _body(request, settings)
+            if set(envelope.payload) != {"channel", "payload"}:
+                raise InvalidInputError("Syn message requires channel and payload")
+            identifier = str(_uuid(envelope.idempotency_key or ""))
+            result = await syn_call(
+                syn_service.send,
+                str(actor.workspace_id),
+                message_id=identifier,
+                channel=envelope.payload["channel"],
+                sender="principal:" + str(actor.principal_id),
+                payload=envelope.payload["payload"],
+            )
+            return _response(success_response(envelope.request_id, result))
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, _error: RequestValidationError) -> JSONResponse:

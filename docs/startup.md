@@ -7,6 +7,17 @@ through to the same Python entry point, `potbot.startup`.
 
 ## Starting the application
 
+First initialize the pinned Syn source with `git submodule update --init --recursive`.
+For a new checkout use `git clone --recurse-submodules`; GitHub source ZIPs do not
+include submodules. A complete source distribution must include `vendor/syn`.
+Launchers report a missing submodule before attempting downloads. The lightweight
+Syn client installs with all runtime extras; connecting to Syn additionally needs
+the explicit service configuration in [Syn service setup](syn-service.md).
+
+![Illustrated Syn service communication and independent receipt checks](media/syn-service-flow.svg)
+
+*Explanatory diagram, not a startup screenshot; no new graphical startup interface is added.*
+
 | Platform | Entry point |
 | --- | --- |
 | Windows Command Prompt | `start.bat` |

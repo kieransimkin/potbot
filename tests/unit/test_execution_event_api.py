@@ -100,7 +100,7 @@ def test_syn_event_pagination_scope_and_validation() -> None:
         assert client.get("/v1/executions/events?unsupported=1").status_code == 400
         assert client.get("/v1/executions/not-a-uuid/events").status_code == 400
         denied = client.get("/v1/executions/events", headers={"Authorization": ""})
-        assert denied.status_code in (401, 403)
+        assert denied.status_code == 404  # Existing wire contract conceals inaccessible resources.
 
 
 def test_syn_event_websocket_replay_and_run_filter() -> None:

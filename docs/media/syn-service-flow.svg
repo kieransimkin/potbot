@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="570" viewBox="0 0 1200 570" role="img" aria-labelledby="title desc">
+<title id="title">Potbot and Syn communication boundary</title><desc id="desc">Potbot sends workspace messages to Syn over authenticated HTTP. Syn appends hash-linked receipts in PostgreSQL. The shared client verifies receipts against a separately retained head.</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10" fill="#2563eb"/></marker></defs>
+<rect width="1200" height="570" rx="20" fill="#f0f5ff"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#12213a">
+<text x="50" y="55" font-size="28" font-weight="700">A shared service, a verifiable receipt</text>
+<text x="50" y="86" font-size="17">Explanatory illustration · authenticated HTTP · one ordered chain per workspace</text>
+<g stroke="#a9bedb" stroke-width="2" fill="white"><rect x="50" y="135" width="300" height="170" rx="15"/><rect x="450" y="135" width="300" height="170" rx="15"/><rect x="850" y="135" width="300" height="170" rx="15"/></g>
+<g font-size="23" font-weight="700"><text x="78" y="177">Potbot</text><text x="478" y="177">Syn service</text><text x="878" y="177">PostgreSQL</text></g>
+<g font-size="17"><text x="78" y="213">Admission and job authority</text><text x="78" y="244">Lightweight shared client</text><text x="78" y="275">Stable IDs for safe retries</text><text x="478" y="213">Workspace bearer access</text><text x="478" y="244">Durable messages and replay</text><text x="478" y="275">SHA-256 receipt chain</text><text x="878" y="213">Serialized workspace appends</text><text x="878" y="244">Immutable message rows</text><text x="878" y="275">Atomic receipt and head</text></g>
+<g stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)"><path d="M360 220H435"/><path d="M760 220H835"/><path d="M600 320V370H200V320" fill="none"/></g>
+<text x="267" y="357" font-size="16">Receipt returned and independently checked</text>
+<g fill="#e2ebff" stroke="#8ca9d5"><rect x="130" y="405" width="240" height="70" rx="12"/><rect x="480" y="405" width="240" height="70" rx="12"/><rect x="830" y="405" width="240" height="70" rx="12"/></g>
+<g font-size="18" text-anchor="middle"><text x="250" y="433">Receipt 1</text><text x="250" y="459">previous = genesis</text><text x="600" y="433">Receipt 2</text><text x="600" y="459">previous = hash(1)</text><text x="950" y="433">Retained head anchor</text><text x="950" y="459">sequence + hash</text></g>
+<g stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)"><path d="M380 440H465"/><path d="M730 440H815"/></g>
+<text x="50" y="530" font-size="16">Integrity and replay are implemented. Distributed consensus and libp2p message replication are outside this contract.</text>
+</g></svg>

@@ -51,6 +51,7 @@ def application(args: argparse.Namespace) -> FastAPI:
     from potbot.api.tasks import DevelopmentBearerAuth
     from potbot.controller.execution_events import ExecutionEventService
     from potbot.controller.jobs import JobService
+    from potbot.controller.syn_service import configured_client
     from potbot.controller.tasks import TaskService
     from potbot.models.hosted_catalog import HostedModelDirectory
     from potbot.models.hosted_policy import HostedPolicy
@@ -75,6 +76,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         invocation_reader=gateway.inspect,
         invocation_list_reader=gateway.list_for_job,
         execution_events=ExecutionEventService(database),
+        syn_service=configured_client(),
         settings=settings,
     )
 

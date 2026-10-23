@@ -21,6 +21,9 @@ def launcher(tmp_path: Path) -> tuple[Path, dict[str, str], Path]:
     project = tmp_path / "project with spaces"
     project.mkdir()
     shutil.copyfile(ROOT / "start.sh", project / "start.sh")
+    syn_manifest = project / "vendor/syn/packages/syn-client/pyproject.toml"
+    syn_manifest.parent.mkdir(parents=True)
+    syn_manifest.write_text("# Complete-distribution fixture\n")
     binaries = tmp_path / "bin with spaces"
     binaries.mkdir()
     fake_uv = binaries / "uv"
@@ -58,6 +61,21 @@ def launcher(tmp_path: Path) -> tuple[Path, dict[str, str], Path]:
     ):
         environment.pop(key, None)
     return project, environment, log
+
+
+def test_missing_syn_source_fails_before_runtime_downloads(launcher):
+    project, environment, log = launcher
+    (project / "vendor/syn/packages/syn-client/pyproject.toml").unlink()
+    result = subprocess.run(
+        ["bash", str(project / "start.sh"), "--help"],
+        env=environment,
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+    assert result.returncode == 1
+    assert "Syn submodule is missing" in result.stderr
+    assert not log.exists()
 
 
 def test_bash_launcher_installs_locked_extras_preserves_args_stdin_and_exit_code(

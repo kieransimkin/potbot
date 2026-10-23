@@ -89,8 +89,11 @@ The source audit covers SYN's `src/syn/refs.py`, `sqltypes.py`, `models.py`,
 `controllers/type.py`, the primitive controllers, and `p2p.py`. Exact source paths,
 versions, and recorded file digests for the catalog and core contracts are retained
 in [`syn-typing-crosswalk.json`](../vocab/syn-typing-crosswalk.json), under
-`provenance`. The uploaded SYN project is an inspected input, not a runtime dependency
-of Potbot.
+`provenance`. The original uploaded SYN project was an inspected input. Potbot now
+also pins Syn at `vendor/syn` and provides an optional lightweight runtime client
+for its communication/receipt service. [Runtime setup](syn-service.md) is separate
+from snapshot resolution; ontology records still resolve through the selected
+local snapshot rather than a global libp2p resolver.
 
 ## Four different kinds of identity
 
