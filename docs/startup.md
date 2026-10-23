@@ -167,3 +167,31 @@ added to model packets, candidate snapshots or tool definitions by this integrat
 This installation flow manages Potbot's own dependencies. Future repository-specific
 dependency discovery and installation must remain part of the task's declared tool,
 environment, network and budget policies.
+
+
+## Diagnose a rejected PostgreSQL connection
+
+A failed first connection is not saved. The public error now includes a fixed
+diagnostic label while keeping the connection URL, password, host, database and
+raw driver text private. Re-enter the corrected URL through the hidden prompt.
+
+| Diagnostic | Check |
+| --- | --- |
+| host_resolution_failed | The hostname and this machine's DNS/network route. |
+| connection_refused | The port, server listener and permitted connection route. |
+| connection_timed_out | Network reachability, firewall and server availability. |
+| tls_connection_failed | Required TLS settings, trusted CA and server certificate. Do not disable verification to silence the error. |
+| authentication_or_access_rejected | The intended login, password and server access rules. |
+| database_not_found | The database portion of the URL. |
+| unclassified_connection_failure | Server-side diagnostics through an authorised administrator; keep secrets out of shared reports. |
+
+These are diagnostic categories, not a claim that the server is healthy or the
+login has setup privileges. A TLS label may cover negotiation or certificate
+validation. A successful connection check remains read-only; provisioning is a
+separate operation. The existing hidden-input and verified-native-vault rules
+are unchanged. CLI status receipts are the relevant evidence; an extra screenshot
+or video adds no diagnostic detail to this text-only error.
+
+For an operator-selected local model, see [offline registered generation](local-generation.md).
+Its process diagram shows the boundary between private connection setup, actual
+generation and independent verification.
