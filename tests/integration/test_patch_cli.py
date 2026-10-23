@@ -11,13 +11,15 @@ import pytest
 from potbot.domain.errors import IndeterminateExecutionError
 from potbot.persistence import database as database_module
 from potbot.tools import patch_cli
+from potbot.workspace_sandbox import load_workspace_sandbox
 
 from .conftest import AppEnvironment
 
 pytestmark = [pytest.mark.postgres, pytest.mark.sandbox]
 
 
-def arguments(environment: AppEnvironment, root: Path) -> list[str]:
+def arguments(environment: AppEnvironment) -> list[str]:
+    sandbox = load_workspace_sandbox(environment.db, environment.context)
     return [
         "--dev-auth",
         "--workspace",
@@ -27,9 +29,9 @@ def arguments(environment: AppEnvironment, root: Path) -> list[str]:
         "--artifacts",
         str(environment.artifact_root),
         "--candidates",
-        str(root / "candidates"),
+        str(sandbox.path("candidates")),
         "--receipts",
-        str(root / "receipts"),
+        str(sandbox.path("receipts")),
     ]
 
 
@@ -48,8 +50,9 @@ def test_demo_replay_binds_options_then_resume_exports_a_verified_bundle(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("POTBOT_DSN", app_env.db.dsn)
-    common = arguments(app_env, tmp_path)
-    fixture_parent = tmp_path / "fixtures with spaces"
+    sandbox = load_workspace_sandbox(app_env.db, app_env.context)
+    common = arguments(app_env)
+    fixture_parent = sandbox.path("tests") / "fixtures with spaces"
     demo = [
         *common,
         "demo",
@@ -69,7 +72,7 @@ def test_demo_replay_binds_options_then_resume_exports_a_verified_bundle(
         assert connection.execute("SELECT count(*) AS n FROM action_runs").fetchone()["n"] == 3
     rejected = call([*demo, "--preexisting-failure"], capsys, expected=1)
     assert rejected["error"]["code"] == "revision_conflict"
-    other_parent = tmp_path / "different fixtures"
+    other_parent = sandbox.path("tests") / "different fixtures"
     changed = [
         *common,
         "demo",
@@ -83,7 +86,7 @@ def test_demo_replay_binds_options_then_resume_exports_a_verified_bundle(
     assert call(changed, capsys, expected=1)["error"]["code"] == "revision_conflict"
     assert not other_parent.exists()
 
-    output = tmp_path / "review bundle"
+    output = sandbox.path("artifacts") / "review bundle"
     resumed = call([*common, "resume", first["pipeline_id"], "--output", str(output)], capsys)[
         "data"
     ]
@@ -109,8 +112,9 @@ def test_demo_recovers_inner_commit_only_for_the_original_source_and_profile(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("POTBOT_DSN", app_env.db.dsn)
-    common = arguments(app_env, tmp_path)
-    fixture_parent = tmp_path / "fixtures"
+    sandbox = load_workspace_sandbox(app_env.db, app_env.context)
+    common = arguments(app_env)
+    fixture_parent = sandbox.path("tests") / "fixtures"
     demo = [
         *common,
         "demo",
@@ -144,7 +148,7 @@ def test_demo_recovers_inner_commit_only_for_the_original_source_and_profile(
         *common,
         "demo",
         "--fixtures",
-        str(tmp_path / "other"),
+        str(sandbox.path("tests") / "other"),
         "--key",
         "interrupted-demo",
         "--stop-after",
