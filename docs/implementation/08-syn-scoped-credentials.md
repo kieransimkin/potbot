@@ -54,7 +54,8 @@ model output and incoming messages cannot select another credential scope.
 
 ## Native vault or explicit environment injection
 
-Store a token through the hidden native-vault prompt:
+Install the `credentials` extra for native-vault support. Store a token through
+the hidden native-vault prompt:
 
 ```sh
 uv run potbot credentials syn-set \

@@ -31,7 +31,7 @@ git clone --recurse-submodules https://github.com/kieransimkin/potbot.git
 cd potbot
 # For an existing checkout:
 git submodule update --init --recursive
-uv sync --locked --extra syn --extra web --extra postgres --dev
+uv sync --locked --extra syn --extra web --extra postgres --extra credentials --dev
 ```
 
 Git pins an exact Syn commit; `git submodule update --remote` is not part of setup.
