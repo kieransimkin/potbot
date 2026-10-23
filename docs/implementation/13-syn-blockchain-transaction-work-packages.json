@@ -27,12 +27,20 @@
       "SBT08",
       "SBT13"
     ],
-    "legacy_receipt_and_summary_v1_bytes_frozen": true
+    "legacy_receipt_and_summary_v1_bytes_frozen": true,
+    "node_reference": "lowercase_hex_sha256_raw_32_byte_ed25519_account_public_key",
+    "issuer_hash_use": "custody_provenance_and_weight_constraints_never_node_address",
+    "consensus_authority": "explicit_consensusPolicy_in_each_canonical_type_release",
+    "unknown_type_policy": "hold_without_downgrade",
+    "policy_change_authority": "current_policy_and_canonical_type_governance",
+    "mutable_conflict_policy_owner": "exactly_one",
+    "incompatible_policy_atomic_batch": "reject",
+    "federation_group_key": "explicit_provisioning_or_agreement_required_before_enablement"
   },
   "work_packages": [
     {
       "id": "SBT01",
-      "title": "Freeze domain boundaries and authority",
+      "title": "Freeze domain, node and per-Type authority",
       "status": "planned",
       "depends_on": [],
       "owners": [
@@ -45,15 +53,15 @@
         "T01.4"
       ],
       "outputs": [
-        "integration source manifest",
-        "authority matrix",
-        "domain and outage ADRs"
+        "authority and conflict ownership matrix",
+        "node-hash and issuer fault-domain ADRs",
+        "Type-governance genesis anchors"
       ],
-      "acceptance_gate": "Every shared invariant has one authoritative owner and an explicit fault/outage policy."
+      "acceptance_gate": "One authoritative policy per mutable conflict key; explicit node identity, Type governance and fault assumptions."
     },
     {
       "id": "SBT02",
-      "title": "Freeze transaction and signed record contracts",
+      "title": "Freeze typed records and canonical consensus policies",
       "status": "planned",
       "depends_on": [
         "SBT01"
@@ -68,11 +76,11 @@
         "T01.3"
       ],
       "outputs": [
-        "versioned schemas",
-        "canonical and signature golden vectors",
-        "idempotency and size rules"
+        "canonical Type consensusPolicy and PolicyContext",
+        "node-key/roster and policy-bound intent contracts",
+        "independent canonical/signature vectors"
       ],
-      "acceptance_gate": "Independent Rust/Python codecs agree; legacy receipt and summary vectors are unchanged."
+      "acceptance_gate": "Rust/Python agree on bytes and node hashes; Type/policy/stream bindings reject ambiguity and legacy bytes stay frozen."
     },
     {
       "id": "SBT03",
@@ -115,11 +123,11 @@
         "T12.1"
       ],
       "outputs": [
-        "account/instance/peer binding",
-        "private startup configuration",
-        "local API caller policy"
+        "node-hash account/instance binding",
+        "issuer certificate and fresh key-possession checks",
+        "fail-closed startup and local API"
       ],
-      "acceptance_gate": "Wrong vault/account/genesis or duplicate local start fails before network admission."
+      "acceptance_gate": "Wrong key/hash, swapped vault/directory, wrong genesis and duplicate local starts fail before networking."
     },
     {
       "id": "SBT05",
@@ -161,11 +169,11 @@
         "T12.1"
       ],
       "outputs": [
-        "versioned peer frames",
+        "node-hash-addressed encrypted peer frames",
         "qualified AEAD and nonce rules",
-        "bounded group protocol"
+        "federation key/disclosure scope ADR"
       ],
-      "acceptance_gate": "Real processes reject forged/stale/tampered/replayed frames; no plaintext or direct Potbot traffic."
+      "acceptance_gate": "Real peers reject forged/stale/replayed frames; no plaintext, alternate consensus network or silently expanded Agent secrets."
     },
     {
       "id": "SBT07",
@@ -231,15 +239,15 @@
         "T08.2"
       ],
       "outputs": [
-        "pure transition function",
-        "atomic outcome/state store",
-        "independent replay vectors"
+        "policy-scoped pure transition function",
+        "single conflict-owner and mixed-policy batch guard",
+        "per-stream atomic outcomes and replay vectors"
       ],
-      "acceptance_gate": "Clean replicas replay to identical roots and outcomes; rejection and crash paths are atomic."
+      "acceptance_gate": "Replicas replay identically; weaker Type streams cannot mutate stronger-owned conflicts; atomic crash/rejection paths pass."
     },
     {
       "id": "SBT10",
-      "title": "Qualify and select ordering backend",
+      "title": "Qualify Type-selected operator and federated adapters",
       "status": "planned",
       "depends_on": [
         "SBT08",
@@ -256,11 +264,12 @@
         "T12.1"
       ],
       "outputs": [
-        "OrderingAdapter",
-        "protected signer and Syn network gateway spike",
-        "CometBFT/Hiero comparison ADR"
+        "CanonicalTypePolicyResolver and ConsensusRouter",
+        "OperatorLogAdapter raft-rs qualification",
+        "FederatedDagAdapter Hiero/Hashgraph spike",
+        "Syn-only gateway and protected signer evidence"
       ],
-      "acceptance_gate": "Chosen engine passes private-Syn-only transport, no-key-export, quorum, partition and recovery gates."
+      "acceptance_gate": "Three same-root crash-fault voters and four independent-root BFT voters pass their separate fault, transport, custody, availability and recovery gates; unsupported policies hold."
     },
     {
       "id": "SBT11",
@@ -279,11 +288,11 @@
         "T11.1"
       ],
       "outputs": [
-        "backend-specific proof bundle",
-        "trusted checkpoint store",
-        "offline verification CLI"
+        "operator and DAG Hashgraph proof profiles",
+        "Type-policy and roster transition verifier",
+        "trusted per-stream checkpoints and offline replay CLI"
       ],
-      "acceptance_gate": "Independent verifier rejects forged/stale/wrong-domain evidence and checks actual outcome-root timing."
+      "acceptance_gate": "Reject policy downgrade, wrong Type/stream/epoch, forged history and unauthenticated outcome roots; preserve historical proofs."
     },
     {
       "id": "SBT12",
@@ -329,11 +338,11 @@
         "T03.3"
       ],
       "outputs": [
-        "sealed release and producer checks",
-        "immutable approved export bytes",
+        "sealed canonical Type-policy and producer checks",
+        "immutable policy-bound approved export bytes",
         "credential-free preview"
       ],
-      "acceptance_gate": "Forged causes, stale leases, unknown Types and secret/reference injections are rejected."
+      "acceptance_gate": "Forged causes, stale leases, unsupported policies, wrong audience and secret/reference injections are rejected."
     },
     {
       "id": "SBT14",
@@ -449,11 +458,11 @@
         "T10.4"
       ],
       "outputs": [
-        "domain identity and alias map",
+        "explicit per-Type policies and adopted releases",
         "attributed assertion/correction records",
-        "sealed checkpoint imports"
+        "old-policy-approved Type transitions"
       ],
-      "acceptance_gate": "Conflicts stay visible; cycles, alias collisions and forged evidence cannot silently enter accepted views."
+      "acceptance_gate": "No implicit policy inheritance/downgrade or self-ratifying update; conflicts and historical evidence remain inspectable."
     },
     {
       "id": "SBT19",
@@ -476,11 +485,11 @@
         "T12.3"
       ],
       "outputs": [
-        "control and validator transition rules",
+        "policy/roster and issuer-weight transition rules",
         "paused current-key-only cutover",
         "trusted restore and fork procedure"
       ],
-      "acceptance_gate": "Revocation order, removed readers, validator activation and stale backups preserve authority and signing safety."
+      "acceptance_gate": "Revocation, old/new policy handover, voter replacement and stale backups preserve authority and signing safety."
     },
     {
       "id": "SBT20",
@@ -551,10 +560,10 @@
       ],
       "outputs": [
         "cross-language mutation corpus",
-        "actual validator fault matrix",
-        "crash and restoration evidence"
+        "separate same-root Raft and independent-root BFT fault matrices",
+        "Type downgrade, Sybil, conflict-owner and restoration evidence"
       ],
-      "acceptance_gate": "No invariant/security/availability claim exceeds the exercised fault, custody and recovery model."
+      "acceptance_gate": "No conflicting finality under each stated model, no same-root vote amplification and no untested resilience claim."
     },
     {
       "id": "SBT23",
@@ -603,5 +612,32 @@
       ],
       "acceptance_gate": "Exact deployment passes final scenario and operator recovery with explicit remaining limitations."
     }
-  ]
+  ],
+  "architecture_contract": "14-type-consensus-and-node-identity.md",
+  "consensus_profiles": {
+    "syn.operator-log/1": {
+      "status": "proposed",
+      "fault_model": "crash_and_partition_with_trusted_authorised_nodes",
+      "membership": "same_verified_credential_issuer",
+      "node_address": "node_key_hash",
+      "first_candidate": "raft-rs",
+      "quorum": "floor(N/2)+1",
+      "proof_profile": "syn.operator-commit/1",
+      "pilot": "three_voters_two_required"
+    },
+    "syn.bft-dag-hashgraph/1": {
+      "status": "proposed",
+      "fault_model": "byzantine_weight_less_than_one_third",
+      "membership": "independently_admitted_issuers_with_aggregate_weight_caps",
+      "node_address": "node_key_hash",
+      "first_candidate": "Hiero_platform_integration_spike",
+      "pipeline": [
+        "authenticated_dag_and_data_availability",
+        "hashgraph_virtual_voting_order",
+        "deterministic_syn_reducer"
+      ],
+      "proof_profile": "syn.dag-hashgraph-finality/1",
+      "pilot": "four_independent_root_delegates_three_required"
+    }
+  }
 }

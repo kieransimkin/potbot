@@ -6,6 +6,13 @@ and implemented [operator provisioning](12-syn-agent-key-provisioning.md).
 Its work-package IDs are local planning references; the existing 204 P-steps and
 48 T-stages retain their identities and recorded completion states.
 
+**Owner-directed revision:** the [Type consensus and node identity design](14-type-consensus-and-node-identity.md)
+is the normative companion for the proposed protocols. Each canonical Syn Type
+defines its own consensus policy. Same-custody Types use an authenticated
+crash-fault replicated log; independent-custody Types use the intended BFT DAG /
+Hashgraph profile. All node references are public key hashes. This supersedes
+the earlier CometBFT-first experiment without claiming either profile exists yet.
+
 The target is a **private, permissioned Syn ledger for shared transactions**, with
 one Syn instance per unique Potbot Agent. Syn authenticates submissions, replicates
 signed records, orders operations that require agreement, enforces shared-state
@@ -32,7 +39,7 @@ Three transaction boundaries must be implemented separately:
 | Boundary | Atomic operation | Authority and evidence |
 | --- | --- | --- |
 | Potbot local transaction | Commit task/event state, local idempotency and an approved delivery intent together | Potbot PostgreSQL transaction and RLS; no remote call inside it |
-| Syn shared transaction | Atomically accept or reject a bounded operation against one ledger domain's prior finalised state | Deterministic Syn reducer and backend-specific finality evidence |
+| Syn shared transaction | Atomically accept or reject a bounded operation against one policy stream's prior finalised state | Deterministic Syn reducer and exact Type-policy finality/outcome evidence |
 | External effect | Attempt a repository, model, tool or service action; reconcile its actual outcome | Potbot's existing effect owner, provider idempotency/status evidence and local verification |
 
 There is no implied ACID transaction across these boundaries. Recovery uses
@@ -71,6 +78,11 @@ meanings; this plan introduces no currency or reputation-derived voting power.
 - Account membership, transport identity, validator authority and permission to
   perform a task are distinct bindings. Possessing the group key supplies none
   of the other authorities by itself.
+- Syn addresses every peer, author, recipient and voter by its own account public
+  key hash: lowercase SHA-256 of the raw 32-byte Ed25519 public key. Root/issuer
+  hashes constrain custody membership; they are never substitute node addresses.
+- Resolve the exact canonical Type release and committed `consensusPolicy` before
+  admission. Unsupported policies hold; callers cannot select a weaker protocol.
 - One common operator root can rederive every assigned account. Even separately
   hosted validators under that root do not protect against its compromise or
   deliberate misuse. The first deployment explicitly trusts that operator.
@@ -114,14 +126,16 @@ Advance on evidence rather than elapsed-time estimates.
 | --- | --- | --- |
 | M0 Contracts and custody | SBT01–SBT04 | Exact authority, signed contracts and one-account runtime binding |
 | M1 Private signed replication | SBT05–SBT08 | Actual two-Agent/two-Syn exchange, recovery and rotation; explicitly non-BFT |
-| M2 Shared transaction finality | SBT09–SBT12 | Chosen compatible backend, deterministic transactions and independent proofs |
+| M2 Shared transaction finality | SBT09–SBT12 | Type-policy routing, separately qualified agreement profiles, deterministic transactions and independent proofs |
 | M3 Potbot business integration | SBT13–SBT18 | Admitted producers, outbox/inbox, shared assignments and reconciled external effects |
 | M4 Recovery and qualified pilot | SBT19–SBT24 | Governance, migration, observability, adversarial acceptance and controlled rollout |
 
 Do not enable Potbot's automatic Syn export handler before SBT08 and SBT13 pass.
 Schema work and offline tests can be prepared earlier, but the live sender remains
 disabled. Backend experiments can begin after signed replication; production
-selection waits for the transport, custody, proof and recovery gates.
+selection waits for the transport, custody, proof and recovery gates. An
+operator-policy pilot may qualify before federation; Types requiring federation
+remain held. Partial implementation does not downgrade their required evidence.
 
 ### SBT01 Freeze domain boundaries and authoritative operations
 
@@ -131,13 +145,22 @@ selection waits for the transport, custody, proof and recovery gates.
    and existing CI receipts in an integration manifest.
 2. Write ADRs for one-Agent/one-Syn ownership; local versus shared state; ledger
    domains; operation authority; confidentiality; availability during partitions;
-   and the operator-root trust assumption.
+   and the operator-root trust assumption. Pin the node-hash identity profile,
+   same-issuer credential validation and cross-issuer independent-weight rules.
+   Issuer certificates attest assignment; they do not independently prove hardened
+   derivation mathematics, physical independence or unmodified running software.
 3. Define each domain's immutable UUID, genesis digest, controller authority,
    initial validator policy, selected semantic release and permitted groups.
-   Keep domain ID, workspace ID, Agent ID, instance ID and transport peer ID separate.
+   Keep domain ID, workspace ID, local Agent ID, instance ID and transport locator
+   separate. Public references to nodes always use their node key hashes.
+   Define canonical Type-governance genesis anchors, per-Type policy streams and
+   one policy owner per mutable conflict namespace before implementation.
 4. Classify every first-release operation: independently authored observation,
    community endorsement, exclusive mutation or private local operation. Assign
-   exactly one authoritative writer to each mutable shared invariant.
+   exactly one authoritative policy context to each mutable shared invariant.
+   Reject a weaker Type writing the same state through another stream; reject
+   mixed-policy atomic operations unless a governed common transaction Type
+   explicitly owns the complete write set.
 5. Start with one private domain and one synthetic exclusive task/resource.
    Cross-domain atomic transfers and public-chain anchoring remain separate work.
 
@@ -150,6 +173,10 @@ outage behaviour. No shared mutable value has two authoritative databases.
 
 1. Define separate schemas for authored records, transaction intents, deterministic
    outcomes, peer frames, receipts/checkpoints and domain-qualified object IDs.
+   Add canonical Type `consensusPolicy`, immutable resolved `PolicyContext`,
+   node-key/full-key binding, issuer certificate and versioned roster contracts.
+   Bind Type reference/release/definition digest, policy digest, stream/epoch,
+   roster digest and author node hash in new signed records and proof claims.
 2. Specify canonical bytes, hash domains, signature domains, maximum sizes,
    schema/version negotiation, unknown-field policy and error codes before code.
 3. Use a new canonicalisation profile for the new ledger protocol. If adopting
@@ -208,6 +235,8 @@ host. Unsupported custody must not fall back to Python or plaintext key files.
    restricted-vault reference and private data directory in explicit configuration.
 2. Validate public membership and encrypted-state binding before networking.
    Refuse operator vaults, wrong accounts/groups, missing state and unsafe restores.
+   Recompute the node hash from the full account public key and verify the pinned
+   issuer certificate plus fresh proof of key possession before peer admission.
 3. Bind a persistent transport identity to that account and instance using signed,
    versioned evidence. Lock the local instance directory to prevent concurrent
    same-state starts; retain the operator's cross-host non-duplication responsibility.
@@ -260,8 +289,16 @@ The verifier can inspect records without trusting a mutable query projection.
    before publishing a local received-message event. Shared group authentication
    alone cannot establish which Agent authored a frame.
 5. Carry requests, replies, acknowledgements and addressed repair/control messages
-   as bounded Syn group protocols. Add quotas, rate limits, dependency limits,
+   as bounded Syn group protocols, with sender/recipient node hashes. Transport
+   locators and consensus-library numeric IDs stay adapter-private with persisted
+   bijective roster mappings; never truncate hashes into node indexes.
+   Add quotas, rate limits, dependency limits,
    cancellation, queue backpressure and rejection telemetry.
+6. Specify federation-group key provisioning/agreement before cross-custody use.
+   Different roots cannot derive a common secret from their public addresses.
+   Preserve the current-key-only vault limit and check each Type's disclosure
+   audience; simultaneous confidential operator/federation groups need a new
+   reviewed transport/custody profile, not silently added Agent secrets.
 
 **Gate:** actual two-process tests reject wrong key/account/group/epoch, forged
 signatures, tampering and replay; packet capture finds no application plaintext
@@ -323,6 +360,9 @@ the replicated network only after SBT08.
 3. Define atomic all-or-nothing operations within one domain. If a bounded batch
    is supported, specify ordering and whether each sub-operation can fail or the
    entire batch aborts; do not leave partial-application behaviour implicit.
+   Scope atomicity to one compatible policy/conflict context. Resolve the exact
+   canonical Type and write set again during execution; stream positions and
+   application roots are not one universal height across all Types.
 4. Exclude wall-clock reads, randomness, HTTP, SQL iteration-order assumptions,
    model inference and external side effects from the transition.
 5. Commit ordered operation, deterministic outcome, state/receipt roots, reducer
@@ -333,67 +373,73 @@ the replicated network only after SBT08.
 clean machines, including rejection paths; a crash at every commit boundary
 neither loses a committed transition nor applies it twice.
 
-### SBT10 Qualify and select an ordering backend
+### SBT10 Qualify Type-selected agreement and federation adapters
 
 **Owner:** Syn consensus adapter/native custody. **Depends on:** SBT08 and SBT09.
 
-1. Define an `OrderingAdapter` interface for submission, ordered execution,
-   finality evidence, validator history, checkpoint/recovery and health. Mark mocks
-   and single-owner test modes explicitly; they cannot issue BFT evidence.
-2. Use CometBFT as the first reference experiment, consistent with Syn's current
-   research proposal. Pin a supported release and images at experiment start;
-   the source links below are protocol references, not a latest-version claim.
-3. Resolve the network constraint before selection: native consensus engine peer
-   traffic must be carried by a qualified Syn-owned encrypted group gateway or
-   supported transport integration. Bind engine-facing ports to protected local
-   endpoints, disable independent peer discovery and prove there is no bypass.
-   Do not quietly introduce a second cross-agent network.
-4. Resolve the key constraint: use a supported protected signer integration with
-   durable domain/height/round/step anti-double-sign state. No validator private
-   key may be exported to the sidecar's normal key file. Qualify transport-key
-   handling too; a supported remote consensus signer alone does not solve it.
-5. Implement the engine's full application/recovery interface. Mempool approval
-   is provisional; ordered execution checks the then-current state again. For
-   CometBFT, pin and test ABCI++ lifecycle, handshake and activation semantics.
-6. Run the bounded Hiero/Hashgraph comparison proposed in Syn's research, using
-   the same operations and mandatory transport/custody/proof/recovery gates.
-   Ordering evidence from a service does not automatically certify Syn's reducer root.
-7. Select only a candidate passing the gates. If neither fits, retain explicitly
-   non-final signed replication and record the smallest unresolved adapter task.
-   A native Syn consensus algorithm is a separate research commitment.
+1. Implement `CanonicalTypePolicyResolver` and `ConsensusRouter` with immutable
+   Type/release/policy, roster, stream/epoch and conflict-ownership bindings.
+   A node's current peers or requested backend cannot override the Type policy.
+2. Qualify `OperatorLogAdapter` for `syn.operator-log/1`: investigate Rust
+   `raft-rs` first, using full Raft storage, term/vote/log, election, commit,
+   configuration-change and recovery rules. Authenticate common-issuer membership
+   and key possession. A configured three-voter group needs two; a two-voter group
+   needs both. This profile trusts authorised nodes and is not Byzantine tolerant.
+3. Qualify `FederatedDagAdapter` for `syn.bft-dag-hashgraph/1`: signed typed batches,
+   authenticated event DAG/data availability, Hashgraph-family virtual voting and
+   one final order feeding Syn's reducer. Investigate Hiero's platform/application
+   boundary first; verify actual APIs, licence, supported version and maintenance.
+   An availability DAG is not a second ordering winner. A new composition requires
+   its own safety/liveness/recovery argument and review.
+4. Require independently admitted custody roots and explicit voting-weight caps.
+   Begin with four equal-weight independent-root delegates, quorum three, for the
+   declared one-Byzantine-fault model. Many accounts from one issuer cannot amplify
+   independent weight. Root hashes constrain the roster; voters are node hashes.
+5. Prove both engines use Syn's encrypted pub-sub for every cross-node message.
+   Embed transport hooks or qualify a Syn-owned gateway; sidecar ports remain
+   protected local endpoints, with independent peer networking disabled.
+6. Prove protected signing, durable engine-specific anti-equivocation state,
+   native/SQL recovery and historical proof export. No account/validator key may
+   be exported to an ordinary sidecar key file. Transport-key custody also qualifies.
+7. Pin each passing profile independently. Record failed interfaces and named
+   follow-up experiments. A custom Hashgraph implementation requires a separate
+   correctness model, differential tests and security review; unqualified Types
+   remain held rather than falling back to another engine.
 
-**Gate:** four equal-weight test validators commit with three available, tolerate
-the declared one-fault scenario, stop finality in a 2–2 partition and recover
-without conflicting commits. Four processes on one host test protocol mechanics.
-Shared operator-root custody remains a correlated trust assumption even across hosts.
-Relevant pinned references are the [ABCI methods](https://raw.githubusercontent.com/cometbft/cometbft/v0.38.21/spec/abci/abci%2B%2B_methods.md)
-and [validator signing rules](https://raw.githubusercontent.com/cometbft/cometbft/v0.38.21/spec/consensus/signing.md).
+**Gate:** three same-custody voters survive one crash and stop the minority;
+four independent federation voters tolerate the specified one-fault scenarios,
+stop in a 2–2 partition and recover without conflicting finality. Exercise
+equivocation, missing parents, withheld batches and same-root Sybil attempts.
+Four processes under one root establish mechanics only. Both profiles pass
+Syn-only traffic, protected custody, proof and recovery checks. See the
+[research and spike criteria](14-type-consensus-and-node-identity.md#5-cross-custody-bft-dag-and-hashgraph-profile).
 
-### SBT11 Implement independent finality and outcome verification
+### SBT11 Implement independent policy-bound finality and outcome verification
 
 **Owner:** Syn verifier/client, consumed by Potbot. **Depends on:** SBT10.
 
-1. Define a proof bundle binding domain/genesis, backend and protocol, transaction
-   bytes/digest, inclusion position, outcome, state commitment and applicable
-   validator-set/checkpoint evidence.
-2. Keep operation inclusion, protocol finality, accepted application outcome and
-   query-state authenticity as distinct verifiable claims.
-3. Verify from a trusted genesis or recent trusted checkpoint using the backend's
-   maintained verifier and validator-update/trusting rules. A service's JSON
-   assertion or arbitrary signature count is not a substitute.
-4. Start with full deterministic snapshot/replay verification. Add succinct
-   state-map proofs only after specifying actual membership/nonmembership rules.
-5. Test root authentication timing. In the referenced CometBFT design, the header
-   commits the prior block's application hash: a result from height H needs the
-   appropriate later authenticated header, or explicit verified replay evidence.
-   Expose `outcome_proof_pending` until the required evidence exists.
+1. Define distinct `syn.operator-commit/1` and `syn.dag-hashgraph-finality/1` proof
+   profiles. Bind domain/genesis, exact canonical Type/release/policy, stream/epoch,
+   node-hash roster/weight, operation digest, position, outcome and state commitment.
+2. Keep availability, inclusion, consensus finality, accepted application outcome
+   and query-state authenticity as separate verifiable claims. A Raft commit
+   receipt cannot satisfy a Type requiring independent-custody BFT evidence.
+3. Verify from trusted Type-governance genesis/checkpoints through roster and
+   policy transitions using the selected engine's complete verification rules.
+   An arbitrary signature count or a service's JSON assertion is insufficient.
+4. Start with deterministic full snapshot/replay verification of application
+   outcomes. Specify the exact checkpoint authentication and state-root timing
+   for each engine; ordering evidence alone does not certify Syn application state.
+   Add succinct map proofs only after membership/nonmembership rules are fixed.
+5. Expose `outcome_proof_pending` until all evidence for the requested claim exists.
+   Keep policy-stream positions, author sequences and local journal cursors distinct.
 6. Store trusted checkpoints outside the Syn database being audited, with explicit
    retention, comparison, corruption detection and recovery rules.
 
-**Gate:** an offline verifier detects modified bytes/outcomes, wrong genesis,
-forged/missing quorum evidence, stale trust state and mismatched application roots.
-The [header structure reference](https://raw.githubusercontent.com/cometbft/cometbft/v0.38.21/spec/core/data_structures.md)
-defines the cited AppHash relationship; the selected version must pass its own vectors.
+**Gate:** an offline verifier detects changed bytes/outcomes, wrong genesis/Type,
+policy downgrade, forged or stale roster evidence, invalid Hashgraph history and
+mismatched roots. A valid proof for another Type/profile/epoch does not authorise
+this mutation; old-policy proofs remain verifiable after governed transitions.
 
 ### SBT12 Expose the versioned Syn transaction API
 
@@ -410,6 +456,8 @@ defines the cited AppHash relationship; the selected version must pass its own v
    versus terminal classifications.
 4. Query shared state at an explicit checkpoint and include projection lag. A
    mutable latest-state response cannot authorise a stale shared mutation.
+   Include exact Type/policy and stream/epoch in responses, cursors and proof
+   queries; reject unscoped positions where multiple streams could match.
 5. Have Potbot use only its own Syn endpoint. Syn handles all peer submission and
    reconciliation over the encrypted group.
 
@@ -424,14 +472,17 @@ SBT02; runtime qualification uses SBT08 and SBT12.
 
 1. Admit exact semantic Types and versions against task-pinned sealed releases.
    Validate authenticated producer, cause/run/input identity, current lease,
-   task revision, audience and permitted operation.
+   task revision, audience and permitted operation. Resolve and pin the canonical
+   Type policy, eligible node-hash roster and disclosure group. Seal those exact
+   policy bytes/digests with the semantic release; metadata JSON is not enforcement.
 2. Classify fields for each outbound record: safe inline metadata, restricted
    reference, protected local evidence or forbidden secret. Validate a whole
    bounded export page before committing any send intent.
 3. Preserve `execution-summary:v1` and its delivery IDs. Put transaction-specific
    fields in a new explicit application contract rather than expanding v1.
 4. Freeze approved canonical payload bytes/digest, disclosure policy revision,
-   source identity and target domain in the intent. A later policy restriction
+   source identity, author node hash, target domain, Type/policy digests and stream
+   in the intent. A later policy restriction
    can hold/cancel an unsent intent; it must not mutate that intent silently.
 5. Preserve preview without reading transport credentials or contacting Syn.
 
@@ -470,7 +521,10 @@ Concurrent/fenced workers, tenant isolation and bounded backpressure pass real D
    sender binding, domain/genesis, target audience, signed bytes and required
    finality/outcome evidence before admitting a shared-state mutation.
 2. Map remote Agent/domain/workspace to an explicitly authorised local tenant;
-   equality of UUIDs or group membership is insufficient.
+   equality of UUIDs or group membership is insufficient. The remote node address
+   is its public key hash; an issuer/root label is not a tenant or peer identity.
+   Resolve the expected canonical Type policy independently before verifying its
+   required proof; reject valid-but-weaker evidence and wrong-conflict streams.
 3. In one local transaction, persist inbox deduplication, consumer position and
    the resulting proposal/projection/event. Retain rejected/quarantined evidence
    under bounded policy without advancing past missing required data silently.
@@ -540,6 +594,10 @@ recorded action rather than deletion of history.
    refer to exact prior digests; consensus records their valid admission, not truth.
 3. Adopt shared ontology changes through ordered expected-version operations.
    Deterministically reject invalid Type graphs and retain rejected proposals.
+   Materialise an explicit consensus policy in every new admitted Type release;
+   no implicit parent-policy merge or fallback for legacy Types. Changes require
+   the current policy plus canonical Type-governance approval and checkpointed
+   adoption. The proposed weaker policy cannot approve its own replacement.
 4. Map network identities to legacy local aliases explicitly; do not collapse
    independently installed objects with the same `syn://...` slug.
 5. Rebuild Syn views and Potbot imports at named checkpoints. Existing running
@@ -557,6 +615,8 @@ cannot silently enter an accepted task or memory view.
 1. Define genesis controller policy and separate validator, writer and reader
    membership. The current root operator's power must be explicit. Any future
    multi-controller or multi-root governance is a reviewed change in trust.
+   Govern per-Type policy/roster releases and independent-issuer weight caps;
+   node references remain full node hashes throughout each transition.
 2. Finalise grants/revocations against the state immediately preceding each
    operation. Backdated client times do not restore revoked authority. Verify
    historical operations against the authority valid at their finalised position.
@@ -631,8 +691,11 @@ recovered examples. Captures use synthetic/public-safe data.
 **Depends on:** SBT20 and SBT21.
 
 1. Run schema/canonical/signature property and mutation corpora in both languages.
-2. Exercise four-validator ordering with crash, Byzantine equivocation, malformed
-   proposals, stale authority, missing required data, partition and heal scenarios.
+2. Exercise same-root Raft crash/partition recovery separately from four-root BFT
+   DAG/Hashgraph faults. Include equivocation, malformed events, missing parents,
+   withheld batches, stale policy/roster, partition/heal and correlated-root voting.
+   Reject caller-selected policy downgrades, self-ratifying Type updates and weaker
+   Types attempting writes into a stronger policy's conflict namespace.
 3. Inject failures at every native reservation, SQL commit, frame publication,
    acknowledgement, consensus commit, proof handoff, projection and external effect.
 4. Rebuild from genesis and trusted snapshots; compare roots, outcomes, private
@@ -677,7 +740,9 @@ development and Linux validator hosting have separately recorded qualification.
 **Owner:** operator and both application owners. **Depends on:** SBT23.
 
 1. Name actual Agent/validator hosts, operator/controller custody, data classes,
-   selected backend, root trust assumption, operating costs and rollback owner.
+   canonical Types/policies, separately qualified profile versions, actual custody
+   independence assumptions, operating costs and rollback owner. Operator and
+   federation pilots have separate qualification receipts and stop rules.
 2. Run the complete task-race and external-effect scenario below under the exact
    deployment profile; retain independent verification and recovery evidence.
 3. Enable one low-impact shared task/resource family behind explicit configuration,
@@ -699,11 +764,11 @@ These names are targets to freeze in SBT02, not existing endpoints or classes.
 
 | Contract | Required binding |
 | --- | --- |
-| `SynTransactionIntentV1` | Profile, domain/genesis, stable transaction and idempotency identity, author/account, author sequence/previous digest, operation and canonical arguments, subject/expected revision, capability reference, semantic release, validity by agreed context, visibility and signature |
+| `SynTransactionIntentV1` | Profile, domain/genesis, exact Type reference/release/definition and policy digests, policy stream/epoch, roster digest, stable transaction/idempotency identity, author node hash, author sequence/previous digest, operation/arguments/write set, subject/expected revision, capability reference, sealed semantic release, validity, visibility and signature |
 | `SynTransactionOutcomeV1` | Exact intent digest, accepted/rejected result code, finalised position, consumed/current revision, reservation/fence where applicable, reducer version and authenticated outcome commitment |
-| `SynFinalityProofV1` | Backend, trust anchor, validator history, authenticated inclusion/finality evidence and the additional state/outcome-root evidence the claim needs |
-| `SynPeerFrameV1` | Group/epoch, domain/genesis, account/instance/peer binding, stable inner record identity/digest, nonce/replay scope, bounded ciphertext and signatures |
-| `PotbotSynIntentV1` | Source installation/workspace/event/run, approved application bytes/digest, disclosure and semantic policy versions, target domain/local Syn identity, stable delivery identity and required evidence level |
+| `SynFinalityProofV1` | Required Type/policy proof profile, stream/epoch, trust anchor, node-hash roster/weight and transition history, authenticated inclusion/finality evidence and separately authenticated/replayed state/outcome evidence |
+| `SynPeerFrameV1` | Group/epoch, domain/genesis, sender and optional recipient node hashes, account/instance/locator binding, stable inner identity/digest, nonce/replay scope, bounded ciphertext and signatures |
+| `PotbotSynIntentV1` | Source installation/workspace/event/run, approved bytes/digest, canonical Type/policy and disclosure versions, target domain/stream and local Syn node hash, stable delivery identity and required proof profile |
 | `PotbotSynAdmissionV1` | Received exact identity/digest, verified sender/proof, explicit tenant mapping, local task/grant/revision decisions and source projection cursor |
 
 The group encryption envelope, authored identity, business transaction and
@@ -732,8 +797,9 @@ All remote work behind these routes uses Syn, including consensus/catch-up.
 | --- | --- | --- |
 | Syn protocols | `packages/syn-client/src/syn_client/` | Separate ledger codecs, schemas, golden vectors and public verifier |
 | Syn runtime | `src/syn/p2p.py`, config and server lifecycle | Account-bound private mesh, protected native IPC and backend gateway |
-| Syn storage | SQLAlchemy models and Alembic | Domains/genesis, signed records/author heads, transaction/outcome log, deterministic state, native-reservation linkage, peer publication/receipt facts and verified checkpoints |
-| Syn application | New `src/syn/ledger/` modules | Reducer, capability/expected-version rules, ordering adapters, proof assembly and projection builders |
+| Syn storage | SQLAlchemy models and Alembic | Domains/genesis, canonical Type-policy releases, node/roster/engine-ID bindings, signed records, Raft WAL or DAG/availability history, per-stream outcomes/state, native reservation linkage, publication facts and checkpoints |
+| Syn application | New `src/syn/ledger/` modules | Canonical Type-policy resolver/router, conflict ownership, operator-log and federated-DAG adapters, deterministic reducer, proof verifier and projection builders |
+| Syn Type authority | Type models, schemas and canonical release/adoption services | First-class consensusPolicy contracts, immutable definition/policy digests, genesis governance and old-policy-approved transitions |
 | Native custody | `native/potbot-identity/src/` | Typed ledger/transport operations; qualified validator signer if selected; durable anti-replay/anti-double-sign state |
 | Potbot contracts | `domain/syn_exchange.py`, new ledger types | Explicit immutable intent/admission and proof policy |
 | Potbot controller | `controller/execution_events.py`, `controller/syn_service.py` | Admitted producer transaction, local Syn ledger adapter and inbox admission |
@@ -756,7 +822,9 @@ not prove these outcomes.*
 
 1. The operator provisions Agents A/B with distinct numbered accounts, one current
    group key and separate Syn runtimes. Remove the operator vault from Agent hosts.
-2. Create one shared task at revision R with one exclusive resource/allowance.
+2. Adopt its canonical Type policy and stream/epoch. For the operator profile,
+   use three same-custody voters; for federation, use four independent-root voters.
+   Create one shared task at revision R with one exclusive resource/allowance.
    A and B submit competing signed assignments against R through their own Syns.
 3. Syn's finalised order accepts one assignment and rejects the stale competitor.
    Verify the exact accepted outcome and revision/fence independently.
@@ -769,7 +837,9 @@ not prove these outcomes.*
    reservation through another Syn operation.
 7. Drop a Syn acknowledgement. Retry the exact transaction; the outcome/receipt
    remains attributable to the original intent and source event.
-8. Partition a four-validator domain 2–2. Shared finality stops. Allowed local
+8. Partition the federation's four independent voters 2–2; finality stops. In the
+   operator test, partition three voters 2–1; only the majority may commit. Confirm
+   a two-voter roster cannot progress with one. Allowed local
    private work remains explicitly local; no shared assignment is fabricated.
 9. Heal the partition, verify consistent finalised outcomes and rebuild one
    Potbot projection. Duplicate received messages produce no duplicate effects.
@@ -795,7 +865,7 @@ Use separate stored facts rather than one linear success field:
 | --- | --- |
 | Local durable | This Syn stored the exact signed record |
 | Peer durable receipt | A named admitted peer acknowledged durable storage |
-| Ordered/finalised | The selected backend finalised this domain position |
+| Ordered/finalised | The exact Type policy finalised this stream/epoch position under its declared fault model |
 | Accepted or rejected | Syn's deterministic application outcome at that position |
 | Outcome proof verified | The client verified the evidence required for that result/root |
 | Potbot admitted/projected | The receiving application applied its local rules and projection transaction |
@@ -826,7 +896,12 @@ begin by moving all Potbot SQL into a blockchain or enabling an automatic sender
 | Root trust | Operator remains trusted and can derive all assigned accounts | SBT01; revisit before any independent-governance claim |
 | Canonicalisation and ledger signature profile | New explicit profile, independently implemented; old v1 bytes frozen | SBT02–SBT03 |
 | AEAD, nonce and unsafe-restore policy | Maintained cryptography with qualified persistent nonce/key context | SBT06 before sending frames |
-| Ordering backend | CometBFT first experiment; bounded Hiero comparison | SBT10, only after custody/network/proof/recovery gates |
+| Node reference | Assigned account public-key SHA-256; issuer hashes are custody evidence only | SBT01–SBT04 |
+| Consensus authority | Explicit consensusPolicy in every canonical Type release; governed old-policy cutover | SBT01–SBT02, SBT18–SBT19 |
+| Same-custody agreement | Raft-style operator log; investigate raft-rs first | SBT10 crash/partition/custody/transport gates |
+| Independent-custody consensus | BFT DAG plus Hashgraph; investigate Hiero first, no silent substitute | SBT10 BFT/availability/proof/recovery gates |
+| Mixed-policy conflicts | One policy owner per mutable key; incompatible atomic batches reject | SBT01, SBT09 |
+| Federation group key | Explicit provisioning/agreement and disclosure scope; current-key-only constraint | SBT06 before federation traffic |
 | State-proof method | Verified full snapshot/replay first; succinct map proofs later | SBT11 |
 | Current-key-only rotation | Paused checkpointed cutover, then resume in new epoch | SBT08 rehearsal and SBT19 full governance |
 | External effect guarantee | Per-provider idempotency/fence/reconciliation evidence | SBT17 per effect family |
@@ -841,15 +916,17 @@ transport or restricted-custody requirements.
 The existing code and [guides 09–12](09-syn-potbot-architecture.md) supply the
 implemented baseline. Syn's same-date `docs/distributed-ledger-plan.md` and
 `docs/consensus-comparative-review.md` were additional **uncommitted working-tree
-research inputs** during this review. Their backend recommendation is provisional;
-review and pin those documents before making them a cross-repository dependency.
-This integration plan adds Potbot-specific transaction ownership, private transport,
-native custody, migration and external-effect gates to that proposal.
+research inputs** during this review. Their earlier global-backend recommendation is superseded here by the owner's
+per-Type consensus direction. They are contextual research, not a committed
+cross-repository contract. This plan and guide 14 add the canonical policy,
+public-key-hash identity, custody, transport and Potbot integration requirements.
 
-External technical references are linked beside the specific constraints they
-support. Protocol references pinned at CometBFT v0.38.21 are examples used for
-design review, not a deployment version selection. Record the actual supported
-release/API and reproduce these assumptions in the adapter spike.
+External primary references and their limits are documented in
+[guide 14](14-type-consensus-and-node-identity.md). Raft library contracts support
+the proposed embedding direction; Hiero's architecture does not prove that Syn's
+required hooks exist. Narwhal is research input, with the original repository
+archived. Pin actual supported releases/APIs at spike start; no new consensus
+protocol, throughput result or production integration is established by this plan.
 
 The new diagrams describe planned components. There is no new running blockchain
 UI or multi-validator deployment to screenshot or record in this planning task.

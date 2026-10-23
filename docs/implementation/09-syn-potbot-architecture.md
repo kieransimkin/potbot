@@ -22,6 +22,14 @@ operator-only derivation, restricted account vaults and current-group-key rotati
 The [detailed blockchain and transaction plan](13-syn-blockchain-transaction-plan.md)
 extends this architecture into 24 dependency-ordered implementation packages,
 including shared transaction authority, consensus/proofs and effect recovery.
+The [canonical Type consensus design](14-type-consensus-and-node-identity.md)
+now governs the proposed choice of agreement: authenticated Raft-style logs for
+Types trusting one custody root, BFT DAG/Hashgraph for Types requiring independent
+custody. Every node address is its own account public-key hash; issuer hashes
+constrain membership and voting weight. Types pin their policies and proof
+profiles in canonical releases, including governed updates and conflict ownership.
+These are intended components, with transport, custody and engine qualification
+still required; no global backend or caller-selected downgrade is implied.
 
 ## Components inside each Agent
 

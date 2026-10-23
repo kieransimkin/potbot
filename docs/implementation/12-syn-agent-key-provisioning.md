@@ -18,6 +18,12 @@ acceptance provide the reproducible evidence.*
 
 ## Frozen derivation and public contracts
 
+For the planned Syn network, the existing Agent public-key fingerprint is its
+canonical node reference. The operator fingerprint remains an issuer trust pin.
+See the [node identity and per-Type consensus contract](14-type-consensus-and-node-identity.md)
+for full-key/hash checks, live possession and roster rules. This design does not
+change any existing v1 derivation, certificate or signature bytes.
+
 The existing Icarus/Ed25519-BIP32 V2 base path stays
 `m/6969'/420'/0'/0/0`. Hardened indices are the encoded integer `2^31 + n`.
 Account numbers and group epochs are explicit integers from 0 through `2^31-1`.

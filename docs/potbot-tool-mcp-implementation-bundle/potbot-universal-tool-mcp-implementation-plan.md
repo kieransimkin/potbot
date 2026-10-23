@@ -165,6 +165,17 @@ retain Potbot's local execution/effect owners and require private Syn-only
 consensus transport, protected signing and independent outcome proofs. SBT IDs
 are implementation work packages, not new P-steps or T-stages.
 
+The [canonical Type consensus and node identity design](../implementation/14-type-consensus-and-node-identity.md)
+supersedes a single global backend: each Type's adopted canonical definition
+selects an authenticated same-custody log or the intended independent-custody BFT
+DAG/Hashgraph profile. Nodes are always referenced by their public key hashes;
+issuer hashes establish custody constraints and prevent vote amplification.
+Implement policy resolution, immutable Type/policy/stream bindings and one policy
+owner per conflict key before enabling automatic transactions. Type updates need
+the current policy's approval; unsupported federation policies remain held while
+the operator profile qualifies. Federation group-key distribution and Hiero's
+transport/signing/proof interfaces are explicit research gates.
+
 Preserve the separate plugin strategy's T04.1–T04.4 admission/ranking work when
 composing branches. Shared catalog messages remain untrusted candidate evidence.
 Memory/source export also needs P085–P094 retention/deletion review: immutable

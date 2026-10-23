@@ -58,6 +58,10 @@ key rotation. The base private key stays with the operator.
 The [blockchain and transaction implementation plan](docs/implementation/13-syn-blockchain-transaction-plan.md)
 sets out 24 packages for signed replication, shared-state finality, verified
 outcomes and Potbot transaction/effect recovery.
+Its [Type consensus and node identity design](docs/implementation/14-type-consensus-and-node-identity.md)
+defines canonical per-Type policies, same-custody agreement, federated BFT
+DAG/Hashgraph investigation and public-key-hash node references. These consensus
+profiles are proposed; the implemented HTTP receipt chain does not supply them.
 
 ![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
 

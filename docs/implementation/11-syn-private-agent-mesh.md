@@ -115,6 +115,14 @@ public-key fingerprint, instance/peer binding, group ID and current key epoch.
 Membership evidence binds the allowed Agent account to that group. A self-supplied
 key, topic name or `sender` string is not membership evidence.
 
+The [node identity and Type-policy contract](14-type-consensus-and-node-identity.md)
+requires all Syn sender, recipient, peer and voter references to use the assigned
+account's public-key hash: lowercase SHA-256 of its raw 32-byte Ed25519 public key.
+The operator/issuer fingerprint is custody evidence, never another node address.
+Transport peer IDs remain authenticated internal locators. Common-issuer
+certificates plus fresh key possession admit a participant; the canonical Type's
+policy still decides its voting role, agreement protocol and required proof.
+
 Syn publishes a signed application frame encrypted under the derived group key.
 The authenticated frame must bind protocol/profile versions, group, epoch,
 originating Agent/account, message identity, sequence/replay identity and payload
