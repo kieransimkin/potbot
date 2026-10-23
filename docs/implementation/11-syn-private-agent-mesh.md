@@ -11,6 +11,9 @@ ensuring no two Agents use the same key.
 encrypted networking. The existing HTTP/client/ledger and metadata-summary code
 is a local integration foundation. Current Syn has peer discovery, but no private
 group pub-sub, stable account-bound peer identity or encrypted application frames.
+The [operator provisioning increment](12-syn-agent-key-provisioning.md) implements
+restricted account vaults, an encrypted allocation register, signed membership and
+current-group-key rotation. It does not yet wire those keys into a Syn peer runtime.
 
 ```mermaid
 flowchart TB
@@ -79,8 +82,8 @@ account's key material and the current group key, never the root seed, base
 private key, sibling account keys or group-derivation secret. Account numbers are
 explicit operator assignments in a bounded hardened index domain, not defaults
 chosen independently at startup. The concrete branch allocation and versioned
-key/export profiles must be frozen with independent derivation vectors before
-provisioning code is enabled.
+key/export profiles are frozen with independent derivation vectors in the
+[provisioning contract](12-syn-agent-key-provisioning.md).
 
 Use the existing Ed25519-BIP32 implementation for the hardened account derivation
 rather than inventing another wallet algorithm. The general hardened account
@@ -164,9 +167,10 @@ receipts or the `potbot` sender label as signed account-bound peer messages.
 
 1. Freeze the account, membership, local Agent-to-Syn binding and group-envelope
    contracts. Retain the implemented minimized application projection.
-2. Implement operator provisioning and restricted account vaults with known-answer
-   derivation tests, no parent/sibling key access, duplicate-inventory rejection,
-   recovery/rotation rules and explicit operator handoff.
+2. Use the implemented operator provisioning and restricted account vaults with
+   known-answer derivation tests, no parent/sibling key access, duplicate-inventory
+   rejection, documented restore/rotation limits and explicit operator handoff.
+   Qualify the later Syn runtime against this boundary before enabling peer traffic.
 3. Implement authenticated encrypted Syn pub-sub with stable account/peer binding,
    bounded queues, replay protection and safe nonce/epoch persistence.
 4. Run an actual two-Agent/two-Syn acceptance: authorized exchange; wrong-key,

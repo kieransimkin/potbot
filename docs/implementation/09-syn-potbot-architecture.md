@@ -17,6 +17,8 @@ keys and the derived group key, and owns non-duplication. The
 [private Agent mesh contract](11-syn-private-agent-mesh.md) controls this target
 and supersedes a shared central Syn service. Current HTTP and summary code is
 the local Potbot-to-own-Syn foundation; the encrypted mesh is still pending.
+The [provisioning increment](12-syn-agent-key-provisioning.md) now supplies
+operator-only derivation, restricted account vaults and current-group-key rotation.
 
 ## Components inside each Agent
 

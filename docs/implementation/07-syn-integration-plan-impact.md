@@ -16,6 +16,9 @@ supersedes this review's single-managed-service target. Operator-provisioned uni
 account keys, restricted account vaults and qualified Syn-only peer transport are
 now required before the automatic outbox. Historical review observations below
 remain evidence of their original baselines, not the new target architecture.
+The [provisioning increment](12-syn-agent-key-provisioning.md) implements the
+restricted-vault foundation. Encrypted networking, local runtime binding and the
+two-Agent recovery/rotation acceptance remain required before the outbox.
 
 **Recommendation:** use Syn as Potbot's communication and externally checkable
 receipt service. Keep Potbot's task decisions and durable execution transactions

@@ -16,6 +16,7 @@ use std::{
 };
 
 const PASSWORD: &str = "synthetic-test-password-only";
+const AGENT_PASSWORD: &str = "synthetic-agent-password-only";
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_potbot-identity")
 }
@@ -69,6 +70,8 @@ fn public_json(output: &Output) -> Value {
     );
     assert!(!String::from_utf8_lossy(&output.stdout).contains(PASSWORD));
     assert!(!String::from_utf8_lossy(&output.stderr).contains(PASSWORD));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains(AGENT_PASSWORD));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains(AGENT_PASSWORD));
     parse(&output.stdout).unwrap()
 }
 fn verify(public: &str, signature: &str, prefix: &[u8], value: &Value) {
@@ -85,6 +88,218 @@ fn verify(public: &str, signature: &str, prefix: &[u8], value: &Value) {
     message.push(0);
     message.extend(canonical(&unsigned).unwrap());
     assert!(key.verify(&message, &signature));
+}
+
+#[test]
+#[ignore = "real Agent custody acceptance requires qualified locked-memory host; no fallback"]
+fn production_restricted_agent_custody_acceptance() {
+    use potbot_identity::provisioning::{AgentProof, Membership};
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("operator").join("vault.json");
+    let agent = temporary.path().join("agent").join("vault.json");
+    let duplicate = temporary.path().join("duplicate").join("vault.json");
+    let offline = temporary.path().join("operator-offline.json");
+    let policy = temporary.path().join("policy.json");
+    let group = "11111111-1111-4111-8111-111111111111";
+    std::fs::write(
+        &policy,
+        canonical(&json!({"workspace_id":group,
+        "allowed_audiences":["custody-test"],"allowed_payload_types":["syn://type/ember"],
+        "allowed_domains":["potbot.event.v2"]}))
+        .unwrap(),
+    )
+    .unwrap();
+    let (root_path, agent_path, duplicate_path) = (
+        root.to_str().unwrap(),
+        agent.to_str().unwrap(),
+        duplicate.to_str().unwrap(),
+    );
+    let identity: PublicIdentity = serde_json::from_value(public_json(&invoke(
+        &[
+            "init",
+            "--vault",
+            root_path,
+            "--policy",
+            policy.to_str().unwrap(),
+        ],
+        Some(&format!("{PASSWORD}\n{PASSWORD}\n")),
+        None,
+    )))
+    .unwrap();
+    let pin = &identity.signer_hash;
+    let provision = |path, account| {
+        invoke(
+            &[
+                "agent-provision",
+                "--vault",
+                root_path,
+                "--agent-vault",
+                path,
+                "--expect-signer",
+                pin,
+                "--account-number",
+                account,
+                "--instance-id",
+                "22222222-2222-4222-8222-222222222222",
+                "--group-id",
+                group,
+                "--group-epoch",
+                "0",
+            ],
+            Some(&format!("{PASSWORD}\n{AGENT_PASSWORD}\n{AGENT_PASSWORD}\n")),
+            None,
+        )
+    };
+    let member: Membership =
+        serde_json::from_value(public_json(&provision(agent_path, "7"))).unwrap();
+    member.validate(pin).unwrap();
+    let agent_pin = &member.agent.signer_hash;
+    assert_ne!(agent_pin, pin);
+    assert_eq!(
+        std::fs::metadata(&agent).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert_eq!(
+        std::fs::metadata(agent.parent().unwrap())
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700
+    );
+    let agent_password = format!("{AGENT_PASSWORD}\n");
+    let arguments = |command| {
+        vec![
+            command,
+            "--vault",
+            agent_path,
+            "--expect-operator",
+            pin,
+            "--expect-agent",
+            agent_pin,
+        ]
+    };
+    // Agent commands have only the assigned vault; the operator file is unavailable.
+    std::fs::rename(&root, &offline).unwrap();
+    let checked = public_json(&invoke(
+        &arguments("agent-check"),
+        Some(&agent_password),
+        None,
+    ));
+    assert_eq!(checked["agent"]["signer_hash"], *agent_pin);
+    let request = |epoch, id| {
+        canonical(&json!({"group_id":group,"group_epoch":epoch,
+        "request_id":id,"payload_sha256":sha256_hex(b"agent production fixture"),
+        "validity_seconds":300}))
+        .unwrap()
+    };
+    let first = request(0, "33333333-3333-4333-8333-333333333333");
+    let value = public_json(&invoke(
+        &arguments("agent-sign"),
+        Some(&agent_password),
+        Some(&first),
+    ));
+    let proof: AgentProof = serde_json::from_value(value.clone()).unwrap();
+    proof
+        .verify(
+            pin,
+            group,
+            0,
+            &sha256_hex(b"agent production fixture"),
+            proof.issued_at,
+        )
+        .unwrap();
+    verify(
+        &member.agent.public_key,
+        value["signature"].as_str().unwrap(),
+        b"syn-agent-proof-v1",
+        &value,
+    );
+    let replay = invoke(
+        &arguments("agent-sign"),
+        Some(&agent_password),
+        Some(&first),
+    );
+    assert!(!replay.status.success() && replay.stdout.is_empty());
+    let wrong_password = invoke(
+        &arguments("agent-check"),
+        Some("incorrect synthetic password\n"),
+        None,
+    );
+    assert!(!wrong_password.status.success() && wrong_password.stdout.is_empty());
+    let mut wrong_pin = arguments("agent-check");
+    *wrong_pin.last_mut().unwrap() =
+        "0000000000000000000000000000000000000000000000000000000000000000";
+    let rejected = invoke(&wrong_pin, Some(&agent_password), None);
+    assert!(!rejected.status.success() && rejected.stdout.is_empty());
+    let legacy = invoke(&["public", "--vault", agent_path], None, None);
+    assert!(!legacy.status.success() && legacy.stdout.is_empty());
+    std::fs::rename(&offline, &root).unwrap();
+    let rejected = provision(duplicate_path, "7");
+    assert!(!rejected.status.success() && rejected.stdout.is_empty() && !duplicate.exists());
+    let listing = public_json(&invoke(
+        &[
+            "agent-allocations",
+            "--vault",
+            root_path,
+            "--expect-signer",
+            pin,
+            "--offset",
+            "0",
+            "--limit",
+            "1",
+        ],
+        Some(&format!("{PASSWORD}\n")),
+        None,
+    ));
+    assert_eq!(listing["total"], 1);
+    assert_eq!(listing["allocations"][0]["agent_fingerprint"], *agent_pin);
+    let rotated = public_json(&invoke(
+        &[
+            "agent-rotate",
+            "--vault",
+            root_path,
+            "--agent-vault",
+            agent_path,
+            "--expect-signer",
+            pin,
+            "--expect-agent",
+            agent_pin,
+            "--group-epoch",
+            "1",
+        ],
+        Some(&format!("{PASSWORD}\n{AGENT_PASSWORD}\n")),
+        None,
+    ));
+    assert_eq!(rotated["agent"], checked["agent"]);
+    assert_eq!(rotated["group_epoch"], 1);
+    let old = request(0, "44444444-4444-4444-8444-444444444444");
+    let rejected = invoke(&arguments("agent-sign"), Some(&agent_password), Some(&old));
+    assert!(!rejected.status.success() && rejected.stdout.is_empty());
+    let next = request(1, "55555555-5555-4555-8555-555555555555");
+    let next: AgentProof = serde_json::from_value(public_json(&invoke(
+        &arguments("agent-sign"),
+        Some(&agent_password),
+        Some(&next),
+    )))
+    .unwrap();
+    next.verify(
+        pin,
+        group,
+        1,
+        &sha256_hex(b"agent production fixture"),
+        next.issued_at,
+    )
+    .unwrap();
+    assert!(next
+        .verify(pin, group, 0, &next.payload_sha256, next.issued_at)
+        .is_err());
+    let exported = public_json(&invoke(
+        &["public", "--vault", root_path, "--expect-signer", pin],
+        None,
+        None,
+    ));
+    assert_eq!(exported, serde_json::to_value(identity).unwrap());
 }
 
 #[test]

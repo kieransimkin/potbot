@@ -146,7 +146,11 @@ sequence must not be substituted for the existing Potbot workspace event cursor.
 implemented. The existing manual export and HTTP fixture do not qualify them.*
 
 Bring dependency-specific T12.1 work into the T01.1/T01.4 foundation gate: the
-private Syn submodule currently blocks Potbot CI before tests. Then complete
+private Syn submodule now has qualified read-only CI access. The superseding
+[private Agent mesh](../implementation/11-syn-private-agent-mesh.md) requires one
+Syn per Agent. Its [operator provisioning and restricted-vault increment](../implementation/12-syn-agent-key-provisioning.md)
+is implemented; qualify encrypted Syn pub-sub, account/instance binding and actual
+two-Agent recovery and rotation before enabling the automatic outbox. Then complete
 T01.2/T01.3 semantic/causal admission and T03.1/T03.3 disclosure/credentials; add
 the transactionally committed export intent and fenced relay under T03.4; add
 typed, deduplicated incoming-agent admission under T03.4/T10.1/T10.2; qualify

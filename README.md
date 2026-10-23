@@ -52,6 +52,9 @@ service and verifiable hash-chain receipts. See the [service integration guide](
 The [required private Agent mesh](docs/implementation/11-syn-private-agent-mesh.md)
 assigns one Syn instance and operator-provisioned account key to each Agent;
 encrypted Syn-only peer communication remains to be implemented and qualified.
+The [operator provisioning guide](docs/implementation/12-syn-agent-key-provisioning.md)
+documents the implemented restricted vaults, explicit account allocation and group
+key rotation. The base private key stays with the operator.
 
 ![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
 

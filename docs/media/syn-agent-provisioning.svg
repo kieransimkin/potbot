@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="550" viewBox="0 0 1080 550" role="img" aria-labelledby="title desc">
+  <title id="title">Operator provisioning and restricted agent custody</title>
+  <desc id="desc">The operator keeps the secret base key and allocation register. Separate hardened account keys and a group key are encrypted into individual agent vaults. Agents share public signed membership and proofs; encrypted Syn peer transport is still pending.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#406580"/></marker></defs>
+  <rect width="1080" height="550" rx="18" fill="#f3f6fa"/>
+  <g font-family="Arial, sans-serif" fill="#142e43">
+    <text x="40" y="44" font-size="25" font-weight="bold">One operator. A separate vault for every agent.</text>
+    <text x="40" y="73" font-size="16">Implementation illustration · account and group keys stay inside native custody</text>
+    <rect x="40" y="100" width="440" height="190" rx="14" fill="#e1eef9" stroke="#406580" stroke-width="2"/>
+    <text x="62" y="133" font-size="22" font-weight="bold">Operator vault</text>
+    <text x="62" y="165" font-size="18">Root seed and base private key</text>
+    <text x="62" y="195" font-size="18">Encrypted account allocation register</text>
+    <text x="62" y="225" font-size="18">Account branch: base / 2′ / account′</text>
+    <text x="62" y="255" font-size="18">Group branch: base / 3′ → scoped HKDF</text>
+    <rect x="590" y="100" width="450" height="170" rx="14" fill="#e7f4ed" stroke="#37725b" stroke-width="2"/>
+    <text x="612" y="133" font-size="22" font-weight="bold">Agent A vault · account 7</text>
+    <text x="612" y="165" font-size="18">Assigned account private key only</text>
+    <text x="612" y="195" font-size="18">Current group key only</text>
+    <text x="612" y="230" font-size="16">Operator-signed membership + replay state</text>
+    <rect x="590" y="300" width="450" height="170" rx="14" fill="#e7f4ed" stroke="#37725b" stroke-width="2"/>
+    <text x="612" y="333" font-size="22" font-weight="bold">Agent B vault · account 8</text>
+    <text x="612" y="365" font-size="18">A different account private key</text>
+    <text x="612" y="395" font-size="18">Same group and epoch → same group key</text>
+    <text x="612" y="430" font-size="16">No seed, base key or sibling account key</text>
+    <path d="M480 175H578" stroke="#406580" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+    <path d="M480 245H525V385H578" stroke="#406580" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+    <rect x="40" y="330" width="440" height="140" rx="14" fill="white" stroke="#8194a3"/>
+    <text x="62" y="365" font-size="18" font-weight="bold">Handoff is an operator action</text>
+    <text x="62" y="397" font-size="17">Reserve account before releasing ciphertext.</text>
+    <text x="62" y="428" font-size="17">Deliver one vault and verify public pins.</text>
+    <text x="40" y="514" font-size="17">Public boundary: membership certificate + signed payload digest. Syn P2P encryption remains pending.</text>
+  </g>
+</svg>
