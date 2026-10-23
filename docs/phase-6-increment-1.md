@@ -10,7 +10,16 @@
 
 ## Boundaries
 
-This is **not** the complete Phase 6 controller. The new graph structures are in-memory admission contracts, not yet PostgreSQL-backed with fencing. They do not confer execution authority; semantic type validation remains the responsibility of the registered SYN service. This package does not change migrations, credentials, local/hosted provider routing, or secret custody.
+This is **not** the complete Phase 6 controller. The new graph structures are in-memory admission contracts, not yet PostgreSQL-backed with fencing. They do not confer execution authority; semantic validation belongs to Potbot's selected sealed release and admission service. The external Syn communication/receipt API does not perform that validation. This historical package does not change migrations, credentials, local/hosted provider routing, or secret custody.
+
+The later [Syn plan amendment](implementation/07-syn-integration-plan-impact.md)
+adds reliable delivery and incoming-message admission around these existing
+owners. It does not replace `SolveStore`, the frontier or model reconciliation.
+
+![Proposed Syn communication around Potbot's existing task and event owners](media/syn-plan-boundaries.svg)
+
+*Generated planning diagram. The relay/inbox are proposed; this is not runtime or
+graph-qualification evidence.*
 
 ## Verification
 

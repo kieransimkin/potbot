@@ -6,7 +6,8 @@ import os
 from collections.abc import Mapping
 
 from potbot.credentials import CredentialStore, credential_profile
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
+from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
+from potbot.domain.syn_credentials import SynCredentialScope
 
 PROVIDER_ENVIRONMENT = {
     "anthropic": "ANTHROPIC_API_KEY",
@@ -37,6 +38,12 @@ class ServiceCredentials:
             if provider not in PROVIDER_ENVIRONMENT:
                 raise InvalidInputError("Unknown provider credential reference.")
             name, variable = f"providers.{provider}", PROVIDER_ENVIRONMENT[provider]
+        elif reference.startswith("secret://syn/"):
+            requested = SynCredentialScope.from_reference(reference)
+            configured = SynCredentialScope.from_environment(self.environment)
+            if requested != configured:
+                raise ScopeDeniedError("Syn credential is unavailable for this service scope.")
+            name, variable = requested.vault_name, "POTBOT_SYN_TOKEN"
         else:
             raise InvalidInputError("Unknown service credential reference.")
         value = self.environment.get(variable)
@@ -52,7 +59,7 @@ class ServiceCredentials:
             or not value
             or len(value) > 4096
             or any(not 33 <= ord(char) <= 126 for char in value)
-            or (name == "api.access_token" and len(value) < 32)
+            or ((name == "api.access_token" or variable == "POTBOT_SYN_TOKEN") and len(value) < 32)
         ):
             raise CapabilityUnavailableError(
                 f"A valid {variable} or corresponding native credential is required."

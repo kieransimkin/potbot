@@ -1,0 +1,3 @@
+[submodule "vendor/syn"]
+	path = vendor/syn
+	url = https://github.com/Synsphere/syn.git

@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
+syn = ["syn-client==0.1.0"]
 postgres = ["psycopg[binary]>=3.2,<4"]
 embeddings = ["transformers==4.57.6", "torch==2.9.1"]
 semantics = ["jsonschema>=4.26,<5"]
@@ -20,6 +21,7 @@ web = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "websockets>=15,<17"]
 security = ["cryptography==50.0.2"]
 
 [tool.uv.sources]
+syn-client = { path = "vendor/syn/packages/syn-client", editable = true }
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" }]
 
 [[tool.uv.index]]
@@ -32,6 +34,7 @@ potbot = "potbot.cli:main"
 
 [dependency-groups]
 dev = [
+  "syn-client==0.1.0",
   "fastapi>=0.115,<1",
   "grpcio>=1.75,<2",
   "httpx>=0.28,<1",
@@ -65,6 +68,7 @@ markers = [
 ]
 
 [tool.ruff]
+extend-exclude = ["vendor/syn"]
 target-version = "py312"
 line-length = 100
 

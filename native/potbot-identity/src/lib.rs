@@ -25,6 +25,7 @@ use time::{macros::format_description, OffsetDateTime};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 pub mod files;
+pub mod provisioning;
 pub mod secure;
 pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -448,6 +449,8 @@ pub struct PrivateState {
     signing_profile: String,
     epoch_high_water: u64,
     reservations: Vec<Reservation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    agent_allocations: Vec<provisioning::Allocation>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -579,25 +582,11 @@ impl Vault {
         self.validate()?;
         Ok(self.identity.clone())
     }
-    pub fn create(
+    fn with_identity(
         password: &[u8],
-        mut policy: Policy,
-        now: u64,
-        entropy: Option<&[u8; 32]>,
-        expected_hash: Option<&str>,
-    ) -> Result<Self> {
-        policy.validate()?;
-        epoch(now)?;
-        let owned = if let Some(supplied) = entropy {
-            Zeroizing::new(*supplied)
-        } else {
-            random::<32>()?
-        };
-        let keys = Keys::from_entropy(owned.as_ref())?;
-        let identity = keys.public();
-        if expected_hash.is_some_and(|h| h != identity.signer_hash) {
-            return Err(Error::Identity);
-        }
+        identity: PublicIdentity,
+    ) -> Result<(Self, Zeroizing<[u8; 32]>)> {
+        identity.validate()?;
         let mut vault = Self {
             type_ref: "synny://type/keystore-envelope".into(),
             schema_version: 1,
@@ -624,9 +613,30 @@ impl Vault {
             },
         };
         vault.slot.auth_key_id = hex(&auth_id(&vault)?);
-        let slotkey = slot_key(&vault, password)?;
         let master = random::<32>()?;
-        vault.slot.wrapped_vault_key_b64 = wrap(&slotkey, &master)?;
+        vault.slot.wrapped_vault_key_b64 = wrap(&*slot_key(&vault, password)?, &master)?;
+        Ok((vault, master))
+    }
+    pub fn create(
+        password: &[u8],
+        mut policy: Policy,
+        now: u64,
+        entropy: Option<&[u8; 32]>,
+        expected_hash: Option<&str>,
+    ) -> Result<Self> {
+        policy.validate()?;
+        epoch(now)?;
+        let owned = if let Some(supplied) = entropy {
+            Zeroizing::new(*supplied)
+        } else {
+            random::<32>()?
+        };
+        let keys = Keys::from_entropy(owned.as_ref())?;
+        let identity = keys.public();
+        if expected_hash.is_some_and(|h| h != identity.signer_hash) {
+            return Err(Error::Identity);
+        }
+        let (mut vault, master) = Self::with_identity(password, identity)?;
         let state = PrivateState {
             schema_version: 1,
             vault_id: vault.vault_id.clone(),
@@ -643,43 +653,17 @@ impl Vault {
             signing_profile: SIGNING_PROFILE.into(),
             epoch_high_water: epoch(now)?,
             reservations: Vec::new(),
+            agent_allocations: Vec::new(),
         };
         vault.seal(&master, &state)?;
         vault.validate()?;
         Ok(vault)
     }
     pub fn unlock(&self, password: &[u8], expected_hash: &str) -> Result<Unlocked> {
-        self.validate()?;
-        if !hash_valid(expected_hash) || expected_hash != self.identity.signer_hash {
-            return Err(Error::Identity);
-        }
-        let master = unwrap(
-            &*slot_key(self, password)?,
-            &self.slot.wrapped_vault_key_b64,
-        )?;
-        let key = unwrap(&master, &self.wrapped_data_key_b64)?;
-        let mut plaintext = Zeroizing::new(
-            STANDARD
-                .decode(&self.payload.ciphertext_b64)
-                .map_err(|_| Error::Input)?,
-        );
-        if b64(&plaintext) != self.payload.ciphertext_b64 || plaintext.len() > MAX_JSON {
-            return Err(Error::Input);
-        }
-        let nonce = decode::<12>(&self.payload.nonce_b64)?;
-        let tag = decode::<16>(&self.payload.tag_b64)?;
-        Aes256Gcm::new_from_slice(key.as_ref())
-            .map_err(|_| Error::Authentication)?
-            .decrypt_in_place_detached(
-                Nonce::from_slice(nonce.as_ref()),
-                &aad(self)?,
-                plaintext.as_mut(),
-                Tag::from_slice(tag.as_ref()),
-            )
-            .map_err(|_| Error::Authentication)?;
-        let mut state: PrivateState = parse(&plaintext)?;
+        let (master, mut state): (_, PrivateState) = self.open_private(password, expected_hash)?;
         state.policy.validate()?;
-        if state.schema_version != 1
+        if !matches!(state.schema_version, 1 | 2)
+            || (state.schema_version == 1 && !state.agent_allocations.is_empty())
             || state.vault_id != self.vault_id
             || state.key_epoch != self.key_epoch
             || state.generation != self.generation
@@ -689,6 +673,7 @@ impl Vault {
         {
             return Err(Error::Identity);
         }
+        provisioning::validate_allocations(&state.agent_allocations)?;
         let mut ids = BTreeSet::new();
         if state
             .reservations
@@ -722,7 +707,42 @@ impl Vault {
             keys,
         })
     }
-    fn seal(&mut self, master: &[u8; 32], state: &PrivateState) -> Result<()> {
+    fn open_private<T: for<'de> Deserialize<'de>>(
+        &self,
+        password: &[u8],
+        expected_hash: &str,
+    ) -> Result<(Zeroizing<[u8; 32]>, T)> {
+        self.validate()?;
+        if !hash_valid(expected_hash) || expected_hash != self.identity.signer_hash {
+            return Err(Error::Identity);
+        }
+        let master = unwrap(
+            &*slot_key(self, password)?,
+            &self.slot.wrapped_vault_key_b64,
+        )?;
+        let key = unwrap(&master, &self.wrapped_data_key_b64)?;
+        let mut plaintext = Zeroizing::new(
+            STANDARD
+                .decode(&self.payload.ciphertext_b64)
+                .map_err(|_| Error::Input)?,
+        );
+        if b64(&plaintext) != self.payload.ciphertext_b64 || plaintext.len() > MAX_JSON {
+            return Err(Error::Input);
+        }
+        let nonce = decode::<12>(&self.payload.nonce_b64)?;
+        let tag = decode::<16>(&self.payload.tag_b64)?;
+        Aes256Gcm::new_from_slice(key.as_ref())
+            .map_err(|_| Error::Authentication)?
+            .decrypt_in_place_detached(
+                Nonce::from_slice(nonce.as_ref()),
+                &aad(self)?,
+                plaintext.as_mut(),
+                Tag::from_slice(tag.as_ref()),
+            )
+            .map_err(|_| Error::Authentication)?;
+        Ok((master, parse(&plaintext)?))
+    }
+    fn seal(&mut self, master: &[u8; 32], state: &impl Serialize) -> Result<()> {
         let key = random::<32>()?;
         self.wrapped_data_key_b64 = wrap(master, &key)?;
         let nonce = random::<12>()?;

@@ -1,0 +1,70 @@
+{
+  "fixture": "synthetic local HTTP with SQLite durability",
+  "success": true,
+  "steps": [
+    {
+      "step": "potbot_forwarded_message",
+      "status": 200,
+      "receipt": {
+        "schema_version": 1,
+        "workspace_id": "75f7d08c-17d6-48b4-95f4-c185844ae209",
+        "sequence": 1,
+        "channel": "agents.progress",
+        "message_id": "d2579d02-a763-4fc3-9dd9-e93ed73e40d4",
+        "payload": {
+          "fixture": true,
+          "stage": "observed"
+        },
+        "sender": "principal:ce6ccbb2-6ff1-4154-b2fd-fea2f2360948",
+        "recorded_at": "2026-10-23T06:03:24.538607+00:00",
+        "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "hash": "de71d321dd25f19eed397fc4a3abc811c933b48ac54a6dedc58ff55a2fd0b430"
+      }
+    },
+    {
+      "step": "retry_preserved_original_receipt",
+      "sequence": 1
+    },
+    {
+      "step": "changed_retry_rejected",
+      "status": 409
+    },
+    {
+      "step": "unauthenticated_read_denied",
+      "status": 404
+    },
+    {
+      "step": "synthetic_committed_projection_anchored_idempotently",
+      "source_cursor": 7,
+      "receipt": {
+        "schema_version": 1,
+        "workspace_id": "75f7d08c-17d6-48b4-95f4-c185844ae209",
+        "sequence": 2,
+        "channel": "potbot.execution-events",
+        "message_id": "4f6b4902-e5c9-4deb-809d-c1e666ebed26",
+        "payload": {
+          "event_ref": "syn://event/4f6b4902-e5c9-4deb-809d-c1e666ebed26",
+          "fixture": true,
+          "id": "4f6b4902-e5c9-4deb-809d-c1e666ebed26",
+          "sequence": 7,
+          "stage": "started"
+        },
+        "sender": "potbot",
+        "recorded_at": "2026-10-23T06:03:24.588624+00:00",
+        "previous_hash": "de71d321dd25f19eed397fc4a3abc811c933b48ac54a6dedc58ff55a2fd0b430",
+        "hash": "cc533f835e91a047972fc485de7eb3ca10c8dd93059d78208aa0b2916953e419"
+      }
+    },
+    {
+      "step": "service_restart_preserved_replay_and_anchor",
+      "head": {
+        "workspace_id": "75f7d08c-17d6-48b4-95f4-c185844ae209",
+        "sequence": 2,
+        "hash": "cc533f835e91a047972fc485de7eb3ca10c8dd93059d78208aa0b2916953e419"
+      }
+    },
+    {
+      "step": "tampered_receipt_rejected"
+    }
+  ]
+}

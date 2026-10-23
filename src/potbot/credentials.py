@@ -19,6 +19,7 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal, Protocol, TextIO, cast
 from urllib.parse import parse_qs, unquote, urlsplit
+from uuid import UUID
 
 from potbot.domain.errors import (
     CapabilityUnavailableError,
@@ -26,6 +27,7 @@ from potbot.domain.errors import (
     InvalidInputError,
     SourceUnavailableError,
 )
+from potbot.domain.syn_credentials import SynCredentialScope, is_syn_credential_name
 
 Purpose = Literal["application", "admin"]
 SERVICE_NAME = "DanceFlow.Potbot"
@@ -110,7 +112,7 @@ class CredentialStore:
         return self._provided_backend
 
     def _account(self, name: str) -> str:
-        if name not in _NAMES:
+        if name not in _NAMES and not is_syn_credential_name(name):
             raise InvalidInputError("Unknown credential name.")
         return f"{self.profile}:{name}"
 
@@ -341,6 +343,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     for name in ("service-set", "service-delete"):
         command = commands.add_parser(name)
         command.add_argument("--name", required=True, choices=SERVICE_CREDENTIAL_NAMES)
+    for name in ("syn-set", "syn-delete", "syn-status"):
+        command = commands.add_parser(name, help="manage one scoped Syn communication credential")
+        command.add_argument("--installation-id", required=True, type=UUID)
+        command.add_argument("--workspace-id", required=True, type=UUID)
+        command.add_argument("--url", required=True)
     for name in ("set", "delete"):
         command = commands.add_parser(name)
         command.add_argument("--purpose", choices=tuple(_PURPOSE_ENV), default="application")
@@ -348,7 +355,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         store = CredentialStore(args.profile if args.profile is not None else credential_profile())
         result: dict[str, Any]
-        if args.command == "status":
+        if args.command.startswith("syn-"):
+            scope = SynCredentialScope.for_service(
+                args.installation_id, args.workspace_id, args.url
+            )
+            result = {"profile": store.profile, "credential_ref": scope.reference}
+            if args.command == "syn-set":
+                value = _hidden_prompt("Syn communication token (hidden): ")
+                if not 32 <= len(value) <= 4096 or any(
+                    not 33 <= ord(char) <= 126 for char in value
+                ):
+                    raise InvalidInputError("Syn tokens need 32..4096 visible ASCII characters.")
+                store.set(scope.vault_name, value)
+                result["saved"] = True
+            elif args.command == "syn-delete":
+                result["deleted"] = store.delete(scope.vault_name)
+            else:
+                result["configured"] = store.get(scope.vault_name) is not None
+        elif args.command == "status":
             result = store.status()
         elif args.command == "service-status":
             result = {

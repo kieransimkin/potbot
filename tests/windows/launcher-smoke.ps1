@@ -54,6 +54,9 @@ try {
     New-Item -ItemType Directory -Path (Join-Path $Project '.potbot\runtime\uv') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $ProjectSource 'start.ps1') -Destination $Project
     Copy-Item -LiteralPath (Join-Path $ProjectSource 'start.bat') -Destination $Project
+    $SynClientDirectory = Join-Path $Project 'vendor\syn\packages\syn-client'
+    New-Item -ItemType Directory -Path $SynClientDirectory -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $SynClientDirectory 'pyproject.toml'), '# Complete-distribution fixture')
     $FakeUv = Join-Path $Project '.potbot\runtime\uv\uv.exe'
     Add-Type -OutputAssembly $FakeUv -OutputType ConsoleApplication -TypeDefinition @'
 using System;
@@ -123,9 +126,20 @@ public static class FakeUv {
     $ExpectedBatch = @('run', '--project', $Project, '--no-sync', 'python', '-m', 'potbot.startup', 'dependencies', 'status', 'two words', 'literal & value')
     Assert-True (($Calls[2] -join [char]0) -ceq ($ExpectedBatch -join [char]0)) 'BAT failed to preserve quoted arguments.'
     Assert-True ((Get-Records 'I')[0][0].Trim() -eq 'credential prompt input') 'BAT failed to preserve stdin.'
-    Write-Output 'Windows PowerShell/BAT launcher smoke passed: paths, arguments, stdin, dependencies and exit codes.'
+    Remove-Item -LiteralPath (Join-Path $SynClientDirectory 'pyproject.toml')
+    Remove-Item -LiteralPath $Log
+    $Result = Invoke-Launcher $Shell (($LauncherArguments | ForEach-Object { Quote-Native $_ }) -join ' ')
+    Assert-True ($Result.Code -eq 1 -and $Result.Err.Contains('Syn submodule is missing')) 'Missing Syn source did not fail clearly.'
+    Assert-True (-not (Test-Path -LiteralPath $Log)) 'Runtime installation started without Syn source.'
+    Write-Output 'Windows PowerShell/BAT launcher smoke passed: paths, arguments, stdin, dependencies, missing submodule and exit codes.'
 }
 finally {
     foreach ($Name in $EnvironmentNames) { [Environment]::SetEnvironmentVariable($Name, $SavedEnvironment[$Name]) }
-    Remove-Item -LiteralPath $TemporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+    $ResolvedTemporaryRoot = [IO.Path]::GetFullPath($TemporaryRoot)
+    $ExpectedTemporaryParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    if (-not $ResolvedTemporaryRoot.StartsWith($ExpectedTemporaryParent, [StringComparison]::OrdinalIgnoreCase) -or
+        -not ([IO.Path]::GetFileName($ResolvedTemporaryRoot)).StartsWith('potbot launcher smoke ')) {
+        throw 'Refusing cleanup outside the owned launcher smoke directory.'
+    }
+    Remove-Item -LiteralPath $ResolvedTemporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

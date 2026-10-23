@@ -393,6 +393,255 @@ class NativeIdentityBroker:
             "init", vault, policy, expected_signer_hash=None, known_type_refs=known_type_refs
         )
 
+    def provision_agent(
+        self,
+        vault: Path,
+        agent_vault: Path,
+        *,
+        expected_operator_hash: str,
+        account_number: int,
+        instance_id: str,
+        group_id: str,
+        group_epoch: int,
+    ) -> dict[str, Any]:
+        from .provisioning import validate_assignment, verify_membership
+
+        assignment = validate_assignment(
+            dict(
+                account_number=account_number,
+                instance_id=instance_id,
+                group_id=group_id,
+                group_epoch=group_epoch,
+            )
+        )
+        pin = _hash(expected_operator_hash, "operator fingerprint")
+        self._require_ready()
+        _, value = self._run(
+            [
+                "agent-provision",
+                "--vault",
+                str(vault),
+                "--agent-vault",
+                str(agent_vault),
+                "--expect-signer",
+                pin,
+                *[
+                    item
+                    for name, field in assignment.items()
+                    for item in ("--" + name.replace("_", "-"), str(field))
+                ],
+            ]
+        )
+        checked = verify_membership(value, expected_operator_hash=pin)
+        if any(checked[name] != field for name, field in assignment.items()):
+            raise NativeBrokerError("native Agent assignment differs from the requested scope")
+        return checked
+
+    def agent_allocations(
+        self,
+        vault: Path,
+        *,
+        expected_operator_hash: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        from .provisioning import validate_assignment
+
+        pin = _hash(expected_operator_hash, "operator fingerprint")
+        if (
+            type(offset) is not int
+            or not 0 <= offset <= 1024
+            or type(limit) is not int
+            or not 1 <= limit <= 128
+        ):
+            raise PublicVerificationError("invalid allocation page")
+        self._require_ready()
+        _, value = self._run(
+            [
+                "agent-allocations",
+                "--vault",
+                str(vault),
+                "--expect-signer",
+                pin,
+                "--offset",
+                str(offset),
+                "--limit",
+                str(limit),
+            ]
+        )
+        if set(value) != {
+            "schema_version",
+            "operator_fingerprint",
+            "generation",
+            "total",
+            "offset",
+            "next_offset",
+            "has_more",
+            "allocations",
+        }:
+            raise NativeBrokerError("unsupported allocation response")
+        if (
+            type(value["schema_version"]) is not int
+            or value["schema_version"] != 1
+            or value["operator_fingerprint"] != pin
+        ):
+            raise NativeBrokerError("allocation response has a different operator or version")
+        for name, minimum, maximum in (
+            ("generation", 1, 2**53 - 1),
+            ("total", 0, 1024),
+            ("offset", 0, 1024),
+            ("next_offset", 0, 1024),
+        ):
+            if type(value[name]) is not int or not minimum <= value[name] <= maximum:
+                raise NativeBrokerError("invalid allocation page bounds")
+        items = value["allocations"]
+        if (
+            not isinstance(items, list)
+            or len(items) > limit
+            or value["offset"] != offset
+            or value["next_offset"] != offset + len(items)
+            or value["next_offset"] > value["total"]
+            or type(value["has_more"]) is not bool
+            or value["has_more"] != (value["next_offset"] < value["total"])
+        ):
+            raise NativeBrokerError("inconsistent allocation page")
+        seen: set[object] = set()
+        for item in items:
+            if not isinstance(item, dict) or set(item) != {
+                "account_number",
+                "agent_fingerprint",
+                "instance_id",
+                "group_id",
+                "group_epoch",
+            }:
+                raise NativeBrokerError("invalid allocation record")
+            validate_assignment(
+                {
+                    name: item[name]
+                    for name in ("account_number", "instance_id", "group_id", "group_epoch")
+                }
+            )
+            _hash(item["agent_fingerprint"], "Agent fingerprint")
+            identities = [
+                ("account", item["account_number"]),
+                ("agent", item["agent_fingerprint"]),
+                ("instance", item["instance_id"]),
+            ]
+            if any(identity in seen for identity in identities):
+                raise NativeBrokerError("duplicate allocation identity")
+            seen.update(identities)
+        return value
+
+    def agent_public(
+        self,
+        vault: Path,
+        *,
+        expected_operator_hash: str,
+        expected_agent_hash: str | None = None,
+        unlock: bool = False,
+    ) -> dict[str, Any]:
+        from .provisioning import verify_membership
+
+        pin = _hash(expected_operator_hash, "operator fingerprint")
+        arguments = [
+            "agent-check" if unlock else "agent-public",
+            "--vault",
+            str(vault),
+            "--expect-operator",
+            pin,
+        ]
+        if expected_agent_hash is not None:
+            arguments.extend(("--expect-agent", _hash(expected_agent_hash, "Agent fingerprint")))
+        if unlock:
+            if expected_agent_hash is None:
+                raise NativeBrokerError(
+                    "unlock requires an independently selected Agent fingerprint"
+                )
+            self._require_ready()
+        _, value = self._run(arguments)
+        return verify_membership(
+            value, expected_operator_hash=pin, expected_agent_hash=expected_agent_hash
+        )
+
+    def rotate_agent_group(
+        self,
+        vault: Path,
+        agent_vault: Path,
+        *,
+        expected_operator_hash: str,
+        expected_agent_hash: str,
+        group_epoch: int,
+    ) -> dict[str, Any]:
+        from .provisioning import verify_membership
+
+        pin = _hash(expected_operator_hash, "operator fingerprint")
+        agent = _hash(expected_agent_hash, "Agent fingerprint")
+        if type(group_epoch) is not int or not 0 <= group_epoch < 2**31:
+            raise PublicVerificationError("invalid group epoch")
+        self._require_ready()
+        _, value = self._run(
+            [
+                "agent-rotate",
+                "--vault",
+                str(vault),
+                "--agent-vault",
+                str(agent_vault),
+                "--expect-signer",
+                pin,
+                "--expect-agent",
+                agent,
+                "--group-epoch",
+                str(group_epoch),
+            ]
+        )
+        checked = verify_membership(value, expected_operator_hash=pin, expected_agent_hash=agent)
+        if checked["group_epoch"] != group_epoch:
+            raise NativeBrokerError("native Agent group epoch differs from the request")
+        return checked
+
+    def sign_agent(
+        self,
+        vault: Path,
+        request: dict[str, Any],
+        *,
+        expected_operator_hash: str,
+        expected_agent_hash: str,
+    ) -> dict[str, Any]:
+        from .provisioning import validate_agent_request, verify_agent_proof
+
+        checked = validate_agent_request(request)
+        pin = _hash(expected_operator_hash, "operator fingerprint")
+        agent = _hash(expected_agent_hash, "Agent fingerprint")
+        self._require_ready()
+        _, value = self._run(
+            [
+                "agent-sign",
+                "--vault",
+                str(vault),
+                "--expect-operator",
+                pin,
+                "--expect-agent",
+                agent,
+            ],
+            public_input=json.dumps(checked).encode("ascii"),
+        )
+        result = verify_agent_proof(
+            value,
+            expected_operator_hash=pin,
+            expected_agent_hash=agent,
+            group_id=checked["group_id"],
+            group_epoch=checked["group_epoch"],
+            payload_sha256=checked["payload_sha256"],
+        )
+        if (
+            result["request_id"] != checked["request_id"]
+            or result["expires_at"] - result["issued_at"] != checked["validity_seconds"]
+        ):
+            raise NativeBrokerError(
+                "native Agent proof differs from the requested identity or validity"
+            )
+        return result
+
     def recover(
         self,
         vault: Path,

@@ -13,6 +13,10 @@ from potbot import __version__
 def main(argv: Sequence[str] | None = None) -> int:
     """Dispatch commands without importing adapters for unrelated operations."""
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "syn-service":
+        from potbot.api.syn_service_cli import main as syn_service_main
+
+        return syn_service_main(args[1:])
     if args and args[0] == "fixture":
         from potbot.evaluation.repository_fixture import main as fixture_main
 
@@ -90,6 +94,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("jobs", help="inspect the durable queue and run hosted-model workers")
     commands.add_parser("embedding", help="set up, index, and query local Qwen embeddings")
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
+    commands.add_parser(
+        "syn-service", help="communicate through Syn and verify durable chain receipts"
+    )
     commands.add_parser("identity", help="manage native signing and verify published Agent keys")
     commands.add_parser("execution", help="capture repositories and run qualified isolated tools")
     commands.add_parser("patch", help="run, resume and export the scripted verified patch workflow")

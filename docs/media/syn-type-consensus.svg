@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="910" viewBox="0 0 1200 910" role="img" aria-labelledby="title desc">
+<title id="title">Planned Type-directed Syn consensus and node identity</title>
+<desc id="desc">An exact adopted canonical Type release supplies its consensus policy. A resolver checks authority, conflict ownership, roster and disclosure. Same-custody Types use an authenticated Raft log; independent-custody Types use a BFT event DAG and Hashgraph ordering. Both feed one deterministic Syn reducer and policy-bound proof verification. All nodes are addressed by account public-key hash and all peer traffic travels through encrypted Syn pub-sub. Components are proposed.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#47677e"/></marker></defs>
+<rect width="1200" height="910" rx="20" fill="#f4f7fa"/>
+<g font-family="Arial, sans-serif" fill="#17374a">
+<text x="40" y="44" font-size="27" font-weight="bold">The canonical Type decides how Syn reaches agreement.</text>
+<text x="40" y="77" font-size="18">Proposed architecture · every node is referenced by its own account public-key hash</text>
+<rect x="40" y="106" width="1120" height="95" rx="12" fill="#fff1d6" stroke="#9d7938"/>
+<text x="62" y="138" font-size="21" font-weight="bold">Canonical Type release + explicit consensusPolicy</text>
+<text x="62" y="167" font-size="17">Exact definition and policy digests · governed adoption · old-policy-approved changes</text>
+<text x="62" y="190" font-size="16">An arbitrary URI, metadata field or caller-selected mode cannot establish authority.</text>
+<path d="M600 203V227" fill="none" stroke="#47677e" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="40" y="234" width="1120" height="93" rx="12" fill="#e7eff8" stroke="#5d7996"/>
+<text x="62" y="266" font-size="21" font-weight="bold">Policy resolver and consensus router</text>
+<text x="62" y="295" font-size="17">Bind stream/epoch + node-hash roster + custody constraints + conflict ownership + disclosure group.</text>
+<text x="62" y="318" font-size="16">Unknown profile: hold. Incompatible atomic write sets: reject. No weaker-policy bypass.</text>
+<g fill="none" stroke="#47677e" stroke-width="2" marker-end="url(#arrow)"><path d="M330 329V367"/><path d="M870 329V367"/></g>
+<rect x="40" y="374" width="535" height="232" rx="14" fill="#e2f3e9" stroke="#4d866c" stroke-width="2"/>
+<rect x="625" y="374" width="535" height="232" rx="14" fill="#eeebfa" stroke="#7b70a5" stroke-width="2"/>
+<text x="62" y="410" font-size="23" font-weight="bold">Same verified custody root</text>
+<text x="62" y="443" font-size="18">Authenticated Raft-style operator log</text>
+<text x="62" y="475" font-size="17">Issuer certificate + fresh account-key possession</text>
+<text x="62" y="503" font-size="17">3 configured voters need 2 · 2 voters need both</text>
+<text x="62" y="531" font-size="17">Crash/partition model; authorised nodes trusted</text>
+<text x="62" y="559" font-size="17">First candidate: raft-rs core + Syn-owned I/O</text>
+<text x="62" y="588" font-size="16">A shared root is one correlated trust boundary.</text>
+<text x="647" y="410" font-size="23" font-weight="bold">Independent custody roots</text>
+<text x="647" y="443" font-size="18">BFT event DAG + Hashgraph virtual voting</text>
+<text x="647" y="475" font-size="17">Availability → one final order → Syn reducer</text>
+<text x="647" y="503" font-size="17">4 independent voting roots · quorum 3 · fault 1</text>
+<text x="647" y="531" font-size="17">Cap aggregate issuer weight; no child-key Sybil gain</text>
+<text x="647" y="559" font-size="17">First investigation: Hiero integration feasibility</text>
+<text x="647" y="588" font-size="16">Transport, signing, proof and key-policy gates remain.</text>
+<g fill="none" stroke="#47677e" stroke-width="2" marker-end="url(#arrow)"><path d="M330 608V637"/><path d="M870 608V637"/></g>
+<rect x="40" y="644" width="1120" height="94" rx="12" fill="white" stroke="#5d7996"/>
+<text x="62" y="678" font-size="21" font-weight="bold">Deterministic Syn outcome + independent policy-bound proof verification</text>
+<text x="62" y="708" font-size="17">Availability, final order and application-state evidence are distinct. Potbot admits the result locally.</text>
+<text x="62" y="729" font-size="16">A committed assignment still needs Potbot permission and independent verification of the external work.</text>
+<rect x="40" y="765" width="1120" height="91" rx="12" fill="#e7eff8" stroke="#5d7996" stroke-dasharray="6 4"/>
+<text x="62" y="798" font-size="21" font-weight="bold">Shared boundary: encrypted Syn-only P2P pub-sub + protected native custody</text>
+<text x="62" y="828" font-size="17">Agents hold assigned account key + current group key. Base keys stay with their operators.</text>
+<text x="40" y="887" font-size="16">Design illustration · consensus profiles and federated interoperability require implementation and acceptance evidence.</text>
+</g></svg>

@@ -233,6 +233,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     backup.add_argument("--vault", type=Path, required=True)
     backup.add_argument("--output", type=Path, required=True)
     backup.add_argument("--expected-signer-hash")
+    for name in (
+        "agent-provision",
+        "agent-public",
+        "agent-check",
+        "agent-sign",
+        "agent-rotate",
+        "agent-allocations",
+    ):
+        command = sub.add_parser(
+            name, help="operator provisioning or restricted native Agent custody"
+        )
+        _native_argument(command)
+        command.add_argument("--vault", type=Path, required=True)
+        command.add_argument("--expected-operator-hash", required=True)
+        command.add_argument(
+            "--output", type=Path, help="public metadata only; never a private-key export"
+        )
+        if name in {"agent-public", "agent-check", "agent-sign", "agent-rotate"}:
+            command.add_argument("--expected-agent-hash", required=name != "agent-public")
+        if name in {"agent-provision", "agent-rotate"}:
+            command.add_argument("--agent-vault", type=Path, required=True)
+            command.add_argument("--group-epoch", type=int, required=True)
+        if name == "agent-provision":
+            command.add_argument("--account-number", type=int, required=True)
+            command.add_argument("--instance-id", type=UUID, required=True)
+            command.add_argument("--group-id", type=UUID, required=True)
+        if name == "agent-sign":
+            command.add_argument("--group-id", type=UUID, required=True)
+            command.add_argument("--group-epoch", type=int, required=True)
+            command.add_argument("--payload", type=Path, required=True)
+            command.add_argument("--request-id", type=UUID)
+            command.add_argument("--validity-seconds", type=int, default=120)
+        if name == "agent-allocations":
+            command.add_argument("--offset", type=int, default=0)
+            command.add_argument("--limit", type=int, default=50)
     args = parser.parse_args(argv)
     try:
         result: dict[str, Any]
@@ -247,6 +282,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "replay_db",
             "catalog",
             "broker",
+            "agent_vault",
         ):
             supplied = getattr(args, name, None)
             if isinstance(supplied, Path):
@@ -299,6 +335,51 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise InvalidInputError("public output must not replace the private vault")
             if args.command == "public":
                 result = broker.public(args.vault, expected_signer_hash=args.expected_signer_hash)
+            elif args.command == "agent-provision":
+                result = broker.provision_agent(
+                    args.vault,
+                    args.agent_vault,
+                    expected_operator_hash=args.expected_operator_hash,
+                    account_number=args.account_number,
+                    instance_id=str(args.instance_id),
+                    group_id=str(args.group_id),
+                    group_epoch=args.group_epoch,
+                )
+            elif args.command in {"agent-public", "agent-check"}:
+                result = broker.agent_public(
+                    args.vault,
+                    expected_operator_hash=args.expected_operator_hash,
+                    expected_agent_hash=args.expected_agent_hash,
+                    unlock=args.command == "agent-check",
+                )
+            elif args.command == "agent-rotate":
+                result = broker.rotate_agent_group(
+                    args.vault,
+                    args.agent_vault,
+                    expected_operator_hash=args.expected_operator_hash,
+                    expected_agent_hash=args.expected_agent_hash,
+                    group_epoch=args.group_epoch,
+                )
+            elif args.command == "agent-sign":
+                result = broker.sign_agent(
+                    args.vault,
+                    {
+                        "group_id": str(args.group_id),
+                        "group_epoch": args.group_epoch,
+                        "request_id": str(args.request_id or uuid4()),
+                        "payload_sha256": _payload_digest(args.payload),
+                        "validity_seconds": args.validity_seconds,
+                    },
+                    expected_operator_hash=args.expected_operator_hash,
+                    expected_agent_hash=args.expected_agent_hash,
+                )
+            elif args.command == "agent-allocations":
+                result = broker.agent_allocations(
+                    args.vault,
+                    expected_operator_hash=args.expected_operator_hash,
+                    offset=args.offset,
+                    limit=args.limit,
+                )
             elif args.command == "init":
                 protected.append(args.policy)
                 result = broker.initialize(

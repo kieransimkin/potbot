@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:potbot:syn:execution-summary:v1",
+  "title": "Potbot execution metadata summary v1",
+  "description": "A source report, not semantic admission, signature verification or execution authorization. Canonical byte size, scope and causal consistency also require runtime validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract", "assertion", "source", "recipient", "execution"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "contract": {"const": "urn:potbot:syn:execution-summary:v1"},
+    "assertion": {"const": "source_report"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installation_id", "workspace_id", "event_id", "sequence"],
+      "properties": {
+        "installation_id": {"$ref": "#/$defs/uuid"},
+        "workspace_id": {"$ref": "#/$defs/uuid"},
+        "event_id": {"$ref": "#/$defs/uuid"},
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 9007199254740991}
+      }
+    },
+    "recipient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace_id", "origin_sha256"],
+      "properties": {
+        "namespace_id": {"$ref": "#/$defs/uuid"},
+        "origin_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "maxLength": 64}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "parent_event_id", "parent_run_id", "emitter_run_id", "trigger_kind", "stage", "elapsed_ms"],
+      "properties": {
+        "run_id": {"$ref": "#/$defs/uuid"},
+        "emitter_run_id": {"$ref": "#/$defs/uuid"},
+        "parent_event_id": {"anyOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "parent_run_id": {"anyOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "trigger_kind": {"enum": ["api_request", "lifecycle_transition", "parent_event", "process_output", "provider_callback", "schedule", "tool_result", "user_input", "webhook", "workflow_step"]},
+        "stage": {"enum": ["cancelled", "completed", "failed", "indeterminate", "started", "updated"]},
+        "elapsed_ms": {"type": ["integer", "null"], "minimum": 0, "maximum": 9007199254740991}
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "maxLength": 36}
+  }
+}

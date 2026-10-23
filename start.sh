@@ -16,6 +16,9 @@ uv_matches() {
     [[ "$version" == "uv $POTBOT_UV_VERSION" || "$version" == "uv $POTBOT_UV_VERSION "* ]]
 }
 
+[[ -f "$POTBOT_ROOT/vendor/syn/packages/syn-client/pyproject.toml" ]] || \
+    fail "Syn submodule is missing. Run git submodule update --init --recursive in a Git checkout, or use a complete distribution. GitHub source ZIPs omit submodules."
+
 progress "1/4 Checking uv $POTBOT_UV_VERSION"
 if [[ -x "$POTBOT_UV_DIRECTORY/uv" ]] && uv_matches "$POTBOT_UV_DIRECTORY/uv"; then
     POTBOT_UV="$POTBOT_UV_DIRECTORY/uv"

@@ -1,5 +1,17 @@
 # T01.3 / T03.4 / T10.2 / T10.3 / T11.2 / T12.2 — typed live execution monitoring
 
+**Syn integration amendment, 23 October 2026:** use
+[the current service-boundary plan](07-syn-integration-plan-impact.md) alongside
+this specification. The initial causal ledger and read-only event pages/streams
+exist in source; universal producer coverage, release/lease admission and the
+full execution read models remain incomplete. Syn's new communication receipts
+are a separate delivery projection, not a replacement event source or scheduler.
+
+![Proposed reliable Syn delivery and Potbot admission boundaries](../media/syn-plan-boundaries.svg)
+
+*Generated planning illustration. Proposed relay/inbox work is dashed; no runtime
+implementation or qualification is inferred from this diagram.*
+
 **Status:** proposed implementation contract; **not implemented or qualified** by this planning patch.  
 **Plan baseline:** Potbot `main` commit `8341c6de7f73898f9b85d435499654fb497dacae`, inspected 23 October 2026.  
 **Primary requirement:** the REST API and replayable WebSocket stream must expose **every agent-processed execution**—agent/sub-agent jobs, workflows, models, all tools (including MCP sessions, MCP tool calls and MCP-composed workflows), Cogs, scripts, browser/API/DB/CI and internal jobs—and every `syn://event/...` occurrence must disclose **what process or exact input triggered it**. An event without a proven cause is invalid; never synthesize a false trigger.

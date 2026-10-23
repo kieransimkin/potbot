@@ -1,12 +1,20 @@
 # Potbot Universal Tool, MCP and Reasoning Integration — Master Implementation Plan
 
-**Document version:** 1.3 (phone control, profiling and language-neutral interactive debugging; planning only)
+**Document version:** 1.4 (Syn integration, phone control, profiling and language-neutral debugging; planning only)
 **Prepared:** 22 October 2026; **updated:** 23 October 2026
 **Target:** `kieransimkin/potbot` / Syn-Synny semantic ecosystem  
 **Observed GitHub baseline:** `main` at `74dac45d5535595975e10f545fd6d9cb1652e6a8` (read-only inspection, 22 October 2026)  
 **Expansion source baseline:** `main` at `24696ac6665878d9b10c0b5adb8b55abebbd34c3` (23 October 2026; historical baseline above retained).
 **Scope:** 12 phases × 4 incremental stages = **48 independently testable deliverables**.  
 **Status:** Design document only; the 48 stages are **not represented as implemented** merely by this plan.
+
+**Syn review, 23 October 2026:** reviewed `main` at `e2f7b2e`, integration source
+at `833612b` and its Syn pin `57da1be`. The [plan impact amendment](../implementation/07-syn-integration-plan-impact.md)
+reconciles the original 204-step implementation plan, current increments and all
+48 tool stages. Existing partial code is reused; this review changes no stage's
+recorded status or prerequisites. Its [impact map](syn-integration-impact.json)
+is additive to the existing JSON/CSV trackers and accounts for the separate,
+unmerged plugin-discovery strategy branch.
 
 > Integration rule: build on the existing Potbot jobs/API/WebSocket, workspace sandbox, hosted model gateway, Ed25519 identity and locking Cogs, semantic Type catalogs, inherited Embers, typed Cog transformations, artifact and receipt mechanisms, and Phase 6 graph search. Do not recreate these as parallel systems. An existing feature should be marked **reuse**, **extend**, **qualify**, or **missing** before any implementation ticket is started.
 
@@ -21,6 +29,7 @@ Repository references inspected: [README](https://github.com/kieransimkin/potbot
 | REST / WebSocket / dashboard | Add tool capabilities and projections to existing service boundaries. |
 | Agent identity, Ed25519 verification, Credential and locking Cog | Publish verification keys as designed; private keys never exposed; respect installed custody tiers and runtime qualification. |
 | Syn/Synny catalog / inherited Ember contracts | Use full syn:// or synny:// Type URLs; no shorthand or duplicate ontology. |
+| Syn communication service / pinned client | Reuse workspace messaging, replay and receipt verification. Potbot keeps task/semantic authority; add fenced delivery/admission through its existing outbox rather than another scheduler. |
 | Cog transformations | Each Cog maps exactly one registered input Type to one output Type, with pinned implementation binding; transformations confer no execution authority. |
 | Workspace registered sandbox roots | All downloaded dependencies, binaries, model weights, caches, copies, tests and outputs within workspace root; qualified Linux isolation or fail closed. |
 | Phase 6 controller/benchmarks | Extend search and Cog receipts; do not infer live qualification from synthetic fixtures. |
@@ -44,23 +53,21 @@ Repository references inspected: [README](https://github.com/kieransimkin/potbot
 
 ## 2. Canonical capability ontology and interface contracts
 
-Example semantic hierarchy (extend the installed hierarchy, do **not** add parallel roots if matching types already exist):
+Conceptual capability families to reconcile with the installed hierarchy are
+shown below. These are planning labels, **not literal Syn ObjectRefs**. Current
+reference syntax uses a known primitive kind and one canonical slug; slash-nested
+type paths and invented instance kinds must not be copied into implementations.
+Bind actual Types through the selected sealed release rather than adding parallel
+roots. Existing opt-in catalog definitions include `synny://type/tool-definition`,
+`synny://type/mcp-tool-definition` and `synny://type/tool-invocation`; source presence
+does not activate them for a task.
 
 ```text
-syn://type/tool
-syn://type/tool/research/web-search
-syn://type/tool/browser/automation
-syn://type/tool/code/repository
-syn://type/tool/data/sql-query
-syn://type/tool/reasoning/smt-solver
-syn://type/tool/verification/formal-proof
-syn://type/tool/implementation
-syn://type/tool/installed-instance
-syn://type/tool/invocation
-syn://type/tool/result
-syn://type/tool/evidence
-syn://type/tool/approval
-syn://type/workflow/tool-graph
+Capability families: research/web search, browser automation, repository tooling,
+                    SQL query, SMT reasoning, formal verification
+Record roles:       definition, implementation, installed instance, invocation,
+                    result, evidence, approval
+Composition:        typed workflow graph
 ```
 
 ### Core entities and contracts
@@ -82,12 +89,12 @@ Recommended normalized invocation envelope (illustrative mapping onto existing s
 ```json
 {
   "schema_version": "tool-invocation-v1",
-  "tool_type_ref": "syn://type/tool/research/web-search",
-  "implementation_ref": "syn://tool-implementation/brave-search/pinned-build",
-  "input_type_ref": "syn://type/data/search-query",
-  "output_type_ref": "syn://type/data/search-results",
+  "tool_type_ref": "<registered-capability-type-ref>",
+  "implementation_ref": "<registered-instance-ref>",
+  "input_type_ref": "<registered-request-type-ref>",
+  "output_type_ref": "<registered-result-type-ref>",
   "workspace_id": "<uuid>",
-  "agent_identity_ref": "syn://agent/<id>",
+  "agent_identity_ref": "<authenticated-agent-instance-ref>",
   "input_artifact_sha256": "<sha256>",
   "policy_revision_sha256": "<sha256>",
   "effect_class": "read-only",
@@ -124,7 +131,58 @@ The existing PostgreSQL `job_events` table requires a concrete `job_id` and **ca
 
 **Normative scope, MCP correlation model, mixed agent→model→MCP→tool→Cog→subagent example, test matrix and risk controls:** [SYN universal agent-work event specification](../implementation/05-syn-execution-monitoring.md), section 7. These are **requirements for future implementation**, not deployed capabilities. The existing 48 stages and statuses remain unchanged; mandatory work is allocated to T01.3, T02.1–T02.4, T03.4, T10.1–T10.3, T11.2 and T12.2.
 
-## 2C. Phone control, profiling and language-neutral local/remote debugging
+## 2C. Syn service integration and implementation order
+
+The [Syn plan amendment](../implementation/07-syn-integration-plan-impact.md)
+defines ownership and new acceptance work. Syn supplies communication and a
+separate receipt chain; Potbot retains scoped execution transactions, causal
+events, budget/lease/approval checks, semantic release admission, memory and
+verification. A Syn message or receipt grants no execution authority. Its receipt
+sequence must not be substituted for the existing Potbot workspace event cursor.
+
+![Proposed event delivery and incoming-message admission around existing owners](../media/syn-plan-boundaries.svg)
+
+*Generated planning diagram. Dashed relay/inbox components are proposed, not
+implemented. The existing manual export and HTTP fixture do not qualify them.*
+
+Bring dependency-specific T12.1 work into the T01.1/T01.4 foundation gate: the
+private Syn submodule now has qualified read-only CI access. The superseding
+[private Agent mesh](../implementation/11-syn-private-agent-mesh.md) requires one
+Syn per Agent. Its [operator provisioning and restricted-vault increment](../implementation/12-syn-agent-key-provisioning.md)
+is implemented; qualify encrypted Syn pub-sub, account/instance binding and actual
+two-Agent recovery and rotation before enabling the automatic outbox. Then complete
+T01.2/T01.3 semantic/causal admission and T03.1/T03.3 disclosure/credentials; add
+the transactionally committed export intent and fenced relay under T03.4; add
+typed, deduplicated incoming-agent admission under T03.4/T10.1/T10.2; qualify
+recovery and the two-service deployment under T11/T12. Keep all existing stage
+prerequisites. Browser, solver and other independent offline work need not wait
+for a Syn credential, but cannot claim cross-service qualification without it.
+
+The [detailed Syn blockchain and transaction plan](../implementation/13-syn-blockchain-transaction-plan.md)
+and its [24-package checklist](../implementation/13-syn-blockchain-transaction-work-packages.json)
+define the next dependency order. They assign shared-state transactions to Syn,
+retain Potbot's local execution/effect owners and require private Syn-only
+consensus transport, protected signing and independent outcome proofs. SBT IDs
+are implementation work packages, not new P-steps or T-stages.
+
+The [canonical Type consensus and node identity design](../implementation/14-type-consensus-and-node-identity.md)
+supersedes a single global backend: each Type's adopted canonical definition
+selects an authenticated same-custody log or the intended independent-custody BFT
+DAG/Hashgraph profile. Nodes are always referenced by their public key hashes;
+issuer hashes establish custody constraints and prevent vote amplification.
+Implement policy resolution, immutable Type/policy/stream bindings and one policy
+owner per conflict key before enabling automatic transactions. Type updates need
+the current policy's approval; unsupported federation policies remain held while
+the operator profile qualifies. Federation group-key distribution and Hiero's
+transport/signing/proof interfaces are explicit research gates.
+
+Preserve the separate plugin strategy's T04.1–T04.4 admission/ranking work when
+composing branches. Shared catalog messages remain untrusted candidate evidence.
+Memory/source export also needs P085–P094 retention/deletion review: immutable
+communication must not become an uncontrolled copy of private or deletable text.
+Federation, signed message authorship and consensus require separate Syn protocol
+work; they are not supplied by the current HTTP hash chain or peer discovery.
+## 2D. Phone control, profiling and language-neutral local/remote debugging
 
 Additional mandatory planned scope: Android USB/paired wireless **ADB**; Android native/hybrid control through **Appium/UiAutomator2**; optional **scrcpy** mirroring/input; iOS/iPadOS **XCUITest/WebDriverAgent** on a qualified macOS/Xcode host; and separately qualified emulators/simulators. Include device selection/leases, gestures and text input, app lifecycle, scoped file transfer, logs, screenshots, recordings and outcome readback. Device trust, app/data scope and control effects remain explicit; workspace filesystem isolation alone does not confine a connected phone.
 
@@ -156,7 +214,7 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T01.1 — Current-state inventory and gap analysis
 - **Prerequisites:** none.
 - **Deliverable:** A version-pinned capability inventory and migration-safe extension map.
-- **Implementation:** Inspect actual Potbot APIs, PostgreSQL migrations, Cog registry, Syn catalog, sandbox profiles, credentials, jobs, REST, WebSocket, models and CI; record implemented vs unqualified vs missing; identify safe extension points. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification.
+- **Implementation:** Inspect actual Potbot APIs, PostgreSQL migrations, Cog registry, Syn catalog, sandbox profiles, credentials, jobs, REST, WebSocket, models and CI; record implemented vs unqualified vs missing; identify safe extension points. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2D and the device/debugger specification.
 - **Automated acceptance:** Inventory matches pinned main commit; each existing service has an integration owner; no duplicate database or identity subsystem proposed; undocumented assumptions flagged. Validate exact target and source identity, typed capture/stop/stack/value receipts and explicit unsupported capabilities without changing historical identities.
 - **Demonstration:** Generate an inventory JSON and cross-reference report from the checked-out repository. Inspect a typed device/profiler/debug session contract with proposed Python-first qualification.
 - **Evidence required:** `tests/` report for `T01.1`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
@@ -164,7 +222,7 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T01.2 — Canonical semantic type and Cog contracts
 - **Prerequisites:** T01.1.
 - **Deliverable:** Versioned semantic schemas for tool, capability, implementation, installation, invocation and evidence.
-- **Implementation:** Extend authoritative Syn/Synny Types using full syn:// or synny:// URIs; preserve inherited/default/required/optional Ember contracts; distinguish discovery descriptor from installed executable instance; represent typed input/output via one-input/one-output Cog or typed envelope; bind handler revisions and hashes. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification.
+- **Implementation:** Extend authoritative Syn/Synny Types using full syn:// or synny:// URIs; preserve inherited/default/required/optional Ember contracts; distinguish discovery descriptor from installed executable instance; represent typed input/output via one-input/one-output Cog or typed envelope; bind handler revisions and hashes. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2D and the device/debugger specification.
 - **Automated acceptance:** Reject shorthand Type identifiers; reject unknown/unregistered data Type refs, invalid inheritance and Ember violations; detect incompatible schema evolution; serialize/deserialize deterministically. Validate exact target and source identity, typed capture/stop/stack/value receipts and explicit unsupported capabilities without changing historical identities.
 - **Demonstration:** Round-trip a SearchQuery → SearchResults Cog and a tool invocation receipt. Inspect a typed device/profiler/debug session contract with proposed Python-first qualification.
 - **Evidence required:** `tests/` report for `T01.2`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
@@ -172,7 +230,7 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 #### T01.3 — Execution envelope and provenance contracts
 - **Prerequisites:** T01.2.
 - **Deliverable:** Signed, immutable invocation/result/receipt envelope and lifecycle schema.
-- **Implementation:** Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions. Standardize one pinned, typed syn://event/<id> occurrence for every workflow/model/tool start, update, output, nested call and terminal state; require the exact semantic Type/version, unique process run ID, initiating process/input artifact and SHA-256, authenticated direct trigger, emitter, causal parent, timestamps, and private/redacted parameter projections. Broaden syn://event causation envelopes to EVERY admitted agent work unit: agent/sub-agent, MCP server/session/tool/workflow, ordinary tool, Cog, model, browser/API/SQL, local script, CI, queue and maintenance jobs. Each emitted occurrence carries a registered exact subject Type/version, distinct run/attempt ID, authenticated direct trigger and emitter, and private input artifact digest. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture.
+- **Implementation:** Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions. Standardize one pinned, typed syn://event/<id> occurrence for every workflow/model/tool start, update, output, nested call and terminal state; require the exact semantic Type/version, unique process run ID, initiating process/input artifact and SHA-256, authenticated direct trigger, emitter, causal parent, timestamps, and private/redacted parameter projections. Broaden syn://event causation envelopes to EVERY admitted agent work unit: agent/sub-agent, MCP server/session/tool/workflow, ordinary tool, Cog, model, browser/API/SQL, local script, CI, queue and maintenance jobs. Each emitted occurrence carries a registered exact subject Type/version, distinct run/attempt ID, authenticated direct trigger and emitter, and private input artifact digest. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2D and the device/debugger specification. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture.
 - **Automated acceptance:** Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected. Every event—including progress/console/completion—has a resolvable cause and emitter; reject orphan, self-causal, cross-workspace, wrong-release, forged-input and unversioned event records; verify deterministic lineage and output receipts. Cross-protocol fixtures reject any tool/MCP/Cog/internal-job event without exact type/version, unique child run ID, root/parent input and authenticated emitter; no scope exemption for an unfamiliar job kind. Validate exact target and source identity, typed capture/stop/stack/value receipts and explicit unsupported capabilities without changing historical identities. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test.
 - **Demonstration:** Replay an immutable read-only invocation and inspect the linked receipt chain. Replay a typed workflow-to-model-to-tool causal chain from a user input to each child run and its output receipt. Inspect an end-to-end agent job spawning a model, MCP tool workflow, plain CLI tool, Cog and nested agent, with distinct causal event/run identities. Inspect a typed device/profiler/debug session contract with proposed Python-first qualification. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified.
 - **Evidence required:** `tests/` report for `T01.3`, pinned source/config digest, execution receipt(s), demo command/transcript or screenshot where appropriate, security assessment, and stage-gate JSON.
@@ -736,6 +794,15 @@ Store a stage outcome and a traceable link to reports under `docs/implementation
 
 A stage only passes when all mandatory checks ran and passed. An absent host prerequisite yields `blocked`, **never** `passed` or a silent skip. Gates are immutable once published; subsequent requalification creates a new report.
 
+For a gate that exercises Syn, also retain both source commits, client/protocol
+version, each service's independent DB revision, deployment/config identity,
+workspace/recipient scope, required-versus-deferred delivery policy and any
+independently retained head anchor. Report local event commit, remote delivery,
+chain verification and execution/factual verification separately. See the
+[amendment](../implementation/07-syn-integration-plan-impact.md) for failure cases;
+this is an added evidence requirement, not a claim that the gate schema or relay
+already implements those fields.
+
 ## 9. Pull-request and implementation slicing
 
 Prefer **one PR per stage**, subdividing risky stages into narrow implementation PRs but preserving a single explicit acceptance gate. Each PR description references exactly one primary stage and can identify prerequisites. Commit generated adapters, tests and documentation together; freeze new interfaces before expanding provider sets. Run offline contracts first, then SQL+sandbox, then optional credentialed live runs. Do not merge implementation-specific features from concurrent chats without rebasing and re-running relevant gates on a single pinned commit.
@@ -825,6 +892,9 @@ Estimates below are rough **engineering-week ranges for focused workstreams**, n
 | Unbounded provider costs | High | Retry/parallel plan exceeds budget | Enforce budget before reservation/dispatch; halt run |
 | Drifting external APIs | Medium | Schema/endpoint differs from pinned contract | Quarantine adapter revision and require qualification |
 | Concurrent changes in Potbot | High | Overlapping migrations/contracts/phase work | Rebase pinned SHA and execute upgrade/full CI |
+| Private Syn dependency unavailable to CI | High | Submodule checkout denied before tests | Establish explicitly authorized source access and qualify the exact two-service tuple; no false test pass |
+| Receipt or shared message mistaken for authority/truth | Critical | Sender assertion or chain entry dispatches work or promotes memory | Require existing controller/semantic/memory admission and independent evidence checks |
+| Cross-service crash, restore or retention mismatch | High | Lost acknowledgement, divergent anchor, or private data copied into immutable history | Fenced idempotent relay, external checkpoints, minimized projections and explicit deletion/correction policy |
 | Wrong phone/process or stale stopped frame | Critical | Device/PID/lease changes, resume or debugger disconnect | Deny stale actions, invalidate frame handles and reconcile exact target state |
 
 **Suggested ownership:** one core semantics/DB owner, one execution/security owner, one integration/adapters owner, one evaluation/CI owner, and reviewers familiar with the existing Cog and identity architecture. External API cost and policy approval remains an operator responsibility. Resist adding a separate workflow scheduler or second authority engine simply for convenience.
@@ -833,5 +903,11 @@ Estimates below are rough **engineering-week ranges for focused workstreams**, n
 
 The programme is complete only when: (a) all 48 stage-gate reports are passing or have explicitly approved documented scope reductions; (b) real qualified-host PostgreSQL, sandbox, API, browser, tool, reasoning and adversarial tests pass; (c) the agent autonomously discovers and composes authorized tools through typed cogs while preserving the boundaries between discovery, transformation, execution and verification; (d) benchmark data establishes real rather than assumed reasoning benefits; (e) enabled phone, profiling and language-neutral debugging profiles pass the device/process gates and actual Python-first breakpoint/stepping/stack test, with separate acceptance for other backends; and (f) a reproducible tagged release with upgrade/rollback instructions and known limitations is published.
 
-**Next executable task:** Implement `T01.1` on a fresh pinned repository branch: emit the current-state inventory JSON, produce a code-to-stage traceability map, identify missing/duplicate components, and add an automated consistency test. No production code changes should be required in that first PR.
+**Next executable task:** Refresh the existing T01.1 inventory against a pinned
+composition of current Potbot, the Syn integration and separately reviewed plugin
+strategy. Record existing partial implementations and missing qualification.
+Resolve the private-submodule CI prerequisite, then follow the dependency-ordered
+causal-contract, credential, outbox/inbox and recovery slices in the
+[Syn amendment](../implementation/07-syn-integration-plan-impact.md). Do not rebuild
+the existing inventory/adapters or mark stages complete from source presence.
 

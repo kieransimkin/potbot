@@ -1,0 +1,643 @@
+{
+  "schema_version": 1,
+  "title": "Syn blockchain and transaction integration work packages",
+  "status": "planning_only",
+  "date": "2026-10-23",
+  "document": "13-syn-blockchain-transaction-plan.md",
+  "source_baselines": {
+    "potbot": "058612c66c2569750bb661f29092f745caba1ac4",
+    "syn": "57da1be8ee69e00375bb2756bb09839bf0d4bc06"
+  },
+  "existing_programmes": {
+    "p_steps": 204,
+    "t_stages": 48,
+    "identities_and_statuses_changed": false
+  },
+  "constraints": {
+    "syn_instance_per_unique_agent": true,
+    "all_inter_agent_traffic": "private_encrypted_syn_p2p_pubsub_including_consensus_and_repair",
+    "operator_retains_root_and_base_keys": true,
+    "agent_distributed_secrets": [
+      "assigned_account_key",
+      "current_group_key"
+    ],
+    "operator_root_trusted_and_correlated": true,
+    "private_key_export": false,
+    "automatic_potbot_sender_requires": [
+      "SBT08",
+      "SBT13"
+    ],
+    "legacy_receipt_and_summary_v1_bytes_frozen": true,
+    "node_reference": "lowercase_hex_sha256_raw_32_byte_ed25519_account_public_key",
+    "issuer_hash_use": "custody_provenance_and_weight_constraints_never_node_address",
+    "consensus_authority": "explicit_consensusPolicy_in_each_canonical_type_release",
+    "unknown_type_policy": "hold_without_downgrade",
+    "policy_change_authority": "current_policy_and_canonical_type_governance",
+    "mutable_conflict_policy_owner": "exactly_one",
+    "incompatible_policy_atomic_batch": "reject",
+    "federation_group_key": "explicit_provisioning_or_agreement_required_before_enablement"
+  },
+  "work_packages": [
+    {
+      "id": "SBT01",
+      "title": "Freeze domain, node and per-Type authority",
+      "status": "planned",
+      "depends_on": [],
+      "owners": [
+        "Syn",
+        "Potbot"
+      ],
+      "milestone": "M0",
+      "programme_mapping": [
+        "T01.1",
+        "T01.4"
+      ],
+      "outputs": [
+        "authority and conflict ownership matrix",
+        "node-hash and issuer fault-domain ADRs",
+        "Type-governance genesis anchors"
+      ],
+      "acceptance_gate": "One authoritative policy per mutable conflict key; explicit node identity, Type governance and fault assumptions."
+    },
+    {
+      "id": "SBT02",
+      "title": "Freeze typed records and canonical consensus policies",
+      "status": "planned",
+      "depends_on": [
+        "SBT01"
+      ],
+      "owners": [
+        "Syn protocol",
+        "Potbot domain"
+      ],
+      "milestone": "M0",
+      "programme_mapping": [
+        "T01.2",
+        "T01.3"
+      ],
+      "outputs": [
+        "canonical Type consensusPolicy and PolicyContext",
+        "node-key/roster and policy-bound intent contracts",
+        "independent canonical/signature vectors"
+      ],
+      "acceptance_gate": "Rust/Python agree on bytes and node hashes; Type/policy/stream bindings reject ambiguity and legacy bytes stay frozen."
+    },
+    {
+      "id": "SBT03",
+      "title": "Extend protected native custody",
+      "status": "planned",
+      "depends_on": [
+        "SBT02"
+      ],
+      "owners": [
+        "Native identity owner",
+        "Syn"
+      ],
+      "milestone": "M0",
+      "programme_mapping": [
+        "T03.1",
+        "T03.3"
+      ],
+      "outputs": [
+        "typed ledger and frame operations",
+        "durable author reservations",
+        "protected IPC contract"
+      ],
+      "acceptance_gate": "Real native processes sign only scoped operations, survive crashes and never export raw keys."
+    },
+    {
+      "id": "SBT04",
+      "title": "Bind Syn runtime to assigned Agent",
+      "status": "planned",
+      "depends_on": [
+        "SBT03"
+      ],
+      "owners": [
+        "Syn startup",
+        "Potbot adapter"
+      ],
+      "milestone": "M0",
+      "programme_mapping": [
+        "T01.4",
+        "T03.3",
+        "T12.1"
+      ],
+      "outputs": [
+        "node-hash account/instance binding",
+        "issuer certificate and fresh key-possession checks",
+        "fail-closed startup and local API"
+      ],
+      "acceptance_gate": "Wrong key/hash, swapped vault/directory, wrong genesis and duplicate local starts fail before networking."
+    },
+    {
+      "id": "SBT05",
+      "title": "Implement durable signed Syn record store",
+      "status": "planned",
+      "depends_on": [
+        "SBT04"
+      ],
+      "owners": [
+        "Syn storage"
+      ],
+      "milestone": "M1",
+      "programme_mapping": [
+        "T01.3",
+        "T08.1"
+      ],
+      "outputs": [
+        "Alembic migrations",
+        "record and author-head store",
+        "Syn publication journal"
+      ],
+      "acceptance_gate": "Real PostgreSQL concurrency/restart/conflict tests preserve exact signed bytes and acknowledged state."
+    },
+    {
+      "id": "SBT06",
+      "title": "Implement encrypted private Syn pub-sub",
+      "status": "planned",
+      "depends_on": [
+        "SBT05"
+      ],
+      "owners": [
+        "Syn P2P",
+        "Native custody"
+      ],
+      "milestone": "M1",
+      "programme_mapping": [
+        "T03.1",
+        "T03.3",
+        "T12.1"
+      ],
+      "outputs": [
+        "node-hash-addressed encrypted peer frames",
+        "qualified AEAD and nonce rules",
+        "federation key/disclosure scope ADR"
+      ],
+      "acceptance_gate": "Real peers reject forged/stale/replayed frames; no plaintext, alternate consensus network or silently expanded Agent secrets."
+    },
+    {
+      "id": "SBT07",
+      "title": "Implement catch-up and availability",
+      "status": "planned",
+      "depends_on": [
+        "SBT06"
+      ],
+      "owners": [
+        "Syn replication"
+      ],
+      "milestone": "M1",
+      "programme_mapping": [
+        "T03.4",
+        "T11.2"
+      ],
+      "outputs": [
+        "inventory and repair messages",
+        "durable receiver cursors",
+        "dependency and blob policy"
+      ],
+      "acceptance_gate": "Restart/partition repair is bounded, authorised and does not lose acknowledged records."
+    },
+    {
+      "id": "SBT08",
+      "title": "Qualify two Agent two Syn boundary",
+      "status": "planned",
+      "depends_on": [
+        "SBT07"
+      ],
+      "owners": [
+        "Both acceptance owners"
+      ],
+      "milestone": "M1",
+      "programme_mapping": [
+        "T11.2",
+        "T11.4",
+        "T12.4"
+      ],
+      "outputs": [
+        "actual two-pair fixture",
+        "negative and rotation traces",
+        "sanitised demonstration"
+      ],
+      "acceptance_gate": "Different assigned accounts exchange safely with operator offline; label result non-BFT."
+    },
+    {
+      "id": "SBT09",
+      "title": "Implement deterministic transaction reducer",
+      "status": "planned",
+      "depends_on": [
+        "SBT02",
+        "SBT05",
+        "SBT08"
+      ],
+      "owners": [
+        "Syn ledger application"
+      ],
+      "milestone": "M2",
+      "programme_mapping": [
+        "T01.2",
+        "T01.3",
+        "T08.2"
+      ],
+      "outputs": [
+        "policy-scoped pure transition function",
+        "single conflict-owner and mixed-policy batch guard",
+        "per-stream atomic outcomes and replay vectors"
+      ],
+      "acceptance_gate": "Replicas replay identically; weaker Type streams cannot mutate stronger-owned conflicts; atomic crash/rejection paths pass."
+    },
+    {
+      "id": "SBT10",
+      "title": "Qualify Type-selected operator and federated adapters",
+      "status": "planned",
+      "depends_on": [
+        "SBT08",
+        "SBT09"
+      ],
+      "owners": [
+        "Syn consensus",
+        "Native custody"
+      ],
+      "milestone": "M2",
+      "programme_mapping": [
+        "T07.3",
+        "T11.2",
+        "T12.1"
+      ],
+      "outputs": [
+        "CanonicalTypePolicyResolver and ConsensusRouter",
+        "OperatorLogAdapter raft-rs qualification",
+        "FederatedDagAdapter Hiero/Hashgraph spike",
+        "Syn-only gateway and protected signer evidence"
+      ],
+      "acceptance_gate": "Three same-root crash-fault voters and four independent-root BFT voters pass their separate fault, transport, custody, availability and recovery gates; unsupported policies hold."
+    },
+    {
+      "id": "SBT11",
+      "title": "Implement finality and outcome verifier",
+      "status": "planned",
+      "depends_on": [
+        "SBT10"
+      ],
+      "owners": [
+        "Syn verifier",
+        "Potbot client"
+      ],
+      "milestone": "M2",
+      "programme_mapping": [
+        "T01.4",
+        "T11.1"
+      ],
+      "outputs": [
+        "operator and DAG Hashgraph proof profiles",
+        "Type-policy and roster transition verifier",
+        "trusted per-stream checkpoints and offline replay CLI"
+      ],
+      "acceptance_gate": "Reject policy downgrade, wrong Type/stream/epoch, forged history and unauthenticated outcome roots; preserve historical proofs."
+    },
+    {
+      "id": "SBT12",
+      "title": "Expose versioned Syn transaction API",
+      "status": "planned",
+      "depends_on": [
+        "SBT11"
+      ],
+      "owners": [
+        "Syn HTTP",
+        "syn-client"
+      ],
+      "milestone": "M2",
+      "programme_mapping": [
+        "T02.2",
+        "T03.4"
+      ],
+      "outputs": [
+        "submit/status/proof/state routes",
+        "bounded replay API",
+        "public response schemas"
+      ],
+      "acceptance_gate": "HTTP plus mesh tests prove stable identity, unknown-ack recovery, isolation and correct proof claims."
+    },
+    {
+      "id": "SBT13",
+      "title": "Complete Potbot producer and disclosure admission",
+      "status": "planned",
+      "depends_on": [
+        "SBT02",
+        "SBT08",
+        "SBT12"
+      ],
+      "owners": [
+        "Potbot controller",
+        "Potbot semantics"
+      ],
+      "milestone": "M3",
+      "programme_mapping": [
+        "T01.2",
+        "T01.3",
+        "T03.1",
+        "T03.3"
+      ],
+      "outputs": [
+        "sealed canonical Type-policy and producer checks",
+        "immutable policy-bound approved export bytes",
+        "credential-free preview"
+      ],
+      "acceptance_gate": "Forged causes, stale leases, unsupported policies, wrong audience and secret/reference injections are rejected."
+    },
+    {
+      "id": "SBT14",
+      "title": "Extend existing Potbot transactional outbox",
+      "status": "planned",
+      "depends_on": [
+        "SBT08",
+        "SBT12",
+        "SBT13"
+      ],
+      "owners": [
+        "Potbot persistence",
+        "Potbot workers"
+      ],
+      "milestone": "M3",
+      "programme_mapping": [
+        "T03.4"
+      ],
+      "outputs": [
+        "event/intent atomic connection boundary",
+        "Syn fenced delivery handler",
+        "receipt and reconciliation records"
+      ],
+      "acceptance_gate": "Crash-window tests prove no lost intents or repeated business effects; no network waits inside SQL."
+    },
+    {
+      "id": "SBT15",
+      "title": "Implement inbox admission and projections",
+      "status": "planned",
+      "depends_on": [
+        "SBT14"
+      ],
+      "owners": [
+        "Potbot controller",
+        "Potbot persistence"
+      ],
+      "milestone": "M3",
+      "programme_mapping": [
+        "T03.4",
+        "T10.1",
+        "T10.2"
+      ],
+      "outputs": [
+        "tenant mapping",
+        "atomic inbox/cursor/proposal transaction",
+        "proof-aware rebuildable projections"
+      ],
+      "acceptance_gate": "Duplicates, forged proofs and cross-tenant messages cannot duplicate dispatch or widen authority."
+    },
+    {
+      "id": "SBT16",
+      "title": "Move shared assignments and reservations to Syn",
+      "status": "planned",
+      "depends_on": [
+        "SBT15"
+      ],
+      "owners": [
+        "Syn reducer",
+        "Potbot task and budget adapters"
+      ],
+      "milestone": "M3",
+      "programme_mapping": [
+        "T03.2",
+        "T10.1",
+        "T10.2"
+      ],
+      "outputs": [
+        "typed assignment and resource operations",
+        "expected-version and fencing rules",
+        "conservation tests"
+      ],
+      "acceptance_gate": "Competing Agents cannot both hold one exclusive generation or overspend a conserved allowance."
+    },
+    {
+      "id": "SBT17",
+      "title": "Integrate recoverable external action saga",
+      "status": "planned",
+      "depends_on": [
+        "SBT16"
+      ],
+      "owners": [
+        "Potbot tool/model effect owners"
+      ],
+      "milestone": "M3",
+      "programme_mapping": [
+        "T03.2",
+        "T03.4",
+        "T10.2"
+      ],
+      "outputs": [
+        "durable effect attempt identity",
+        "provider status reconciliation",
+        "verified result and settlement path"
+      ],
+      "acceptance_gate": "Faults do not produce false completion or unsupported exactly-once claims; unsafe overlap holds."
+    },
+    {
+      "id": "SBT18",
+      "title": "Integrate semantic records and evidence",
+      "status": "planned",
+      "depends_on": [
+        "SBT15"
+      ],
+      "owners": [
+        "Syn semantic views",
+        "Potbot evidence admission"
+      ],
+      "milestone": "M3",
+      "programme_mapping": [
+        "T01.2",
+        "T05.4",
+        "T08.3",
+        "T10.4"
+      ],
+      "outputs": [
+        "explicit per-Type policies and adopted releases",
+        "attributed assertion/correction records",
+        "old-policy-approved Type transitions"
+      ],
+      "acceptance_gate": "No implicit policy inheritance/downgrade or self-ratifying update; conflicts and historical evidence remain inspectable."
+    },
+    {
+      "id": "SBT19",
+      "title": "Implement governance revocation and key cutover",
+      "status": "planned",
+      "depends_on": [
+        "SBT11",
+        "SBT16",
+        "SBT18"
+      ],
+      "owners": [
+        "Operator",
+        "Syn control state",
+        "Native custody"
+      ],
+      "milestone": "M4",
+      "programme_mapping": [
+        "T03.3",
+        "T11.2",
+        "T12.3"
+      ],
+      "outputs": [
+        "policy/roster and issuer-weight transition rules",
+        "paused current-key-only cutover",
+        "trusted restore and fork procedure"
+      ],
+      "acceptance_gate": "Revocation, old/new policy handover, voter replacement and stale backups preserve authority and signing safety."
+    },
+    {
+      "id": "SBT20",
+      "title": "Migrate through shadow and explicit cutover",
+      "status": "planned",
+      "depends_on": [
+        "SBT17",
+        "SBT18",
+        "SBT19"
+      ],
+      "owners": [
+        "Both database and service owners"
+      ],
+      "milestone": "M4",
+      "programme_mapping": [
+        "T01.4",
+        "T07.4",
+        "T12.3"
+      ],
+      "outputs": [
+        "legacy import manifest",
+        "shadow comparison",
+        "single-writer cutoff and rollback runbook"
+      ],
+      "acceptance_gate": "Disposable rehearsal preserves legacy evidence, finalised outcomes and exactly one authoritative write path."
+    },
+    {
+      "id": "SBT21",
+      "title": "Add inspection metrics and explicit status",
+      "status": "planned",
+      "depends_on": [
+        "SBT12",
+        "SBT15"
+      ],
+      "owners": [
+        "Syn/Potbot API CLI UI owners"
+      ],
+      "milestone": "M4",
+      "programme_mapping": [
+        "T11.1",
+        "T12.2"
+      ],
+      "outputs": [
+        "separate evidence-state fields",
+        "scoped inspection and retry controls",
+        "safe metrics and demonstration"
+      ],
+      "acceptance_gate": "Operators can distinguish durability, finality, proof, admission and verified external effects."
+    },
+    {
+      "id": "SBT22",
+      "title": "Run adversarial invariant test programme",
+      "status": "planned",
+      "depends_on": [
+        "SBT20",
+        "SBT21"
+      ],
+      "owners": [
+        "Both test owners",
+        "Independent verifier"
+      ],
+      "milestone": "M4",
+      "programme_mapping": [
+        "T11.1",
+        "T11.2",
+        "T11.3",
+        "T11.4"
+      ],
+      "outputs": [
+        "cross-language mutation corpus",
+        "separate same-root Raft and independent-root BFT fault matrices",
+        "Type downgrade, Sybil, conflict-owner and restoration evidence"
+      ],
+      "acceptance_gate": "No conflicting finality under each stated model, no same-root vote amplification and no untested resilience claim."
+    },
+    {
+      "id": "SBT23",
+      "title": "Package and qualify operating limits",
+      "status": "planned",
+      "depends_on": [
+        "SBT22"
+      ],
+      "owners": [
+        "Both CI and deployment owners"
+      ],
+      "milestone": "M4",
+      "programme_mapping": [
+        "T07.3",
+        "T07.4",
+        "T12.1",
+        "T12.3"
+      ],
+      "outputs": [
+        "standalone Syn CI",
+        "pinned compatibility/deployment profile",
+        "measured load and recovery limits"
+      ],
+      "acceptance_gate": "Clean supported hosts install, upgrade and restore the profile with bounded resources and protected keys."
+    },
+    {
+      "id": "SBT24",
+      "title": "Rehearse and enable controlled pilot",
+      "status": "planned",
+      "depends_on": [
+        "SBT23"
+      ],
+      "owners": [
+        "Operator",
+        "Both application owners"
+      ],
+      "milestone": "M4",
+      "programme_mapping": [
+        "T12.2",
+        "T12.4"
+      ],
+      "outputs": [
+        "named operator/host/data profile",
+        "complete task-race/effect rehearsal",
+        "progressive enablement and stop rules"
+      ],
+      "acceptance_gate": "Exact deployment passes final scenario and operator recovery with explicit remaining limitations."
+    }
+  ],
+  "architecture_contract": "14-type-consensus-and-node-identity.md",
+  "consensus_profiles": {
+    "syn.operator-log/1": {
+      "status": "proposed",
+      "fault_model": "crash_and_partition_with_trusted_authorised_nodes",
+      "membership": "same_verified_credential_issuer",
+      "node_address": "node_key_hash",
+      "first_candidate": "raft-rs",
+      "quorum": "floor(N/2)+1",
+      "proof_profile": "syn.operator-commit/1",
+      "pilot": "three_voters_two_required"
+    },
+    "syn.bft-dag-hashgraph/1": {
+      "status": "proposed",
+      "fault_model": "byzantine_weight_less_than_one_third",
+      "membership": "independently_admitted_issuers_with_aggregate_weight_caps",
+      "node_address": "node_key_hash",
+      "first_candidate": "Hiero_platform_integration_spike",
+      "pipeline": [
+        "authenticated_dag_and_data_availability",
+        "hashgraph_virtual_voting_order",
+        "deterministic_syn_reducer"
+      ],
+      "proof_profile": "syn.dag-hashgraph-finality/1",
+      "pilot": "four_independent_root_delegates_three_required"
+    }
+  }
+}

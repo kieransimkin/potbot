@@ -42,7 +42,32 @@ tool platform's existing stage statuses; this roadmap does not establish live di
 
 ## Install and check
 
-Run the entry point for your platform from the extracted checkout:
+Clone with `git clone --recurse-submodules https://github.com/kieransimkin/potbot.git`,
+or run `git submodule update --init --recursive` in an existing Git checkout.
+Syn is pinned at `vendor/syn`; GitHub source ZIPs omit this required source.
+The optional `syn` runtime extra connects Potbot to Syn's durable communication
+service and verifiable hash-chain receipts. See the [service integration guide](docs/syn-service.md),
+[two-system architecture](docs/implementation/09-syn-potbot-architecture.md) and
+[metadata exchange contract](docs/implementation/10-syn-exchange-contracts.md).
+The [required private Agent mesh](docs/implementation/11-syn-private-agent-mesh.md)
+assigns one Syn instance and operator-provisioned account key to each Agent;
+encrypted Syn-only peer communication remains to be implemented and qualified.
+The [operator provisioning guide](docs/implementation/12-syn-agent-key-provisioning.md)
+documents the implemented restricted vaults, explicit account allocation and group
+key rotation. The base private key stays with the operator.
+The [blockchain and transaction implementation plan](docs/implementation/13-syn-blockchain-transaction-plan.md)
+sets out 24 packages for signed replication, shared-state finality, verified
+outcomes and Potbot transaction/effect recovery.
+Its [Type consensus and node identity design](docs/implementation/14-type-consensus-and-node-identity.md)
+defines canonical per-Type policies, same-custody agreement, federated BFT
+DAG/Hashgraph investigation and public-key-hash node references. These consensus
+profiles are proposed; the implemented HTTP receipt chain does not supply them.
+
+![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
+
+*Explanatory illustration; actual service behaviour is covered by the linked HTTP and PostgreSQL tests.*
+
+Run the entry point for your platform from the complete checkout:
 
 ```powershell
 # Windows Command Prompt: start.bat

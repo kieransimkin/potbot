@@ -15,7 +15,7 @@ from potbot.domain.errors import InvalidInputError
 
 _TYPE = re.compile(r"(?:syn|synny)://type/[a-z0-9]+(?:[-_][a-z0-9]+)*\Z")
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
-_TRIGGER = frozenset(
+EXECUTION_TRIGGER_KINDS = frozenset(
     {
         "user_input",
         "api_request",
@@ -28,6 +28,9 @@ _TRIGGER = frozenset(
         "process_output",
         "lifecycle_transition",
     }
+)
+EXECUTION_STAGES = frozenset(
+    {"started", "updated", "completed", "failed", "cancelled", "indeterminate"}
 )
 
 
@@ -73,7 +76,7 @@ class ExecutionEventInput:
         if self.parent_event_id is not None and not isinstance(self.parent_event_id, UUID):
             raise InvalidInputError("Parent event must be a UUID")
         if (
-            self.trigger_kind not in _TRIGGER
+            self.trigger_kind not in EXECUTION_TRIGGER_KINDS
             or not isinstance(self.trigger_ref, str)
             or not 1 <= len(self.trigger_ref) <= 512
         ):
@@ -82,14 +85,7 @@ class ExecutionEventInput:
             self.trigger_input_sha256
         ):
             raise InvalidInputError("Execution event requires the exact input receipt digest")
-        if self.stage not in {
-            "started",
-            "updated",
-            "completed",
-            "failed",
-            "cancelled",
-            "indeterminate",
-        }:
+        if self.stage not in EXECUTION_STAGES:
             raise InvalidInputError("Unsupported execution event lifecycle stage")
         if (
             self.trigger_kind

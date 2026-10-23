@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="780" viewBox="0 0 1180 780" role="img" aria-labelledby="t d">
+<title id="t">Planned Syn transaction authority for two Potbot Agents</title>
+<desc id="d">Each Agent has its own Potbot, Syn and restricted native vault. The Syn nodes communicate through an encrypted private group. Their replicated domain orders shared transactions. Potbot keeps local execution and independent verification. The operator retains the base key.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#45677d"/></marker><marker id="local" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#45677d"/></marker></defs>
+<rect width="1180" height="780" rx="18" fill="#f4f7fa"/>
+<g font-family="Arial, sans-serif" fill="#18374a">
+<text x="40" y="42" font-size="25" font-weight="bold">Syn owns shared transactions. Potbot owns execution.</text>
+<rect x="45" y="72" width="1090" height="70" rx="12" fill="#fff1d6" stroke="#a47b35"/>
+<text x="67" y="102" font-size="20" font-weight="bold">Operator custody</text><text x="67" y="127" font-size="17">Base key and allocation register stay here. Deliver only the assigned account key and current group key.</text>
+<rect x="45" y="180" width="480" height="340" rx="14" fill="#e7eff8" stroke="#5d7996" stroke-width="2"/>
+<rect x="655" y="180" width="480" height="340" rx="14" fill="#e7eff8" stroke="#5d7996" stroke-width="2"/>
+<text x="67" y="214" font-size="22" font-weight="bold">Agent A</text><text x="677" y="214" font-size="22" font-weight="bold">Agent B</text>
+<rect x="65" y="242" width="200" height="106" rx="10" fill="white" stroke="#6e8496"/>
+<rect x="285" y="242" width="220" height="106" rx="10" fill="#e1f4eb" stroke="#4c876b"/>
+<rect x="675" y="242" width="220" height="106" rx="10" fill="#e1f4eb" stroke="#4c876b"/>
+<rect x="915" y="242" width="200" height="106" rx="10" fill="white" stroke="#6e8496"/>
+<text x="82" y="273" font-size="21" font-weight="bold">Potbot A</text><text x="82" y="302" font-size="16">Tasks, local policy,</text><text x="82" y="325" font-size="16">tools and verification</text>
+<text x="302" y="273" font-size="21" font-weight="bold">Syn A</text><text x="302" y="302" font-size="16">Signed records, ledger,</text><text x="302" y="325" font-size="16">replication and proofs</text>
+<text x="692" y="273" font-size="21" font-weight="bold">Syn B</text><text x="692" y="302" font-size="16">Signed records, ledger,</text><text x="692" y="325" font-size="16">replication and proofs</text>
+<text x="932" y="273" font-size="21" font-weight="bold">Potbot B</text><text x="932" y="302" font-size="16">Tasks, local policy,</text><text x="932" y="325" font-size="16">tools and verification</text>
+<g fill="none" stroke="#45677d" stroke-width="2" marker-start="url(#local)" marker-end="url(#local)"><path d="M267 290H283"/><path d="M897 290H913"/></g>
+<path d="M509 312H671" fill="none" stroke="#45677d" stroke-width="2" stroke-dasharray="6 4" marker-start="url(#a)" marker-end="url(#a)"/>
+<text x="590" y="262" text-anchor="middle" font-size="15" font-weight="bold">Private Syn</text><text x="590" y="285" text-anchor="middle" font-size="14">encrypted pub-sub</text>
+<rect x="65" y="390" width="440" height="95" rx="10" fill="#fff" stroke="#877958"/>
+<rect x="675" y="390" width="440" height="95" rx="10" fill="#fff" stroke="#877958"/>
+<text x="83" y="421" font-size="19" font-weight="bold">Restricted native custody A</text><text x="83" y="449" font-size="16">Assigned account A and current group key</text><text x="83" y="472" font-size="15">No parent, sibling or group-derivation key</text>
+<text x="693" y="421" font-size="19" font-weight="bold">Restricted native custody B</text><text x="693" y="449" font-size="16">Assigned account B and current group key</text><text x="693" y="472" font-size="15">No parent, sibling or group-derivation key</text>
+<g stroke="#45677d" stroke-width="2" fill="none" marker-end="url(#a)"><path d="M395 350V386"/><path d="M785 350V386"/></g>
+<text x="45" y="555" font-size="17">Shared state is replicated inside the Syn nodes; this is a protocol boundary, not another central server.</text>
+<rect x="45" y="584" width="1090" height="145" rx="14" fill="#edeafb" stroke="#7b70a5" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="67" y="618" font-size="22" font-weight="bold">Planned Type-policy streams · nodes addressed by their public key hashes</text>
+<text x="67" y="651" font-size="18">Task revisions and assignment · capabilities and revocation · exclusive reservations · outcome commitments</text>
+<text x="67" y="681" font-size="17">Canonical Type selects operator log or BFT DAG/Hashgraph; Syn owns peer traffic and uses protected signing.</text>
+<text x="67" y="708" font-size="16">A finalised transaction proves the shared decision. Actual work still needs independent effect evidence.</text>
+<text x="45" y="759" font-size="16">Planning illustration · private transport and distributed finality require implementation and acceptance tests.</text>
+</g></svg>

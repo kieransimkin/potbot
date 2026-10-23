@@ -21,6 +21,8 @@ jobs:
         working-directory: native/potbot-identity
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install pinned native toolchain
         run: rustup toolchain install 1.90.0 --profile minimal --component rustfmt
       - name: Check native source formatting
@@ -41,11 +43,16 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Verify native PowerShell and BAT startup contracts
         shell: powershell
         run: .\tests\windows\launcher-smoke.ps1
 
   verify:
+    # Fork PRs have no private-source credential. Public native/launcher checks
+    # still run; a trusted same-repository branch is required for qualification.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -54,12 +61,41 @@ jobs:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Resolve the exact Syn submodule revision
+        id: syn-revision
+        shell: bash
+        run: |
+          syn_entry=$(git ls-tree HEAD -- vendor/syn)
+          read -r syn_mode syn_kind syn_revision syn_path <<< "$syn_entry"
+          test "$syn_mode" = 160000
+          test "$syn_kind" = commit
+          test "$syn_path" = vendor/syn
+          [[ "$syn_revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "revision=$syn_revision" >> "$GITHUB_OUTPUT"
+      - name: Check out pinned Syn using its read-only deploy key
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Synsphere/syn
+          ref: ${{ steps.syn-revision.outputs.revision }}
+          path: vendor/syn
+          ssh-key: ${{ secrets.SYN_SUBMODULE_SSH_KEY }}
+          persist-credentials: false
+      - name: Verify Syn dependency identity
+        shell: bash
+        env:
+          SYN_EXPECTED_REVISION: ${{ steps.syn-revision.outputs.revision }}
+        run: |
+          test "$(git -C vendor/syn rev-parse HEAD)" = "$SYN_EXPECTED_REVISION"
+          test -f vendor/syn/packages/syn-client/pyproject.toml
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.12.23"
-          enable-cache: true
+          # Do not publish caches populated while private source is checked out.
+          enable-cache: false
       - name: Install locked application and development dependencies
-        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --dev
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --extra syn --dev
       - name: Install required Linux process isolation
         run: |
           sudo apt-get update

@@ -1,0 +1,594 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-10-23",
+  "state": "planning_only",
+  "authoritative_document": "docs/implementation/07-syn-integration-plan-impact.md",
+  "authoritative_target_document": "docs/implementation/11-syn-private-agent-mesh.md",
+  "superseding_owner_requirement": {
+    "date": "2026-10-23",
+    "status": "required_target_not_implemented_mesh",
+    "syn_instance_per_unique_agent": true,
+    "inter_agent_communication": "exclusively_via_syn_private_encrypted_p2p_pubsub",
+    "agent_keys": "operator_derived_hardened_unique_numbered_accounts_from_secret_base_address_key",
+    "group_key": "separate_domain_separated_derivation_from_operator_secret_base_key",
+    "key_distribution_owner": "operator",
+    "duplicate_agent_key_prevention_owner": "operator",
+    "agent_receives_parent_seed_or_base_private_key": false,
+    "must_precede_automatic_outbox": [
+      "versioned_account_membership_and_group_envelope_contracts",
+      "operator_provisioning_and_restricted_account_vaults",
+      "qualified_encrypted_syn_pubsub_and_persistent_account_peer_binding",
+      "two_agent_two_syn_negative_recovery_and_rotation_acceptance",
+      "richer_potbot_semantic_causal_and_producer_admission"
+    ]
+  },
+  "baselines": {
+    "potbot_main": "e2f7b2e423ceb7360df76b18b076de09bf39936a",
+    "potbot_integration": "833612ba8b60df6b0cc86e29b9d5ad3ff4d91aad",
+    "syn_submodule": "57da1be8ee69e00375bb2756bb09839bf0d4bc06",
+    "plugin_discovery_overlay": "f015276b22eab6a29339928550653251352bdc24"
+  },
+  "original_documents": [
+    {
+      "path": "docs/Multi_Model_Coding_Agent_Implementation_Plan.docx",
+      "sha256": "7827cfcc96f44ce0f074b09b53ade8f1e70dd9a4a31336cd742da441c44795a5"
+    },
+    {
+      "path": "docs/Multi_Model_Coding_Agent_Implementation_Plan (1).docx",
+      "sha256": "ae7a1463770eb5ec165db6cffaf94a313a6f265d669cd9a66f8f751e45d80da2"
+    },
+    {
+      "path": "docs/Multi_Model_Coding_Agent_Architecture_Specification.docx",
+      "sha256": "b054789c44be30a547f7da284dbff79c2c8a7d40dcbc6ede536363dfaae9ef30"
+    },
+    {
+      "path": "docs/Agent_Semantic_Vocabulary_and_Semantics_v0_1.docx",
+      "sha256": "b2919f7295bb86d1caee9503c77d5fc2397d9bd05be3ed55992c0f8273229520"
+    }
+  ],
+  "retained_programmes": {
+    "implementation_plan_1_0_steps": 153,
+    "implementation_plan_1_1_steps": 204,
+    "implementation_phases": 15,
+    "tool_stages": 48,
+    "tool_phases": 12,
+    "original_stage_fields_changed": false
+  },
+  "scope": {
+    "runtime_code_changed": false,
+    "docx_sources_changed": false,
+    "new_runtime_capabilities_claimed": false,
+    "stage_completion_advanced": false,
+    "private_ci_access_configured": false
+  },
+  "stage_impacts": [
+    {
+      "stage_id": "T01.1",
+      "stage_name": "Current-state inventory and gap analysis",
+      "existing_prerequisites": "none",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Inventory both source revisions, client/protocol, service identity, independent migrations and the existing CI access failure.",
+      "additional_acceptance": "Inventory distinguishes current manual export from proposed relay/inbox and records both deployments.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T01.2",
+      "stage_name": "Canonical semantic type and Cog contracts",
+      "existing_prerequisites": "T01.1",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep selected sealed semantic releases authoritative; define typed message projections through the existing catalog.",
+      "additional_acceptance": "A valid receipt or mutable external Type response cannot bypass sealed-release validation.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T01.3",
+      "stage_name": "Execution envelope and provenance contracts",
+      "existing_prerequisites": "T01.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Bind the local causal event to its approved projection, stable UUID and independently checked Syn receipt.",
+      "additional_acceptance": "Reject wrong workspace/installation, mismatched payload or cause, and receipt-as-authorization claims.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T01.4",
+      "stage_name": "Build matrix and stage acceptance harness",
+      "existing_prerequisites": "T01.1–T01.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Add exact-revision two-service contract/migration lanes while retaining ordinary offline stage gates.",
+      "additional_acceptance": "Missing private source access is blocked, not passed; no mandatory database/sandbox gate is skipped.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T02.1",
+      "stage_name": "MCP stdio adapter",
+      "existing_prerequisites": "T01.2,T01.3,T01.4",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep MCP stdio and supervised process ownership; route normalized admitted lifecycle events to the common publisher.",
+      "additional_acceptance": "Syn outages cannot authorize a new process or replay an MCP side effect.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T02.2",
+      "stage_name": "MCP Streamable HTTP and authorization",
+      "existing_prerequisites": "T02.1,T01.3; security design review before remote calls",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep MCP HTTP/OAuth audience checks distinct from Syn workspace token authentication.",
+      "additional_acceptance": "A Syn message cannot spoof an admitted MCP callback, session or grant.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T02.3",
+      "stage_name": "CLI and local process adapters",
+      "existing_prerequisites": "T01.3,T01.4",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Retain qualified process isolation and existing worker identity; export only approved bounded event metadata.",
+      "additional_acceptance": "No raw environment, private console stream or host permission is propagated through Syn.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T02.4",
+      "stage_name": "HTTP, SDK, GraphQL and gRPC adapters",
+      "existing_prerequisites": "T02.1,T02.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Use the canonical Syn client for receipt transport while preserving the existing generic API adapters and effect classifications.",
+      "additional_acceptance": "Transport retry appends an identical message only; it cannot replay the original API operation.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T03.1",
+      "stage_name": "Capability permission and risk policy",
+      "existing_prerequisites": "T01.2,T01.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Extend disclosure and incoming-message policy using existing task/actor grants.",
+      "additional_acceptance": "Workspace token and sender/channel fields cannot grant per-user or execution authority.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T03.2",
+      "stage_name": "Workspace and network confinement",
+      "existing_prerequisites": "T02.3,T03.1",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Pin permitted service destinations/identity and retain worker egress and sandbox enforcement.",
+      "additional_acceptance": "Unexpected endpoint changes, redirects and private-network access outside approved scope are denied.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T03.3",
+      "stage_name": "Credential broker and identity integration",
+      "existing_prerequisites": "T03.1,T03.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Broker recipient/workspace-scoped Syn credentials; include them in redaction and rotation rules.",
+      "additional_acceptance": "No Syn token reaches prompts, receipts, artifacts or untrusted worker environments.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T03.4",
+      "stage_name": "Durable tool gateway and approvals",
+      "existing_prerequisites": "T02.*,T03.1–T03.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Add atomic local outbox intent, fenced relay acknowledgement and deduplicating admitted inbox using existing durable primitives.",
+      "additional_acceptance": "Crash before/after remote append causes neither lost required delivery nor duplicate admitted external execution.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T04.1",
+      "stage_name": "Curated registry and trusted package catalog",
+      "existing_prerequisites": "T02.*,T03.*",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Treat shared catalog records as attributed candidates and retain the pending plugin-discovery strategy.",
+      "additional_acceptance": "No receipt, publisher statement or shared descriptor silently installs or trusts a package.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T04.2",
+      "stage_name": "MCP discovery, rescan and schema reconciliation",
+      "existing_prerequisites": "T04.1,T02.1,T02.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Use messages as change hints, then revalidate the admitted installation and exact catalog revision.",
+      "additional_acceptance": "Forged, stale or replayed hints cannot silently refresh or revoke an unrelated workspace catalog.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T04.3",
+      "stage_name": "Capability search and routing",
+      "existing_prerequisites": "T04.1,T04.2,T01.2",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Preserve ownership-neutral ranking and source independence; shared receipts add provenance rather than ranking authority.",
+      "additional_acceptance": "Copied observations do not become independent corroboration or an unexplained trust/quality bonus.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T04.4",
+      "stage_name": "Versioning, health, revocation and install lifecycle",
+      "existing_prerequisites": "T04.1–T04.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Apply lifecycle changes through existing installed-instance ownership, not directly from shared messages.",
+      "additional_acceptance": "Remote revoke/update hints require checked scope/revision and cannot mutate active runs by themselves.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T05.1",
+      "stage_name": "Search provider adapters and result normalization",
+      "existing_prerequisites": "T03.4,T04.3",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Retain provider disclosure/budget policy; share only approved search observation references.",
+      "additional_acceptance": "No query is sent to Syn or a provider without the applicable disclosure decision.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T05.2",
+      "stage_name": "Fetch, extraction and canonical source artifacts",
+      "existing_prerequisites": "T05.1",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep private source artifacts outside append-only messages and classify every exported digest/reference.",
+      "additional_acceptance": "Receipt storage neither proves original-byte capture nor overrides retention and reference permissions.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T05.3",
+      "stage_name": "Specialist scientific and archival retrieval",
+      "existing_prerequisites": "T05.2",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep source dates, corrections and provider identity distinct from the transport record.",
+      "additional_acceptance": "A Syn storage timestamp is not a source publication date or independent source confirmation.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T05.4",
+      "stage_name": "Evidence comparison and research workflows",
+      "existing_prerequisites": "T05.1–T05.3,T09.1 later enhancement",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Preserve source-group independence and unresolved contradictions when sharing evidence.",
+      "additional_acceptance": "Repeated delivery or copied chain entries cannot multiply corroborating source counts.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T06.1",
+      "stage_name": "Playwright controlled browser service",
+      "existing_prerequisites": "T03.2,T03.4,T04.3",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep browser session ownership and controls; use the common admitted event publisher.",
+      "additional_acceptance": "No browser profile, cookies or interaction permission is exported as message authority.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T06.2",
+      "stage_name": "Chrome DevTools and network debugger",
+      "existing_prerequisites": "T06.1",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Retain session-bound debugger/trace handling; export redacted references only.",
+      "additional_acceptance": "Raw network tokens or another session trace cannot enter workspace-wide Syn messages.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T06.3",
+      "stage_name": "Visual regression, accessibility and desktop fallback",
+      "existing_prerequisites": "T06.1,T06.2",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep screenshots and accessibility evidence in the authorized artifact store.",
+      "additional_acceptance": "A receipt is not evidence of visual display or successful user interaction.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T06.4",
+      "stage_name": "Browser reliability benchmark and test fixtures",
+      "existing_prerequisites": "T06.1–T06.3",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Preserve independent browser fixture scores; record delivery overhead separately.",
+      "additional_acceptance": "A messaging retry cannot rerun a form submission or inflate browser success.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T07.1",
+      "stage_name": "GitHub and GitLab integration",
+      "existing_prerequisites": "T03.4,T04.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Distinguish connector/CLI permissions, private source access, push receipts and PR/CI state.",
+      "additional_acceptance": "Successful branch push does not imply workflow access or completed verification.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T07.2",
+      "stage_name": "Local Git, AST and LSP intelligence",
+      "existing_prerequisites": "T07.1,T02.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Bind source snapshots and dependencies to the exact Syn gitlink and approved source visibility.",
+      "additional_acceptance": "A changed/unavailable submodule invalidates the corresponding reproducibility claim.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T07.3",
+      "stage_name": "Build/test/static/security toolchain",
+      "existing_prerequisites": "T07.2,T03.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Qualify the selected Potbot/Syn/client migration tuple and private-submodule CI route.",
+      "additional_acceptance": "Checkout failures remain blocked qualification; application checks must actually execute.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T07.4",
+      "stage_name": "Safe patch/PR/CI closure workflow",
+      "existing_prerequisites": "T07.1–T07.3,T03.4",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Preserve exact-state PR/CI closure and add dependency PR/pin/check evidence.",
+      "additional_acceptance": "A valid anchor or local test cannot override failing mandatory exact-head CI.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T08.1",
+      "stage_name": "Safe SQL and analytical data adapters",
+      "existing_prerequisites": "T02.4,T03.1–T03.4",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Retain separate database/schema roles and migration owners for Potbot and Syn.",
+      "additional_acceptance": "Syn bearer access cannot bypass Potbot RLS or expose internal SQL/query authority.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T08.2",
+      "stage_name": "Vector, full-text and graph retrieval",
+      "existing_prerequisites": "T08.1,T04.3",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep named vector spaces, eligibility, graph semantics and exact coverage under existing retrieval owners.",
+      "additional_acceptance": "Shared delivery cannot restore deleted content or turn receipt order into graph support.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T08.3",
+      "stage_name": "Schema-aware external API integration",
+      "existing_prerequisites": "T02.4,T08.1",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Pin the Syn protocol contract and selected compatibility tuple as an explicit service dependency.",
+      "additional_acceptance": "Unsupported service/schema versions fail explicitly without silently changing payload meaning.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T08.4",
+      "stage_name": "Cloud, files, collaboration and optional services",
+      "existing_prerequisites": "T08.3,T03.3",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep connector-scoped credentials and route-specific reconciliation; messages carry only admitted references.",
+      "additional_acceptance": "No communication acknowledgement implies success of a cloud/collaboration mutation.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T09.1",
+      "stage_name": "Python, statistics and symbolic computation",
+      "existing_prerequisites": "T03.2,T03.4",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Retain compute implementation and independent recomputation; optionally anchor approved output receipts.",
+      "additional_acceptance": "A stored hash cannot replace numerical tolerance or reproducibility checks.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T09.2",
+      "stage_name": "SMT, optimization and counterexamples",
+      "existing_prerequisites": "T09.1,T01.2",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep solver outcome semantics and counterexample evidence unchanged.",
+      "additional_acceptance": "Timeout/unknown remains unknown even when its receipt is acknowledged.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T09.3",
+      "stage_name": "Wolfram, domain mathematics and simulation",
+      "existing_prerequisites": "T09.1,T09.2",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep backend cost/units/provider evidence independent of Syn delivery.",
+      "additional_acceptance": "A chain receipt cannot establish provider model revision or mathematical correctness.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T09.4",
+      "stage_name": "Formal proof and model checking",
+      "existing_prerequisites": "T09.2,T01.2",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Retain independent kernel/model-checker acceptance; use receipts only for provenance.",
+      "additional_acceptance": "Tamper evidence never substitutes for a valid checked proof or correct assumptions.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T10.1",
+      "stage_name": "Composable typed Cog workflow planner",
+      "existing_prerequisites": "T04.3,T05.*,T07.*,T08.*,T09.*",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Compile typed communication steps with explicit local admission and immutable parent/input lineage.",
+      "additional_acceptance": "Received messages cannot introduce an ungranted action or unbounded workflow edge.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T10.2",
+      "stage_name": "Durable parallel workflow runtime",
+      "existing_prerequisites": "T10.1,T03.4",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep one durable scheduler; add fenced message delivery/inbox integration after security gates.",
+      "additional_acceptance": "Lost acknowledgements, duplicate inbox delivery and Syn outage do not double-dispatch or fabricate child completion.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T10.3",
+      "stage_name": "Model reasoning controller and independent critics",
+      "existing_prerequisites": "T10.1,T10.2,T09.*",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Keep model/critic authority and accounting separate from remote claimed results.",
+      "additional_acceptance": "Cross-agent output remains evidence to validate; an acknowledged proposal cannot approve itself.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T10.4",
+      "stage_name": "Adaptive selection, caching and capability utility",
+      "existing_prerequisites": "T10.3; offline utility fixture (expanded by T11.1)",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Use only accepted, scope-correct observations for routing/utility updates.",
+      "additional_acceptance": "Shared receipts do not automatically promote performance claims, caches or learned policy.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T11.1",
+      "stage_name": "Representative task benchmark suite",
+      "existing_prerequisites": "T05.*,T06.*,T07.*,T08.*,T09.*",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Add a separate two-service fixture family without changing model-quality or task-success cohorts.",
+      "additional_acceptance": "Message persistence, author trust and actual task quality are scored separately.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T11.2",
+      "stage_name": "Evidence integrity and factual verification",
+      "existing_prerequisites": "T11.1,T01.3,T05.4",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Verify local causation plus receipt identity/chain against retained external anchors.",
+      "additional_acceptance": "Reject wrong-installation receipts, truncated prefixes and claims that an internally consistent rewritten head proves truth.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T11.3",
+      "stage_name": "Statistical evaluation and regression policies",
+      "existing_prerequisites": "T11.1,T11.2,T10.4",
+      "existing_status": "not_started",
+      "impact": "shared_event_path",
+      "integration_owner": "potbot",
+      "proposed_change": "Measure delivery latency/backlog/recovery independently from task quality and provider spend.",
+      "additional_acceptance": "No model quality improvement is claimed from messaging fixtures or synthetic receipt chains.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T11.4",
+      "stage_name": "Security, chaos and adversarial qualification",
+      "existing_prerequisites": "T03.*,T10.2,T11.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Add outage, rotation, forged sender, replay/fork, restore, disclosure and deletion fault cases.",
+      "additional_acceptance": "No unauthorized cross-workspace action or private-data resurrection succeeds in the gated corpus.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T12.1",
+      "stage_name": "Installation and dependency qualification",
+      "existing_prerequisites": "T01–T11",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Bring dependency-specific source access, install and compatibility checks forward into foundation qualification.",
+      "additional_acceptance": "Fresh authorized clone resolves the exact gitlink; unsupported/inaccessible service is explicit, and offline contracts remain available.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T12.2",
+      "stage_name": "Operator UI, monitoring and controls",
+      "existing_prerequisites": "T10.*,T04.4,T11.*",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "potbot",
+      "proposed_change": "Expose execution and delivery state separately with both cursor domains and anchor status.",
+      "additional_acceptance": "API/UI never label stored or acknowledged data as authorized, executed or factually verified solely due to Syn.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T12.3",
+      "stage_name": "Developer docs, SDK, examples and migration guides",
+      "existing_prerequisites": "T12.1,T12.2",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Document the two-service contract, privacy/retention, credential boundary, upgrades and failure recovery.",
+      "additional_acceptance": "Examples distinguish current manual sync from proposed relay/inbox and resolve source/media references.",
+      "proposal_state": "not_implemented_by_this_review"
+    },
+    {
+      "stage_id": "T12.4",
+      "stage_name": "Release certification and maintenance policy",
+      "existing_prerequisites": "T12.1–T12.3,T11.4",
+      "existing_status": "not_started",
+      "impact": "direct",
+      "integration_owner": "joint",
+      "proposed_change": "Release a qualified source/client/protocol/service/DB compatibility profile with restore/rollback evidence.",
+      "additional_acceptance": "Neither repository is called integration-qualified until its mandatory exact-revision gates pass.",
+      "proposal_state": "not_implemented_by_this_review"
+    }
+  ]
+}

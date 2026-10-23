@@ -46,6 +46,11 @@ function Test-PotbotUv([string] $Candidate) {
 }
 
 try {
+    $SynClientManifest = Join-Path $PotbotRoot 'vendor\syn\packages\syn-client\pyproject.toml'
+    if (-not (Test-Path -LiteralPath $SynClientManifest -PathType Leaf)) {
+        Write-PotbotProgress 'Syn submodule is missing. Run git submodule update --init --recursive in a Git checkout, or use a complete distribution. GitHub source ZIPs omit submodules.'
+        exit 1
+    }
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
         throw 'Use start.sh on Linux or macOS.'
     }
