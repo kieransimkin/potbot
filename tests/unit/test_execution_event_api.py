@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, cast
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from potbot.api.server import JobOperations, ServerSettings, create_app
@@ -99,8 +100,49 @@ def test_syn_event_pagination_scope_and_validation() -> None:
         assert client.get("/v1/executions/events?limit=2&limit=5").status_code == 400
         assert client.get("/v1/executions/events?unsupported=1").status_code == 400
         assert client.get("/v1/executions/not-a-uuid/events").status_code == 400
+        calls_before_denial = list(events.calls)
         denied = client.get("/v1/executions/events", headers={"Authorization": ""})
-        assert denied.status_code in (401, 403)
+        assert denied.status_code == 404
+        assert denied.json()["data"] is None
+        assert denied.json()["error"]["code"] == "scope_denied"
+        assert events.calls == calls_before_denial
+
+
+@pytest.mark.parametrize("authorization", [None, "", "Bearer invalid-synthetic-token"])
+@pytest.mark.parametrize("run_scoped", [False, True])
+def test_syn_event_auth_denial_does_not_read_events(
+    authorization: str | None, run_scoped: bool
+) -> None:
+    _app, client, events, _actor = application()
+    client.headers.pop("Authorization")
+    path = f"/v1/executions/{events.run}/events" if run_scoped else "/v1/executions/events"
+    headers = {} if authorization is None else {"Authorization": authorization}
+    with client:
+        denied = client.get(path, headers=headers)
+        assert denied.status_code == 404
+        assert denied.json()["data"] is None
+        assert denied.json()["error"] == {
+            "code": "scope_denied",
+            "message": "The requested resource is unavailable.",
+            "retryable": False,
+        }
+        assert events.calls == []
+        assert _TOKEN not in denied.text
+        assert str(events.run) not in denied.text
+
+
+def test_syn_event_scope_denial_hides_private_details() -> None:
+    _app, client, events, _actor = application()
+    events.context = WorkspaceContext(uuid4(), uuid4())
+    with client:
+        for path in ("/v1/executions/events", f"/v1/executions/{events.run}/events"):
+            denied = client.get(path)
+            assert denied.status_code == 404
+            assert denied.json()["data"] is None
+            assert denied.json()["error"]["code"] == "scope_denied"
+            assert "private-cross-workspace-marker" not in denied.text
+            assert str(events.run) not in denied.text
+        assert events.calls == []
 
 
 def test_syn_event_websocket_replay_and_run_filter() -> None:

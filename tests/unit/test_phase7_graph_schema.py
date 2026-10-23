@@ -5,13 +5,13 @@ from potbot.persistence.schema import application_migrations
 
 def test_graph_link_migration_is_append_only_scoped_and_history_retained():
     migrations = application_migrations()
-    assert tuple(m.version for m in migrations) == tuple(range(1, 19))
+    assert tuple(m.version for m in migrations[:18]) == tuple(range(1, 19))
     assert migrations[15].name == "phase7_schema"
     assert migrations[16].name == "phase7_worker_schema"
-    latest = migrations[17]
-    assert (latest.version, latest.name) == (18, "phase7_graph_schema")
-    assert latest.workspace_tables == latest.append_only_tables == ("research_solve_links",)
-    sql = "\n".join(latest.statements)
+    graph = migrations[17]
+    assert (graph.version, graph.name) == (18, "phase7_graph_schema")
+    assert graph.workspace_tables == graph.append_only_tables == ("research_solve_links",)
+    sql = "\n".join(graph.statements)
     for clause in (
         "UNIQUE(workspace_id,solve_run_id,research_run_id)",
         "UNIQUE(workspace_id,solve_run_id,node_id)",
