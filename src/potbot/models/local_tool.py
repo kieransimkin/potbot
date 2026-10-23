@@ -108,7 +108,11 @@ def main() -> int:
         [
             {
                 "role": "system",
-                "content": "Follow the supplied task. Return only the requested JSON.",
+                "content": (
+                    "Follow the supplied task. Return only one raw JSON object. "
+                    "Do not use Markdown, backticks, code fences, headings or commentary. "
+                    "Your response must start with { and end with }."
+                ),
             },
             {"role": "user", "content": request["prompt"]},
         ],
