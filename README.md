@@ -62,6 +62,9 @@ Its [Type consensus and node identity design](docs/implementation/14-type-consen
 defines canonical per-Type policies, same-custody agreement, federated BFT
 DAG/Hashgraph investigation and public-key-hash node references. These consensus
 profiles are proposed; the implemented HTTP receipt chain does not supply them.
+The [first policy foundation](docs/implementation/15-syn-consensus-foundation.md)
+implements canonical contracts, node-key/hash validation and offline policy
+resolution against explicitly pinned releases; consensus execution remains pending.
 
 ![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
 

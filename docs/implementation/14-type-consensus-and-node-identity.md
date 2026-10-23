@@ -1,6 +1,6 @@
 # Canonical Type consensus policies and public key node identity
 
-23 October 2026. **Owner-directed architecture update; implementation pending.**
+23 October 2026. **Owner-directed architecture; contract foundation started.**
 This contract amends the [24-package integration plan](13-syn-blockchain-transaction-plan.md).
 It replaces that plan's single CometBFT-first experiment with consensus selected
 by each canonical Syn Type, using simpler agreement within one custody root and
@@ -11,10 +11,15 @@ root-key hash proves custody provenance and constrains policy; it is never a nod
 address. The operator retains the base key. Existing restricted Agent vaults and
 their public membership certificates remain the custody foundation.
 
+The [implemented foundation and remaining gates](15-syn-consensus-foundation.md)
+now supply closed Type-policy contracts, public-key-hash validation, offline pinned
+resolution and Syn-owned workflow definitions. The protocols below remain targets.
+
 ![Canonical Type policy selects same-custody agreement or federated DAG Hashgraph consensus, with all participants addressed by node public key hash](../media/syn-type-consensus.svg)
 
-*Generated design illustration. The resolver, agreement profiles and federated
-engine shown here require implementation; this is not a running-network capture.*
+*Generated design illustration. The offline resolver contract now exists; agreement
+adapters and the federated engine still require implementation. This is not a
+running-network capture.*
 
 ## 1 Decisions established by the owner
 
@@ -88,16 +93,16 @@ roster/identity transition; historical records keep their original author hash.
 
 ## 3 Policy belongs to the canonical Type definition
 
-Add a first-class validated **`consensusPolicy`** attribute to the canonical Type
-release/export contract. The URI identifies the Type; the selected release and
+The foundation adds a first-class validated **`consensusPolicy`** attribute to Type
+authoring and the canonical release/export contract. The URI identifies the Type; the selected release and
 definition digest identify its immutable contents. A mutable local Type row,
 arbitrary `knowledge` JSON or an application configuration file cannot substitute
 for that adopted definition.
 
-The current Syn `Type` model and Potbot `SynType` metadata can carry general
-information, but do not yet implement this policy contract or enforcement.
-Implementation must extend the schema/API, canonical export, sealed snapshot,
-parser, resolver and admission checks together. Preserve the existing URI/alias
+Syn's Type model now stores a separate draft policy; the shared client supplies
+canonical Type/releases and an offline pinned resolver. Potbot's legacy `SynType`
+metadata remains advisory. Sealed adoption, governance and live admission are
+still pending. Complete those paths before enabling shared execution, preserving the URI/alias
 rules: `syn://type/...` and `synny://type/...` alone do not establish source scope.
 
 Every new replicated record binds:
@@ -526,9 +531,10 @@ engine or supported Syn embedding API was verified by reading those documents.
 Implementation facts were checked against Syn `57da1be8ee69e00375bb2756bb09839bf0d4bc06`
 and Potbot's provisioning baseline `058612c66c2569750bb661f29092f745caba1ac4`;
 the preceding plan-only head is `e59da9008af4e5639ff6e1f9441f6ad15a5e00aa`.
-The existing Syn Type model has generic knowledge metadata; the Potbot Type DTO
-has `metadata_json`. Neither implements this proposed first-class policy,
-governed resolution or consensus enforcement. Existing receipt chains, hardened
+That baseline had generic knowledge metadata and Potbot's `metadata_json` only.
+The [foundation increment](15-syn-consensus-foundation.md) adds first-class draft
+policy authoring and offline pinned resolution; governed adoption and consensus
+enforcement remain pending. Existing receipt chains, hardened
 derivation, membership and short-lived proof profiles remain unchanged.
 
 The diagram is a generated vector illustration, rendered and visually inspected

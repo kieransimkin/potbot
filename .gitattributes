@@ -1,0 +1,2 @@
+# These source artifacts have byte-level provenance hashes; preserve Git's LF bytes.
+vocab/*.json text eol=lf

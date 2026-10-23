@@ -1,6 +1,6 @@
 # Implementation plan for Syn as Potbot blockchain and transaction layer
 
-23 October 2026. **Status: proposed implementation sequence.** This plan extends
+23 October 2026. **Status: implementation started; most packages remain planned.** This plan extends
 the [architecture](09-syn-potbot-architecture.md), [private Agent mesh](11-syn-private-agent-mesh.md)
 and implemented [operator provisioning](12-syn-agent-key-provisioning.md).
 Its work-package IDs are local planning references; the existing 204 P-steps and
@@ -111,6 +111,13 @@ There is already a general Potbot outbox. The missing feature is its specific
 Syn integration; a second generic queue or scheduler would duplicate an existing
 owner. Syn also needs its own durable network publication journal, which has a
 different responsibility from Potbot's local application outbox.
+
+The [first contract foundation](15-syn-consensus-foundation.md) starts SBT01/SBT02:
+first-class draft Type policies, canonical release contracts, node-key/hash checks
+and offline pinned resolution, consumed by Potbot. Syn-owned application, client
+portability and PostgreSQL workflows now replace the former CI gap. Durable
+adoption, native ledger signing, protected startup, mesh and consensus remain
+pending; neither work package is marked complete.
 
 Syn's current receipt chain is a local ordered journal. It does not supply shared
 consensus, validator finality or a global sequence. The new protocol preserves
