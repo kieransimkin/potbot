@@ -86,6 +86,11 @@ jobs:
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify application, repositories, migrations, and database isolation
         run: uv run --locked python scripts/check.py --with-postgres --with-sandbox
+      - name: Verify source-preview release packaging and clean wheel install
+        shell: bash
+        run: |
+          potbot_release_tag="v$(uv run --locked python -c 'import potbot; print(potbot.__version__)')"
+          uv run --locked python scripts/build_release.py --tag "$potbot_release_tag" --output artifacts/release-packages
       - name: Capture sanitized database diagnostics
         if: failure()
         shell: bash
