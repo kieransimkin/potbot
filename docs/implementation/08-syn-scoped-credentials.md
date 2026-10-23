@@ -123,8 +123,10 @@ Sources: [checkout credential handling](https://github.com/actions/checkout),
 
 ## Remaining sequence
 
-Complete sealed-release/issuer admission and approved, minimized event-export
-contracts next. Then commit event plus delivery intent atomically, add fenced
+The [first exchange contract](10-syn-exchange-contracts.md) now supplies explicit
+manual approval, metadata minimization, preview and versioned delivery identity.
+Complete sealed-release/issuer admission before richer or unattended exports.
+Then commit event plus delivery intent atomically, add fenced
 outbound delivery outside transactions, and finally implement admitted receiving
 and recovery qualification. This increment introduces no automatic relay or
 inbox, changes no existing stage IDs/statuses, and deploys no production service.

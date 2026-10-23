@@ -41,7 +41,9 @@ Clone with `git clone --recurse-submodules https://github.com/kieransimkin/potbo
 or run `git submodule update --init --recursive` in an existing Git checkout.
 Syn is pinned at `vendor/syn`; GitHub source ZIPs omit this required source.
 The optional `syn` runtime extra connects Potbot to Syn's durable communication
-service and verifiable hash-chain receipts. See the [service integration guide](docs/syn-service.md).
+service and verifiable hash-chain receipts. See the [service integration guide](docs/syn-service.md),
+[two-system architecture](docs/implementation/09-syn-potbot-architecture.md) and
+[metadata exchange contract](docs/implementation/10-syn-exchange-contracts.md).
 
 ![Illustrated Potbot to Syn service and verifiable ledger boundary](docs/media/syn-service-flow.svg)
 

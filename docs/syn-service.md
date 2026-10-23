@@ -3,6 +3,9 @@
 For how this changes the original 204-step implementation plan and the separate
 48-stage tool programme, see the [planning amendment](implementation/07-syn-integration-plan-impact.md)
 and its [complete stage impact map](potbot-tool-mcp-implementation-bundle/syn-integration-impact.json).
+The [broad architecture](implementation/09-syn-potbot-architecture.md) explains
+component roles; the [exchange contract](implementation/10-syn-exchange-contracts.md)
+defines the first metadata-only export profile.
 They distinguish current manual export from proposed reliable delivery/inbox
 work and retain Potbot's existing task, semantic and memory authority.
 
@@ -101,13 +104,18 @@ persistence, not that another agent acted, a job succeeded or an action was allo
 
 ```sh
 uv run potbot syn-service --workspace-id <UUID> sync-events \
-  --principal-id <UUID> --after 0 --limit 50
+  --principal-id <UUID> --export-policy <local-policy.json> --after 0 --limit 50 --preview
 ```
 
-This explicit bounded command reads committed `ExecutionEventService` public
-projections under the usual PostgreSQL workspace checks. It sends each unchanged
-projection on `potbot.execution-events`, using the original event UUID as its
-idempotent message ID. It returns the **Potbot source cursor**, which differs from
+This bounded command reads committed `ExecutionEventService` records under the
+usual PostgreSQL workspace checks and builds approved metadata-only summaries.
+Preview prints exact messages without reading Syn credentials or sending; omit
+`--preview` only for the intended disclosure. The
+[policy/migration guide](implementation/10-syn-exchange-contracts.md) explains
+the required approval file and new versioned delivery IDs. Source event UUIDs
+remain provenance, distinct from message UUIDs. Legacy full projections remain
+readable; new legacy-channel sends are rejected locally.
+It returns the **Potbot source cursor**, which differs from
 Syn's own communication sequence. Repeat with `next_cursor` until `has_more` is
 false. If any send fails, retry the same source page; confirmed earlier messages
 remain idempotent. Source events are never deleted or rewritten.
@@ -116,7 +124,8 @@ This is an opt-in replay/anchoring adapter, not an automatic outbox worker. It d
 not claim the universal lifecycle instrumentation proposed in
 [execution monitoring](implementation/05-syn-execution-monitoring.md) is complete.
 It introduces no additional execution authority, raw model prompts or private
-credentials into event payloads. Operators must approve other message contents
+credentials into event payloads. Summary validation does not complete semantic,
+causal-input or producer admission. Operators must approve other message contents
 before intentionally sharing them with their configured Syn service.
 
 The ledger provides one commit-ordered SHA-256 chain per workspace, plus durable

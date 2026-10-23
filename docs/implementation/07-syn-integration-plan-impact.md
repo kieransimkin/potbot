@@ -7,6 +7,10 @@ work, advance stage completion, or qualify the integration for production.
 Subsequent implementation: [scoped credentials and CI access](08-syn-scoped-credentials.md)
 records the first completed code increment. The review below retains its original
 source baselines; this is not a claim that all proposed gates are now complete.
+The [architecture](09-syn-potbot-architecture.md) and
+[exchange contract increment](10-syn-exchange-contracts.md) add manually approved
+metadata summaries, preview and explicit legacy identity migration. Full
+semantic/producer admission, automatic delivery and receiving remain pending.
 
 **Recommendation:** use Syn as Potbot's communication and externally checkable
 receipt service. Keep Potbot's task decisions and durable execution transactions
@@ -55,7 +59,9 @@ prerequisites and recorded statuses remain unchanged.
 The submodule and lightweight client supply authenticated HTTP messages,
 workspace-ordered replay, idempotent message IDs and hash-chain receipts. Potbot
 has configured message/head REST forwarding and an explicit `sync-events` CLI
-that exports one page of committed execution-event public projections.
+that exports one page of approved execution metadata summaries. The original
+full-projection adapter is superseded by the [v1 contract](10-syn-exchange-contracts.md),
+which has explicit destination approval, preview and a separate delivery identity.
 
 There is **no automatic delivery worker, receiving-agent inbox, distributed
 scheduler, consensus, signed message authorship or libp2p message replication**.
@@ -136,7 +142,9 @@ Every stage has an explicit disposition in the impact map. Grouped changes:
 3. **Implement transactionally durable outbound delivery** — T03.4 and the
    existing P010/P011 primitives. Extend the local transaction with an export
    intent; claim it with a fenced worker; append the unchanged approved event
-   using its stable UUID; verify the matching receipt; commit the acknowledgement.
+   using its versioned stable delivery UUID while retaining the source event UUID;
+   verify the matching receipt; commit the acknowledgement. The v1 summary identity
+   is defined in [the exchange guide](10-syn-exchange-contracts.md).
    Keep all network waits outside the database transaction.
 4. **Implement authenticated, typed receiving-agent admission** — T03.4/T10.1/
    T10.2. Persist message identity and consumer progress atomically with the

@@ -18,6 +18,8 @@ from potbot.controller.syn_service import configured_client, sync_execution_even
 from potbot.controller.tasks import TaskService
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError
+from potbot.domain.syn_credentials import SynCredentialScope
+from potbot.domain.syn_exchange import SynExportPolicy
 
 
 def test_client_is_optional_and_validates_transport_before_use():
@@ -33,33 +35,44 @@ def test_client_is_optional_and_validates_transport_before_use():
         configured_client({"POTBOT_SYN_URL": "http://127.0.0.1:8000"})
 
 
-def test_event_export_uses_committed_public_projection_and_original_identity():
+def test_event_export_minimizes_committed_projection_and_versions_delivery_identity():
     actor = WorkspaceContext(uuid4(), uuid4())
     identifier = str(uuid4())
     event = {
+        "schema_version": 1,
         "id": identifier,
         "event_ref": "syn://event/" + identifier,
         "sequence": 8,
         "stage": "started",
+        "trigger_kind": "api_request",
+        "run_id": str(uuid4()),
+        "emitter_run_id": str(uuid4()),
+        "parent_event_id": None,
+        "parent_run_id": None,
+        "elapsed_ms": None,
+        "trigger_ref": "private-source-reference",
     }
     source = Mock(spec=ExecutionEventService)
     source.events.return_value = {"items": [event], "next_cursor": 8, "has_more": False}
     client = Mock()
-    client.send.return_value = {"sequence": 2, "hash": "a" * 64}
-    result = sync_execution_events(client, source, actor, after=3)
-    source.events.assert_called_once_with(actor, after=3, limit=50)
-    client.send.assert_called_once_with(
-        str(actor.workspace_id),
-        message_id=identifier,
-        channel="potbot.execution-events",
-        sender="potbot",
-        payload=event,
+    client.scope = SynCredentialScope.for_service(
+        uuid4(), actor.workspace_id, "https://syn.example"
     )
+    policy = SynExportPolicy(uuid4(), client.scope, uuid4())
+    client.send.return_value = {"sequence": 2, "hash": "a" * 64}
+    result = sync_execution_events(client, source, actor, policy=policy, after=3)
+    source.events.assert_called_once_with(actor, after=3, limit=50)
+    call = client.send.call_args
+    assert call.args == (str(actor.workspace_id),)
+    assert call.kwargs["message_id"] != identifier
+    assert call.kwargs["channel"] == "potbot.execution-events.v1"
+    assert call.kwargs["payload"]["source"]["event_id"] == identifier
+    assert "private-source-reference" not in str(call)
     assert result["next_cursor"] == 8 and result["items"][0]["source_sequence"] == 8
     # A lost acknowledgement never advances a retained source cursor.
     client.send.side_effect = RuntimeError("synthetic interrupted acknowledgement")
     with pytest.raises(RuntimeError):
-        sync_execution_events(client, source, actor, after=3)
+        sync_execution_events(client, source, actor, policy=policy, after=3)
 
 
 def application(enabled=True):
