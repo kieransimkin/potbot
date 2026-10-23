@@ -285,6 +285,8 @@ Dependencies are logical prerequisites, not calendar dates. Develop independent 
 
 ### Phase 04 — Capability registry, discovery and routing
 
+The [plugin discovery strategy](../implementation/plugin-discovery-strategy.md) extends T04.1–T04.4 with source-aware candidate ingestion, keyword-aware and ownership-neutral retrieval, explicit installation/qualification boundaries, and continuing selection research. It is a planning addendum; existing implementation statuses and acceptance thresholds remain authoritative.
+
 #### T04.1 — Curated registry and trusted package catalog
 - **Prerequisites:** T02.*,T03.*.
 - **Deliverable:** Local signed/version-pinned capability and adapter catalog.

@@ -41,18 +41,23 @@ numbers. Neither should be renumbered to accommodate Syn:
 | [Execution monitoring](05-syn-execution-monitoring.md) and [initial event ledger](06-t013-event-ledger.md) | The canonical causal-event requirements and current migration/API foundation. Reconcile the stale statement that read endpoints are still missing. |
 
 Reviewed integration baselines: Potbot `833612ba8b60df6b0cc86e29b9d5ad3ff4d91aad`,
-Syn `57da1be8ee69e00375bb2756bb09839bf0d4bc06`; fetched Potbot `main` remains
+Syn `57da1be8ee69e00375bb2756bb09839bf0d4bc06`; the reviewed Potbot `main` was
 `e2f7b2e423ceb7360df76b18b076de09bf39936a`. These are source baselines, not release
 certificates. [Potbot PR #1](https://github.com/kieransimkin/potbot/pull/1) and
 [Syn PR #10](https://github.com/Synsphere/syn/pull/10) are drafts.
 
-The unmerged [plugin discovery strategy branch](https://github.com/kieransimkin/potbot/tree/f015276b22eab6a29339928550653251352bdc24)
+The then-unmerged [plugin discovery strategy branch](https://github.com/kieransimkin/potbot/tree/f015276b22eab6a29339928550653251352bdc24)
 was also reviewed. It changes the master plan and the JSON/CSV tracker rows for
 T04.1–T04.4. Preserve its provenance, ownership-neutral ranking, admission and
 qualification requirements when merging. This amendment adds separate sections
 and an [additive machine-readable impact map](../potbot-tool-mcp-implementation-bundle/syn-integration-impact.json)
 instead of rewriting those concurrent tracker rows. All 48 existing IDs,
 prerequisites and recorded statuses remain unchanged.
+
+Subsequent reconciliation: plugin discovery PR #2 merged into `main` as
+`24696ac`. This integration branch now includes that committed strategy and its
+stronger regression fixtures. Its tracker changes are retained from `main`;
+the Syn increment does not overwrite them or mark further stages complete.
 
 ## What the current integration supplies
 

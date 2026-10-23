@@ -18,8 +18,7 @@ from .conftest import AppEnvironment
 pytestmark = [pytest.mark.postgres, pytest.mark.sandbox]
 
 
-def arguments(environment: AppEnvironment) -> list[str]:
-    sandbox = load_workspace_sandbox(environment.db, environment.context)
+def arguments(environment: AppEnvironment, root: Path) -> list[str]:
     return [
         "--dev-auth",
         "--workspace",
@@ -29,9 +28,9 @@ def arguments(environment: AppEnvironment) -> list[str]:
         "--artifacts",
         str(environment.artifact_root),
         "--candidates",
-        str(sandbox.path("candidates")),
+        str(root / "candidates"),
         "--receipts",
-        str(sandbox.path("receipts")),
+        str(root / "receipts"),
     ]
 
 
@@ -51,7 +50,7 @@ def test_demo_replay_binds_options_then_resume_exports_a_verified_bundle(
 ) -> None:
     monkeypatch.setenv("POTBOT_DSN", app_env.db.dsn)
     sandbox = load_workspace_sandbox(app_env.db, app_env.context)
-    common = arguments(app_env)
+    common = arguments(app_env, sandbox.root)
     fixture_parent = sandbox.path("tests") / "fixtures with spaces"
     demo = [
         *common,
@@ -113,7 +112,7 @@ def test_demo_recovers_inner_commit_only_for_the_original_source_and_profile(
 ) -> None:
     monkeypatch.setenv("POTBOT_DSN", app_env.db.dsn)
     sandbox = load_workspace_sandbox(app_env.db, app_env.context)
-    common = arguments(app_env)
+    common = arguments(app_env, sandbox.root)
     fixture_parent = sandbox.path("tests") / "fixtures"
     demo = [
         *common,

@@ -39,6 +39,7 @@ from potbot.persistence.schema import application_migrations
 from potbot.tools.gateway import ToolGateway
 from potbot.tools.receipts import RunReceiptStore
 from potbot.tools.repository import CandidateWorkspaceManager, RepositoryStateStore
+from potbot.workspace_sandbox import load_workspace_sandbox
 
 pytestmark = pytest.mark.postgres
 
@@ -419,8 +420,6 @@ def test_populated_v5_rollforward_preserves_historical_hashes_and_enables_new_ta
 def test_cli_prepare_compile_test_and_same_key_replay_use_real_durable_execution(
     app_env, tmp_path: Path, monkeypatch, capsys
 ) -> None:
-    from potbot.workspace_sandbox import load_workspace_sandbox
-
     sandbox = load_workspace_sandbox(app_env.db, app_env.context)
     fixture = create_repository_fixture(sandbox.path("repository") / "cli-source")
     repair_repository_fixture(fixture)

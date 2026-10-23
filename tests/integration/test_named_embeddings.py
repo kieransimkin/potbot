@@ -248,6 +248,7 @@ def test_provider_change_during_encoding_never_enters_selected_space(
 def test_cli_selects_the_named_view_and_exports_the_artifact_manifest(
     app_env, monkeypatch, capsys
 ) -> None:
+    from potbot.dependencies import MODEL_DIRECTORY
     from potbot.memory import embedding_cli, local_encoder
     from potbot.memory.embedding_cli import main
     from potbot.workspace_sandbox import load_workspace_sandbox
@@ -258,22 +259,22 @@ def test_cli_selects_the_named_view_and_exports_the_artifact_manifest(
     )
     monkeypatch.setenv("POTBOT_DSN", app_env.db.dsn)
     sandbox = load_workspace_sandbox(app_env.db, app_env.context)
-    preparation_calls = []
+    expected_model_dir = sandbox.path("models") / MODEL_DIRECTORY
+    model_preparations = []
 
-    def encoder(model_dir, profile, *, sandbox_root):
+    def synthetic_encoder(model_dir, profile, *, sandbox_root):
+        assert model_dir == expected_model_dir
         assert sandbox_root == sandbox.root
-        assert model_dir.is_relative_to(sandbox.path("models"))
+        assert profile == provider.profile
         return provider
 
-    def prepare(root, *, model_dir, progress):
+    def synthetic_model_setup(root, *, model_dir, progress):
         assert root == sandbox.root
-        assert model_dir.is_relative_to(sandbox.path("models"))
-        preparation_calls.append(model_dir)
+        assert model_dir == expected_model_dir
+        model_preparations.append(model_dir)
 
-    # This fixture qualifies SQL/CLI view selection with synthetic vectors;
-    # model download and native encoding have their own acceptance gates.
-    monkeypatch.setattr(local_encoder, "QwenLocalEncoder", encoder)
-    monkeypatch.setattr(embedding_cli, "ensure_standard_model", prepare)
+    monkeypatch.setattr(local_encoder, "QwenLocalEncoder", synthetic_encoder)
+    monkeypatch.setattr(embedding_cli, "ensure_standard_model", synthetic_model_setup)
     common = [
         "--workspace-id",
         str(app_env.context.workspace_id),
@@ -318,4 +319,4 @@ def test_cli_selects_the_named_view_and_exports_the_artifact_manifest(
     manifest = json.loads(capsys.readouterr().out)
     assert list(manifest["named_embeddings"]) == ["cli_text"]
     assert manifest["named_embeddings"]["cli_text"][0]["vector_id"] == vector["id"]
-    assert len(preparation_calls) == 2
+    assert model_preparations == [expected_model_dir, expected_model_dir]
