@@ -9,6 +9,18 @@ is added as migration 13 after jobs 11 and hosted 12. The owner's instruction to
 publish verification keys supersedes the hash-only disclosure rule in security
 architecture 1.2.0.
 
+**23 October mesh addendum:** the base-key vault described here is operator
+custody for the private Syn mesh. Distribute the separate
+[restricted account vault](implementation/12-syn-agent-key-provisioning.md) to
+each Agent; never copy this operator vault as its bundle. The new account
+membership/proof profile is separate from the hourly artifact signatures below.
+Syn runtime binding and encrypted peer transport remain pending.
+
+![Operator-only base vault and separate restricted Agent vaults](media/syn-agent-provisioning.svg)
+
+*Implementation illustration of the new provisioning boundary; actual synthetic
+native custody acceptance is described in the linked guide.*
+
 ## 1. What is implemented
 
 Potbot can publish an Agent's actual Ed25519 verification key, create and verify
