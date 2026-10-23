@@ -318,6 +318,14 @@ validation leaves an envelope as a proposal: entity resolution, truth adjudicati
 guard evaluation, and learned semantic classification remain later work. See the
 [semantic API and compatibility notes](docs/phase-3.md#semantic-contracts-and-release-pins).
 
+## Object memory implementation plan
+
+The [per-object memory implementation plan](docs/object-memory/implementation-plan.md)
+specifies a separate memory graph for every Syn object, integrated with existing
+Type inheritance, Ember contracts, candidate admission and qualified context packets.
+Its [32-stage register](docs/object-memory/plan.json) is entirely `not_started`;
+run `python scripts/check_memory_graph_plan.py` for planning consistency, not runtime acceptance.
+
 ## Package boundaries
 
 | Package | Responsibility |
