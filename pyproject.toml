@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "potbot"
-version = "0.5.0.dev4"
+version = "0.5.0.dev5"
 description = "Foundation for an evidence-driven, multi-model coding agent"
 readme = "README.md"
 requires-python = ">=3.12"

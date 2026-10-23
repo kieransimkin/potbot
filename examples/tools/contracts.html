@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Potbot semantic contract Cog evidence replay</title>
+<style>body{font:17px/1.5 system-ui;background:#101728;color:#e4ecfa;margin:0;padding:26px}main{max-width:1100px;margin:auto}h1,h2{color:#a6dfff}section{border:1px solid #465c83;border-radius:10px;padding:20px;margin:18px 0}button{background:#24516d;color:white;border:1px solid #a6dfff;padding:12px 18px;border-radius:5px;margin:6px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}#phase{color:#b4edc4;font-size:22px}.note{color:#ffda99}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:650px){body{padding:14px}.grid{grid-template-columns:1fr}}</style>
+<main><h1>A checked contract for every tool call</h1><p>Potbot T01.2 · Canonical Types · Installed SYN Cogs · Shared work monitoring</p>
+<p id="qualification" class="note"></p><p id="catalog"></p>
+<button id="play">Replay actual work phases</button><button id="finish">Show completion</button>
+<section><div id="phase">Loading retained evidence…</div><p id="stats"></p><small>Fixed-interval replay. Metrics are from the original fixture run; target CPU, RAM and costs are unavailable.</small></section>
+<div class="grid"><section><h2>SearchQuery → SearchResults</h2><pre id="search"></pre></section><section><h2>Source-preserving unit conversion</h2><pre id="convert"></pre></section></div>
+<section><h2>Typed contract round-trip</h2><pre id="checked"></pre><p>Required, inherited, default and optional properties use SYN’s existing Ember resolver. A descriptor remains data. An installed Cog also needs controller admission.</p></section>
+<p>This replay opens no debugger, device or transport. Real PostgreSQL, Ember persistence, private artifact and REST/WebSocket readback are separate mandatory CI gates.</p></main>
+<script type="module">
+const d=await(await fetch('../../docs/implementation/media/semantic-contracts.json')).json();
+document.querySelector('#qualification').textContent=d.qualification;
+document.querySelector('#catalog').textContent=`${d.schema_count} registered schemas · catalog ${d.catalog_hash.slice(0,20)}…`;
+for(const [id,value] of [['search',d.search],['convert',d.converted],['checked',{type_ref:d.checked.type_ref,schema_hash:d.checked.schema_hash,value_hash:d.checked.value_hash}]])document.querySelector('#'+id).textContent=JSON.stringify(value,null,2);
+let timer,index=0;function show(n){const e=d.events[n];document.querySelector('#phase').textContent=`${n+1}/${d.events.length} · ${e.stage} · ${e.phase}`;document.querySelector('#stats').textContent=`${e.cog.split('/').pop()} · elapsed ${e.wall_ms} ms · controller CPU ${e.cpu_ms} ms`}
+document.querySelector('#play').onclick=()=>{clearInterval(timer);index=0;show(index);timer=setInterval(()=>{if(++index>=d.events.length){clearInterval(timer);return}show(index)},400)};
+document.querySelector('#finish').onclick=()=>{clearInterval(timer);show(d.events.length-1)};addEventListener('pagehide',()=>clearInterval(timer),{once:true});show(0);
+</script></html>

@@ -70,6 +70,9 @@ def main() -> None:
             "cogs/inventory.py",
             "controller/tool_inventory.py",
             "tools/inventory.py",
+            "tools/semantic_contracts.py",
+            "cogs/tool_contracts.py",
+            "controller/tool_contracts.py",
         ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
                 raise SystemExit("Wheel debugger source differs from build input")
@@ -95,6 +98,7 @@ def main() -> None:
             f"assert potbot.__version__ == {version!r}; "
             "assert len(BoundCogRegistry.debugger().installed()) == 25; "
             "assert len(BoundCogRegistry.tool_inventory().installed()) == 5; "
+            "assert len(BoundCogRegistry.tool_contracts().installed()) == 7; "
             "print('Clean wheel version and installed SYN Cog catalog verified')",
             cwd=Path(temporary),
         )

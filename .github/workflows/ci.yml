@@ -54,6 +54,7 @@ jobs:
       UV_PYTHON: "3.12"
       POTBOT_DEBUGGER_EVIDENCE_DIR: artifacts/debugger-cogs
       POTBOT_INVENTORY_EVIDENCE_DIR: artifacts/tool-inventory
+      POTBOT_CONTRACT_EVIDENCE_DIR: artifacts/tool-contracts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -96,6 +97,8 @@ jobs:
           uv run --locked python scripts/build_release.py --tag "$potbot_release_tag" --output artifacts/release-packages
       - name: Verify T01.1 exact-source inventory acceptance
         run: uv run --locked python scripts/check_tool_inventory.py artifacts/tool-inventory/tool-inventory.json --output artifacts/tool-inventory/T01.1-gate.json
+      - name: Verify T01.2 exact-source semantic contract acceptance
+        run: uv run --locked python scripts/check_semantic_tool_contracts.py artifacts/tool-contracts/semantic-contracts.json --output artifacts/tool-contracts/T01.2-gate.json
       - name: Capture sanitized database diagnostics
         if: failure()
         shell: bash
@@ -127,5 +130,13 @@ jobs:
         with:
           name: tool-inventory-cog-evidence
           path: artifacts/tool-inventory/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain canonical semantic contract Cog acceptance
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: semantic-tool-contract-cog-evidence
+          path: artifacts/tool-contracts/
           if-no-files-found: error
           retention-days: 14
