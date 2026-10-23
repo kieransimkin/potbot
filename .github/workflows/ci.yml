@@ -59,7 +59,7 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Install locked application and development dependencies
-        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --dev
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --extra debugger --dev
       - name: Install required Linux process isolation
         run: |
           sudo apt-get update
