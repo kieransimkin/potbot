@@ -76,6 +76,7 @@ class CogWorkRun:
         self.terminal = False
         self.implementation = dict(implementation or {})
         self.previous: dict[str, Any] | None = None
+        self.child_runs: list[dict[str, str]] = []
         # Input bytes are private workspace artifacts; public telemetry has hashes only.
         self.input = owner.artifacts.put(
             owner.actor,
@@ -144,7 +145,7 @@ class CogWorkRun:
             "observed_at": datetime.now(UTC).isoformat(),
             "clock_basis": "monotonic",
             "metrics": metrics,
-            "child_runs": [],
+            "child_runs": list(self.child_runs),
             "implementation": self.implementation,
         }
         if stage in {"completed", "failed", "cancelled", "indeterminate"}:

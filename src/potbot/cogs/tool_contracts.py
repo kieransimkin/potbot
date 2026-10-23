@@ -117,7 +117,13 @@ def contract_cog_snapshot() -> SynSnapshot:
 
 
 def contract_ember_bundle(
-    *, workspace_id: UUID, snapshot_id: UUID, namespace: str
+    *,
+    workspace_id: UUID,
+    snapshot_id: UUID,
+    namespace: str,
+    _snapshot: SynSnapshot | None = None,
+    _installed: tuple[CogSignature, ...] | None = None,
+    _cog_type: str = TOOL_COG,
 ) -> EmberContractBundle:
     """Use the existing resolver for inherited required/default/optional slots."""
     text = "synny://type/potbot-data-value-string"
@@ -146,7 +152,7 @@ def contract_ember_bundle(
     )
     embers.append(default)
     defaults.append(EmberBinding("syn://thing/potbot-contract-schema-version", (default.pointer,)))
-    for installed in CONTRACT_COGS:
+    for installed in CONTRACT_COGS if _installed is None else _installed:
         bindings = []
         for name, value in (
             ("input-type", installed.input_type_ref),
@@ -162,11 +168,11 @@ def contract_ember_bundle(
             EmberInstance.create(str(installed.cog_ref), installed.cog_type_ref, bindings)
         )
     return build_bundle(
-        merge_types(contract_cog_snapshot()),
+        merge_types(contract_cog_snapshot() if _snapshot is None else _snapshot),
         workspace_id=workspace_id,
         namespace=namespace,
         snapshot_id=snapshot_id,
-        type_contracts=(TypeEmberContract.create(TOOL_COG, declarations, defaults),),
+        type_contracts=(TypeEmberContract.create(_cog_type, declarations, defaults),),
         embers=embers,
         instances=instances,
     )

@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from potbot.evaluation.diagnostics import sanitize_text
+from potbot.tools.temporary import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -87,7 +88,7 @@ def main() -> int:
             "agent-security-assets",
             [sys.executable, str(ROOT / "scripts/generate_agent_security.py"), "--check"],
         )
-        with tempfile.TemporaryDirectory(prefix="potbot-check-") as temporary:
+        with TemporaryDirectory(prefix="potbot-check-") as temporary:
             temp = Path(temporary)
             junit = temp / "tests.xml"
 
