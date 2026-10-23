@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from potbot.debugging.cog_runtime import DebuggerCogRuntime
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.serialization import canonical_json
@@ -218,14 +222,25 @@ class BoundCogRegistry:
     """Only locally installed, snapshot-checked implementations are runnable."""
 
     snapshot: SynSnapshot
+    execution_profile: bool = False
+
+    def installed(self) -> tuple[CogSignature, ...]:
+        if self.execution_profile:
+            from potbot.cogs.debugger import DEBUGGER_COGS
+
+            return (*INSTALLED_COGS, *DEBUGGER_COGS)
+        return INSTALLED_COGS
 
     def __post_init__(self) -> None:
-        expected = builtin_cog_snapshot()
+        from potbot.cogs.debugger import debugger_cog_snapshot
+
+        expected = debugger_cog_snapshot() if self.execution_profile else builtin_cog_snapshot()
         if self.snapshot.fingerprint != expected.fingerprint:
             raise ScopeDeniedError("Cog catalogue must match the installed pinned definitions")
         declared = {type_identity(t.ref): t for t in merge_types(self.snapshot)}
         closure = type_ancestors(declared.values())
-        signatures = {str(signature.cog_ref): signature for signature in INSTALLED_COGS}
+        installed = self.installed()
+        signatures = {str(signature.cog_ref): signature for signature in installed}
         for entry in self.snapshot.objects:
             signature = signatures.get(str(entry.ref))
             if signature is None:
@@ -249,10 +264,11 @@ class BoundCogRegistry:
                 or payload["outputTypeRef"] != signature.output_type_ref
                 or payload["implementationBindingHash"] != signature.binding_hash
                 or payload["handlerRef"] != signature.handler_ref
+                or payload["implementationRevision"] != signature.implementation_revision
                 or payload["requiresControllerScope"] != signature.requires_controller_scope
             ):
                 raise ScopeDeniedError("Cog public Ember declarations differ from installed code")
-        if len(self.snapshot.objects) != len(INSTALLED_COGS):
+        if len(self.snapshot.objects) != len(installed):
             raise ScopeDeniedError("Incomplete Cog catalogue")
         if any(s.handler_ref not in builtin.BUILTIN_HANDLERS for s in INSTALLED_COGS):
             raise ScopeDeniedError("Cog handler binding is not installed")
@@ -260,6 +276,39 @@ class BoundCogRegistry:
     @classmethod
     def builtins(cls) -> BoundCogRegistry:
         return cls(builtin_cog_snapshot())
+
+    @classmethod
+    def debugger(cls) -> BoundCogRegistry:
+        from potbot.cogs.debugger import debugger_cog_snapshot
+
+        return cls(debugger_cog_snapshot(), execution_profile=True)
+
+    async def invoke(
+        self,
+        cog_ref: str,
+        source: TypedCogValue,
+        context: CogRunContext,
+        *,
+        controller: DebuggerCogRuntime,
+    ) -> CogOutcome:
+        """Explicit async execution path. Pure transform() never dispatches tools."""
+        from potbot.cogs.debugger import DEBUGGER_COGS
+        from potbot.debugging.cog_runtime import DebuggerCogRuntime
+
+        if not self.execution_profile or not isinstance(controller, DebuggerCogRuntime):
+            raise ScopeDeniedError("Execution Cogs require their installed controller profile")
+        selected = next((s for s in DEBUGGER_COGS if str(s.cog_ref) == cog_ref), None)
+        if selected is None or selected.handler_ref != "potbot.cogs.debugger.execute":
+            raise ScopeDeniedError("Execution Cog handler is not installed")
+        if context.cog_snapshot_hash != self.snapshot.fingerprint:
+            raise StateMismatchError("Execution Cog catalog changed")
+        check_cog_input(selected, source)
+        # Freeze the serialized value before an async boundary; the caller's
+        # mutable dict cannot alter a dispatched request or its later receipt.
+        source = TypedCogValue(
+            source.type_ref, json.loads(canonical_json(source.value)), source.source_artifact_id
+        )
+        return await controller.invoke(selected, source, context)
 
     def transform(
         self,

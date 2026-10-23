@@ -34,6 +34,7 @@ class SandboxedDebugger:
         admit: Admission,
         record: EventRecorder,
         redactor: CaptureRedactor | None = None,
+        initialize_on_enter: bool = True,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("Debugger requires the existing interactive supervisor")
@@ -44,6 +45,7 @@ class SandboxedDebugger:
         self.supervisor, self.request, self.identity = supervisor, request, identity
         self.executable_sha256 = executable_sha256
         self.admit, self.record, self.redactor = admit, record, redactor
+        self.initialize_on_enter = initialize_on_enter
         self.process: IsolatedInteractiveProcess | None = None
         self.session: DebugSession | None = None
         self.exit: InteractiveExit | None = None
@@ -74,7 +76,9 @@ class SandboxedDebugger:
                 record=self.record,
                 redactor=self.redactor,
             )
-            await self.session.initialize()
+            self.session.isolation_identity = self.process.isolation_identity
+            if self.initialize_on_enter:
+                await self.session.initialize()
             return self.session
         except BaseException:
             try:

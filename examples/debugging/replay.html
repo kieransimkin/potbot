@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Potbot Python Cog recording</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#081421;color:#ebf2fc}body{max-width:1160px;margin:auto;padding:30px}h1{font-size:30px;margin-bottom:10px}p{line-height:1.5;color:#c1d0df}button,input{font:inherit}button{background:#173c5b;color:#fff;border:1px solid #70b9e6;border-radius:7px;padding:10px 16px;cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #ffd67d;outline-offset:4px}nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:25px 0}.grid{display:grid;grid-template-columns:1.15fr 1fr;gap:20px}.panel{background:#10243a;border:1px solid #42617c;border-radius:12px;padding:20px}h2{margin-top:0;font-size:21px}h3{font-size:17px;color:#9eddff;margin:12px 0 5px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.5 ui-monospace,monospace;margin:0}#steps{font-size:19px;color:#ffdc91}#summary{font-size:16px}table{width:100%;border-collapse:collapse;font:14px/1.4 ui-monospace,monospace}th,td{text-align:left;padding:8px;border-bottom:1px solid #2c465f}.scroll{max-height:285px;overflow:auto}label{display:block}.badge{color:#9eddff}.note{font-size:14px;color:#b3c4d4}#notice{min-height:24px;color:#ffdc91}@media(max-width:750px){.grid{grid-template-columns:1fr}body{padding:18px}}
+</style>
+<h1>Python debugging through SYN Cogs</h1>
+<p class="badge">Recorded authored-fixture output · breakpoint → step → stack → result</p>
+<p id="identity">Load a recording to inspect actual snapshots and Cog work statistics.</p>
+<nav aria-label="Recording playback">
+  <button id="previous">Previous</button><button id="play">Play replay</button><button id="next">Next</button>
+  <label>Load local recording <input type="file" id="file" accept="application/json,.json"></label>
+</nav>
+<p id="notice" role="status"></p>
+<div class="grid">
+  <section class="panel" aria-labelledby="stack-heading"><h2 id="stack-heading">Observed call stack and locals</h2><p id="steps" aria-live="polite"></p><div id="frames"></div></section>
+  <section class="panel" aria-labelledby="work-heading"><h2 id="work-heading">Cog work monitoring</h2><p id="summary"></p><div class="scroll"><table><thead><tr><th>Cog</th><th>Progress</th><th>Wall ms</th><th>End</th></tr></thead><tbody id="runs"></tbody></table></div><p class="note">Each run has its own start, actual progress and terminal record. Target CPU/RAM/GPU/cost stay unavailable when unmeasured.</p></section>
+</div>
+<p class="note">This viewer replays retained output; it opens no debugger connection. Playback uses a fixed interval per snapshot. The table shows original measured timings, not replay timing. The recording names its qualification tier; a local test journal does not prove durable PostgreSQL or sandbox acceptance.</p>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);let recording=null,index=0,timer=null;
+function halt(){if(timer!==null)clearInterval(timer);timer=null;$('play').textContent='Play replay';}
+function render(){if(!recording)return;const step=recording.observations[index];$('steps').textContent=(index+1)+' / '+recording.observations.length+' · '+step.action.replaceAll('_',' ');$('frames').replaceChildren();
+ for(const frame of (step.frames||[])){const title=document.createElement('h3');title.textContent=frame.function+' · line '+frame.line;const values=document.createElement('pre');values.textContent=Object.entries(frame.locals||{}).map(([k,v])=>k+' = '+v).join('\n')||'No local values in this snapshot.';$('frames').append(title,values);}
+ if(!(step.frames||[]).length){const p=document.createElement('p');p.textContent=step.action==='natural_exit'?'Observed target exit: '+step.exit_code:step.action==='expired_frame_rejected'?'Previous frame handle rejected after resume.':'State recorded by the authored fixture.';$('frames').append(p);}
+ $('previous').disabled=index===0;$('next').disabled=index===recording.observations.length-1;
+}
+function load(value){halt();if(value.schema!=='potbot-public-cog-recording-v1'||!Array.isArray(value.observations)||!value.observations.length||value.observations.length>100||!Array.isArray(value.runs)||value.runs.length>200)throw new Error('Unsupported or oversized recording.');recording=value;index=0;$('identity').textContent=value.runtime+' · '+value.adapter+' · '+value.qualification;$('summary').textContent=value.runs.length+' Cog calls · '+value.event_count+' retained work events · '+value.source_sha256.slice(0,16)+'… source SHA-256';$('runs').replaceChildren();for(const run of value.runs){const tr=document.createElement('tr');for(const item of [run.operation,run.progress_count,run.elapsed_ms,run.terminal]){const td=document.createElement('td');td.textContent=String(item);tr.append(td);}$('runs').append(tr);}$('notice').textContent='Actual fixture snapshots loaded. Controls replay the recording.';render();}
+$('previous').onclick=()=>{halt();if(index>0)index--;render();};$('next').onclick=()=>{halt();if(recording&&index<recording.observations.length-1)index++;render();};$('play').onclick=()=>{if(timer!==null){halt();return;}if(!recording)return;if(index===recording.observations.length-1)index=0;render();$('play').textContent='Pause replay';timer=setInterval(()=>{if(index>=recording.observations.length-1){halt();return;}index++;render();},1400);};
+$('file').onchange=async()=>{try{const file=$('file').files[0];if(!file||file.size>2*1024*1024)throw new Error('Choose a recording under 2 MiB.');load(JSON.parse(await file.text()));}catch(error){$('notice').textContent=error.message;}};
+fetch('../../docs/implementation/media/python-debugger-cogs.json').then(r=>{if(!r.ok)throw new Error('Select the local recording file to replay it.');return r.json();}).then(load).catch(error=>{$('notice').textContent=error.message;});
+window.addEventListener('pagehide',halt);
+</script>
+</html>

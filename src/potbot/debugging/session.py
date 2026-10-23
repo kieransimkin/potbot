@@ -84,8 +84,10 @@ class DebugSession:
         self._attached = False
         self.target_process_id: int | None = None
         self.exit_code: int | None = None
+        self.isolation_identity: str | None = None
         self._frames: set[Frame] = set()
         self._references: set[ValueReference] = set()
+        self._pending_target: asyncio.Task[dict[str, Any]] | None = None
         self.adapter.on_event = self._event
 
     def _invalidate(self) -> None:
@@ -277,6 +279,59 @@ class DebugSession:
                 self.state = DebugState.INDETERMINATE
                 await self.adapter.close()
                 raise
+
+    async def begin_target(self, configuration: Mapping[str, Any], *, attach: bool = False) -> None:
+        """Start configuration without waiting for DAP's deferred launch response.
+
+        Breakpoints, exception filters and configurationDone remain separate Cogs.
+        The returned state is configuring/pending, never a claimed breakpoint hit.
+        """
+        async with self._lock:
+            self._require(DebugState.CONFIGURING)
+            if self._pending_target is not None:
+                raise StateMismatchError("A debugger target is already configuring")
+            self.identity.verify_sources()
+            self._attached = attach
+            pending = asyncio.create_task(
+                self._invoke("attach" if attach else "launch", configuration)
+            )
+            self._pending_target = pending
+            initialized = asyncio.create_task(self._initialized.wait())
+            try:
+                async with asyncio.timeout(self.timeout):
+                    done, _ = await asyncio.wait(
+                        {pending, initialized},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if pending in done:
+                        await pending
+                    await initialized
+            except BaseException:
+                pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)
+                self.state = DebugState.INDETERMINATE
+                raise
+            finally:
+                initialized.cancel()
+                await asyncio.gather(initialized, return_exceptions=True)
+
+    async def configure_exceptions(self, filters: tuple[str, ...]) -> None:
+        async with self._lock:
+            self._require(DebugState.CONFIGURING, DebugState.STOPPED)
+            if len(filters) > 16 or any(not isinstance(x, str) or len(x) > 128 for x in filters):
+                raise InvalidInputError("Debugger exception filters exceed their bounds")
+            await self._invoke("configure_exceptions", {"filters": list(filters)})
+
+    async def finish_configuration(self) -> None:
+        async with self._lock:
+            self._require(DebugState.CONFIGURING, DebugState.STOPPED)
+            if self._pending_target is None:
+                raise StateMismatchError("No target configuration is pending")
+            await self._invoke("configuration_done", {})
+            await asyncio.wait_for(self._pending_target, self.timeout)
+            self._pending_target = None
+            if self.state == DebugState.CONFIGURING:
+                self.state = DebugState.RUNNING
 
     async def _breakpoints(
         self, source: str | Path, lines: tuple[int, ...]
@@ -501,4 +556,7 @@ class DebugSession:
         finally:
             self._closed = True
             self._invalidate()
+            if self._pending_target is not None:
+                self._pending_target.cancel()
+                await asyncio.gather(self._pending_target, return_exceptions=True)
             await self.adapter.close()

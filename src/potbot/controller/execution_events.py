@@ -18,6 +18,10 @@ class ExecutionEventService:
         self._db = database
 
     def append(self, context: WorkspaceContext, event: ExecutionEventInput) -> dict[str, Any]:
+        import json
+
+        from psycopg.types.json import Jsonb
+
         if not isinstance(event, ExecutionEventInput):
             raise InvalidInputError("Expected validated execution event")
         if event.trigger_kind == "parent_event" and event.trigger_ref != (
@@ -50,8 +54,8 @@ class ExecutionEventService:
                     subject_type_ref,subject_version,run_id,parent_run_id,parent_event_id,
                     trigger_kind,trigger_ref,trigger_input_sha256,emitter_run_id,
                     emitter_principal_id,stage,input_artifact_ref,output_artifact_ref,
-                    output_sha256,elapsed_ms
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    output_sha256,elapsed_ms,telemetry
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING *""",
                 (
                     context.workspace_id,
@@ -75,6 +79,7 @@ class ExecutionEventService:
                     event.output_artifact_ref,
                     event.output_sha256,
                     event.elapsed_ms,
+                    Jsonb(json.loads(event.telemetry_json)),
                 ),
             ).fetchone()
             return self._public(dict(row))
@@ -140,5 +145,6 @@ class ExecutionEventService:
             "output_sha256",
             "elapsed_ms",
             "recorded_at",
+            "telemetry",
         )
         return {"schema_version": 1, **json_record({key: row[key] for key in fields})}
