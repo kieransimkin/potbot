@@ -15,9 +15,9 @@ from potbot.domain.auth import WorkspaceContext
 from potbot.persistence.database import (
     Database,
     RepositoryStore,
+    configure_workspace_sandbox,
     migrate,
     provision_principal,
-    configure_workspace_sandbox,
     provision_workspace,
 )
 from potbot.persistence.harness import HarnessError, TestDatabaseConfig
