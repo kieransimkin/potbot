@@ -209,7 +209,7 @@
     },
     {
       "id": "A10",
-      "scenario": "A JSON graph locator validates as a locator; unsupported native kinds, fake authority and uninstalled request/result Types fail before dispatch.",
+      "scenario": "An instance-only JSON graph locator matches its owner's registry graph; inherited/default or wrong-owner locators, unsupported native kinds, fake authority and uninstalled Types fail before dispatch.",
       "runtime_status": "not_run"
     },
     {

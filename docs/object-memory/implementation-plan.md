@@ -68,6 +68,8 @@ Old installations receive a resumable, bounded backfill with a persisted cursor 
 
 The graph registry is authoritative for owner-to-graph mapping. Do not retrofit a required `memory_graph` slot onto every source Type, change imported `typeRef` values, or reseal old snapshots merely to attach memory. An optional graph-locator Ember may be exposed through an explicitly selected compatible contract profile. Its `value_kind` is `json` with a validated locator payload: a Potbot UUID is not a native Syn object reference, and `syn://graph/...` is not a supported primitive.
 
+For an ordinary owner's optional locator slot, require `source="instance"`, cardinality `0..1`, no inherited default, and an exact match to that instance's registry graph. A default locator shared by all instances would violate graph ownership and must be rejected. A Type owner's locator is returned as graph-registry metadata in the Type declaration view, without manufacturing a Type contract instance.
+
 Keep these axes explicit: graph owner's native kind; owner's declared semantic Type; memory item's class; Ember's own `type_ref`; Ember's `value_type_ref`; graph/operation policy; and representation/embedding view. A memory about a Cog is not itself a Cog. A claim Ember's value may describe a Thing while the Ember remains knowledge.
 
 ### Resolve existing instances and Type declarations correctly
@@ -169,6 +171,8 @@ P101 traversal follows an explicit predicate allowlist with bounded depth, visit
 
 Rank fusion can start with P105 reciprocal-rank fusion, retaining separate similarity, source quality, applicability, uncertainty and measured utility. Degree, popularity, confidence and reward are not permission or truth. Approximate vector search, learned write policies and automatic global graph traversals are later opt-in profiles with matched evaluations and bounded exact fallback.
 
+Cache keys include the selected graph set and immutable bases, projection and reader-policy generation, purpose, temporal selectors, target state/environment/contract, retrieval/embedding profile and deletion generations. Recheck current grants and deletion eligibility before returning a cached result. An identical query string or artifact hash alone cannot justify reuse across objects, readers or as-of views.
+
 Federation always retains the separate source graphs. A request lists permitted graphs; an expansion request also carries allowed relation types, max new graphs and an independently checked per-target policy. No denied graph contributes text, private edge counts, reranker features or cache entries. Repeated source material counts once for evidence independence while graph-local perspectives remain distinct. Different policies can produce different authorised views of the same source.
 
 Construct content plus qualification artifacts through the existing `MemoryBundle` and `ArtifactContextSource` contracts. Private contract bundles/handles are excluded. Build the retrieval/packet manifest in one consistent read transaction, then finish that transaction before model inference. A high-water sequence is an audit cursor, not a replacement for snapshot isolation. Pin graph revisions, semantic release, Ember/contract pointers, source hashes, target state/environment and the actual recipient tokenizer/template/token budget. Every expansion creates a new packet/context-update record; old packets stay reproducible, subject to authorised deletion.
@@ -238,7 +242,7 @@ Every acceptance case below requires retained inputs, exact source/semantic/runt
 | A07 | Diamond inheritance, fixed/replace/append, cardinality narrowing, instance-required versus effective values and incompatible parents match the existing resolver. |
 | A08 | Ember own Type/value Type, catalog/bundle/source revisions and payload schema are checked; equal bytes with different provenance remain distinguishable. |
 | A09 | Owner-private fields, identifiers/digests and hidden counts never reach public results, vectors, artifacts or provider input; denial cannot trigger inherited-secret fallback. |
-| A10 | A JSON graph locator validates as a locator; unsupported native kinds, fake authority and uninstalled request/result Types fail before dispatch. |
+| A10 | An instance-only JSON graph locator matches its owner's registry graph; inherited/default or wrong-owner locators, unsupported native kinds, fake authority and uninstalled Types fail before dispatch. |
 | A11 | Base/sidecar exports share an actual source snapshot boundary; wrong digest, unknown local endpoint, coverage or namespace fails atomically. |
 | A12 | Two graph perspectives cite one joint Event and original result; common-source grouping prevents invented independent witnesses or duplicate occurrences. |
 | A13 | Evidence variants have actual ownership/target FKs and exactly-one target checks; malformed sources/spans and cross-workspace endpoints fail. |
