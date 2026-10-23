@@ -143,8 +143,14 @@ def test_populated_published_histories_upgrade_with_original_rows_timestamps_and
             "evidence_events",
             "command_results",
         )
+        # Catalog entries share workspace/release IDs. Their complete primary
+        # key includes kind/entry_id; ordering only by the first two columns
+        # can change after an index rebuild without any row being rewritten.
+        order = {
+            table: "1,2,3,4" if table == "semantic_catalog_entries" else "1,2" for table in tables
+        }
         before = {
-            table: connection.execute(f"SELECT * FROM {table} ORDER BY 1,2").fetchall()
+            table: connection.execute(f"SELECT * FROM {table} ORDER BY {order[table]}").fetchall()
             for table in tables
         }
         assert all(before[table] for table in tables)
@@ -172,7 +178,9 @@ def test_populated_published_histories_upgrade_with_original_rows_timestamps_and
     grant_application_role(app_env.admin_dsn, schema, role)
     with database.transaction(context) as connection:
         for table, rows in before.items():
-            upgraded = connection.execute(f"SELECT * FROM {table} ORDER BY 1,2").fetchall()
+            upgraded = connection.execute(
+                f"SELECT * FROM {table} ORDER BY {order[table]}"
+            ).fetchall()
             if table == "actions":
                 assert all(row["stdin_artifact_id"] is None for row in upgraded)
                 upgraded = [
