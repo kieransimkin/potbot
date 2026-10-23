@@ -357,6 +357,8 @@ class ToolGateway:
                 read_only_roots=read_only_roots,
                 writable_roots=writable_roots,
                 stdin=stdin,
+                memory_bytes=definition.memory_bytes or 4 * 1024**3,
+                cpu_seconds=definition.cpu_seconds or 60,
             )
             result = self.supervisor.run(
                 request,
