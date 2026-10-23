@@ -62,7 +62,14 @@ def validate(
     require(cog_contract["single_registered_output_type"] is True, "Single Cog output")
     require(cog_contract["execution_authority"] == "controller_minted_out_of_band", "Cog authority")
     cog_ids = {r["id"] for r in cog_contract["requirements"]}
-    require(cog_ids == {f"C{n:02}" for n in range(1, 7)}, "Cog contract coverage")
+    require(cog_ids == {f"C{n:02}" for n in range(1, 8)}, "Cog contract coverage")
+    monitoring = cog_contract["monitoring"]
+    require(monitoring["mandatory"] is True, "Tool-Cog monitoring is mandatory")
+    require(
+        monitoring["lifecycle"] == ["started", "progress", "terminal"],
+        "Incomplete Cog lifecycle monitoring",
+    )
+    require(monitoring["missing_metrics"] == "unavailable", "Fabricated Cog statistics")
     gap_ids = {g["id"] for g in registry["gaps"]}
     require(len(gap_ids) == len(registry["gaps"]) == 18, "Gap identities")
     fixtures = {g["workflow"] for g in registry["gaps"]}
@@ -184,6 +191,8 @@ def check_documents(registry: dict[str, Any]) -> None:
         "out of band",
         "one-input/one-output",
         "zero tool dispatch",
+        "Mandatory tool-Cog work monitoring",
+        "start, progress and completion statistics",
     ):
         require(term in cog_text, f"Missing Cog contract: {term}")
     for target in re.findall(r"\]\(([^)]+)\)", cog_text):
@@ -218,7 +227,14 @@ def main() -> None:
     check_documents(registry)
     rejected = []
     # In-memory corruptions prove this gate rejects plan defects; no runtime claims.
-    for name in ("cycle", "missing-stage", "tracker-drift", "unowned-requirement", "cog-bypass"):
+    for name in (
+        "cycle",
+        "missing-stage",
+        "tracker-drift",
+        "unowned-requirement",
+        "cog-bypass",
+        "missing-monitoring",
+    ):
         p, s, r, g = plan, copy.deepcopy(stages), copy.deepcopy(rows), copy.deepcopy(registry)
         if name == "cycle":
             s[0]["prerequisites"] = "T01.2"
@@ -231,8 +247,10 @@ def main() -> None:
             r[0]["Acceptance checks"] = "unverified"
         elif name == "unowned-requirement":
             g["gaps"][0]["stages"] = []
-        else:
+        elif name == "cog-bypass":
             g["cog_contract"]["direct_transport_dispatch"] = True
+        else:
+            g["cog_contract"]["monitoring"]["lifecycle"] = ["terminal"]
         try:
             validate(p, s, r, g)
         except ValueError as error:

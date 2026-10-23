@@ -62,6 +62,21 @@ Illustrative proposed data Type URIs below require resolution/registration again
 
 Request envelopes carry parameters and expected revisions; the trusted controller context carries authority. Debug state, adapter protocol sequence numbers, session/frame handles and SYN run/event identities are distinct. Continuing invalidates stop-scoped handles across **all** inspection Cogs. Underlying Python/debugpy support must not leak Python object layouts into the common signature.
 
+## Mandatory tool-Cog work monitoring
+
+Every invoked tool Cog, including pure transformations, nested Cogs and transport-backed operations, must log its **start, progress and completion statistics** through the [already specified Cog/agent work-monitoring system](05-syn-execution-monitoring.md), particularly sections 2, 3 and 7. This is C07. Reuse its canonical durable execution ledger, workspace cursor, live REST/WebSocket read models and operator tree. A private logger, adapter transcript, parent-only summary or optional telemetry exporter does not satisfy this requirement.
+
+| Lifecycle occurrence | Required observations |
+| --- | --- |
+| Start | Persist the real start time, exact Cog Type/instance/semantic release/handler revision, unique run/attempt ID, typed input hash/private artifact, source/target/host, workspace, actor/emitter, controller lease and direct causal input/event. A denied proposal logs denial and zero dispatch, never a fictitious start. |
+| Progress | Persist actual phase/status updates, measurable counts/units where available, bounded redacted console chunks and resource observations with sequence, timestamp, trigger and emitter. Include a real executing/result-received transition for a short operation; never invent percentages, intermediate samples or elapsed work. Long and paused operations emit bounded status/heartbeat updates. Each nested tool has its own lifecycle and run ID. |
+| Completion statistics | Persist terminal status, trusted UTC start/finish, elapsed wall milliseconds with monotonic/reconstructed basis, CPU time, peak RAM, GPU/VRAM, disk/network IO, input/output tokens, provider/runtime time, cost and budget settlement as applicable. Every metric carries units and measured/provider-reported/estimated/unavailable provenance. Record all observed child tool run IDs, Types/versions, outcomes/receipt hashes and exact typed output artifact IDs/MIME/hashes with redacted previews. |
+| Failure/cancel/unknown | Persist a classified failure, independently acknowledged cancellation or explicit indeterminate state with available statistics. A stop request is not observed cleanup. Reconciliation and later provider accounting append linked events; never rewrite prior immutable history or report a fabricated successful completion. |
+
+Every event occurrence has its own event identity and the invocation's stable subject run ID, plus the actual trigger **and** emitter. Parent correlation alone is insufficient. Bind state transitions and authoritative dispatch to the same transaction/fencing rules already specified. Missing measurements are unavailable, never zero. Profiler overhead and dropped samples remain visible. Bound progress rate and output without silently dropping required durable transitions; monitoring failure before dispatch blocks dispatch, and loss after a possible effect requires reconciliation rather than a successful unlogged result or automatic retry.
+
+**Monitoring acceptance:** a Cog-driven Python fixture exposes launch, breakpoint, step and inspection Cogs as distinct live children with start/progress/terminal events and independently checked wall-time/output statistics. A nested fixture, a pure conversion, denial, crash, timeout and cancellation repeat these assertions. Inject reused adapter request IDs, forged causes/emitters, secret output, stale leases, a slow stream consumer and lost telemetry export; durable Cog work records remain attributable and bounded, with exactly one reconciled terminal state per attempt and no duplicate effect. A terminal-only adapter receipt or a parent summary fails qualification. Optional OTel export is tested separately.
+
 ## Python-first Cog acceptance
 
 The authored Python fixture must be driven end to end **through registered SYN Cogs**, not only by calling adapter/session methods. The existing direct adapter harness may establish backend behavior but cannot qualify Cog integration.
@@ -86,4 +101,4 @@ Negative cases must reject unregistered/shorthand Types, wrong input/output Type
 - **T11.1–T11.4:** mandatory real Cog-driven Python workflow, semantic/authority/bypass negatives and independent evidence checks.
 - **T12.1–T12.4:** ship semantic snapshots with the matching implementation, operator Cog/session views, SDK templates and migration/release gates.
 
-The gap register's `cog_contract` and each stage's `cog_requirements` make this cross-cutting requirement machine-checkable. A plan-consistency pass does not establish implementation of these Cogs.
+The gap register's `cog_contract` and each stage's `cog_requirements` make C01–C07 machine-checkable. C07 makes the existing work-monitoring specification mandatory for every tool Cog. A plan-consistency pass does not establish implementation of these Cogs.

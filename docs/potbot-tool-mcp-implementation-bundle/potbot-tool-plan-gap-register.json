@@ -404,7 +404,37 @@
       {
         "id": "C06",
         "requirement": "Test typed composition, handler/Ember/type drift and denied zero-dispatch paths; drive real Python debugging end to end through registered Cogs."
+      },
+      {
+        "id": "C07",
+        "requirement": "Every tool Cog logs start, actual progress and terminal statistics through the existing durable Cog work-monitoring system, including causal identities, wall/resources/cost, child run IDs, output receipts and explicit unavailable metrics."
       }
-    ]
+    ],
+    "monitoring": {
+      "mandatory": true,
+      "specification": "../implementation/05-syn-execution-monitoring.md",
+      "lifecycle": [
+        "started",
+        "progress",
+        "terminal"
+      ],
+      "scope": "every_tool_cog_including_pure_nested_and_transport_operations",
+      "metrics": [
+        "utc_start_finish",
+        "elapsed_wall_ms",
+        "cpu_time",
+        "peak_ram",
+        "gpu_vram",
+        "disk_network_io",
+        "tokens",
+        "provider_runtime_time",
+        "cost_budget_settlement",
+        "child_run_receipts",
+        "typed_output_artifacts"
+      ],
+      "missing_metrics": "unavailable",
+      "measurement_provenance_required": true,
+      "direct_trigger_and_emitter_required": true
+    }
   }
 }
