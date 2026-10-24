@@ -47,13 +47,15 @@ def _origins(args: argparse.Namespace) -> tuple[str, ...]:
 
 def application(args: argparse.Namespace) -> FastAPI:
     """Build explicit service dependencies; construction never starts a worker."""
-    from potbot.api.server import ServerSettings, create_app
-    from potbot.controller.reasoning_investigation import ReasoningInvestigator
+    from potbot.api.jobs_cli import protected_values
     from potbot.api.observability import EventLogger
     from potbot.api.openai_compat import OpenAICompatibility
+    from potbot.api.server import ServerSettings, create_app
     from potbot.api.tasks import DevelopmentBearerAuth
     from potbot.controller.execution_events import ExecutionEventService
     from potbot.controller.jobs import JobService
+    from potbot.controller.reasoning_investigation import ReasoningInvestigator
+    from potbot.controller.reasoning_runtime import PostgresReasoningStore, PostgresSteeringInbox
     from potbot.controller.tasks import TaskService
     from potbot.models.hosted_catalog import HostedModelDirectory
     from potbot.models.hosted_policy import HostedPolicy
@@ -69,14 +71,19 @@ def application(args: argparse.Namespace) -> FastAPI:
     authenticate = DevelopmentBearerAuth({token: context})
     directory = HostedModelDirectory(database, policy, credentials)
     gateway = hosted_gateway(database, policy, credentials)
-    from potbot.api.jobs_cli import protected_values
     events = EventLogger(
         log_path=args.log_file,
         log_content=args.log_content,
         protected_values=protected_values(database, credentials) if args.log_content else (),
     )
-    investigator = (ReasoningInvestigator(root=args.reasoning_root)
-                    if args.reasoning_mode == "tree" else None)
+    state_store = PostgresReasoningStore(database) if args.reasoning_mode == "tree" else None
+    investigator = (
+        ReasoningInvestigator(
+            root=args.reasoning_root, state_store=state_store,
+            steering_inbox=PostgresSteeringInbox(database),
+            max_rounds=args.reasoning_rounds,
+        ) if args.reasoning_mode == "tree" else None
+    )
     compatibility = OpenAICompatibility(directory.catalog, policy, credentials,
                                          log=events, reasoning_investigator=investigator)
     events.emit("server.ready", host=args.host, port=args.port,
@@ -91,6 +98,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         invocation_list_reader=gateway.list_for_job,
         execution_events=ExecutionEventService(database),
         openai_compat=compatibility,
+        reasoning_store=state_store,
         settings=settings,
     )
 
@@ -108,6 +116,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="rotating structured event log path")
     parser.add_argument("--reasoning-mode", choices=("tree", "fixed"), default="tree",
                         help="tree enables R3/R4; fixed retains the earlier three-pass model")
+    parser.add_argument("--reasoning-rounds", type=int, default=2,
+                        help="bounded evidence-guided reasoning rounds (1-4)")
     parser.add_argument("--reasoning-root", type=Path, default=Path(".potbot/reasoning"),
                         help="trusted private run snapshot directory (single writer)")
     parser.add_argument("--log-content", action="store_true",

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import io
 import json
-from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
 from potbot import service
-from potbot.api.observability import EventLogger
+from potbot.domain.errors import InvalidInputError
 from potbot.models.hosted_policy import HostedPolicy
 
 
@@ -23,7 +21,7 @@ def test_configuration_round_trip_permissions_and_validation(monkeypatch, tmp_pa
     service._atomic_configuration(config)
     assert service.ServiceConfig.load(service.config_path()) == config
     assert service.config_path().stat().st_mode & 0o077 == 0
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidInputError):
         service.ServiceConfig(str(uuid4()), str(uuid4()), "relative/path").validate()
 
 
@@ -36,7 +34,6 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
     monkeypatch.setattr(service, "manager_action", installed.append)
     fake_db = SimpleNamespace(transaction=lambda _ctx: _null_context())
     monkeypatch.setattr("potbot.persistence.database.Database", lambda *a, **k: fake_db)
-    tokens = []
     monkeypatch.setattr(service, "_token_store", lambda: (True, "safe-key-not-in-config"))
     policy = tmp_path / "providers.json"
     policy.write_text(json.dumps(HostedPolicy().to_dict()))
@@ -47,7 +44,7 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
     assert service.install(opts)["started"] is True
     assert installed == ["installed", "start"]
     assert "safe-key-not-in-config" not in service.config_path().read_text()
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidInputError):
         service.install(opts)
 
 

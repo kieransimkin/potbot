@@ -17,7 +17,6 @@ from potbot.controller.reasoning_tree import ReasoningTree
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError
 
-
 PROPOSAL_A = json.dumps({"hypotheses": [
     {"hypothesis": "Use indexed lookup", "assumptions": ["Index supported"],
      "questions": [{"channel":"external_libraries", "query":"index guide"}, {"channel":"external_tools", "query":"index tool"}, {"channel":"internal_workflows", "query":"index workflow"}]},
@@ -27,6 +26,16 @@ PROPOSAL_B = json.dumps({"hypotheses": [
     {"hypothesis": "use indexed lookup", "assumptions": [], "questions": []},
     {"hypothesis": "Try a materialized view", "assumptions": [], "questions": [{"channel":"external_libraries", "query":"view docs"}]},
 ]})
+
+
+def _critique_for(prompt: str) -> str:
+    packet = json.loads(prompt.split("JSON data):\n", 1)[1])
+    return json.dumps({"evaluations": [
+        {"node_id": b["node_id"], "relevance": 4, "evidence_alignment": 2,
+         "falsification_risk": 1, "uncertainty": 2, "recommendation": "keep",
+         "rationale": "Evidence needs another independent check", "issues": [], "tests": []}
+        for b in packet["context"]["branches"]
+    ]})
 
 
 def test_strict_hypothesis_schema_denies_model_tool_commands() -> None:
@@ -69,6 +78,8 @@ def test_r3_generates_distinct_hypotheses_r4_runs_only_admitted_tools(tmp_path: 
         seen_models.append((model["provider"], system, packet))
         if "'hypotheses'" in system:
             output = PROPOSAL_A if model["provider"] == "openai" else PROPOSAL_B
+        elif "'evaluations'" in system:
+            output = _critique_for(prompt)
         else:
             output = "Index is the leading candidate; only one recorded source supports it."
         on_text(output)
@@ -80,15 +91,16 @@ def test_r3_generates_distinct_hypotheses_r4_runs_only_admitted_tools(tmp_path: 
         task="Improve SQL latency", system="Do not modify schema", models=models,
         options={"max_output_tokens": 1024}, invoke=model, on_text=published.append,
         emit=lambda kind, **fields: logged.append((kind, fields)))
-    assert result.invocations == 3
-    assert result.usage["total_tokens"] == 120
+    assert result.invocations == 4
+    assert result.usage["total_tokens"] == 160
     assert published == [result.text]
     assert result.evidence_status == "executed"
     assert len(executions) == 3  # One query from each of the three unique branches.
     assert set(m[0] for m in seen_models[:2]) == {"openai", "gemini"}
     tree = ReasoningTree.load(result.tree_path)
-    assert len(tree.nodes) == 6  # 2 generators + 3 distinct hypotheses + synthesis
-    assert all(n.state == "completed" for n in tree.nodes.values())
+    assert len(tree.nodes) == 7  # 2 generators + 3 hypotheses + critic + synthesis
+    assert {n.state for n in tree.nodes.values()} == {"completed", "pruned"}
+    assert sum(n.state == "pruned" for n in tree.nodes.values()) == 1
     assert all(n.prompt_hash for n in tree.nodes.values() if n.role == "hypothesis_generator")
     assert any(n.evidence for n in tree.nodes.values() if n.role == "investigator")
     assert any(e[0] == "reasoning.evidence.completed" for e in logged)
@@ -105,6 +117,8 @@ def test_r4_missing_tools_report_unavailable_and_do_not_fabricate_evidence(tmp_p
     def model(model, system, prompt, options, on_text, run_id, cancelled):
         if "'hypotheses'" in system:
             output = PROPOSAL_A
+        elif "'evaluations'" in system:
+            output = _critique_for(prompt)
         else:
             output = "Nothing externally verified"
         return output, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}, "stop"
@@ -131,6 +145,7 @@ def test_bad_model_output_leaves_uncertain_tree_without_retry(tmp_path: Path) ->
             on_text=lambda _s: None, emit=lambda *_args, **_kwargs: None)
     recovered = ReasoningTree.load(tmp_path / str(context.workspace_id) / (run_id + '.json'))
     assert recovered.claim() is None
+    assert recovered.run_status == "failed"
 
 
 def test_tree_engine_is_available_through_openai_chat_endpoint(tmp_path: Path) -> None:
@@ -157,6 +172,8 @@ def test_tree_engine_is_available_through_openai_chat_endpoint(tmp_path: Path) -
             requests.append(request)
             if "'hypotheses'" in request.system:
                 text = PROPOSAL_A
+            elif "'evaluations'" in request.system:
+                text = _critique_for(request.prompt)
             else:
                 text = "Verified evidence was unavailable; indexed lookup is unconfirmed."
             yield ProviderTextDelta(text)
@@ -184,8 +201,8 @@ def test_tree_engine_is_available_through_openai_chat_endpoint(tmp_path: Path) -
                              json={"model": "potbot", "messages": [{"role": "user", "content": "Find index"}]})
     assert result.status_code == 200, result.text
     assert result.json()["choices"][0]["message"]["content"].startswith("Verified evidence")
-    assert result.json()["usage"]["total_tokens"] == 60
-    assert len(requests) == 3
+    assert result.json()["usage"]["total_tokens"] == 80
+    assert len(requests) == 4
     assert len(list(tmp_path.rglob("*.json"))) == 1
 
 

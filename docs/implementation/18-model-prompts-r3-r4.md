@@ -130,9 +130,10 @@ must pass their separate CI/deployment gates before being called qualified.
 
 - **R2 production**: PostgreSQL-backed leases, usage reservations/settlement,
   workspace-scoped event records and robust crash reconciliation.
-- **R2.5**: Queue incoming user steering prompts, evaluate current/rejected
-  branches at a safe checkpoint and issue one explicit response per prompt.
-- **R5**: Independent critique, evidence-weighted scoring, pruning and branch
-  expansion. R3/R4 does not yet implement a search over scored branches.
+- **R2.5 / R5**: The next increment adds file-backed, run-scoped steering,
+  controller-admitted task revisions, independently answered prompts, validated
+  critique records, deterministic evidence scoring and top-two branch pruning.
+  See [R2.5/R5 implementation](19-live-steering-r5-api-capabilities.md).
+  Its scorer is not yet a recursive adaptive search controller.
 - **R6–R8**: Adaptive beam/MCTS policies, calibration, trusted memory promotion,
   benchmark suites, model-level prompt qualification and deployment operations.

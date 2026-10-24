@@ -9,20 +9,17 @@ Phase-7 durable autonomous solve controller or publish private reasoning traces.
 from __future__ import annotations
 
 import json
-import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from potbot.api.observability import EventLogger
 from potbot.controller.reasoning_investigation import ReasoningInvestigator
 from potbot.domain.auth import WorkspaceContext
-from potbot.domain.errors import InvalidInputError, ScopeDeniedError
-from potbot.models.hosted_policy import HostedPolicy
 from potbot.memory.embedding_profile import QWEN_MODEL
+from potbot.models.hosted_policy import HostedPolicy
 from potbot.models.providers import (
     HostedProviderClient,
     ProviderCompleted,
@@ -204,7 +201,7 @@ class OpenAICompatibility:
     @staticmethod
     def _embedding_installed() -> bool:
         from potbot.dependencies import MODEL_DIRECTORY, project_root
-        from potbot.memory.local_encoder import MODEL_FILES, MANIFEST
+        from potbot.memory.local_encoder import MANIFEST, MODEL_FILES
 
         directory = project_root() / "models" / MODEL_DIRECTORY
         return ((directory / MANIFEST).is_file()
@@ -298,6 +295,7 @@ class OpenAICompatibility:
             max_output_tokens=options["max_output_tokens"],
             timeout_seconds=min(120, self.policy.max_timeout_seconds),
             temperature=options["temperature"], top_p=options["top_p"],
+            response_format=options.get("response_format", "text"),
         )
         self.policy.authorize(request)
         from potbot.tools.secrets import CaptureRedactor

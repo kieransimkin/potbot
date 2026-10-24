@@ -27,6 +27,8 @@ def request_body(request: ProviderRequest) -> tuple[str, dict[str, Any]]:
         body.update(input=request.prompt, max_output_tokens=request.max_output_tokens, store=False)
         if request.system:
             body["instructions"] = request.system
+        if request.response_format == "json_object":
+            body["text"] = {"format": {"type": "json_object"}}
         path = "/v1/responses"
     elif protocol in {"chat_completions", "messages"}:
         messages = [{"role": "user", "content": request.prompt}]
@@ -48,6 +50,8 @@ def request_body(request: ProviderRequest) -> tuple[str, dict[str, Any]]:
             )
             body[output_field] = request.max_output_tokens
             body["stream_options"] = {"include_usage": True}
+            if request.response_format == "json_object":
+                body["response_format"] = {"type": "json_object"}
             path = "/v1/chat/completions"
     else:
         config: dict[str, Any] = {"maxOutputTokens": request.max_output_tokens}
@@ -57,6 +61,8 @@ def request_body(request: ProviderRequest) -> tuple[str, dict[str, Any]]:
         }
         if request.system:
             body["systemInstruction"] = {"parts": [{"text": request.system}]}
+        if request.response_format == "json_object":
+            config["responseMimeType"] = "application/json"
         for source, target in (("temperature", "temperature"), ("top_p", "topP"), ("seed", "seed")):
             value = getattr(request, source)
             if value is not None:

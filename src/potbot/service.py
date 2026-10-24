@@ -17,10 +17,10 @@ import signal
 import subprocess
 import sys
 import threading
-import time
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 from uuid import UUID
 
 from potbot.api.observability import EventLogger
@@ -63,8 +63,8 @@ class ServiceConfig:
             raise InvalidInputError("Service configuration is unavailable or invalid.") from None
 
     def validate(self) -> None:
-        from potbot.persistence.database import _identifier
         from potbot.api.server_cli import _origins
+        from potbot.persistence.database import _identifier
 
         try:
             UUID(self.workspace_id)
@@ -244,8 +244,8 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
         raise InvalidInputError("Service already configured; use --replace to change settings.")
     policy = HostedPolicy.read(args.provider_policy.resolve())
     if args.download_embeddings:
-        from potbot.dependencies import ConsoleProgress, ensure_standard_model, project_root
         from potbot.api.observability import TransferProgress
+        from potbot.dependencies import ConsoleProgress, ensure_standard_model, project_root
 
         logger = EventLogger(log_path=service_home() / "downloads.jsonl")
         console, telemetry = ConsoleProgress(), TransferProgress(logger)

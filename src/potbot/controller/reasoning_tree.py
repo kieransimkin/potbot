@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
 from potbot.domain.errors import InvalidInputError
+from potbot.tools.temporary import allocate_file
 
 NodeState = Literal["pending", "running", "completed", "rejected", "pruned", "indeterminate"]
 SteeringDecision = Literal["spawn_hypothesis", "reopen_branch", "no_change", "needs_clarification"]
@@ -35,6 +36,7 @@ class ReasoningNode:
     max_tokens: int = 1024
     prompt_hash: str | None = None
     role: str | None = None
+    assessment: dict[str, Any] | None = None
 
 
 class ReasoningTree:
@@ -46,25 +48,29 @@ class ReasoningTree:
     """
 
     def __init__(self, path: Path, *, max_nodes: int = 32, max_depth: int = 5,
-                 token_budget: int = 20000) -> None:
+                 token_budget: int = 20000,
+                 checkpoint: Callable[[dict[str, Any]], None] | None = None) -> None:
         if max_nodes < 1 or max_depth < 1 or token_budget < 1:
             raise InvalidInputError("reasoning limits must be positive")
         self.path = Path(path)
+        self._checkpoint = checkpoint
         self.max_nodes = max_nodes
         self.max_depth = max_depth
         self.token_budget = token_budget
         self.spent_tokens = 0
         self.revision = 0
+        self.run_status = "running"
         self.nodes: dict[str, ReasoningNode] = {}
         self.steering: list[dict[str, Any]] = []
         self.events: list[dict[str, Any]] = []
 
     @classmethod
-    def load(cls, path: Path) -> "ReasoningTree":
+    def load(cls, path: Path) -> ReasoningTree:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         tree = cls(path, max_nodes=data["max_nodes"], max_depth=data["max_depth"],
                    token_budget=data["token_budget"])
         tree.revision = data["revision"]
+        tree.run_status = data.get("run_status", "running")
         tree.spent_tokens = data["spent_tokens"]
         tree.nodes = {n["id"]: ReasoningNode(**n) for n in data["nodes"]}
         tree.steering = data["steering"]
@@ -85,10 +91,10 @@ class ReasoningTree:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"max_nodes": self.max_nodes, "max_depth": self.max_depth,
                    "token_budget": self.token_budget, "spent_tokens": self.spent_tokens,
-                   "revision": self.revision,
+                   "revision": self.revision, "run_status": self.run_status,
                    "nodes": [asdict(n) for n in self.nodes.values()],
                    "steering": self.steering, "events": self.events}
-        fd, temporary = tempfile.mkstemp(prefix=".reasoning-", dir=self.path.parent)
+        fd, temporary = allocate_file(self.path.parent, prefix=".reasoning-")
         try:
             os.chmod(temporary, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
@@ -99,6 +105,8 @@ class ReasoningTree:
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
+        if self._checkpoint is not None:
+            self._checkpoint(payload)
 
     def depth(self, parent_id: str | None) -> int:
         depth = 0
@@ -132,11 +140,12 @@ class ReasoningTree:
         self.save()
         return node
 
-    def claim(self) -> ReasoningNode | None:
+    def claim(self, node_id: str | None = None) -> ReasoningNode | None:
         # Reserve the full allowance; avoid overcommitting concurrent nodes.
         reserved = sum(n.max_tokens for n in self.nodes.values() if n.state == "running")
         for node in self.nodes.values():
-            if node.state == "pending" and self.spent_tokens + reserved + node.max_tokens <= self.token_budget:
+            if (node.state == "pending" and (node_id is None or node_id == node.id)
+                    and self.spent_tokens + reserved + node.max_tokens <= self.token_budget):
                 node.state = "running"
                 node.claim_token = str(uuid4())
                 self._event("node.started", node.id)
@@ -164,6 +173,32 @@ class ReasoningTree:
             raise InvalidInputError("invalid rejection")
         node.state, node.rejection_reason = "rejected", reason
         self._event("node.rejected", node_id)
+        self.save()
+
+    def assess(self, node_id: str, assessment: dict[str, Any]) -> None:
+        node = self.nodes[node_id]
+        if node.state != "completed" or node.role != "investigator":
+            raise InvalidInputError("only completed investigation branches may be assessed")
+        if not isinstance(assessment, dict) or not 0 <= assessment.get("score", -1) <= 100:
+            raise InvalidInputError("reasoning assessment must have a bounded score")
+        node.assessment = assessment
+        self._event("branch.assessed", node_id)
+        self.save()
+
+    def prune(self, node_id: str, reason: str) -> None:
+        node = self.nodes[node_id]
+        if node.state != "completed" or not isinstance(reason, str) or not reason.strip():
+            raise InvalidInputError("only completed branches can be pruned")
+        node.state = "pruned"
+        node.rejection_reason = reason
+        self._event("branch.pruned", node_id)
+        self.save()
+
+    def close(self, status: Literal["completed", "failed"]) -> None:
+        if status not in {"completed", "failed"} or self.run_status != "running":
+            raise InvalidInputError("invalid reasoning completion")
+        self.run_status = status
+        self._event("reasoning.run." + status, status)
         self.save()
 
     def steer(self, prompt: str, *, decision: SteeringDecision,
@@ -194,6 +229,7 @@ class ReasoningTree:
             old.state = "pending"
             old.revision = self.revision
             old.claim_token = None
+            old.assessment = None
             self._event("branch.reopened", branch_id)
         item = {"id": str(uuid4()), "request_id": request_id, "prompt": prompt,
                 "decision": decision, "explanation": explanation,

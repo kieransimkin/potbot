@@ -401,3 +401,24 @@ gate are implemented; later tool adapters will perform live discovery and supply
 trusted receipts. See [docs/reasoning-policy.md](docs/reasoning-policy.md).
 
 The Phase 1 fixture instructions remain in [docs/phase-1.md](docs/phase-1.md).
+
+## Live steering and evidence-ranked reasoning (R2.5/R5)
+
+The `potbot` virtual model now evaluates queued user steering prompts at
+reasoning checkpoints and ranks candidate hypotheses with independent critique
+and evidence-source receipts. Streaming OpenAI responses expose
+`X-Potbot-Run-Id`; submit steering prompts to
+`POST /v1/reasoning/{run_id}/steer` and poll the decision through
+`GET /v1/reasoning/{run_id}/steering/{request_id}`. The bounded beam preserves
+pruned branches for possible reopening. See
+[implementation and API limits](docs/implementation/19-live-steering-r5-api-capabilities.md).
+These single-writer file snapshots do not yet provide PostgreSQL worker fencing
+or complete OpenAI/Gemini API compatibility.
+
+### PostgreSQL-backed reasoning and upstream OpenAI/Gemini models
+
+The [reasoning runtime/provider guide](docs/implementation/20-postgres-reasoning-and-model-providers.md)
+explains migration 24, fenced checkpoints, database-backed steering, bounded
+adaptive expansion and using OpenAI and Gemini **as outbound providers**.
+This is not a claim of complete inbound protocol emulation or fully qualified
+parallel reasoning orchestration.

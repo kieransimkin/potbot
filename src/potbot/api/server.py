@@ -30,8 +30,14 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from potbot import __version__
 from potbot.api.dashboard import DASHBOARD_CSS, DASHBOARD_HTML, DASHBOARD_JS
 from potbot.api.openai_compat import (
-    CompatibilityError, OpenAICompatibility, chat_document, error_document,
-    parse_chat, parse_responses, response_document, sse,
+    CompatibilityError,
+    OpenAICompatibility,
+    chat_document,
+    error_document,
+    parse_chat,
+    parse_responses,
+    response_document,
+    sse,
 )
 from potbot.api.tasks import Authenticator, TaskAPI
 from potbot.api.wire import (
@@ -352,6 +358,7 @@ def create_app(
     invocation_list_reader: InvocationReader | None = None,
     execution_events: ExecutionEventOperations | None = None,
     openai_compat: OpenAICompatibility | None = None,
+    reasoning_store: Any | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -608,6 +615,101 @@ def create_app(
         except Exception as error:
             return openai_error(error)
 
+    @app.get("/v1/reasoning/{run_id}")
+    async def reasoning_state(request: Request, run_id: str) -> JSONResponse:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if reasoning_store is None:
+                raise CompatibilityError("Reasoning state is not configured.", status=503)
+            return JSONResponse(await _call(reasoning_store.inspect, actor, run_id),
+                                headers=_JSON_HEADERS)
+        except ScopeDeniedError:
+            return openai_error(CompatibilityError("Reasoning run not found.", status=404))
+        except Exception as error:
+            return openai_error(error)
+
+    @app.get("/v1/reasoning/{run_id}/events")
+    async def reasoning_events_page(request: Request, run_id: str) -> JSONResponse:
+        try:
+            actor = context(request)
+            _queries(request, {"after", "limit"})
+            if reasoning_store is None:
+                raise CompatibilityError("Reasoning state is not configured.", status=503)
+            after = _integer(request.query_params.get("after"), 0, (1 << 53) - 1)
+            limit = _integer(request.query_params.get("limit"), 100, 200)
+            if not limit:
+                raise CompatibilityError("Page size must be positive.")
+            events = await _call(reasoning_store.events, actor, run_id, after=after,
+                                 limit=limit)
+            return JSONResponse({"object": "list", "data": events}, headers=_JSON_HEADERS)
+        except ScopeDeniedError:
+            return openai_error(CompatibilityError("Reasoning run not found.", status=404))
+        except Exception as error:
+            return openai_error(error)
+
+    @app.post("/v1/reasoning/{run_id}/steer", status_code=202)
+    async def steer_reasoning(request: Request, run_id: str) -> JSONResponse:
+        """Accept a new prompt while the tree owner continues independently."""
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None or openai_compat.reasoning_investigator is None:
+                raise CompatibilityError("Live reasoning steering is not configured.", status=503)
+            body = await openai_body(request)
+            if not isinstance(body, dict) or set(body) != {"request_id", "prompt"}:
+                raise CompatibilityError("Expected request_id and prompt only.")
+            inbox = openai_compat.reasoning_investigator.steering_inbox
+            result = await _call(inbox.submit,
+                                 actor if getattr(inbox, "uses_context", False) else actor.workspace_id, run_id,
+                                 request_id=body["request_id"], prompt=body["prompt"])
+            return JSONResponse(result, status_code=202 if result["status"] == "queued" else 200,
+                                headers=_JSON_HEADERS)
+        except ScopeDeniedError:
+            return openai_error(CompatibilityError("Reasoning run not found.", status=404))
+        except InvalidInputError:
+            return openai_error(CompatibilityError("Invalid steering prompt or run state."))
+        except Exception as error:
+            return openai_error(error)
+
+    @app.get("/v1/reasoning/{run_id}/steering/{request_id}")
+    async def inspect_steering(request: Request, run_id: str, request_id: str) -> JSONResponse:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None or openai_compat.reasoning_investigator is None:
+                raise CompatibilityError("Live reasoning steering is not configured.", status=503)
+            inbox = openai_compat.reasoning_investigator.steering_inbox
+            result = await _call(inbox.get,
+                                 actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
+                                 run_id, request_id)
+            return JSONResponse(result, headers=_JSON_HEADERS)
+        except ScopeDeniedError:
+            return openai_error(CompatibilityError("Steering prompt not found.", status=404))
+        except InvalidInputError:
+            return openai_error(CompatibilityError("Invalid reasoning or prompt identity."))
+        except Exception as error:
+            return openai_error(error)
+
+    @app.get("/v1/reasoning/{run_id}/steering")
+    async def list_steering(request: Request, run_id: str) -> JSONResponse:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None or openai_compat.reasoning_investigator is None:
+                raise CompatibilityError("Live reasoning steering is not configured.", status=503)
+            inbox = openai_compat.reasoning_investigator.steering_inbox
+            result = await _call(inbox.history,
+                                 actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
+                                 run_id)
+            return JSONResponse({"object": "list", "data": result}, headers=_JSON_HEADERS)
+        except ScopeDeniedError:
+            return openai_error(CompatibilityError("Reasoning run not found.", status=404))
+        except InvalidInputError:
+            return openai_error(CompatibilityError("Invalid reasoning identity."))
+        except Exception as error:
+            return openai_error(error)
+
     async def inference(request: Request, *, responses: bool) -> Response:
         try:
             actor = context(request)
@@ -625,7 +727,8 @@ def create_app(
                 result = await _call(openai_compat.stream, actor, options, lambda _: None, run_id)
                 data = (response_document(identifier, created, options["model"], result)
                         if responses else chat_document(identifier, created, options["model"], result))
-                return JSONResponse(data, headers=_JSON_HEADERS)
+                return JSONResponse(data, headers={**_JSON_HEADERS,
+                                                   "X-Potbot-Run-Id": run_id})
 
             def events() -> Any:
                 # A bounded producer queue keeps the provider's blocking HTTP
@@ -707,7 +810,7 @@ def create_app(
                     worker.join(timeout=0.2)
 
             return StreamingResponse(events(), media_type="text/event-stream", headers={
-                **_JSON_HEADERS, "X-Accel-Buffering": "no"})
+                **_JSON_HEADERS, "X-Accel-Buffering": "no", "X-Potbot-Run-Id": run_id})
         except Exception as error:
             return openai_error(error)
 

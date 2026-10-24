@@ -144,6 +144,7 @@ def application_migrations(*, lineage: str = "main") -> tuple[SchemaMigration, .
         (21, "execution_provenance_schema"),
         (22, "artifact_ranges_schema"),
         (23, "artifact_uploads_schema"),
+        (24, "reasoning_runtime_schema"),
     ):
         module = import_module(f"potbot.persistence.{module_name}")
         migrations.append(

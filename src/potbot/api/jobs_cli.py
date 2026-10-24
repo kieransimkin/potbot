@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -252,16 +253,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             assert actual is not None
             result = hosted_gateway(database).reconcile(context, args.invocation_id, actual=actual)
         else:
+            from potbot.api.observability import EventLogger
             from potbot.controller.job_runner import HostedJobRunner
+            from potbot.service_credentials import ServiceCredentials
 
             # Fail before announcing a worker if these UUIDs do not match the
             # restricted application login's provisioned workspace authority.
             with database.transaction(context):
                 pass
-            from potbot.api.observability import EventLogger
-            from potbot.service_credentials import ServiceCredentials
-            import os
-
             logger = EventLogger(
                 log_path=Path(os.environ["POTBOT_LOG_FILE"]) if os.environ.get("POTBOT_LOG_FILE") else None,
                 log_content=os.environ.get("POTBOT_LOG_CONTENT") == "1",

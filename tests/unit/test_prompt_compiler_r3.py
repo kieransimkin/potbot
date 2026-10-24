@@ -1,7 +1,5 @@
 """Model-family prompting, identity pinning and independent qualification."""
 
-import json
-
 import pytest
 
 from potbot.domain.errors import InvalidInputError

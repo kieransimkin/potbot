@@ -87,8 +87,9 @@ def compare_prompt_variants(
     if len({case.case_id for case in cases}) != len(cases):
         raise InvalidInputError("qualification case identities must be unique")
     findings: list[PromptTrialResult] = []
+    variants: tuple[PromptVariant, ...] = ("generic", "family", "model_role")
     for case in cases:
-        for variant in ("generic", "family", "model_role"):
+        for variant in variants:
             packet = compile_reasoning_prompt(
                 model=model, role=case.role, task=case.task,
                 variant=variant,

@@ -19,7 +19,9 @@ PromptVariant = Literal["generic", "family", "model_role"]
 ReasoningRole = Literal[
     "hypothesis_generator", "critic", "investigator", "steering_evaluator", "synthesizer"
 ]
-_ROLES = frozenset(ReasoningRole.__args__)
+_ROLES: frozenset[ReasoningRole] = frozenset(
+    ("hypothesis_generator", "critic", "investigator", "steering_evaluator", "synthesizer")
+)
 _PROMPT_VERSION = "model-aware-reasoning-v1"
 _FAMILY_GUIDANCE = {
     "gemma3": "Keep the instruction compact; deployment renders system text in the first user turn.",
@@ -63,6 +65,9 @@ def profile_for_model(model: str) -> PromptProfile:
     if not isinstance(model, str) or not 1 <= len(model) <= 256:
         raise InvalidInputError("model identity must be bounded")
     lower = model.lower().split("/", 1)[-1]
+    system: Literal["native", "prepend_first_user"]
+    thinking: Literal["none", "native", "template_kwargs", "provider"]
+    tool: Literal["none", "native", "provider"]
     if "gemma-3" in lower or "codegemma" in lower:
         family, system, thinking, tool = "gemma3", "prepend_first_user", "none", "none"
     elif "gemma-4" in lower:
@@ -95,8 +100,13 @@ _ROLE_INSTRUCTIONS = {
         "internal_workflows). Mark uncertainty; do not invent evidence or tool results."
     ),
     "critic": (
-        "Critique claims by identifying falsifiers and discriminating tests. "
-        "Return concise JSON with 'issues' and 'tests' arrays. Do not mistake agreement for proof."
+        "Independently critique every supplied branch, seeking falsifiers and discriminating "
+        "tests. Return one JSON object with exactly an 'evaluations' array, with exactly one "
+        "record per node_id. Each record must have node_id, relevance (integer 0-4), "
+        "evidence_alignment (integer 0-4), falsification_risk (integer 0-4), uncertainty "
+        "(integer 0-4), recommendation (keep, prune, or reject), rationale (short text), "
+        "issues (array of short text), and tests (array of short text). "
+        "Treat missing evidence as uncertainty, not proof; never invent verification."
     ),
     "investigator": (
         "Given registered evidence tools, choose a minimal investigation. Return JSON "
@@ -105,8 +115,9 @@ _ROLE_INSTRUCTIONS = {
     ),
     "steering_evaluator": (
         "Compare new user information with current and rejected hypotheses. Return JSON "
-        "with 'decision' (spawn_hypothesis, reopen_branch, no_change, or "
-        "needs_clarification), 'explanation', and the relevant branch reference. "
+        "with exactly 'decision' (spawn_hypothesis, reopen_branch, no_change, or "
+        "needs_clarification), 'explanation' (user-facing explanation), "
+        "'branch_id' (known branch ID or null), and 'hypothesis' (new hypothesis or null). "
         "This is a proposal; the controller decides what is admitted."
     ),
     "synthesizer": (

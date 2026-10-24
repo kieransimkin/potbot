@@ -14,8 +14,8 @@ from potbot.api.openai_compat import OpenAICompatibility
 from potbot.api.server import ServerSettings, create_app
 from potbot.api.tasks import DevelopmentBearerAuth
 from potbot.domain.auth import WorkspaceContext
-from potbot.models.hosted_policy import HostedPolicy, RateRule
 from potbot.memory.embedding_profile import EmbeddingBatch
+from potbot.models.hosted_policy import HostedPolicy, RateRule
 from potbot.models.providers import ProviderCompleted, ProviderTextDelta, ProviderUsage
 
 TOKEN = "openai-test-token-" + "x" * 40
