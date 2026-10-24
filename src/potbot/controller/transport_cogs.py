@@ -12,7 +12,7 @@ import json
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from potbot.cogs.contracts import TypedCogValue
 from potbot.controller.execution_cogs import ExecutionCall, HostOperation
@@ -27,13 +27,15 @@ from potbot.domain.execution import ActionProposal
 from potbot.domain.serialization import canonical_json, content_hash
 from potbot.domain.syn import parse_type_ref
 from potbot.tools.api_contracts import ApiCallScope, ApiOperation
-from potbot.tools.api_grpc import ApprovedGrpcAdapter
-from potbot.tools.api_http import ApprovedHttpApiAdapter
 from potbot.tools.capability_contracts import ToolInstallationDescriptor, ToolInvocationIntent
 from potbot.tools.cli_adapter import ApprovedCliAdapter, CliObservation
 from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding, digest
 from potbot.tools.mcp_protocol import McpClient
 from potbot.tools.mcp_sandbox import SandboxedMcpClient
+
+if TYPE_CHECKING:
+    from potbot.tools.api_grpc import ApprovedGrpcAdapter
+    from potbot.tools.api_http import ApprovedHttpApiAdapter
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +105,9 @@ def api_operation(
     egress: Callable[[str], None] | None = None,
 ) -> HostOperation:
     """REST, GraphQL and gRPC retain their existing scope, schema and egress gates."""
+    from potbot.tools.api_grpc import ApprovedGrpcAdapter
+    from potbot.tools.api_http import ApprovedHttpApiAdapter
+
     if not isinstance(adapter, (ApprovedHttpApiAdapter, ApprovedGrpcAdapter)) or not callable(
         authorize
     ):

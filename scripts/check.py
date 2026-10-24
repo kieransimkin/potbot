@@ -198,6 +198,8 @@ def main() -> int:
                     "-I",
                     "-c",
                     "from pathlib import Path; import sys, potbot, potbot.domain; "
+                    "from potbot.controller.transport_cogs import TransportPorts; "
+                    "assert 'httpx' not in sys.modules; "
                     "assert Path(potbot.__file__).resolve().is_relative_to("
                     "Path(sys.prefix).resolve()), 'package imported outside the clean environment'; "
                     "print('installed domain import passed')",
