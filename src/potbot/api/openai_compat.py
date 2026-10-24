@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from potbot.api.observability import EventLogger
 from potbot.controller.reasoning_investigation import ReasoningInvestigator
@@ -92,13 +92,23 @@ def parse_chat(value: object) -> dict[str, Any]:
         raise CompatibilityError("Request must be a JSON object.")
     allowed = {
         "model", "messages", "stream", "max_tokens", "max_completion_tokens",
-        "temperature", "top_p", "user", "stream_options",
+        "temperature", "top_p", "user", "stream_options", "potbot_task_id",
     }
     if set(value) - allowed:
         raise CompatibilityError("Unsupported chat-completion parameters.")
     model = value.get("model")
     if not isinstance(model, str) or not model or len(model) > 256:
         raise CompatibilityError("model must be a bounded string.")
+    task_id = value.get("potbot_task_id")
+    if task_id is not None:
+        if model != "potbot" or not isinstance(task_id, str):
+            raise CompatibilityError("potbot_task_id is only available for the potbot model.")
+        try:
+            identity = UUID(task_id)
+            if str(identity) != task_id:
+                raise ValueError
+        except (ValueError, AttributeError):
+            raise CompatibilityError("potbot_task_id must be a canonical task UUID.") from None
     system, prompt = _messages(value.get("messages"))
     stream = value.get("stream", False)
     if type(stream) is not bool:
@@ -125,12 +135,13 @@ def parse_chat(value: object) -> dict[str, Any]:
         "temperature": value.get("temperature"),
         "top_p": value.get("top_p"),
         "include_usage": option.get("include_usage", False),
+        "potbot_task_id": task_id,
     }
 
 
 def parse_responses(value: object) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) - {
-        "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "user"
+        "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "user", "potbot_task_id"
     }:
         raise CompatibilityError("Unsupported Responses API parameters.")
     instructions = value.get("instructions", "")
@@ -153,6 +164,7 @@ def parse_responses(value: object) -> dict[str, Any]:
         "max_tokens": value.get("max_output_tokens"),
         "temperature": value.get("temperature"), "top_p": value.get("top_p"),
         "user": value.get("user"),
+        "potbot_task_id": value.get("potbot_task_id"),
     })
 
 

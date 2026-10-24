@@ -11,12 +11,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
+from potbot.controller.reasoning_budget import ReasoningBudgetJournal
 from potbot.controller.reasoning_evaluation import parse_critiques, rank_branches
 from potbot.controller.reasoning_runtime import PostgresReasoningStore
 from potbot.controller.reasoning_steering import SteeringInbox
@@ -251,7 +253,8 @@ class ReasoningInvestigator:
                  token_budget: int = 40000,
                  max_rounds: int = 1,
                  state_store: PostgresReasoningStore | None = None,
-                 steering_inbox: Any | None = None) -> None:
+                 steering_inbox: Any | None = None,
+                 budget_journal: ReasoningBudgetJournal | None = None) -> None:
         if type(max_hypotheses) is not int or not 1 <= max_hypotheses <= 12:
             raise InvalidInputError("hypothesis budget is invalid")
         if type(max_tool_calls) is not int or not 0 <= max_tool_calls <= 64:
@@ -260,6 +263,9 @@ class ReasoningInvestigator:
             raise InvalidInputError("token budget is invalid")
         if type(max_rounds) is not int or not 1 <= max_rounds <= 4:
             raise InvalidInputError("reasoning expansion rounds must be 1-4")
+        if budget_journal is not None and state_store is None:
+            raise InvalidInputError("Task-bound reasoning requires a PostgreSQL run lease")
+        self.budget_journal = budget_journal
         self.max_rounds = max_rounds
         self.state_store = state_store
         self.root = Path(root)
@@ -322,6 +328,10 @@ class ReasoningInvestigator:
         tree_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if os.name == "posix":
             os.chmod(tree_path.parent, 0o700)
+        task_identity = options.get("potbot_task_id")
+        if task_identity is not None and self.budget_journal is None:
+            raise InvalidInputError("Task budgeting is not configured for reasoning")
+        episode_id = UUID(task_identity) if task_identity is not None else None
         lease_token = (self.state_store.start(context, run_id)
                        if self.state_store is not None else None)
         checkpoint = (
@@ -374,12 +384,38 @@ class ReasoningInvestigator:
             # other providers still receive the canonical JSON prompt contract.
             if role != "synthesizer" and model["provider"] in {"openai", "gemini"}:
                 selection_options["response_format"] = "json_object"
-            # Emit *only* the final synthesis deltas to the OpenAI stream.
-            output, measured, finish = invoke(
-                model, packet.system, packet.user, selection_options,
-                on_text if final else (lambda _delta: None), run_id, cancelled,
-            )
-            invocations += 1
+            ticket = None
+            if episode_id is not None:
+                assert self.budget_journal is not None and lease_token is not None
+                ticket = self.budget_journal.prepare(
+                    context, run_id=run_id, node_id=node.id, lease_token=lease_token,
+                    episode_id=episode_id, provider=model["provider"], model=model["model"],
+                    protocol=model.get("protocol"), prompt_hash=packet.identity,
+                    system=packet.system, prompt=packet.user,
+                    max_output_tokens=output_limit,
+                    timeout_seconds=min(120, self.budget_journal.policy.max_timeout_seconds),
+                )
+            # A committed possible-dispatch receipt precedes every paid call.
+            # Any failure after dispatch holds the reservation for reconciliation.
+            try:
+                if ticket is not None:
+                    self.budget_journal.dispatch(context, ticket, lease_token)
+                started_at = time.monotonic()
+                output, measured, finish = invoke(
+                    model, packet.system, packet.user, selection_options,
+                    on_text if final else (lambda _delta: None), run_id, cancelled,
+                )
+                invocations += 1
+                if ticket is not None:
+                    self.budget_journal.observe(
+                        context, ticket, measured,
+                        elapsed_ms=int((time.monotonic() - started_at) * 1000),
+                        rate_provider=model["provider"], rate_model=model["model"],
+                    )
+            except Exception:
+                if ticket is not None:
+                    self.budget_journal.uncertain(context, ticket)
+                raise
             if finish != "stop":
                 raise CapabilityUnavailableError("reasoning model completion was interrupted")
             if any(type(measured.get(k)) is not int or measured[k] < 0 for k in usage):

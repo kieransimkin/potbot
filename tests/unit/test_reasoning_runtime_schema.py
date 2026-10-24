@@ -15,7 +15,7 @@ from potbot.persistence.schema import application_migrations
 
 def test_new_migration_is_append_only_and_workspace_scoped() -> None:
     revisions = application_migrations()
-    migration = revisions[-1]
+    migration = next(m for m in revisions if m.version == 24)
     assert migration.version == 24 and migration.name == "reasoning_runtime_schema"
     assert set(migration.workspace_tables) == {
         "reasoning_runtime_runs", "reasoning_runtime_steering", "reasoning_runtime_events"

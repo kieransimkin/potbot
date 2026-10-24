@@ -88,55 +88,68 @@ class BudgetLedger:
         amounts: Mapping[str, int],
         idempotency_key: str,
     ) -> dict[str, Any]:
+        with self.database.transaction(context) as conn:
+            return self.reserve_in_transaction(
+                conn, context, episode_id, amounts, idempotency_key
+            )
+
+    def reserve_in_transaction(
+        self,
+        conn: Any,
+        context: WorkspaceContext,
+        episode_id: UUID,
+        amounts: Mapping[str, int],
+        idempotency_key: str,
+    ) -> dict[str, Any]:
+        """Admit inside an existing transaction, for atomic execution receipts."""
         from psycopg.types.json import Jsonb
 
         requested = validate_amounts(amounts)
         requested.setdefault("concurrency", 1)
         request = {"episode_id": str(episode_id), "amounts": requested}
-        with self.database.transaction(context) as conn:
 
-            def admit() -> dict[str, Any]:
-                episode = lock_episode(conn, context, episode_id)
-                if episode["status"] != TaskStatus.RUNNING:
-                    raise StateMismatchError("task is not running; no new work can be admitted")
-                budget = conn.execute(
-                    "SELECT dimensions FROM budget_limits WHERE workspace_id=%s AND id=%s",
-                    (context.workspace_id, episode_id),
-                ).fetchone()
-                if budget is None:
-                    raise StateMismatchError("task budget has not been initialized")
-                limits = budget["dimensions"]
-                if not set(requested).issubset(limits):
-                    raise InvalidInputError("requested resource dimension has no configured limit")
-                used, held = budget_totals(conn, context, episode_id)
-                for dimension, amount in requested.items():
-                    if amount + used.get(dimension, 0) + held.get(dimension, 0) > limits[dimension]:
-                        raise BudgetUnavailableError("task resource allowance is unavailable")
-                reservation_id = uuid4()
-                conn.execute(
-                    "INSERT INTO budget_reservations "
-                    "(workspace_id,id,episode_id,reservation_key,amounts,status) "
-                    "VALUES(%s,%s,%s,%s,%s,'reserved')",
-                    (
-                        context.workspace_id,
-                        reservation_id,
-                        episode_id,
-                        idempotency_key,
-                        Jsonb(requested),
-                    ),
-                )
-                _event(
-                    conn,
-                    context,
-                    "budget_reserved",
+        def admit() -> dict[str, Any]:
+            episode = lock_episode(conn, context, episode_id)
+            if episode["status"] != TaskStatus.RUNNING:
+                raise StateMismatchError("task is not running; no new work can be admitted")
+            budget = conn.execute(
+                "SELECT dimensions FROM budget_limits WHERE workspace_id=%s AND id=%s",
+                (context.workspace_id, episode_id),
+            ).fetchone()
+            if budget is None:
+                raise StateMismatchError("task budget has not been initialized")
+            limits = budget["dimensions"]
+            if not set(requested).issubset(limits):
+                raise InvalidInputError("requested resource dimension has no configured limit")
+            used, held = budget_totals(conn, context, episode_id)
+            for dimension, amount in requested.items():
+                if amount + used.get(dimension, 0) + held.get(dimension, 0) > limits[dimension]:
+                    raise BudgetUnavailableError("task resource allowance is unavailable")
+            reservation_id = uuid4()
+            conn.execute(
+                "INSERT INTO budget_reservations "
+                "(workspace_id,id,episode_id,reservation_key,amounts,status) "
+                "VALUES(%s,%s,%s,%s,%s,'reserved')",
+                (
+                    context.workspace_id,
+                    reservation_id,
                     episode_id,
-                    {"reservation_id": str(reservation_id), "amounts": requested},
-                )
-                return dict(json_record(_reservation(conn, context, reservation_id)))
-
-            return idempotent_command(
-                conn, context, "reserve_budget", idempotency_key, request, admit
+                    idempotency_key,
+                    Jsonb(requested),
+                ),
             )
+            _event(
+                conn,
+                context,
+                "budget_reserved",
+                episode_id,
+                {"reservation_id": str(reservation_id), "amounts": requested},
+            )
+            return dict(json_record(_reservation(conn, context, reservation_id)))
+
+        return idempotent_command(
+            conn, context, "reserve_budget", idempotency_key, request, admit
+        )
 
     def settle(
         self,

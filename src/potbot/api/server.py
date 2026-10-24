@@ -359,6 +359,7 @@ def create_app(
     execution_events: ExecutionEventOperations | None = None,
     openai_compat: OpenAICompatibility | None = None,
     reasoning_store: Any | None = None,
+    reasoning_budget: Any | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -643,6 +644,22 @@ def create_app(
             events = await _call(reasoning_store.events, actor, run_id, after=after,
                                  limit=limit)
             return JSONResponse({"object": "list", "data": events}, headers=_JSON_HEADERS)
+        except ScopeDeniedError:
+            return openai_error(CompatibilityError("Reasoning run not found.", status=404))
+        except Exception as error:
+            return openai_error(error)
+
+    @app.get("/v1/reasoning/{run_id}/invocations")
+    async def reasoning_invocations(request: Request, run_id: str) -> JSONResponse:
+        """Workspace-scoped accounting receipts, without model input or secrets."""
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if reasoning_budget is None:
+                raise CompatibilityError("Reasoning budget accounting is not configured.", status=503)
+            items = await _call(reasoning_budget.list_for_run, actor, run_id)
+            return JSONResponse({"object": "list", "data": json_record(items)},
+                                headers=_JSON_HEADERS)
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Reasoning run not found.", status=404))
         except Exception as error:

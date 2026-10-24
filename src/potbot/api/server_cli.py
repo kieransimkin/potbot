@@ -54,6 +54,7 @@ def application(args: argparse.Namespace) -> FastAPI:
     from potbot.api.tasks import DevelopmentBearerAuth
     from potbot.controller.execution_events import ExecutionEventService
     from potbot.controller.jobs import JobService
+    from potbot.controller.reasoning_budget import ReasoningBudgetJournal
     from potbot.controller.reasoning_investigation import ReasoningInvestigator
     from potbot.controller.reasoning_runtime import PostgresReasoningStore, PostgresSteeringInbox
     from potbot.controller.tasks import TaskService
@@ -77,11 +78,13 @@ def application(args: argparse.Namespace) -> FastAPI:
         protected_values=protected_values(database, credentials) if args.log_content else (),
     )
     state_store = PostgresReasoningStore(database) if args.reasoning_mode == "tree" else None
+    budget_journal = ReasoningBudgetJournal(database, policy) if state_store is not None else None
     investigator = (
         ReasoningInvestigator(
             root=args.reasoning_root, state_store=state_store,
             steering_inbox=PostgresSteeringInbox(database),
             max_rounds=args.reasoning_rounds,
+            budget_journal=budget_journal,
         ) if args.reasoning_mode == "tree" else None
     )
     compatibility = OpenAICompatibility(directory.catalog, policy, credentials,
@@ -99,6 +102,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         execution_events=ExecutionEventService(database),
         openai_compat=compatibility,
         reasoning_store=state_store,
+        reasoning_budget=budget_journal,
         settings=settings,
     )
 
