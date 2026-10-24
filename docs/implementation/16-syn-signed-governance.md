@@ -40,6 +40,8 @@ account private key, operator base secret, password or group key.
 The native v1 membership/proof bytes remain frozen. Their issuer-signed assignment
 and account-signed payload bind the public account hash to this exact role and
 proposal. Proofs must be live on first local admission, within at most 300 seconds.
+Time is sampled after the database lock and rechecked before leaving the
+transaction, so queued or slow verification cannot use an earlier clock sample.
 Exact stored retries can succeed after expiry. Historical verification validates
 the original signatures without claiming a trusted acceptance timestamp, current
 liveness or that an older pinned head is the latest global state.
