@@ -16,14 +16,18 @@ from potbot.models.hosted_gateway import HostedAdmissionError, HostedInferenceGa
 
 
 class HostedJobRunner:
-    def __init__(self, jobs: JobService, gateway: HostedInferenceGateway) -> None:
-        self.jobs, self.gateway = jobs, gateway
+    def __init__(self, jobs: JobService, gateway: HostedInferenceGateway,
+                 logger: Any | None = None) -> None:
+        self.jobs, self.gateway, self.logger = jobs, gateway, logger
 
     def _finish(
         self, context: WorkspaceContext, lease: JobLease, state: str, **kwargs: Any
     ) -> dict[str, Any]:
         try:
-            return self.jobs.finish(context, lease, state, **kwargs)
+            result = self.jobs.finish(context, lease, state, **kwargs)
+            if self.logger:
+                self.logger.emit("job.finished", run_id=str(lease.job_id), state=state)
+            return result
         except RevisionConflictError:
             return self.jobs.inspect(context, lease.job_id)
 
@@ -32,6 +36,8 @@ class HostedJobRunner:
         if lease is None:
             return None
         stopped, abort = threading.Event(), threading.Event()
+        if self.logger:
+            self.logger.emit("job.claimed", run_id=str(lease.job_id), models=len(lease.selected_models))
 
         def heartbeat() -> None:
             renewal = time.monotonic() + 10
@@ -95,6 +101,10 @@ class HostedJobRunner:
                 self.jobs.progress(
                     context, lease, "generating", ordinal, len(lease.selected_models)
                 )
+                if self.logger:
+                    self.logger.emit("model.start", run_id=str(lease.job_id),
+                                     provider=selection["provider"], model=selection["model"],
+                                     ordinal=ordinal)
                 buffered = ""
                 emitted_at = time.monotonic()
 
@@ -103,6 +113,10 @@ class HostedJobRunner:
                 ) -> None:
                     nonlocal buffered, emitted_at
                     buffered += text
+                    if self.logger and text:
+                        self.logger.emit("model.delta", run_id=str(lease.job_id),
+                                         model=selected["model"], bytes=len(text.encode()),
+                                         content=text)
                     if (
                         not final
                         and len(buffered.encode()) < 1024

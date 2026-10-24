@@ -164,6 +164,29 @@ deployment. Local live inference and model residency scheduling remain outstandi
 Phase 5 work. The [historical dev1 status](docs/phase-5-implementation-status.json)
 records that milestone; the [hosted increment](docs/hosted-jobs.md) records the new scope.
 
+## OpenAI-compatible client API and persistent service
+
+The [OpenAI compatibility and persistent service guide](docs/openai-compatible-service.md)
+adds `/v1/chat/completions`, `/v1/responses`, `/v1/embeddings`, OpenAI-format
+`/v1/models`, and the `potbot` three-stage reasoning model. The existing
+model directory is preserved at `/v1/potbot/models`. Installed provider models
+remain bound by operator policy and the OS credential vault; the interactive
+transport does **not** replace durable task-budget accounting or claim full
+Phase-7 autonomous reasoning.
+
+```bash
+./start.sh service install --workspace-id <UUID> --principal-id <UUID> --provider-policy providers.json
+./start.sh service status
+./start.sh credentials api-show
+```
+
+The same `service` subcommand works through `start.ps1` and `start.bat` on Windows.
+User-owned systemd/launchd/Task Scheduler persistence starts both HTTP and worker
+processes. Metadata-only console/JSONL event logging is on by default; opt into
+redacted query/response content via `--log-content`. Explicit
+`--download-embeddings` downloads and verifies the local Qwen assets with progress.
+A provisioned PostgreSQL workspace/principal and provider policy remain prerequisites.
+
 ## Hosted models, API and job dashboard
 
 The [hosted jobs guide](docs/hosted-jobs.md) covers credentials, operator policy,

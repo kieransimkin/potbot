@@ -13,19 +13,26 @@ import math
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
+from queue import Empty, Full, Queue
+from threading import Event, Thread
+from time import time
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from potbot import __version__
 from potbot.api.dashboard import DASHBOARD_CSS, DASHBOARD_HTML, DASHBOARD_JS
+from potbot.api.openai_compat import (
+    CompatibilityError, OpenAICompatibility, chat_document, error_document,
+    parse_chat, parse_responses, response_document, sse,
+)
 from potbot.api.tasks import Authenticator, TaskAPI
 from potbot.api.wire import (
     APIResponse,
@@ -344,6 +351,7 @@ def create_app(
     invocation_reader: InvocationReader | None = None,
     invocation_list_reader: InvocationReader | None = None,
     execution_events: ExecutionEventOperations | None = None,
+    openai_compat: OpenAICompatibility | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -527,7 +535,7 @@ def create_app(
                 )
             )
 
-    @app.get("/v1/models")
+    @app.get("/v1/potbot/models")
     async def models(request: Request) -> JSONResponse:
         actor = context(request)
         _queries(request, set())
@@ -537,6 +545,192 @@ def create_app(
             else {"local": [profile.to_dict() for profile in default_model_profiles()]}
         )
         return _response(success_response(uuid4(), result))
+
+    # The public OpenAI routes do not use Potbot's v1 command envelope. Preserve
+    # the native catalogue at /v1/potbot/models for the dashboard and older tools.
+    def openai_error(error: Exception) -> JSONResponse:
+        from potbot.models.providers.contracts import ProviderAPIError
+        if isinstance(error, CompatibilityError):
+            failure = error
+        elif isinstance(error, ProviderAPIError):
+            status = 429 if error.status_code == 429 else 502
+            failure = CompatibilityError("Hosted provider request failed.", status=status,
+                                         code="provider_error")
+        elif isinstance(error, (InvalidInputError, SchemaViolationError)):
+            failure = CompatibilityError("Invalid or unsupported request.")
+        elif isinstance(error, ScopeDeniedError):
+            failure = CompatibilityError("The resource is unavailable.", status=404,
+                                         code="model_not_found")
+        elif isinstance(error, CapabilityUnavailableError):
+            failure = CompatibilityError("The requested model is unavailable.", status=403,
+                                         code="model_unavailable")
+        else:
+            failure = CompatibilityError("Inference failed.", status=500,
+                                         code="internal_error")
+        return JSONResponse(error_document(failure), status_code=failure.status,
+                            headers=_JSON_HEADERS)
+
+    async def openai_body(request: Request) -> Any:
+        if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
+            raise CompatibilityError("Expected application/json.")
+        data = bytearray()
+        try:
+            async with asyncio.timeout(settings.body_timeout_seconds):
+                async for chunk in request.stream():
+                    data.extend(chunk)
+                    if len(data) > settings.max_body_bytes:
+                        raise CompatibilityError("Request body is too large.")
+            return _json(data.decode("utf-8"))
+        except (TimeoutError, UnicodeError, SchemaViolationError):
+            raise CompatibilityError("Invalid bounded JSON request.") from None
+
+    @app.get("/v1/models")
+    async def openai_models(request: Request) -> JSONResponse:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None:
+                raise CompatibilityError("Inference gateway is not configured.", status=503)
+            data = await _call(openai_compat.models, actor)
+            return JSONResponse(data, headers=_JSON_HEADERS)
+        except Exception as error:
+            return openai_error(error)
+
+    @app.get("/v1/models/{model_id:path}")
+    async def openai_model(request: Request, model_id: str) -> JSONResponse:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None:
+                raise CompatibilityError("Inference gateway is not configured.", status=503)
+            return JSONResponse(await _call(openai_compat.model, actor, model_id),
+                                headers=_JSON_HEADERS)
+        except Exception as error:
+            return openai_error(error)
+
+    async def inference(request: Request, *, responses: bool) -> Response:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None:
+                raise CompatibilityError("Inference gateway is not configured.", status=503)
+            options = (parse_responses if responses else parse_chat)(await openai_body(request))
+            # Check admission before beginning the stream so a bad model is a
+            # normal OpenAI JSON error, never a half-open SSE response.
+            await _call(openai_compat._route, actor, options["model"])
+            identifier = ("resp_" if responses else "chatcmpl-") + uuid4().hex
+            created = int(time())
+            run_id = uuid4().hex
+            if not options["stream"]:
+                result = await _call(openai_compat.stream, actor, options, lambda _: None, run_id)
+                data = (response_document(identifier, created, options["model"], result)
+                        if responses else chat_document(identifier, created, options["model"], result))
+                return JSONResponse(data, headers=_JSON_HEADERS)
+
+            def events() -> Any:
+                # A bounded producer queue keeps the provider's blocking HTTP
+                # work out of the ASGI loop and allows disconnect cancellation.
+                queue: Queue[tuple[str, Any]] = Queue(maxsize=64)
+                stopped = Event()
+
+                def send(kind: str, value: Any) -> None:
+                    while not stopped.is_set():
+                        try:
+                            queue.put((kind, value), timeout=0.2)
+                            return
+                        except Full:
+                            continue
+
+                def emit(delta: str) -> None:
+                    send("delta", delta)
+
+                def work() -> None:
+                    try:
+                        result = openai_compat.stream(actor, options, emit, run_id,
+                                                      cancelled=stopped.is_set)
+                        send("done", result)
+                    except Exception as error:
+                        send("error", error)
+
+                worker = Thread(target=work, name="potbot-openai-" + run_id[:8], daemon=True)
+                worker.start()
+                try:
+                    if responses:
+                        yield sse({"type": "response.created", "response": {
+                            "id": identifier, "object": "response", "model": options["model"],
+                            "status": "in_progress", "created_at": created}}, "response.created")
+                    else:
+                        yield sse({"id": identifier, "object": "chat.completion.chunk",
+                                   "created": created, "model": options["model"],
+                                   "choices": [{"index": 0, "delta": {"role": "assistant"},
+                                                "finish_reason": None}]})
+                    while True:
+                        try:
+                            kind, value = queue.get(timeout=0.5)
+                        except Empty:
+                            if not worker.is_alive():
+                                break
+                            continue
+                        if kind == "delta":
+                            if responses:
+                                yield sse({"type": "response.output_text.delta", "delta": value,
+                                           "output_index": 0, "content_index": 0},
+                                          "response.output_text.delta")
+                            else:
+                                yield sse({"id": identifier, "object": "chat.completion.chunk",
+                                           "created": created, "model": options["model"],
+                                           "choices": [{"index": 0, "delta": {"content": value},
+                                                        "finish_reason": None}]})
+                        elif kind == "done":
+                            if responses:
+                                yield sse({"type": "response.completed", "response":
+                                           response_document(identifier, created, options["model"], value)},
+                                          "response.completed")
+                            else:
+                                yield sse({"id": identifier, "object": "chat.completion.chunk",
+                                           "created": created, "model": options["model"],
+                                           "choices": [{"index": 0, "delta": {},
+                                                        "finish_reason": value.finish_reason}]})
+                                if options["include_usage"]:
+                                    yield sse({"id": identifier, "object": "chat.completion.chunk",
+                                               "created": created, "model": options["model"],
+                                               "choices": [], "usage": value.usage})
+                            yield sse("[DONE]")
+                            break
+                        elif kind == "error":
+                            yield sse(error_document(CompatibilityError("Inference failed.",
+                                                                           status=502, code="provider_error")), "error")
+                            yield sse("[DONE]")
+                            break
+                finally:
+                    stopped.set()
+                    worker.join(timeout=0.2)
+
+            return StreamingResponse(events(), media_type="text/event-stream", headers={
+                **_JSON_HEADERS, "X-Accel-Buffering": "no"})
+        except Exception as error:
+            return openai_error(error)
+
+    @app.post("/v1/chat/completions")
+    async def chat_completions(request: Request) -> Response:
+        return await inference(request, responses=False)
+
+    @app.post("/v1/responses")
+    async def responses_create(request: Request) -> Response:
+        return await inference(request, responses=True)
+
+    @app.post("/v1/embeddings")
+    async def embeddings(request: Request) -> Response:
+        try:
+            actor = context(request)
+            _queries(request, set())
+            if openai_compat is None:
+                raise CompatibilityError("Inference gateway is not configured.", status=503)
+            body = await openai_body(request)
+            result = await _call(openai_compat.embeddings, actor, body, uuid4().hex)
+            return JSONResponse(result, headers=_JSON_HEADERS)
+        except Exception as error:
+            return openai_error(error)
 
     @app.post("/v1/providers/{provider}/models/discover", openapi_extra=_BODY_DOCUMENTATION)
     async def discover(request: Request, provider: str) -> JSONResponse:

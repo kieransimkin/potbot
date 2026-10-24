@@ -14,6 +14,15 @@ from potbot.domain.serialization import canonical_json, content_hash
 from potbot.persistence.database import Database
 
 DEFAULT_MODELS: tuple[tuple[str, str], ...] = (
+    # Advisory candidates only: cataloguing never downloads or qualifies weights.
+    ("google/gemma-4-26b-a4b-it", "reasoning"),
+    ("Qwen/Qwen3.5-35B-A3B", "reasoning"),
+    ("LiquidAI/LFM2.5-8B-A1B", "reasoning"),
+    ("microsoft/Phi-4-mini-reasoning", "reasoning"),
+    ("Qwen/Qwen3-30B-A3B-Instruct-2507", "coding"),
+    ("openai/gpt-oss-20b", "reasoning"),
+    ("google/gemma-4-e4b-it", "reasoning"),
+    ("Qwen/Qwen3.5-9B", "coding"),
     ("microsoft/Phi-4-mini-instruct", "reasoning"),
     ("google/gemma-3-4b-it", "reasoning"),
     ("Qwen/Qwen2.5-Coder-7B-Instruct", "coding"),

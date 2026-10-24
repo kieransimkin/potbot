@@ -32,7 +32,6 @@ def test_default_variants_roles_and_unqualified_status_are_explicit() -> None:
         "google/codegemma-7b",
         "Qwen/Qwen2.5-Coder-7B",
         "deepseek-ai/DeepSeek-Coder-V2-Lite-Base",
-        "microsoft/Phi-4-mini-reasoning",
         "google/gemma-3-4b-it-qat-q4_0-gguf",
     ),
 )

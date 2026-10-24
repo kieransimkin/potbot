@@ -38,8 +38,8 @@ def test_exact_deployment_changes_identity() -> None:
         replace(deployment, chat_template_digest="f" * 64),
     ):
         assert altered.fingerprint != deployment.fingerprint
-    assert len(DEFAULT_MODELS) == 5
-    assert [role for _, role in DEFAULT_MODELS].count("reasoning") == 2
+    assert len(DEFAULT_MODELS) == 13
+    assert [role for _, role in DEFAULT_MODELS].count("reasoning") == 8
     with pytest.raises(InvalidInputError):
         replace(deployment, tokenizer_revision="main")
     with pytest.raises(InvalidInputError):

@@ -48,6 +48,8 @@ def _origins(args: argparse.Namespace) -> tuple[str, ...]:
 def application(args: argparse.Namespace) -> FastAPI:
     """Build explicit service dependencies; construction never starts a worker."""
     from potbot.api.server import ServerSettings, create_app
+    from potbot.api.observability import EventLogger
+    from potbot.api.openai_compat import OpenAICompatibility
     from potbot.api.tasks import DevelopmentBearerAuth
     from potbot.controller.execution_events import ExecutionEventService
     from potbot.controller.jobs import JobService
@@ -66,6 +68,15 @@ def application(args: argparse.Namespace) -> FastAPI:
     authenticate = DevelopmentBearerAuth({token: context})
     directory = HostedModelDirectory(database, policy, credentials)
     gateway = hosted_gateway(database, policy, credentials)
+    from potbot.api.jobs_cli import protected_values
+    events = EventLogger(
+        log_path=args.log_file,
+        log_content=args.log_content,
+        protected_values=protected_values(database, credentials) if args.log_content else (),
+    )
+    compatibility = OpenAICompatibility(directory.catalog, policy, credentials, log=events)
+    events.emit("server.ready", host=args.host, port=args.port,
+                content_logging=args.log_content, compatibility_api=True)
     return create_app(
         task_service=TaskService(database),
         job_service=JobService(database),
@@ -75,6 +86,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         invocation_reader=gateway.inspect,
         invocation_list_reader=gateway.list_for_job,
         execution_events=ExecutionEventService(database),
+        openai_compat=compatibility,
         settings=settings,
     )
 
@@ -88,6 +100,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--allowed-origin", action="append", default=[], help="exact browser origin; repeatable"
     )
+    parser.add_argument("--log-file", type=Path, default=None,
+                        help="rotating structured event log path")
+    parser.add_argument("--log-content", action="store_true",
+                        help="opt in to redacted prompt/response logging (sensitive)")
     args = parser.parse_args(argv)
 
     from potbot.api.wire import error_response

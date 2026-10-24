@@ -307,7 +307,7 @@ def test_binary_stream_authentication_is_a_sanitized_protocol_error() -> None:
 def test_catalogue_discovery_is_explicit_and_scoped() -> None:
     _app, client, _service, context = setup()
     with client:
-        assert client.get("/v1/models").json()["data"]["providers"][0]["id"] == "openai"
+        assert client.get("/v1/potbot/models").json()["data"]["providers"][0]["id"] == "openai"
         result = client.post("/v1/providers/gemini/models/discover", json=envelope({}))
         assert result.status_code == 200
         assert result.json()["data"] == {

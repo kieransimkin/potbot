@@ -1,5 +1,6 @@
 # Windows PowerShell 5.1 and PowerShell 7 on Windows; no Python/uv prerequisite.
-# Examples: .\start.ps1 --help; .\start.ps1 dependencies status
+# Examples: .\start.ps1 service install --workspace-id UUID --principal-id UUID --provider-policy providers.json
+#           .\start.ps1 service status; .\start.ps1 credentials api-show
 $PotbotOriginalArguments = @($args)
 $ErrorActionPreference = 'Stop'
 $PotbotRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)

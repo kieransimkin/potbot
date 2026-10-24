@@ -461,9 +461,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "download":
+            console = ConsoleProgress()
+            from potbot.api.observability import EventLogger, TransferProgress
+
+            events = EventLogger(log_path=Path(os.environ["POTBOT_LOG_FILE"])
+                                 if os.environ.get("POTBOT_LOG_FILE") else None)
+            telemetry = TransferProgress(events)
+
+            def progress(event: DownloadProgress) -> None:
+                console(event)
+                telemetry(event)
+
+            events.emit("model.install.start", model=QWEN_MODEL)
             manifest = ensure_standard_model(
-                args.project_root, model_dir=args.model_dir, progress=ConsoleProgress()
+                args.project_root, model_dir=args.model_dir, progress=progress
             )
+            events.emit("model.install.completed", model=QWEN_MODEL, verified=True)
             result = {
                 "schema_version": 1,
                 "model_dir": str(_target(args.project_root, args.model_dir)),

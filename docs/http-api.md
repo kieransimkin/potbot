@@ -83,6 +83,11 @@ scripts/styles/connections to its own origin and prohibits framing.
 `/health` is public liveness metadata, not a database or worker readiness claim.
 `/openapi.json` is a public API definition containing no workspace records.
 
+The OpenAI-compatible `/v1/models`, `/v1/chat/completions`, `/v1/responses`
+and `/v1/embeddings` use standard OpenAI JSON rather than Potbot's native v1
+request envelope. See [the compatibility service guide](openai-compatible-service.md)
+for supported message formats and deployment/privacy boundaries.
+
 ## REST operations
 
 | Method | Path | Behavior |
@@ -97,7 +102,7 @@ scripts/styles/connections to its own origin and prohibits framing.
 | GET | `/v1/jobs/events` | Workspace event replay using an integer `after` sequence. |
 | GET | `/v1/jobs/{job_id}/events` | Event replay restricted to one accessible job. |
 | GET | `/v1/jobs/{job_id}/invocations` | Find safe invocation records and accounting IDs, including after a worker crash left no final job result. |
-| GET | `/v1/models` | Local model profiles, configured providers and cached discovered models. |
+| GET | `/v1/potbot/models` | Local model profiles, configured providers and cached discovered models. |
 | POST | `/v1/providers/{provider}/models/discover` | Explicit bounded model discovery; requires an empty payload. |
 | GET | `/v1/invocations/{invocation_id}` | Scoped hosted invocation state, accounting and policy identity, through the configured safe reader. |
 | POST | `/v1/tasks` | Existing immutable task-contract submission. |

@@ -156,7 +156,7 @@ DASHBOARD_JS = """'use strict';
     $('model-options').replaceChildren(...models.filter(m=>m.provider===provider&&m.text_generation!==false&&m.generation_enabled!==false).map(model=>{const option=node('option');option.value=model.model||model.id||model.canonical_model;return option;}));
   }
   $('connect-form').addEventListener('submit',async event=>{event.preventDefault();const supplied=$('token').value;disconnect();token=supplied;
-    try{const data=await api('/v1/models');connected=true;$('token').value='';$('connection').textContent='Connecting…';catalogueView(data);await refresh();stream();}catch(error){disconnect();notice(error.message);}});
+    try{const data=await api('/v1/potbot/models');connected=true;$('token').value='';$('connection').textContent='Connecting…';catalogueView(data);await refresh();stream();}catch(error){disconnect();notice(error.message);}});
   $('disconnect').addEventListener('click',()=>{disconnect();notice('');});
   $('refresh').addEventListener('click',refresh);
   $('state').addEventListener('change',()=>{pages=[];pageCursor=null;refresh();});

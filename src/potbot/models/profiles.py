@@ -1,4 +1,4 @@
-"""Advisory profiles for Potbot's five default instruction-tuned models.
+"""Advisory profiles for Potbot's default instruction-tuned models.
 
 These profiles are not deployment records. They contain neither invented weight
 revisions nor an inferred usable context or qualification. A runnable deployment
@@ -27,10 +27,20 @@ class ModelProfile:
     notes: tuple[str, ...]
     access_conditions_required: bool = False
     response_protocol: str = "json_envelope_v1"
+    architecture: str = "unknown"
+    total_parameters_b: float | None = None
+    active_parameters_b: float | None = None
+    roles: tuple[str, ...] = ()
+    memory_note: str = "No measured residency or VRAM qualification"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "canonical_model": self.canonical_model,
+            "architecture": self.architecture,
+            "total_parameters_b": self.total_parameters_b,
+            "active_parameters_b": self.active_parameters_b,
+            "roles": list(self.roles or (self.role,)),
+            "memory_note": self.memory_note,
             "role": self.role,
             "prompt_adapter_id": self.prompt_adapter_id,
             "system_message_policy": self.system_message_policy,
@@ -43,6 +53,52 @@ class ModelProfile:
             "qualified": False,
             "live_qualification_required": True,
         }
+
+
+_MODERN_PROFILES = (
+    # Identifiers are operator-verifiable candidate references, not pinned revisions.
+    # Upstream repository spellings and weight availability must be verified at install.
+    ModelProfile("google/gemma-4-26b-a4b-it", "reasoning", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/google",),
+                 ("MoE candidate; verify exact repository and tokenizer before download.",),
+                 access_conditions_required=True, architecture="moe", total_parameters_b=26,
+                 active_parameters_b=4, roles=("reasoning", "coding")),
+    ModelProfile("Qwen/Qwen3.5-35B-A3B", "reasoning", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/Qwen",),
+                 ("35B-class MoE candidate; Qwen3.6 naming is not assumed to be a verified repository.",),
+                 architecture="moe", total_parameters_b=35, active_parameters_b=3,
+                 roles=("reasoning", "coding")),
+    ModelProfile("LiquidAI/LFM2.5-8B-A1B", "reasoning", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/LiquidAI",),
+                 ("Verify architecture and model repository before selecting an inference backend.",),
+                 architecture="moe", total_parameters_b=8, active_parameters_b=1,
+                 roles=("reasoning", "coding")),
+    ModelProfile("microsoft/Phi-4-mini-reasoning", "reasoning", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/microsoft/Phi-4-mini-reasoning",),
+                 ("Compact dense reasoning candidate; not the Phi-4-mini-instruct model.",),
+                 architecture="dense", total_parameters_b=4,
+                 roles=("reasoning",)),
+    ModelProfile("Qwen/Qwen3-30B-A3B-Instruct-2507", "coding", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507",),
+                 ("All expert weights count toward memory residency.",),
+                 architecture="moe", total_parameters_b=30, active_parameters_b=3,
+                 roles=("reasoning", "coding")),
+    ModelProfile("openai/gpt-oss-20b", "reasoning", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/openai/gpt-oss-20b",),
+                 ("Backend and quantization require independent qualification.",),
+                 architecture="moe", total_parameters_b=20, active_parameters_b=4,
+                 roles=("reasoning", "coding")),
+    ModelProfile("google/gemma-4-e4b-it", "reasoning", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/google",),
+                 ("Verify exact repository and access conditions before download.",),
+                 access_conditions_required=True, architecture="dense", total_parameters_b=4,
+                 roles=("reasoning", "coding")),
+    ModelProfile("Qwen/Qwen3.5-9B", "coding", "tokenizer-native-v1", "native",
+                 ("https://huggingface.co/Qwen",),
+                 ("Dense low-memory candidate; qualify quantization and context separately.",),
+                 architecture="dense", total_parameters_b=9,
+                 roles=("reasoning", "coding")),
+)
 
 
 _PROFILES = (
@@ -132,11 +188,11 @@ _PROFILES = (
 
 def default_model_profiles() -> tuple[ModelProfile, ...]:
     """Return profiles in the same stable order as the durable model catalogue."""
-    return _PROFILES
+    return _MODERN_PROFILES + _PROFILES
 
 
 def get_model_profile(canonical_model: str) -> ModelProfile:
-    for profile in _PROFILES:
+    for profile in default_model_profiles():
         if profile.canonical_model == canonical_model:
             return profile
     raise InvalidInputError("the exact model has no installed default adapter profile")

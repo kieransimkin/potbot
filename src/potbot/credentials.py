@@ -338,6 +338,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status", help="show whether native credentials exist, never their values")
     commands.add_parser("service-status", help="inspect hosted API credential presence")
+    commands.add_parser("api-show", help="display the API token to an interactive terminal only")
     for name in ("service-set", "service-delete"):
         command = commands.add_parser(name)
         command.add_argument("--name", required=True, choices=SERVICE_CREDENTIAL_NAMES)
@@ -357,6 +358,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     name: store.get(name) is not None for name in SERVICE_CREDENTIAL_NAMES
                 },
             }
+        elif args.command == "api-show":
+            if not sys.stdout.isatty() or not sys.stdin.isatty():
+                raise InvalidInputError("API token display requires an interactive terminal.")
+            token = store.get("api.access_token")
+            if token is None:
+                raise CapabilityUnavailableError("No API token is configured.")
+            print("Potbot API key: " + token, flush=True)
+            return 0
         elif args.command == "service-set":
             value = _hidden_prompt(f"Value for {args.name} (hidden): ")
             if any(not 33 <= ord(char) <= 126 for char in value):

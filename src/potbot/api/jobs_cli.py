@@ -258,7 +258,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             # restricted application login's provisioned workspace authority.
             with database.transaction(context):
                 pass
-            runner = HostedJobRunner(service, hosted_gateway(database, policy))
+            from potbot.api.observability import EventLogger
+            from potbot.service_credentials import ServiceCredentials
+            import os
+
+            logger = EventLogger(
+                log_path=Path(os.environ["POTBOT_LOG_FILE"]) if os.environ.get("POTBOT_LOG_FILE") else None,
+                log_content=os.environ.get("POTBOT_LOG_CONTENT") == "1",
+                protected_values=protected_values(database, ServiceCredentials())
+                                 if os.environ.get("POTBOT_LOG_CONTENT") == "1" else (),
+            )
+            runner = HostedJobRunner(service, hosted_gateway(database, policy), logger=logger)
             if args.once:
                 job = runner.run_once(context, args.worker_id)
                 result = {"job": job, "idle": job is None}

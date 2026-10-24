@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Bootstrap the pinned uv runtime, synchronize the lock, then enter Potbot.
+# Example: ./start.sh service install --workspace-id UUID --principal-id UUID --provider-policy providers.json
 set -euo pipefail
 
 POTBOT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
