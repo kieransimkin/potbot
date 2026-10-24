@@ -81,3 +81,28 @@ def test_interrupted_cleanup_preserves_private_recovery_manifest(
     if os.name != "nt":
         assert stat.S_IMODE(recovery[0].stat().st_mode) == 0o600
     assert all(capability not in path.read_text() for path in artifacts.iterdir())
+
+
+def test_denied_private_recovery_storage_fails_before_database_creation(
+    check_script: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifacts = tmp_path / "artifacts"
+    commands = []
+    monkeypatch.setattr(sys, "argv", ["check.py", "--with-postgres", "--artifacts", str(artifacts)])
+
+    def process(command, **kwargs):
+        commands.append(command)
+        if command[:2] == ["uv", "build"]:
+            distribution = Path(command[command.index("--out-dir") + 1])
+            distribution.mkdir()
+            (distribution / "test-wheel.whl").touch()
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    def denied(*args, **kwargs):
+        raise PermissionError("private recovery storage denied")
+
+    monkeypatch.setattr(check_script.subprocess, "run", process)
+    monkeypatch.setattr(check_script, "allocate_file", denied)
+    assert check_script.main() == 1
+    assert not any("db" in command for command in commands)
+    assert json.loads((artifacts / "summary.json").read_text())["success"] is False

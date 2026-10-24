@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from potbot.controller.execution_cogs import ExecutionCogRuntime
     from potbot.controller.tool_contracts import ToolContractRuntime
     from potbot.controller.tool_inventory import ToolInventoryRuntime
     from potbot.debugging.cog_runtime import DebuggerCogRuntime
@@ -227,8 +228,13 @@ class BoundCogRegistry:
     execution_profile: bool = False
     inventory_profile: bool = False
     contracts_profile: bool = False
+    provenance_profile: bool = False
 
     def installed(self) -> tuple[CogSignature, ...]:
+        if self.provenance_profile:
+            from potbot.cogs.execution import EXECUTION_COGS
+
+            return (*INSTALLED_COGS, *EXECUTION_COGS)
         if self.contracts_profile:
             from potbot.cogs.tool_contracts import CONTRACT_COGS
 
@@ -245,13 +251,26 @@ class BoundCogRegistry:
 
     def __post_init__(self) -> None:
         from potbot.cogs.debugger import debugger_cog_snapshot
+        from potbot.cogs.execution import execution_cog_snapshot
         from potbot.cogs.inventory import inventory_cog_snapshot
         from potbot.cogs.tool_contracts import contract_cog_snapshot
 
-        if sum((self.execution_profile, self.inventory_profile, self.contracts_profile)) > 1:
+        if (
+            sum(
+                (
+                    self.execution_profile,
+                    self.inventory_profile,
+                    self.contracts_profile,
+                    self.provenance_profile,
+                )
+            )
+            > 1
+        ):
             raise ScopeDeniedError("Choose one exact installed execution profile")
         expected = (
-            contract_cog_snapshot()
+            execution_cog_snapshot()
+            if self.provenance_profile
+            else contract_cog_snapshot()
             if self.contracts_profile
             else inventory_cog_snapshot()
             if self.inventory_profile
@@ -308,6 +327,12 @@ class BoundCogRegistry:
         return cls(debugger_cog_snapshot(), execution_profile=True)
 
     @classmethod
+    def provenance(cls) -> BoundCogRegistry:
+        from potbot.cogs.execution import execution_cog_snapshot
+
+        return cls(execution_cog_snapshot(), provenance_profile=True)
+
+    @classmethod
     def tool_contracts(cls) -> BoundCogRegistry:
         from potbot.cogs.tool_contracts import contract_cog_snapshot
 
@@ -325,17 +350,24 @@ class BoundCogRegistry:
         source: TypedCogValue,
         context: CogRunContext,
         *,
-        controller: DebuggerCogRuntime | ToolInventoryRuntime | ToolContractRuntime,
+        controller: DebuggerCogRuntime
+        | ToolInventoryRuntime
+        | ToolContractRuntime
+        | ExecutionCogRuntime,
     ) -> CogOutcome:
         """Explicit async execution path. Pure transform() never dispatches tools."""
         from potbot.cogs.debugger import DEBUGGER_COGS
+        from potbot.cogs.execution import EXECUTION_COGS
         from potbot.cogs.inventory import SIGNATURE
         from potbot.cogs.tool_contracts import CONTRACT_COGS
+        from potbot.controller.execution_cogs import ExecutionCogRuntime
         from potbot.controller.tool_contracts import ToolContractRuntime
         from potbot.controller.tool_inventory import ToolInventoryRuntime
         from potbot.debugging.cog_runtime import DebuggerCogRuntime
 
-        if self.contracts_profile and isinstance(controller, ToolContractRuntime):
+        if self.provenance_profile and isinstance(controller, ExecutionCogRuntime):
+            selected = next((s for s in EXECUTION_COGS if str(s.cog_ref) == cog_ref), None)
+        elif self.contracts_profile and isinstance(controller, ToolContractRuntime):
             selected = next((s for s in CONTRACT_COGS if str(s.cog_ref) == cog_ref), None)
         elif self.inventory_profile and isinstance(controller, ToolInventoryRuntime):
             selected = SIGNATURE if str(SIGNATURE.cog_ref) == cog_ref else None
@@ -347,6 +379,7 @@ class BoundCogRegistry:
             "potbot.cogs.debugger.execute",
             "potbot.cogs.inventory.execute",
             "potbot.cogs.tool_contracts.execute",
+            "potbot.cogs.execution.execute",
         }:
             raise ScopeDeniedError("Execution Cog handler is not installed")
         if context.cog_snapshot_hash != self.snapshot.fingerprint:

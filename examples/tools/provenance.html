@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Potbot recorded execution provenance</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 ui-monospace,monospace;background:#101923;color:#edf3f8}*{box-sizing:border-box}body{margin:0 auto;max-width:1220px;padding:32px}h1{font-size:32px;line-height:1.2;margin:8px 0 12px}h2{font-size:19px}p{max-width:100ch;color:#b9c7d4}.eyebrow{color:#81cfc0;font-size:13px;letter-spacing:.12em}.controls{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0}button,input{font:inherit}button{background:#25495b;border:1px solid #7ba9b4;color:#fff;border-radius:6px;padding:10px 18px;cursor:pointer}button:disabled{opacity:.4;cursor:default}input{max-width:100%}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.card{background:#192b39;border:1px solid #365264;border-radius:9px;padding:16px}.card span{display:block;color:#aebdca;font-size:12px}.card strong{font-size:23px;color:#a3e0c4}section{background:#142431;border:1px solid #355164;border-radius:10px;padding:18px;margin:16px 0}.identity{font-size:12px;overflow-wrap:anywhere;color:#b9cad6}progress{width:100%;accent-color:#86d1b9}.columns{display:grid;grid-template-columns:1fr 1.7fr;gap:16px}.run{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #254251;font-size:13px}.run b{color:#b5d5e4;font-weight:400}.run[data-state=completed] b{color:#98dfb6}.run[data-state=failed] b,.run[data-state=indeterminate] b{color:#f4b9a5}.table{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;padding:6px 7px;border-bottom:1px solid #254251;white-space:nowrap}th{color:#acd2dd}.notice{font-size:13px;color:#f0d1a3}.status{min-height:24px;color:#97d7c2}details p{font-size:13px}.profile{font-size:13px;overflow-wrap:anywhere}@media(max-width:800px){body{padding:16px}.cards{grid-template-columns:1fr 1fr}.columns{grid-template-columns:1fr}}
+</style>
+<body>
+<div class="eyebrow">POTBOT · RETAINED CI FIXTURE</div>
+<h1>A recorded tool run, from input to receipt</h1>
+<p>Load the downloaded <code>execution-provenance.json</code> CI artifact. This viewer replays its recorded observations at fixed intervals. It does not run tools, verify signatures itself or grant execution rights.</p>
+<div class="controls"><input id="file" aria-label="Load recorded provenance JSON" type="file" accept="application/json,.json"><button id="play" disabled>Replay recording</button><button id="reset" disabled>Reset</button></div>
+<div id="status" class="status" role="status">No recording loaded.</div>
+<div class="cards"><div class="card"><span>Signed family</span><strong id="runs">—</strong></div><div class="card"><span>Recorded events</span><strong id="count">—</strong></div><div class="card"><span>Original / after replay effects</span><strong id="effects">—</strong></div><div class="card"><span>Recorded signature status</span><strong id="signature">—</strong></div></div>
+<section><h2>Pinned receipt and source</h2><div id="identity" class="identity">Load a retained test artifact to inspect its identity.</div><p class="notice">Synthetic fixture keys. Outcome verification remains “not assessed”. Scripted work-kind handlers do not qualify live model, browser or remote-device integrations.</p><progress id="progress" max="1" value="0" aria-label="Recorded event replay"></progress></section>
+<div class="columns"><section><h2>Distinct causal work runs</h2><div id="tree"></div></section><section><h2>Recorded start, progress and completion</h2><div class="table"><table><thead><tr><th>Seq</th><th>Kind</th><th>Stage</th><th>Wall ms</th><th>CPU ms*</th></tr></thead><tbody id="events"></tbody></table></div><p>*Measured controller-process interval; nested intervals overlap. Target CPU, RAM, GPU and cost stay unavailable.</p></section></div>
+<section><h2>Actual cProfile comparison in this fixture</h2><div id="profile" class="profile">No measurement loaded.</div><details><summary>Qualification and reading the recording</summary><p>The fixture executes actual Python CLI and MCP stdio subprocesses, nested installed Cogs, PostgreSQL persistence and Ed25519 sealing. Other work kinds use scripted host handlers. One profiler-off/on workload compares the same result hash and records a single timing sample; its difference is not a stable overhead benchmark. “Valid at seal” is historical verification recorded by the Python service, not fresh authority or independent outcome verification. No private key material is loaded by this viewer.</p></details></section>
+<script>
+"use strict";
+const byId = id => document.getElementById(id);
+let data, events = [], index = 0, timer = null;
+const runNodes = new Map();
+function stop(){if(timer!==null)clearInterval(timer);timer=null;byId("play").textContent="Replay recording";}
+function reset(){stop();index=0;runNodes.clear();byId("tree").replaceChildren();byId("events").replaceChildren();byId("progress").value=0;byId("status").textContent="Recording ready. No tools will execute.";document.body.dataset.state="ready";}
+function tick(){
+  if(index>=events.length){stop();byId("status").textContent="Recorded trace complete. Original effects unchanged during receipt replay.";document.body.dataset.state="complete";return;}
+  const e=events[index++];
+  let row=runNodes.get(e.run_id);
+  if(!row){row=document.createElement("div");row.className="run";const label=document.createElement("span");label.textContent=e.telemetry.work_kind+" · "+e.run_id.slice(0,8);label.title=e.parent_run_id?"Direct parent: "+e.parent_run_id:"Root input";const state=document.createElement("b");row.append(label,state);byId("tree").append(row);runNodes.set(e.run_id,row);}
+  row.dataset.state=e.stage;row.lastChild.textContent=e.stage;
+  const record=document.createElement("tr");
+  for(const value of [e.sequence,e.telemetry.work_kind,e.stage,e.elapsed_ms,e.telemetry.metrics.controller_cpu_ms.value??"Unavailable"]){const cell=document.createElement("td");cell.textContent=String(value);record.append(cell);}
+  byId("events").append(record);while(byId("events").children.length>24)byId("events").firstChild.remove();
+  byId("progress").value=index;byId("status").textContent=index+" / "+events.length+" original observations · "+e.telemetry.phase;
+}
+byId("file").addEventListener("change",async event=>{
+  stop();try{
+    const file=event.target.files[0];if(!file||file.size>32*1024*1024)throw Error("Choose a retained JSON artifact no larger than 32 MiB.");
+    data=JSON.parse(await file.text());events=data.trace.events;
+    if(data.result!=="passed"||!Array.isArray(events)||events.length>2048||!Array.isArray(data.trace.runs)||data.trace.runs.length>256||!data.receipt.trace_complete)throw Error("Not a complete supported fixture artifact.");
+    for(const e of events)if(typeof e.run_id!=="string"||typeof e.stage!=="string"||typeof e.sequence!=="number"||!e.telemetry?.metrics?.controller_cpu_ms)throw Error("Malformed event projection.");
+    if(data.original_effects!==data.effects_after_replay)throw Error("Fixture did not preserve the original effect count.");
+    byId("runs").textContent=data.receipt.run_count;byId("count").textContent=events.length;byId("effects").textContent=data.original_effects+" / "+data.effects_after_replay;byId("signature").textContent=data.receipt.signature_status.replaceAll("_"," ");
+    byId("identity").textContent="Version "+data.version+" · source "+data.source_commit+" · catalog "+data.catalog_hash+" · trace "+data.receipt.trace_sha256;
+    const p=data.profiling[0];byId("profile").textContent="Off: "+p.plain_ns+" ns · on: "+p.profiled_ns+" ns · difference: "+p.difference_ns+" ns · same result SHA-256: "+p.output_hash+" · single sample, noise not estimated";
+    byId("progress").max=events.length;byId("play").disabled=false;byId("reset").disabled=false;reset();
+  }catch(error){events=[];byId("play").disabled=true;byId("reset").disabled=true;byId("status").textContent=String(error.message);document.body.dataset.state="error";}
+});
+byId("play").addEventListener("click",()=>{if(timer!==null){stop();return;}if(index>=events.length)reset();document.body.dataset.state="playing";byId("play").textContent="Pause";timer=setInterval(tick,80);});
+byId("reset").addEventListener("click",reset);
+</script>
+</body>
+</html>

@@ -11,16 +11,19 @@ import re
 import subprocess
 import sys
 import tarfile
-import tempfile
 import tomllib
 import zipfile
 from pathlib import Path
+
+from potbot.tools.temporary import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(*command: str, cwd: Path = ROOT) -> None:
-    subprocess.run(command, cwd=cwd, check=True, timeout=240)
+    scratch = TemporaryDirectory(prefix="potbot-release-process-", dir=ROOT / ".potbot/temporary")
+    with scratch:
+        subprocess.run(command, cwd=cwd, env=scratch.environment(), check=True, timeout=240)
 
 
 def main() -> None:
@@ -47,7 +50,7 @@ def main() -> None:
         raise SystemExit("Release output must be fresh; never overwrite distributions")
     scratch = ROOT / ".potbot/release-tmp"
     scratch.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=scratch) as temporary:
+    with TemporaryDirectory(dir=scratch) as temporary:
         probe = Path(temporary) / "probe"
         probe.write_bytes(b"release-probe")
         if probe.read_bytes() != b"release-probe":
@@ -73,6 +76,15 @@ def main() -> None:
             "tools/semantic_contracts.py",
             "cogs/tool_contracts.py",
             "controller/tool_contracts.py",
+            "cogs/execution.py",
+            "controller/execution_cogs.py",
+            "controller/execution_journal.py",
+            "controller/execution_receipts.py",
+            "tools/execution_contracts.py",
+            "tools/execution_schemas.py",
+            "tools/temporary.py",
+            "tools/patch_worker.py",
+            "persistence/execution_provenance_schema.py",
         ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
                 raise SystemExit("Wheel debugger source differs from build input")
@@ -85,7 +97,7 @@ def main() -> None:
             raise SystemExit("Private/cache material found in distribution")
         if name.endswith((".safetensors", ".gguf", ".ckpt", ".pth", ".onnx")):
             raise SystemExit("Model weights found in distribution")
-    with tempfile.TemporaryDirectory(dir=scratch) as temporary:
+    with TemporaryDirectory(dir=scratch) as temporary:
         environment = Path(temporary) / "smoke"
         run("uv", "venv", "--python", sys.executable, str(environment))
         python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -99,6 +111,7 @@ def main() -> None:
             "assert len(BoundCogRegistry.debugger().installed()) == 25; "
             "assert len(BoundCogRegistry.tool_inventory().installed()) == 5; "
             "assert len(BoundCogRegistry.tool_contracts().installed()) == 7; "
+            "assert len(BoundCogRegistry.provenance().installed()) == 23; "
             "print('Clean wheel version and installed SYN Cog catalog verified')",
             cwd=Path(temporary),
         )

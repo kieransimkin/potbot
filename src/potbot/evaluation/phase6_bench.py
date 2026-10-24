@@ -14,7 +14,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,6 +40,7 @@ from potbot.domain.search_graph import (
     SolvePolicy,
 )
 from potbot.domain.serialization import canonical_json, content_hash
+from potbot.tools.temporary import TemporaryDirectory
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,7 +246,7 @@ def benchmark(*, max_candidates: int = 2) -> dict[str, Any]:
         raise ValueError("The deterministic benchmark supports one or two attempts")
     rows: list[dict[str, Any]] = []
     for case in CASES:
-        with tempfile.TemporaryDirectory(prefix="potbot-phase6-bench-") as temporary:
+        with TemporaryDirectory(prefix="potbot-phase6-bench-") as temporary:
             scratch = Path(temporary)
             base = scratch / "baseline"
             base.mkdir()

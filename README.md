@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev5`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev6`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -50,6 +50,8 @@ The [Python-first debugger Cog interface](docs/implementation/08-debugger-python
 The [source inventory Cog](docs/implementation/11-tool-source-inventory.md) implements T01.1 over existing committed repository snapshots. It maps every captured source module to its integration owner and roadmap stages, retains source/lock hashes and records monitored progress. Existing adapter code is distinguished from installation and host qualification; no inspected code is imported or executed. Its required CI gate uses real PostgreSQL, sealed SYN definitions and API replay.
 
 The [canonical semantic tool contracts](docs/implementation/12-canonical-tool-contracts.md) implement T01.2 with versioned tool/capability/implementation/installation/invocation/evidence records. Three installed SYN Cogs search a host-owned corpus, round-trip checked contracts and convert explicitly typed units. Inherited Ember checks and start/progress/completion statistics use the existing semantic and execution services; mandatory real PostgreSQL/API acceptance remains separate from the documentation fixture.
+
+The [execution provenance core](docs/implementation/13-execution-provenance.md) adds 17 registered work-kind Cogs and seal/replay Cogs with policy-bound causal runs, signed trace artifacts and read-only historical inspection. T01.3 remains in progress for universal production adoption, general artifact range transport and remote hardware qualification. [Shared temporary storage](docs/implementation/14-windows-temporary-storage.md) preserves inherited Windows scratch ACLs across tests, builds and workers, with actual file-lifecycle checks and explicit cleanup failures.
 
 ## Install and check
 

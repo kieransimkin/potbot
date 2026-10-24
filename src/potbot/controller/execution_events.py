@@ -18,6 +18,28 @@ class ExecutionEventService:
         self._db = database
 
     def append(self, context: WorkspaceContext, event: ExecutionEventInput) -> dict[str, Any]:
+        with self._db.transaction(context) as connection:
+            return self._append(connection, context, event)
+
+    @staticmethod
+    def _lock_cursor(connection: Any, context: WorkspaceContext) -> None:
+        connection.execute(
+            "INSERT INTO job_event_cursors(workspace_id) VALUES (%s) ON CONFLICT DO NOTHING",
+            (context.workspace_id,),
+        )
+        connection.execute(
+            "SELECT last_sequence FROM job_event_cursors WHERE workspace_id=%s FOR UPDATE",
+            (context.workspace_id,),
+        ).fetchone()
+
+    def _append(
+        self,
+        connection: Any,
+        context: WorkspaceContext,
+        event: ExecutionEventInput,
+        *,
+        bound: bool = False,
+    ) -> dict[str, Any]:
         import json
 
         from psycopg.types.json import Jsonb
@@ -28,61 +50,73 @@ class ExecutionEventService:
             f"syn://event/{event.parent_event_id}"
         ):
             raise InvalidInputError("Parent-event trigger must reference its exact event identity")
-        with self._db.transaction(context) as connection:
-            if event.parent_event_id is not None:
-                parent = connection.execute(
-                    "SELECT run_id,sequence FROM syn_execution_events "
-                    "WHERE workspace_id=%s AND id=%s",
-                    (context.workspace_id, event.parent_event_id),
+        self._lock_cursor(connection, context)
+        if not bound:
+            exists = connection.execute(
+                "SELECT to_regclass('execution_run_contracts') AS relation"
+            ).fetchone()
+            if event.event_type_ref == "syn://type/potbot-work-event-v1" or (
+                exists["relation"] is not None
+                and connection.execute(
+                    "SELECT 1 FROM execution_run_contracts WHERE workspace_id=%s AND run_id=%s",
+                    (context.workspace_id, event.run_id),
                 ).fetchone()
-                if parent is None or parent["run_id"] != event.parent_run_id:
-                    raise ScopeDeniedError("Causal parent cannot be verified in this workspace")
-            # The same cursor row is locked and incremented by legacy job events.
-            connection.execute(
-                "INSERT INTO job_event_cursors(workspace_id) VALUES (%s) ON CONFLICT DO NOTHING",
-                (context.workspace_id,),
-            )
-            counter = connection.execute(
-                "UPDATE job_event_cursors SET last_sequence=last_sequence+1 "
-                "WHERE workspace_id=%s RETURNING last_sequence",
-                (context.workspace_id,),
+                is not None
+            ):
+                raise ScopeDeniedError("Pinned work events require their authenticated journal")
+        if event.parent_event_id is not None:
+            parent = connection.execute(
+                "SELECT run_id,sequence FROM syn_execution_events WHERE workspace_id=%s AND id=%s",
+                (context.workspace_id, event.parent_event_id),
             ).fetchone()
-            identifier = uuid4()
-            row = connection.execute(
-                """INSERT INTO syn_execution_events (
-                    workspace_id,sequence,id,event_ref,event_type_ref,event_type_version,
-                    subject_type_ref,subject_version,run_id,parent_run_id,parent_event_id,
-                    trigger_kind,trigger_ref,trigger_input_sha256,emitter_run_id,
-                    emitter_principal_id,stage,input_artifact_ref,output_artifact_ref,
-                    output_sha256,elapsed_ms,telemetry
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                RETURNING *""",
-                (
-                    context.workspace_id,
-                    counter["last_sequence"],
-                    identifier,
-                    f"syn://event/{identifier}",
-                    event.event_type_ref,
-                    event.event_type_version,
-                    event.subject_type_ref,
-                    event.subject_version,
-                    event.run_id,
-                    event.parent_run_id,
-                    event.parent_event_id,
-                    event.trigger_kind,
-                    event.trigger_ref,
-                    event.trigger_input_sha256,
-                    event.emitter_run_id,
-                    context.principal_id,
-                    event.stage,
-                    event.input_artifact_ref,
-                    event.output_artifact_ref,
-                    event.output_sha256,
-                    event.elapsed_ms,
-                    Jsonb(json.loads(event.telemetry_json)),
-                ),
-            ).fetchone()
-            return self._public(dict(row))
+            if parent is None or parent["run_id"] != event.parent_run_id:
+                raise ScopeDeniedError("Causal parent cannot be verified in this workspace")
+        # The same cursor row is locked and incremented by legacy job events.
+        connection.execute(
+            "INSERT INTO job_event_cursors(workspace_id) VALUES (%s) ON CONFLICT DO NOTHING",
+            (context.workspace_id,),
+        )
+        counter = connection.execute(
+            "UPDATE job_event_cursors SET last_sequence=last_sequence+1 "
+            "WHERE workspace_id=%s RETURNING last_sequence",
+            (context.workspace_id,),
+        ).fetchone()
+        identifier = uuid4()
+        row = connection.execute(
+            """INSERT INTO syn_execution_events (
+                workspace_id,sequence,id,event_ref,event_type_ref,event_type_version,
+                subject_type_ref,subject_version,run_id,parent_run_id,parent_event_id,
+                trigger_kind,trigger_ref,trigger_input_sha256,emitter_run_id,
+                emitter_principal_id,stage,input_artifact_ref,output_artifact_ref,
+                output_sha256,elapsed_ms,telemetry
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING *""",
+            (
+                context.workspace_id,
+                counter["last_sequence"],
+                identifier,
+                f"syn://event/{identifier}",
+                event.event_type_ref,
+                event.event_type_version,
+                event.subject_type_ref,
+                event.subject_version,
+                event.run_id,
+                event.parent_run_id,
+                event.parent_event_id,
+                event.trigger_kind,
+                event.trigger_ref,
+                event.trigger_input_sha256,
+                event.emitter_run_id,
+                context.principal_id,
+                event.stage,
+                event.input_artifact_ref,
+                event.output_artifact_ref,
+                event.output_sha256,
+                event.elapsed_ms,
+                Jsonb(json.loads(event.telemetry_json)),
+            ),
+        ).fetchone()
+        return self._public(dict(row))
 
     def events(
         self,

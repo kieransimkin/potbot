@@ -8,7 +8,7 @@ schema and catalog hashes. This is not a general JSON Schema implication solver.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from potbot.cogs.contracts import CogSignature, TypedCogValue
@@ -253,36 +253,57 @@ def require_compatible_schema(before: dict[str, Any], after: dict[str, Any]) -> 
 @dataclass(frozen=True, slots=True)
 class ToolSemanticCatalog:
     snapshot: SynSnapshot
+    _schemas_json: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         merged = merge_types(self.snapshot)
         known = {type_identity(t.ref): t for t in merged}
         ancestry = type_ancestors(merged)
-        for ref, schema in schemas().items():
+        from potbot.tools.execution_schemas import schemas as execution_schemas
+
+        definitions = schemas()
+        definitions.update(
+            {
+                ref: schema
+                for ref, schema in execution_schemas().items()
+                if type_identity(ref) in known
+            }
+        )
+        for ref, schema in definitions.items():
             row = known.get(type_identity(ref))
             if row is None or "synny://type/potbot-data-record" not in ancestry[str(row.ref)]:
                 raise InvalidInputError("Canonical contract must be a registered data record")
             if json.loads(row.metadata_json).get("schema") != schema:
                 raise InvalidInputError("Canonical schema differs from its sealed Type")
+        object.__setattr__(self, "_schemas_json", canonical_json(definitions))
+
+    def _definitions(self) -> dict[str, dict[str, Any]]:
+        # Only compiled, whitelisted schemas are executable. Arbitrary metadata
+        # cannot install a validator or introduce a network-resolving $ref.
+        result: dict[str, dict[str, Any]] = json.loads(self._schemas_json)
+        return result
 
     def schema_hash(self, type_ref: str) -> str:
         identity = type_identity(type_ref)
         try:
             return content_hash(
-                next(v for k, v in schemas().items() if type_identity(k) == identity)
+                next(v for k, v in self._definitions().items() if type_identity(k) == identity)
             )
         except StopIteration as error:
             raise InvalidInputError("Unknown or unregistered canonical Type") from error
 
-    def validate(self, value: TypedCogValue) -> None:
+    def validate(self, value: TypedCogValue, *, _depth: int = 0) -> None:
         from jsonschema import Draft202012Validator
 
         self.schema_hash(value.type_ref)
+        if _depth > 8:
+            raise InvalidInputError("Typed execution envelope nesting exceeds its bound")
         # Strict canonical JSON bounds and duplicate checks apply to every value.
         if len(canonical_json(value.value).encode("utf-8")) > 131072:
             raise InvalidInputError("Canonical contract exceeds 128 KiB")
-        ref = next(k for k in schemas() if type_identity(k) == type_identity(value.type_ref))
-        schema = schemas()[ref]
+        definitions = self._definitions()
+        ref = next(k for k in definitions if type_identity(k) == type_identity(value.type_ref))
+        schema = definitions[ref]
         if next(Draft202012Validator(schema).iter_errors(value.value), None) is not None:
             raise InvalidInputError("Value violates its registered semantic schema")
         parsers: dict[str, type[Descriptor]] = {
@@ -294,6 +315,11 @@ class ToolSemanticCatalog:
         }
         if ref in parsers:
             parsers[ref].from_dict(value.value)
+        from potbot.tools.execution_contracts import REQUEST, RESULT
+
+        if ref in {REQUEST, RESULT}:
+            payload = value.value["input" if ref == REQUEST else "result"]
+            self.validate(TypedCogValue(payload["type_ref"], payload["value"]), _depth=_depth + 1)
         available = {type_identity(t.ref) for t in merge_types(self.snapshot)}
         for key, item in value.value.items():
             if key.endswith("type_ref") and type_identity(item) not in available:
