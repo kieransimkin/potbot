@@ -98,6 +98,8 @@ jobs:
         run: uv run --locked python -m pytest -q tests/integration/test_process_isolation.py
       - name: Start real PostgreSQL with pgvector
         run: docker compose up --detach --wait --wait-timeout 90
+      - name: Verify bounded artifact Cogs independently on real PostgreSQL
+        run: uv run --locked python -m pytest -q tests/integration/test_artifact_range_cogs.py
       - name: Verify application, repositories, migrations, and database isolation
         run: uv run --locked python scripts/check.py --with-postgres --with-sandbox
       - name: Verify source-preview release packaging and clean wheel install

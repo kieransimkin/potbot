@@ -32,7 +32,12 @@ from potbot.domain.serialization import content_hash
 from potbot.persistence.artifacts import ArtifactIntegrityError
 from potbot.semantics.service import SynService
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES, READ_BLOCK_BYTES, schemas
-from potbot.tools.execution_contracts import WORK_KINDS, ExecutionPolicy, WorkBinding
+from potbot.tools.execution_contracts import (
+    MAX_INLINE_BYTES,
+    WORK_KINDS,
+    ExecutionPolicy,
+    WorkBinding,
+)
 from potbot.tools.semantic_contracts import QUERY, RESULTS
 from tests.integration.test_repository_states import setup
 
@@ -59,7 +64,7 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
     snapshot = UUID(sealed["scope"]["snapshot_id"])
     policy = ExecutionPolicy("a" * 64, "b" * 64, state["content_digest"], __version__)
     service = ArtifactRangeService(app_env.db, artifacts, app_env.context, policy=policy)
-    raw = bytes(range(256)) * 1024 + b"\xff end of retained binary evidence\x00"
+    raw = bytes(range(256)) * 512 + b"\xff end of retained binary evidence\x00"
     artifact = artifacts.put(app_env.context, raw, "application/octet-stream")
     lease_id, task = str(uuid4()), uuid4()
     request = {
@@ -227,6 +232,20 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
         with pytest.raises(ScopeDeniedError):
             invoke(READ, {**pinned, "lease_id": racing["lease_id"], "offset": 0, "length": 1})
     missing = {**request, "lease_id": str(uuid4())}
+    grant_race = {**request, "lease_id": str(uuid4())}
+    invoke(OPEN, grant_race)
+
+    def revoke_grant_during_io(*args, **kwargs):
+        result = original_range(*args, **kwargs)
+        revoked.append(True)
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(artifacts, "read_range", revoke_grant_during_io)
+        with pytest.raises(ScopeDeniedError):
+            invoke(READ, {**pinned, "lease_id": grant_race["lease_id"], "offset": 0, "length": 1})
+    revoked.clear()
+    invoke(CLOSE, {**pinned, "lease_id": grant_race["lease_id"]})
     invoke(OPEN, missing)
     path.unlink()
     with pytest.raises(SourceUnavailableError):
@@ -297,6 +316,7 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
             "chunks": chunks,
             "events": events,
             "maximum_range_bytes": MAX_RANGE_BYTES,
+            "inline_limit_bytes": MAX_INLINE_BYTES,
             "maximum_read_request_bytes": READ_BLOCK_BYTES,
             "restart_resume": "passed",
             "rest_readback": "passed",
@@ -310,6 +330,7 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
                 "closed_lease",
                 "expired_lease",
                 "revoked_during_io",
+                "host_grant_revoked_during_io",
                 "missing_bytes",
                 "revoked_admission",
             ],

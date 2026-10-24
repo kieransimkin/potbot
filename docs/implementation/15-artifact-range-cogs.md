@@ -10,7 +10,7 @@ access and cannot load code.
 | Cog | Purpose |
 | --- | --- |
 | `syn://cog/potbot-artifact-open-read-v1` | Pin an artifact's exact ID/SHA-256/length to an actor and policy; create an expiring read lease. |
-| `syn://cog/potbot-artifact-read-range-v1` | Return at most 32 KiB of verified opaque bytes, base64-encoded in a typed result. |
+| `syn://cog/potbot-artifact-read-range-v1` | Return at most 8 KiB of verified opaque bytes, base64-encoded in a typed result. |
 | `syn://cog/potbot-artifact-close-read-v1` | Append an idempotent lease revocation; retain the artifact. |
 
 ```mermaid
@@ -71,7 +71,7 @@ source/catalog hashes. An actual recording accompanies the verified project post
 the diagram above describes the contract rather than claiming a test result.
 
 The mandatory PostgreSQL fixture invokes the registered tools, reconstructs an
-artifact above the 128 KiB inline limit after a fresh controller/service instance,
+artifact above the 16 KiB inline work-output limit after a fresh controller/service instance,
 and checks duplicate/out-of-order delivery, wrong revision/policy, foreign scope,
 expiry, revocation during I/O, missing/corrupt bytes, host-grant withdrawal and
 REST/WebSocket monitoring. The source-bound checker rejects drift or incomplete

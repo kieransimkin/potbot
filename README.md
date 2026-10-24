@@ -22,7 +22,7 @@ A PostgreSQL job queue, REST API, WebSocket streams and browser dashboard expose
 generation progress and retained output.
 
 The opt-in [artifact-range Cog profile](docs/implementation/15-artifact-range-cogs.md)
-opens actor/policy-bound read leases, returns verified ranges up to 32 KiB and
+opens actor/policy-bound read leases, returns verified ranges up to 8 KiB and
 closes access through the existing monitored SYN boundary. Its local POSIX
 backend verifies the full source using bounded reads; reconnecting clients can
 reconstruct exact bytes from out-of-order or duplicate ranges. Uploads, physical

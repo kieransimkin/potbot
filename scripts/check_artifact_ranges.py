@@ -14,6 +14,7 @@ from potbot import __version__
 from potbot.cogs.artifact_ranges import RANGE_COGS
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES, READ_BLOCK_BYTES, schemas
+from potbot.tools.execution_contracts import MAX_INLINE_BYTES
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +47,8 @@ def check(evidence: dict) -> dict:
     assert evidence["wire_schema_hashes"] == {ref: catalog.schema_hash(ref) for ref in schemas()}
     assert evidence["maximum_range_bytes"] == MAX_RANGE_BYTES
     assert evidence["maximum_read_request_bytes"] == READ_BLOCK_BYTES
-    assert evidence["artifact_bytes"] > 131072
+    assert evidence["inline_limit_bytes"] == MAX_INLINE_BYTES
+    assert evidence["artifact_bytes"] > MAX_INLINE_BYTES
     assert (
         evidence["restart_resume"]
         == evidence["rest_readback"]
@@ -62,6 +64,7 @@ def check(evidence: dict) -> dict:
         "closed_lease",
         "expired_lease",
         "revoked_during_io",
+        "host_grant_revoked_during_io",
         "missing_bytes",
         "revoked_admission",
     }

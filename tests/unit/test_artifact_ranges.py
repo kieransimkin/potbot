@@ -13,7 +13,36 @@ from potbot.cogs.registry import BoundCogRegistry
 from potbot.domain.errors import InvalidInputError
 from potbot.persistence.artifacts import ArtifactIntegrityError, LocalArtifactBackend
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES, READ_BLOCK_BYTES, schemas
+from potbot.tools.execution_contracts import MAX_INLINE_BYTES
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
+
+
+def test_largest_encoded_range_fits_the_independent_work_output_cap():
+    from potbot.tools.artifact_ranges import MAX_ARTIFACT_BYTES
+
+    raw = b"\xff" * MAX_RANGE_BYTES
+    source = TypedCogValue(
+        READ.output_type_ref,
+        {
+            "schema_version": 1,
+            "lease_id": str(uuid4()),
+            "artifact_id": str(uuid4()),
+            "artifact_sha256": "a" * 64,
+            "byte_length": MAX_ARTIFACT_BYTES,
+            "offset": 0,
+            "requested_length": MAX_RANGE_BYTES,
+            "returned_length": MAX_RANGE_BYTES,
+            "data_base64": base64.b64encode(raw).decode("ascii"),
+            "range_sha256": hashlib.sha256(raw).hexdigest(),
+            "verified_byte_length": MAX_ARTIFACT_BYTES,
+            "maximum_read_request_bytes": READ_BLOCK_BYTES,
+            "read_calls": MAX_ARTIFACT_BYTES // READ_BLOCK_BYTES + 1,
+            "range_ends_at_eof": False,
+            "integrity": "full_sha256_verified",
+        },
+    )
+    catalog = ToolSemanticCatalog(BoundCogRegistry.artifact_ranges().snapshot)
+    assert len(catalog.encode(source)) <= MAX_INLINE_BYTES
 
 
 def test_range_profile_is_installed_without_changing_the_prior_provenance_catalog():

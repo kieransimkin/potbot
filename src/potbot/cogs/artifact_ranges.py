@@ -128,6 +128,7 @@ def installed_operations(service: Any, policy: Any) -> dict[CogSignature, HostOp
         ) -> TypedCogValue:
             call.progress("artifact_request_validated")
             result = method(source.value)
+            call.runtime._admission(signature, source, call.work.context)
             call.progress(
                 "artifact_range_verified" if signature == READ else "artifact_lease_persisted"
             )

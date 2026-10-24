@@ -7,7 +7,7 @@ from typing import Any
 
 from potbot.domain.serialization import canonical_json
 
-MAX_RANGE_BYTES = 32 * 1024
+MAX_RANGE_BYTES = 8 * 1024
 READ_BLOCK_BYTES = 64 * 1024
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 MAX_LEASE_SECONDS = 300
