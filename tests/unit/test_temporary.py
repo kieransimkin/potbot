@@ -65,6 +65,7 @@ def test_root_precedence_never_depends_on_global_temp_or_caller_cwd_after_creati
     tmp_path, monkeypatch
 ):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("POTBOT_TEMP_ROOT", raising=False)
     default = scratch_root()
     assert default == tmp_path / ".potbot" / "temporary"
     monkeypatch.setenv("POTBOT_TEMP_ROOT", str(tmp_path / "configured"))

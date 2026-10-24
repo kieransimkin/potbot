@@ -12,12 +12,18 @@ import shutil
 import stat
 import time
 import warnings
+from base64 import urlsafe_b64encode
 from collections.abc import Mapping
 from pathlib import Path
 from uuid import uuid4
 
 _WINDOWS = os.name == "nt"
 _COMPONENT = re.compile(r"[A-Za-z0-9._-]{0,64}\Z")
+
+
+def _unique_name() -> str:
+    # Preserve all UUID entropy in 22 characters, leaving Windows path headroom.
+    return urlsafe_b64encode(uuid4().bytes).decode("ascii").rstrip("=")
 
 
 class TemporaryStorageError(OSError):
@@ -53,7 +59,7 @@ def allocate_file(parent: Path, *, prefix: str = "potbot-", suffix: str = "") ->
         raise ValueError("Temporary names must be bounded path components")
     flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     for _ in range(8):
-        path = parent / (prefix + uuid4().hex + suffix)
+        path = parent / (prefix + _unique_name() + suffix)
         try:
             return os.open(path, flags, 0o600), path
         except FileExistsError:
@@ -106,7 +112,7 @@ class TemporaryDirectory:
         parent = Path(dir) if dir is not None else None
         try:
             parent = scratch_root(parent)
-            self.path = parent / (prefix + uuid4().hex + suffix)
+            self.path = parent / (prefix + _unique_name() + suffix)
             self.path.mkdir(mode=0o777 if _WINDOWS else 0o700)
         except OSError as error:
             raise TemporaryStorageError(

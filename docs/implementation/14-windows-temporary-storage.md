@@ -33,6 +33,8 @@ change the parent process's global environment. Run the maintained checks with
 `python scripts/check.py` instead of maintaining manual shell temp overrides.
 Both native startup launchers also route installer files and child-process temp
 variables through the project root or an explicit `POTBOT_TEMP_ROOT`.
+Scratch names retain 128-bit UUIDs in compact URL-safe form, and pytest limits
+its descriptive prefix to leave headroom for Windows child-process paths.
 
 Destination-local atomic files use exclusive creation with at most eight real
 name-collision retries. Permission errors fail immediately instead of entering

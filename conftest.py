@@ -64,5 +64,5 @@ def tmp_path_factory(request: pytest.FixtureRequest) -> WorkspaceTempFactory:
 
 @pytest.fixture
 def tmp_path(tmp_path_factory: WorkspaceTempFactory, request: pytest.FixtureRequest) -> Path:
-    name = re.sub(r"[^A-Za-z0-9._-]", "_", request.node.name)[:32] or "test"
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", request.node.name)[:12] or "test"
     return tmp_path_factory.mktemp(name)
