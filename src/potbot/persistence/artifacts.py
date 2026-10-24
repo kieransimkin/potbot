@@ -20,7 +20,12 @@ from uuid import UUID, uuid4, uuid5
 
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.embeddings import ArtifactEmbeddingManifest, NamedEmbeddingReference
-from potbot.domain.errors import InvalidInputError, ScopeDeniedError, SourceUnavailableError
+from potbot.domain.errors import (
+    CapabilityUnavailableError,
+    InvalidInputError,
+    ScopeDeniedError,
+    SourceUnavailableError,
+)
 from potbot.domain.serialization import content_hash
 
 if TYPE_CHECKING:
@@ -60,6 +65,7 @@ class LocalArtifactBackend:
     """Local immutable objects; path components are opened without symlink traversal."""
 
     name = "local-v1"
+    supports_range_reads = os.name == "posix"
 
     def __init__(self, root: Path, *, max_bytes: int = 64 * 1024 * 1024) -> None:
         if type(max_bytes) is not int or max_bytes < 1:
@@ -176,6 +182,11 @@ class LocalArtifactBackend:
             MAX_RANGE_BYTES,
             READ_BLOCK_BYTES,
         )
+
+        if not self.supports_range_reads:
+            raise CapabilityUnavailableError(
+                "Local artifact ranges require the POSIX backend profile."
+            )
 
         expected = self.locator(workspace_id, artifact.digest)
         if (
@@ -394,7 +405,11 @@ class ArtifactStore:
         if row["digest"] != expected_sha256 or row["byte_length"] != expected_byte_length:
             raise StateMismatchError("Artifact revision differs from its read lease.")
         reader = getattr(self.backend, "read_range", None)
-        if row["backend"] != self.backend.name or not callable(reader):
+        if (
+            row["backend"] != self.backend.name
+            or not callable(reader)
+            or getattr(self.backend, "supports_range_reads", False) is not True
+        ):
             raise CapabilityUnavailableError(
                 "This artifact backend has no qualified bounded range reader."
             )

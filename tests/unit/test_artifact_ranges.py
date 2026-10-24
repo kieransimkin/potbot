@@ -10,11 +10,22 @@ import pytest
 from potbot.cogs.artifact_ranges import CLOSE, OPEN, RANGE_COGS, READ
 from potbot.cogs.contracts import TypedCogValue
 from potbot.cogs.registry import BoundCogRegistry
-from potbot.domain.errors import InvalidInputError
-from potbot.persistence.artifacts import ArtifactIntegrityError, LocalArtifactBackend
+from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
+from potbot.persistence.artifacts import (
+    ArtifactIntegrityError,
+    LocalArtifactBackend,
+    PublishedArtifact,
+)
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES, READ_BLOCK_BYTES, schemas
 from potbot.tools.execution_contracts import MAX_INLINE_BYTES
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
+
+
+def test_unsupported_range_profile_is_an_explicit_hold_before_filesystem_access(monkeypatch):
+    backend = object.__new__(LocalArtifactBackend)
+    monkeypatch.setattr(LocalArtifactBackend, "supports_range_reads", False)
+    with pytest.raises(CapabilityUnavailableError, match="POSIX"):
+        backend.read_range(uuid4(), PublishedArtifact("a" * 64, 1, "unused"), 0, 1)
 
 
 def test_largest_encoded_range_fits_the_independent_work_output_cap():
