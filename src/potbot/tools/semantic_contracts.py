@@ -260,13 +260,18 @@ class ToolSemanticCatalog:
         known = {type_identity(t.ref): t for t in merged}
         ancestry = type_ancestors(merged)
         from potbot.tools.artifact_ranges import schemas as artifact_range_schemas
+        from potbot.tools.artifact_uploads import schemas as artifact_upload_schemas
         from potbot.tools.execution_schemas import schemas as execution_schemas
 
         definitions = schemas()
         definitions.update(
             {
                 ref: schema
-                for ref, schema in {**execution_schemas(), **artifact_range_schemas()}.items()
+                for ref, schema in {
+                    **execution_schemas(),
+                    **artifact_range_schemas(),
+                    **artifact_upload_schemas(),
+                }.items()
                 if type_identity(ref) in known
             }
         )

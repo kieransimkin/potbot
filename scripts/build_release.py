@@ -89,6 +89,10 @@ def main() -> None:
             "controller/artifact_ranges.py",
             "tools/artifact_ranges.py",
             "persistence/artifact_ranges_schema.py",
+            "cogs/artifact_uploads.py",
+            "controller/artifact_uploads.py",
+            "tools/artifact_uploads.py",
+            "persistence/artifact_uploads_schema.py",
             "persistence/artifacts.py",
         ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
@@ -118,6 +122,7 @@ def main() -> None:
             "assert len(BoundCogRegistry.tool_contracts().installed()) == 7; "
             "assert len(BoundCogRegistry.provenance().installed()) == 23; "
             "assert len(BoundCogRegistry.artifact_ranges().installed()) == 26; "
+            "assert len(BoundCogRegistry.artifact_uploads().installed()) == 31; "
             "print('Clean wheel version and installed SYN Cog catalog verified')",
             cwd=Path(temporary),
         )

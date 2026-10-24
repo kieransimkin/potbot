@@ -136,6 +136,7 @@ class ExecutionCogRuntime:
         admit: Callable[[CogSignature, TypedCogValue, CogRunContext], None],
         receipts: Any = None,
         artifact_ranges: Any = None,
+        artifact_uploads: Any = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -148,6 +149,8 @@ class ExecutionCogRuntime:
             raise ScopeDeniedError(
                 "Execution needs independent host admission and bounded installations"
             )
+        if artifact_uploads is not None and artifact_ranges is None:
+            raise ScopeDeniedError("Upload profile requires its matching range service")
         if artifact_ranges is not None:
             from potbot.cogs.artifact_ranges import (
                 artifact_range_ember_bundle,
@@ -166,6 +169,22 @@ class ExecutionCogRuntime:
             self.registry = BoundCogRegistry.artifact_ranges()
             ember_bundle = artifact_range_ember_bundle
             self._direct_operations = installed_operations(artifact_ranges, policy)
+            if artifact_uploads is not None:
+                from potbot.cogs.artifact_uploads import artifact_upload_ember_bundle
+                from potbot.cogs.artifact_uploads import installed_operations as upload_operations
+                from potbot.controller.artifact_uploads import ArtifactUploadService
+
+                if (
+                    not isinstance(artifact_uploads, ArtifactUploadService)
+                    or artifact_uploads.actor != actor
+                    or artifact_uploads.policy != policy
+                    or artifact_uploads.db is not database
+                    or artifact_uploads.artifacts is not artifacts
+                ):
+                    raise ScopeDeniedError("Upload service belongs to another host scope")
+                self.registry = BoundCogRegistry.artifact_uploads()
+                ember_bundle = artifact_upload_ember_bundle
+                self._direct_operations.update(upload_operations(artifact_uploads, policy))
         else:
             self.registry = BoundCogRegistry.provenance()
             ember_bundle = execution_ember_bundle
