@@ -18,6 +18,7 @@ from typing import Any
 from uuid import uuid4
 
 from potbot.api.observability import EventLogger
+from potbot.controller.reasoning_investigation import ReasoningInvestigator
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
 from potbot.models.hosted_policy import HostedPolicy
@@ -189,6 +190,7 @@ class OpenAICompatibility:
         client_factory: Callable[..., Any] = HostedProviderClient,
         max_potbot_calls: int = 3,
         embedding_encoder: Callable[[tuple[str, ...]], Any] | None = None,
+        reasoning_investigator: ReasoningInvestigator | None = None,
     ) -> None:
         if not 1 <= max_potbot_calls <= 3:
             raise ValueError("potbot reasoning calls must be bounded")
@@ -197,6 +199,7 @@ class OpenAICompatibility:
         self.client_factory = client_factory
         self.max_potbot_calls = max_potbot_calls
         self.embedding_encoder = embedding_encoder
+        self.reasoning_investigator = reasoning_investigator
 
     @staticmethod
     def _embedding_installed() -> bool:
@@ -276,7 +279,7 @@ class OpenAICompatibility:
             choices = [r for r in records if "reasoning" in r.get("roles", [])]
             if not choices:
                 raise CompatibilityError("No configured reasoning model is available for potbot.", status=503, code="model_unavailable")
-            return choices[:2]
+            return choices[:8]
         for record in records:
             if f"{record['provider']}/{record['model']}" == model:
                 return [record]
@@ -356,6 +359,17 @@ class OpenAICompatibility:
                 )
                 invocations = 1
                 total = usage
+            elif self.reasoning_investigator is not None:
+                run = self.reasoning_investigator.run(
+                    context=context, run_id=operation_id, task=options["prompt"],
+                    system=options["system"], models=routes, options=options,
+                    invoke=self._invoke, on_text=on_text, emit=self.log.emit,
+                    cancelled=cancelled,
+                )
+                final_text, total, finish = run.text, run.usage, run.finish_reason
+                invocations = run.invocations
+                self.log.emit("reasoning.tree.completed", run_id=operation_id,
+                              tree_path=str(run.tree_path), evidence_status=run.evidence_status)
             else:
                 # Three bounded, auditable *outputs*: proposal, review, synthesis.
                 # No hidden chain-of-thought is returned or recorded.

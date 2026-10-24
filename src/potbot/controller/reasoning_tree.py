@@ -33,6 +33,8 @@ class ReasoningNode:
     rejection_reason: str | None = None
     model_id: str | None = None
     max_tokens: int = 1024
+    prompt_hash: str | None = None
+    role: str | None = None
 
 
 class ReasoningTree:
@@ -110,15 +112,21 @@ class ReasoningTree:
         return depth
 
     def add(self, hypothesis: str, *, parent_id: str | None = None,
-            model_id: str | None = None, max_tokens: int = 1024) -> ReasoningNode:
+            model_id: str | None = None, max_tokens: int = 1024,
+            prompt_hash: str | None = None, role: str | None = None) -> ReasoningNode:
         if not hypothesis.strip() or len(hypothesis) > 10000:
             raise InvalidInputError("hypothesis is required and bounded")
         if len(self.nodes) >= self.max_nodes or self.depth(parent_id) >= self.max_depth:
             raise InvalidInputError("reasoning tree size or depth exhausted")
         if max_tokens < 1 or max_tokens > self.token_budget:
             raise InvalidInputError("invalid node budget")
+        if prompt_hash is not None and (len(prompt_hash) != 64 or any(
+            c not in "0123456789abcdef" for c in prompt_hash
+        )):
+            raise InvalidInputError("prompt identity must be SHA256")
         node = ReasoningNode(str(uuid4()), parent_id, hypothesis, self.revision,
-                             model_id=model_id, max_tokens=max_tokens)
+                             model_id=model_id, max_tokens=max_tokens,
+                             prompt_hash=prompt_hash, role=role)
         self.nodes[node.id] = node
         self._event("node.created", node.id)
         self.save()

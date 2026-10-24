@@ -215,6 +215,19 @@ redacted query/response content via `--log-content`. Explicit
 `--download-embeddings` downloads and verifies the local Qwen assets with progress.
 A provisioned PostgreSQL workspace/principal and provider policy remain prerequisites.
 
+## Model-aware prompting and R3/R4 reasoning
+
+The [R3/R4 integration guide](docs/implementation/18-model-prompts-r3-r4.md)
+adds a versioned, model-aware prompt compiler, held-out A/B/C prompt comparison,
+independent hypothesis generation, bounded evidence investigation and a SYN Cog
+search bridge. `potbot serve` now uses the bounded tree for the OpenAI virtual
+`potbot` model by default (`--reasoning-mode fixed` restores the older three-pass
+workflow). Evidence Cogs are host-registered: unavailable search channels are
+reported explicitly, and the standard server does not silently enable live
+web/MCP access. The R1/R2 file-based tree remains single-writer, not a
+PostgreSQL multi-worker execution controller; task-budget settlement and R2.5
+live steering remain future work.
+
 ## Hosted models, API and job dashboard
 
 The [hosted jobs guide](docs/hosted-jobs.md) covers credentials, operator policy,

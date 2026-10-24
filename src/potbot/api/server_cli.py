@@ -48,6 +48,7 @@ def _origins(args: argparse.Namespace) -> tuple[str, ...]:
 def application(args: argparse.Namespace) -> FastAPI:
     """Build explicit service dependencies; construction never starts a worker."""
     from potbot.api.server import ServerSettings, create_app
+    from potbot.controller.reasoning_investigation import ReasoningInvestigator
     from potbot.api.observability import EventLogger
     from potbot.api.openai_compat import OpenAICompatibility
     from potbot.api.tasks import DevelopmentBearerAuth
@@ -74,7 +75,10 @@ def application(args: argparse.Namespace) -> FastAPI:
         log_content=args.log_content,
         protected_values=protected_values(database, credentials) if args.log_content else (),
     )
-    compatibility = OpenAICompatibility(directory.catalog, policy, credentials, log=events)
+    investigator = (ReasoningInvestigator(root=args.reasoning_root)
+                    if args.reasoning_mode == "tree" else None)
+    compatibility = OpenAICompatibility(directory.catalog, policy, credentials,
+                                         log=events, reasoning_investigator=investigator)
     events.emit("server.ready", host=args.host, port=args.port,
                 content_logging=args.log_content, compatibility_api=True)
     return create_app(
@@ -102,6 +106,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--log-file", type=Path, default=None,
                         help="rotating structured event log path")
+    parser.add_argument("--reasoning-mode", choices=("tree", "fixed"), default="tree",
+                        help="tree enables R3/R4; fixed retains the earlier three-pass model")
+    parser.add_argument("--reasoning-root", type=Path, default=Path(".potbot/reasoning"),
+                        help="trusted private run snapshot directory (single writer)")
     parser.add_argument("--log-content", action="store_true",
                         help="opt in to redacted prompt/response logging (sensitive)")
     args = parser.parse_args(argv)

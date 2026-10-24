@@ -168,3 +168,15 @@ OS vault, systemd/launchd/Task Scheduler lifecycle, provider credentials and
 real model calls. The existing Phase-7 controller/graph integration and durable
 interactive-task budget accounting remain further work rather than hidden
 implementation claims.
+
+## Model-aware R3/R4 tree mode (new)
+
+By default `serve` connects the virtual `potbot` model to two independent
+structured hypothesis-generator calls, bounded evidence searches via registered
+Cogs, and one final synthesis invocation. It records tree snapshots privately
+under `.potbot/reasoning/<workspace-id>/<run-id>.json`. Disable with
+`--reasoning-mode fixed` when qualifying providers unable to emit the strict
+proposal JSON. `--reasoning-root` selects an operator-trusted storage root.
+The standard server does not have live evidence-tool grants; absent channels are
+explicitly unavailable. See [the R3/R4 guide](implementation/18-model-prompts-r3-r4.md)
+for scope, model prompt profiles, admission boundaries and verification.

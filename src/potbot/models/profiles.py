@@ -34,7 +34,10 @@ class ModelProfile:
     memory_note: str = "No measured residency or VRAM qualification"
 
     def to_dict(self) -> dict[str, Any]:
+        from potbot.models.prompt_compiler import profile_for_model
+
         return {
+            "prompt_profile": profile_for_model(self.canonical_model).to_dict(),
             "canonical_model": self.canonical_model,
             "architecture": self.architecture,
             "total_parameters_b": self.total_parameters_b,
