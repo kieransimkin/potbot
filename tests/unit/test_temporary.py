@@ -157,14 +157,83 @@ def test_repo_owned_scratch_allocations_cannot_regress_to_protected_tempfile_dir
             if (
                 isinstance(node, ast.ImportFrom)
                 and node.module == "tempfile"
-                and any(n.name in {"TemporaryDirectory", "mkdtemp"} for n in node.names)
+                and any(
+                    n.name in {"TemporaryDirectory", "mkdtemp", "mkstemp", "NamedTemporaryFile"}
+                    for n in node.names
+                )
             ):
                 violations.append(str(path.relative_to(root)))
             if (
                 isinstance(node, ast.Attribute)
                 and isinstance(node.value, ast.Name)
                 and node.value.id == "tempfile"
-                and node.attr in {"TemporaryDirectory", "mkdtemp"}
+                and node.attr in {"TemporaryDirectory", "mkdtemp", "mkstemp", "NamedTemporaryFile"}
             ):
                 violations.append(str(path.relative_to(root)))
     assert violations == []
+
+
+def test_all_standard_child_tempfile_apis_use_the_managed_environment(tmp_path):
+    owner = TemporaryDirectory(dir=tmp_path)
+    original = dict(os.environ)
+    with owner:
+        environment = owner.environment()
+        assert all(
+            environment[key] == owner.name for key in ("TMP", "TEMP", "TMPDIR", "POTBOT_TEMP_ROOT")
+        )
+        program = (
+            "import os,tempfile; from pathlib import Path; "
+            "fd,name=tempfile.mkstemp(suffix='.bin'); "
+            "stream=os.fdopen(fd,'wb'); stream.write(bytes(range(256))); stream.close(); "
+            "assert Path(name).read_bytes()==bytes(range(256)); "
+            "print(Path(name).parent); Path(name).unlink()"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", program],
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        assert Path(result.stdout.strip()) == owner.path
+        assert dict(os.environ) == original
+    assert not owner.path.exists()
+    with pytest.raises(TemporaryStorageError):
+        owner.environment()
+
+
+def test_atomic_file_is_closed_before_replacement_and_keeps_destination_acl(tmp_path):
+    descriptor, path = temporary.allocate_file(tmp_path, prefix=".public-", suffix=".json")
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(b"complete bytes")
+    if os.name != "nt":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    target = tmp_path / "café-日本語.json"
+    path.replace(target)
+    assert target.read_bytes() == b"complete bytes"
+
+
+def test_atomic_file_retries_only_real_collisions_and_never_permission_denial(
+    tmp_path, monkeypatch
+):
+    calls = []
+
+    def denied(*args):
+        calls.append(args)
+        raise PermissionError("fixture inaccessible parent")
+
+    monkeypatch.setattr(temporary.os, "open", denied)
+    with pytest.raises(PermissionError):
+        temporary.allocate_file(tmp_path)
+    assert len(calls) == 1
+    calls.clear()
+
+    def collision(*args):
+        calls.append(args)
+        raise FileExistsError("fixture collision")
+
+    monkeypatch.setattr(temporary.os, "open", collision)
+    with pytest.raises(FileExistsError, match="collisions"):
+        temporary.allocate_file(tmp_path)
+    assert len(calls) == 8

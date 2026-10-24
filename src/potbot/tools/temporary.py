@@ -12,6 +12,7 @@ import shutil
 import stat
 import time
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
 from uuid import uuid4
 
@@ -39,6 +40,25 @@ def scratch_root(root: Path | None = None) -> Path:
     if not isinstance(root, Path):
         raise TypeError("Scratch root must be a Path")
     return create_directory(root.absolute())
+
+
+def allocate_file(parent: Path, *, prefix: str = "potbot-", suffix: str = "") -> tuple[int, Path]:
+    """Exclusively create a destination-local file; never retry access denials.
+
+    Unlike Windows tempfile's permission-as-collision loop, only an actual name
+    collision is retryable. This does not create or change the parent's ACL.
+    Close the returned descriptor before replacing or reopening the file.
+    """
+    if not _COMPONENT.fullmatch(prefix) or not _COMPONENT.fullmatch(suffix):
+        raise ValueError("Temporary names must be bounded path components")
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    for _ in range(8):
+        path = parent / (prefix + uuid4().hex + suffix)
+        try:
+            return os.open(path, flags, 0o600), path
+        except FileExistsError:
+            continue
+    raise FileExistsError(f"Temporary file name collisions at {parent}")
 
 
 def _remove_tree(path: Path) -> None:
@@ -121,6 +141,15 @@ class TemporaryDirectory:
 
     def __enter__(self) -> str:
         return self.name
+
+    def environment(self, base: Mapping[str, str] | None = None) -> dict[str, str]:
+        """Route ordinary child-process tempfile APIs into this validated tree."""
+        if self._cleaned or not self.path.is_dir() or self.path.is_symlink():
+            raise TemporaryStorageError("Temporary process environment is no longer active")
+        result = dict(os.environ if base is None else base)
+        for name in ("TEMP", "TMP", "TMPDIR", "POTBOT_TEMP_ROOT"):
+            result[name] = self.name
+        return result
 
     def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:
         try:

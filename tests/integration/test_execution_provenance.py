@@ -32,7 +32,19 @@ from potbot.domain.serialization import canonical_json, content_hash
 from potbot.security.public import PublicVerificationError, verify_signature_bundle_digest
 from potbot.semantics.catalog import merge_types
 from potbot.semantics.service import SynService
-from potbot.tools.execution_contracts import WORK_KINDS, ExecutionPolicy, WorkBinding
+from potbot.tools.execution_contracts import (
+    RECEIPT,
+    REPLAY_REQUEST,
+    REPLAY_RESULT,
+    REQUEST,
+    RESULT,
+    SEAL_REQUEST,
+    SEAL_RESULT,
+    WORK_KINDS,
+    ExecutionPolicy,
+    WorkBinding,
+)
+from potbot.tools.execution_schemas import schemas
 from potbot.tools.semantic_contracts import QUERY, RESULTS
 from tests.integration.test_repository_states import setup
 from tests.unit.test_debugger_cogs_live import assert_lifecycles
@@ -42,6 +54,7 @@ from tests.unit.test_public_identity import _bundle, _resign
 pytestmark = pytest.mark.postgres
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_FILES = (
+    "src/potbot/tools/execution_schemas.py",
     "src/potbot/cogs/execution.py",
     "src/potbot/controller/execution_cogs.py",
     "src/potbot/controller/execution_journal.py",
@@ -307,6 +320,28 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
     assert len({e["event_ref"] for e in replayed}) == len(replayed)
     assert [e["sequence"] for e in replayed] == sorted(e["sequence"] for e in replayed)
     assert receipt_service.replay(replay)["items"] == pages[0]["items"]
+    with app_env.db.transaction(app_env.context) as connection:
+        receipt_row = connection.execute(
+            "SELECT body_artifact_id FROM execution_provenance_receipts WHERE workspace_id=%s AND id=%s",
+            (app_env.context.workspace_id, UUID(receipt["receipt_id"])),
+        ).fetchone()
+    manifest = json.loads(artifacts.read(app_env.context, receipt_row["body_artifact_id"]))
+    root_source = json.loads(
+        artifacts.read(
+            app_env.context, UUID(root_events[0]["input_artifact_ref"].removeprefix("artifact:"))
+        )
+    )["value"]
+    for ref, value in (
+        (REQUEST, root_source),
+        (RESULT, root.value.value),
+        (SEAL_REQUEST, expected),
+        (SEAL_RESULT, receipt),
+        (REPLAY_REQUEST, replay),
+        (REPLAY_RESULT, pages[0]),
+        (RECEIPT, manifest),
+    ):
+        typed = TypedCogValue(ref, value)
+        assert runtime.catalog.decode(runtime.catalog.encode(typed)) == typed
     assert len(canonical_json(pages[0]).encode("utf-8")) <= 16384
     for key in ("expected_input_sha256", "expected_policy_hash"):
         with pytest.raises(StateMismatchError):
@@ -643,6 +678,7 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
                 },
                 "qualification": "real_SYN_Ember_PostgreSQL_Ed25519_CLI_MCP_REST_WebSocket_fixture",
                 "catalog_hash": registry.snapshot.fingerprint,
+                "wire_schema_hashes": {ref: runtime.catalog.schema_hash(ref) for ref in schemas()},
                 "receipt": receipt,
                 "trace": trace,
                 "events": events,

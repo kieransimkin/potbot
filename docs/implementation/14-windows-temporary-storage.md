@@ -26,6 +26,22 @@ An explicit operation root takes precedence, followed by `POTBOT_TEMP_ROOT`.
 Pytest selects this checkout's root, or a caller-supplied `--basetemp` parent,
 and allocates a fresh child without deleting another run. All `tmp_path`,
 `tmpdir`, `tmp_path_factory` and pytest-cache files use that run's directory.
+The check and release runners also give every subprocess validated `TEMP`, `TMP`,
+`TMPDIR` and `POTBOT_TEMP_ROOT` values. Ordinary library temporary-file APIs then
+use the same owned tree. The environment helper returns a mapping; it does not
+change the parent process's global environment. Run the maintained checks with
+`python scripts/check.py` instead of maintaining manual shell temp overrides.
+Both native startup launchers also route installer files and child-process temp
+variables through the project root or an explicit `POTBOT_TEMP_ROOT`.
+
+Destination-local atomic files use exclusive creation with at most eight real
+name-collision retries. Permission errors fail immediately instead of entering
+Windows `tempfile`'s permission-as-collision retry loop. Descriptors are closed
+before replacement. Recovery records retain their private 0700 parent and 0600
+files; the check runner preflights this storage **before** creating a disposable
+database. A denied private parent requires the host's approved execution scope,
+never automatic ACL repair. The standalone SYN exporter loads the same
+standard-library helper from this repository without importing Potbot's package.
 
 [The pinned CPython implementation](https://github.com/python/cpython/blob/v3.12.13/Modules/posixmodule.c)
 creates a protected Windows DACL for `mkdir(0700)`.

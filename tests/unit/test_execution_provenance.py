@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from potbot.cogs.contracts import TypedCogValue
 from potbot.cogs.execution import EXECUTION_COGS, execution_ember_bundle
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
@@ -12,13 +13,15 @@ from potbot.domain.serialization import canonical_json, content_hash
 from potbot.semantics.catalog import merge_types
 from potbot.semantics.embers import EmberContractResolver
 from potbot.tools.execution_contracts import (
+    REQUEST,
     ExecutionPolicy,
     WorkBinding,
     fields,
     match_remote_target,
     remote_target,
 )
-from potbot.tools.semantic_contracts import QUERY, RESULTS
+from potbot.tools.execution_schemas import schemas
+from potbot.tools.semantic_contracts import QUERY, RESULTS, ToolSemanticCatalog
 
 
 def policy(**overrides):
@@ -79,6 +82,7 @@ def test_profiles_are_separate_and_existing_identities_survive():
         BoundCogRegistry.tool_contracts().snapshot.fingerprint
         == "9fbdb8e42201caf9153f1d702602833a43efd221a48a41322d5e9d37ae8ee0e6"
     )
+
     assert (
         BoundCogRegistry.tool_inventory().snapshot.fingerprint
         == "0acd227fddd48b1ed72bcce5abaf380a92a2cff8cd40656ab515cbc4b13b750f"
@@ -226,3 +230,24 @@ def test_inline_values_need_exact_version_and_bounded_size():
     ):
         with pytest.raises(InvalidInputError):
             fields(value, {"schema_version"}, {"value"})
+
+
+def test_execution_wire_schema_is_discoverable_roundtrippable_and_isolated():
+    catalog = ToolSemanticCatalog(BoundCogRegistry.provenance().snapshot)
+    source = TypedCogValue(
+        REQUEST,
+        {
+            "schema_version": 1,
+            "operation_ref": "syn://thing/fixture-query",
+            "input": {
+                "type_ref": QUERY,
+                "value": {"schema_version": 1, "text": "Python", "limit": 4},
+            },
+        },
+    )
+    assert catalog.decode(catalog.encode(source)) == source
+    schema = schemas()[REQUEST]
+    schema["properties"]["operation_ref"]["pattern"] = ".*"
+    assert schemas()[REQUEST]["properties"]["operation_ref"]["pattern"] != ".*"
+    with pytest.raises(InvalidInputError):
+        catalog.validate(TypedCogValue(REQUEST, {**source.value, "unexpected": True}))

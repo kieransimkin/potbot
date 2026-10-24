@@ -21,7 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(*command: str, cwd: Path = ROOT) -> None:
-    subprocess.run(command, cwd=cwd, check=True, timeout=240)
+    scratch = TemporaryDirectory(prefix="potbot-release-process-", dir=ROOT / ".potbot/temporary")
+    with scratch:
+        subprocess.run(command, cwd=cwd, env=scratch.environment(), check=True, timeout=240)
 
 
 def main() -> None:
@@ -79,6 +81,7 @@ def main() -> None:
             "controller/execution_journal.py",
             "controller/execution_receipts.py",
             "tools/execution_contracts.py",
+            "tools/execution_schemas.py",
             "tools/temporary.py",
             "tools/patch_worker.py",
             "persistence/execution_provenance_schema.py",

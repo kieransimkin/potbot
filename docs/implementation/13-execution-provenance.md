@@ -11,6 +11,9 @@ registered input and output Type, an installed handler binding and inherited
 required/default/optional Ember declarations. Imported SYN data cannot load Python
 code. Existing debugger, inventory and canonical-contract profiles keep their
 original identities.
+Seven discoverable JSON Schemas cover work requests/results, seal/replay ports
+and the signed manifest. The existing canonical catalog validates and round-trips
+these records; admission remains independently supplied by the host.
 
 `ExecutionCogRuntime` takes host-owned `HostOperation` installations, a sealed
 workspace snapshot, repository state, policy and independent admission callback.

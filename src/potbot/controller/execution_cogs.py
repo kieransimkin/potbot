@@ -217,6 +217,7 @@ class ExecutionCogRuntime:
         source = TypedCogValue(
             source.type_ref, json.loads(canonical_json(source.value)), source.source_artifact_id
         )
+        self.catalog.validate(source)
         op = None
         if signature in WORK_COGS:
             request = fields(source.value, {"schema_version", "operation_ref", "input"})
@@ -338,6 +339,7 @@ class ExecutionCogRuntime:
                 raise InvalidInputError("Inline work output exceeds the admitted byte limit")
             work.progress("typed_result_validated")
             output = TypedCogValue(signature.output_type_ref, value)
+            self.catalog.validate(output)
             receipt = CogReceipt(
                 str(signature.cog_ref),
                 signature.cog_type_ref,

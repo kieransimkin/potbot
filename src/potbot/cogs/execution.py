@@ -63,6 +63,7 @@ def execution_cog_snapshot() -> SynSnapshot:
     from potbot.cogs.debugger import debugger_cog_snapshot
     from potbot.cogs.registry import _type, builtin_cog_snapshot
     from potbot.cogs.tool_contracts import contract_cog_snapshot
+    from potbot.tools.execution_schemas import schemas
 
     base = contract_cog_snapshot()
     properties = next(
@@ -80,13 +81,19 @@ def execution_cog_snapshot() -> SynSnapshot:
             properties,
         ),
     ]
+    wire_schemas = schemas()
     for ref in (REQUEST, RESULT, SEAL_REQUEST, SEAL_RESULT, REPLAY_REQUEST, REPLAY_RESULT, RECEIPT):
         types.append(
-            _type(
-                ref,
-                ref.rsplit("/", 1)[-1],
-                "synny://type/potbot-data-record",
-                "Version 1 execution envelope; observation grants no authority",
+            replace(
+                _type(
+                    ref,
+                    ref.rsplit("/", 1)[-1],
+                    "synny://type/potbot-data-record",
+                    "Version 1 execution envelope; observation grants no authority",
+                ),
+                metadata_json=canonical_json(
+                    {"module": "potbot.cogs", "ontologyVersion": 1, "schema": wire_schemas[ref]}
+                ),
             )
         )
     types.append(

@@ -1,7 +1,8 @@
 # Native Windows qualification without installing Python, uv, or model weights.
 $ErrorActionPreference = 'Stop'
 $ProjectSource = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$TemporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('potbot launcher smoke ' + [guid]::NewGuid().ToString('N'))
+$TemporaryParent = Join-Path $ProjectSource '.potbot\temporary'
+$TemporaryRoot = Join-Path $TemporaryParent ('potbot launcher smoke ' + [guid]::NewGuid().ToString('N'))
 $Project = Join-Path $TemporaryRoot 'project with spaces'
 $Log = Join-Path $TemporaryRoot 'calls.log'
 $Shell = Join-Path $PSHOME 'powershell.exe'
@@ -47,11 +48,15 @@ function Get-Records([string] $Prefix) {
     return ,$Records
 }
 
-$EnvironmentNames = @('POTBOT_LAUNCH_LOG', 'POTBOT_APPLICATION_CODE', 'POTBOT_FAIL_STAGE', 'POTBOT_FAIL_CODE', 'UV_CACHE_DIR', 'UV_PYTHON_INSTALL_DIR')
+$EnvironmentNames = @('POTBOT_LAUNCH_LOG', 'POTBOT_APPLICATION_CODE', 'POTBOT_FAIL_STAGE', 'POTBOT_FAIL_CODE', 'UV_CACHE_DIR', 'UV_PYTHON_INSTALL_DIR', 'TEMP', 'TMP', 'TMPDIR', 'POTBOT_TEMP_ROOT')
 $SavedEnvironment = @{}
 foreach ($Name in $EnvironmentNames) { $SavedEnvironment[$Name] = [Environment]::GetEnvironmentVariable($Name) }
 try {
     New-Item -ItemType Directory -Path (Join-Path $Project '.potbot\runtime\uv') -Force | Out-Null
+    $env:TEMP = $TemporaryRoot
+    $env:TMP = $TemporaryRoot
+    $env:TMPDIR = $TemporaryRoot
+    $env:POTBOT_TEMP_ROOT = $null
     Copy-Item -LiteralPath (Join-Path $ProjectSource 'start.ps1') -Destination $Project
     Copy-Item -LiteralPath (Join-Path $ProjectSource 'start.bat') -Destination $Project
     $FakeUv = Join-Path $Project '.potbot\runtime\uv\uv.exe'
@@ -69,6 +74,9 @@ public static class FakeUv {
             Console.WriteLine("uv 0.12.23 (Windows smoke fixture)"); return 0;
         }
         Record("A", args);
+        Record("T", new string[] {
+            Environment.GetEnvironmentVariable("TEMP"), Environment.GetEnvironmentVariable("TMP"),
+            Environment.GetEnvironmentVariable("TMPDIR"), Environment.GetEnvironmentVariable("POTBOT_TEMP_ROOT") });
         if (args[0] == Environment.GetEnvironmentVariable("POTBOT_FAIL_STAGE"))
             return int.Parse(Environment.GetEnvironmentVariable("POTBOT_FAIL_CODE"));
         if (args[0] == "run") {
@@ -106,6 +114,10 @@ public static class FakeUv {
     $EnvironmentRecords = Get-Records 'E'
     $ExpectedEnvironment = @($Project, (Join-Path $Project '.venv'), (Join-Path $Project '.potbot\cache\uv'), (Join-Path $Project '.potbot\runtime\python'))
     Assert-True (($EnvironmentRecords[0] -join [char]0) -ceq ($ExpectedEnvironment -join [char]0)) 'Runtime paths were not project-local.'
+    $ExpectedTemporaryRoot = Join-Path $Project '.potbot\temporary'
+    foreach ($Record in (Get-Records 'T')) {
+        Assert-True (($Record -join [char]0) -ceq ((@($ExpectedTemporaryRoot) * 4) -join [char]0)) 'Child temporary files were not project-local.'
+    }
 
     Remove-Item -LiteralPath $Log
     $env:POTBOT_FAIL_STAGE = 'sync'
@@ -116,6 +128,7 @@ public static class FakeUv {
 
     Remove-Item -LiteralPath $Log
     $env:POTBOT_FAIL_STAGE = $null
+    $env:POTBOT_TEMP_ROOT = $TemporaryRoot
     $BatchCommand = '/d /s /c ""' + (Join-Path $Project 'start.bat') + '" dependencies status "two words" "literal & value""'
     $Result = Invoke-Launcher $env:ComSpec $BatchCommand
     Assert-True ($Result.Code -eq 23) ('BAT exit code was not preserved: ' + $Result.Err)
@@ -123,9 +136,15 @@ public static class FakeUv {
     $ExpectedBatch = @('run', '--project', $Project, '--no-sync', 'python', '-m', 'potbot.startup', 'dependencies', 'status', 'two words', 'literal & value')
     Assert-True (($Calls[2] -join [char]0) -ceq ($ExpectedBatch -join [char]0)) 'BAT failed to preserve quoted arguments.'
     Assert-True ((Get-Records 'I')[0][0].Trim() -eq 'credential prompt input') 'BAT failed to preserve stdin.'
+    foreach ($Record in (Get-Records 'T')) {
+        Assert-True (($Record -join [char]0) -ceq ((@($TemporaryRoot) * 4) -join [char]0)) 'Explicit temporary root was not forwarded.'
+    }
     Write-Output 'Windows PowerShell/BAT launcher smoke passed: paths, arguments, stdin, dependencies and exit codes.'
 }
 finally {
     foreach ($Name in $EnvironmentNames) { [Environment]::SetEnvironmentVariable($Name, $SavedEnvironment[$Name]) }
-    Remove-Item -LiteralPath $TemporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+    $ResolvedTemporaryRoot = [System.IO.Path]::GetFullPath($TemporaryRoot)
+    $ExpectedParent = [System.IO.Path]::GetFullPath($TemporaryParent).TrimEnd('\') + '\'
+    if (-not $ResolvedTemporaryRoot.StartsWith($ExpectedParent, [StringComparison]::OrdinalIgnoreCase)) { throw 'Refusing cleanup outside the owned workspace scratch root.' }
+    Remove-Item -LiteralPath $ResolvedTemporaryRoot -Recurse -Force
 }

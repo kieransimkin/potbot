@@ -12,9 +12,12 @@ from pathlib import Path
 from potbot import __version__
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.tools.execution_contracts import WORK_KINDS
+from potbot.tools.execution_schemas import schemas
+from potbot.tools.semantic_contracts import ToolSemanticCatalog
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (
+    "src/potbot/tools/execution_schemas.py",
     "src/potbot/cogs/execution.py",
     "src/potbot/controller/execution_cogs.py",
     "src/potbot/controller/execution_journal.py",
@@ -39,6 +42,11 @@ def check(evidence: dict) -> dict:
             ).hexdigest()
         )
     assert evidence["catalog_hash"] == BoundCogRegistry.provenance().snapshot.fingerprint
+    catalog = ToolSemanticCatalog(BoundCogRegistry.provenance().snapshot)
+    assert set(evidence["wire_schema_hashes"]) == set(schemas())
+    assert all(
+        catalog.schema_hash(ref) == value for ref, value in evidence["wire_schema_hashes"].items()
+    )
     assert evidence["original_effects"] == evidence["effects_after_replay"] > 0
     assert evidence["rest_readback"] == evidence["websocket_readback"] == "passed"
     assert evidence["actual_cli_process_ids"] and evidence["profiling"][0]["output_hash"]
