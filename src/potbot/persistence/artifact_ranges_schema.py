@@ -12,7 +12,7 @@ MIGRATION_STATEMENTS = (
         ttl_seconds integer NOT NULL CHECK(ttl_seconds BETWEEN 1 AND 300),
         expires_at timestamptz NOT NULL,
         created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-        PRIMARY KEY(workspace_id,id),
+        PRIMARY KEY(workspace_id,id), UNIQUE(workspace_id,id,owner_principal_id),
         FOREIGN KEY(workspace_id,owner_principal_id) REFERENCES workspace_memberships(workspace_id,principal_id),
         FOREIGN KEY(workspace_id,artifact_id) REFERENCES artifacts(workspace_id,id)
     )""",
@@ -20,7 +20,7 @@ MIGRATION_STATEMENTS = (
         workspace_id uuid NOT NULL, lease_id uuid NOT NULL, owner_principal_id uuid NOT NULL,
         created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
         PRIMARY KEY(workspace_id,lease_id),
-        FOREIGN KEY(workspace_id,lease_id) REFERENCES artifact_read_leases(workspace_id,id),
+        FOREIGN KEY(workspace_id,lease_id,owner_principal_id) REFERENCES artifact_read_leases(workspace_id,id,owner_principal_id),
         FOREIGN KEY(workspace_id,owner_principal_id) REFERENCES workspace_memberships(workspace_id,principal_id)
     )""",
 )

@@ -35,7 +35,7 @@ class PinnedExecutionJournal:
         from potbot.cogs.artifact_ranges import RANGE_COGS, artifact_range_snapshot
         from potbot.cogs.execution import EXECUTION_COGS, execution_cog_snapshot
 
-        allowed = EXECUTION_COGS
+        allowed: tuple[CogSignature, ...] = EXECUTION_COGS
         expected_catalog = execution_cog_snapshot().fingerprint
         if context.cog_snapshot_hash != expected_catalog:
             expected_catalog = artifact_range_snapshot().fingerprint

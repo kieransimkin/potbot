@@ -404,6 +404,15 @@ class ArtifactStore:
             offset,
             length,
         )
+        if (
+            not isinstance(result, VerifiedArtifactRange)
+            or not isinstance(result.data, bytes)
+            or len(result.data) != min(length, expected_byte_length - offset)
+            or result.verified_byte_length != expected_byte_length
+        ):
+            raise ArtifactIntegrityError(
+                "Artifact backend returned an incomplete or inconsistent range."
+            )
         return result
 
     def read_in_transaction(
