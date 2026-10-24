@@ -2,7 +2,8 @@
 
 24 October 2026. SBT01/SBT02 now include signed genesis and locally governed
 operator-policy replacements. Runtime admission, private transport, consensus
-execution, federated replacement and independent finality remain gated.
+execution and operational federation remain gated. [Bounded DAG replay](17-syn-dag-finality.md)
+now verifies federated governance replacements offline under the existing epoch.
 
 ![Old policy rosters and Type governors both authorize a successor before Syn appends it](../media/syn-signed-governance.svg)
 
@@ -24,10 +25,11 @@ new rosters and weaker policies cannot ratify their own installation.
 
 Operator policies require one verified issuer and a strict majority of assigned
 account nodes. Distinct node/account/instance checks prevent repeated credentials
-from multiplying votes. Existing BFT policies cannot be replaced by this local
-consent implementation, even with all signatures present: the DAG finality and
-independent-custody admission verifiers are still missing. Distinct issuer keys
-alone do not prove independent human custody.
+from multiplying votes. Existing BFT policies require record v2, the old epoch's
+first finalized authorized proposal in DAG replay, and separate old Type-governor
+consent. A signature list cannot replace that finality evidence. Independent
+custody admission remains an external assumption; distinct issuer keys alone do
+not prove independent human custody. Coin-dependent histories remain held.
 
 Potbot's `security.governance.sign_governance_approval` first verifies the retained
 signed history and genesis/head pins, then selects the signer from the previous

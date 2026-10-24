@@ -4,7 +4,8 @@
 implemented. 24 October adds durable explicit local genesis and authenticated
 reads against independent Potbot trust pins. [Signed governance](16-syn-signed-governance.md)
 adds signed genesis and local operator-policy succession under both old authorities.
-Runtime binding, encrypted transport, new ledger signing, federated replacement,
+Bounded [DAG governance replay](17-syn-dag-finality.md) now verifies v2 federated
+replacements under old policy and old Type governance. Runtime binding, encrypted transport, new ledger signing,
 consensus engines and automatic delivery remain pending.
 
 ![Canonical Type policies select the intended operator or federated consensus profile](../media/syn-type-consensus.svg)
@@ -53,7 +54,7 @@ Canonical Type releases are distinct from advisory `metadata_json`. Legacy Types
 remain readable for local features but cannot resolve shared policies without an
 explicit definition. Initial trust means independently selected pins. It can now
 be persisted as explicit local genesis. The separate signed format now supports
-old-policy-approved local transitions; federated finality remains pending.
+old-policy-approved local transitions and bounded federated governance finality replay.
 
 ## Durable genesis and independent trust
 
@@ -118,8 +119,8 @@ combinations, missing policies, namespace bypass and incompatible atomic writes.
 API tests check draft exports and omission/null semantics. PostgreSQL acceptance
 exercises upgrade, the policy-object constraint and downgrade/re-upgrade.
 
-Next: coordinated credential/roster rotation, authenticated checkpoints and BFT
-finality verification, new native cross-language
+Next: coordinated credential/roster rotation, authenticated checkpoints, qualified
+engine/coin integration and new native cross-language
 vectors, live account/instance binding, encrypted two-Agent exchange and admitted
 producers. Qualify each agreement adapter and independent outcome verifier before
 live shared transactions. An offline PolicyContext is not finality evidence.

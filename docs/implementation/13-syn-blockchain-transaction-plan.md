@@ -119,7 +119,10 @@ portability and PostgreSQL workflows now replace the former CI gap. On 24 Octobe
 explicit local genesis adds durable domain anchors, cross-catalog namespace
 ownership and authenticated reads checked against independent Potbot trust pins.
 [Signed local governance](16-syn-signed-governance.md) now requires old policy
-quorums and old Type governors before appending a successor. Federated replacement,
+quorums and old Type governors before appending a successor.
+[Bounded federated DAG replay](17-syn-dag-finality.md) now verifies record-v2
+replacements against the old epoch's first finalized authorized proposal and
+separate old Type-governance consent. Operational engine/coin qualification,
 new ledger signing, protected startup, mesh and consensus remain pending; neither
 work package is marked complete.
 
