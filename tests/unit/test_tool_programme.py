@@ -107,3 +107,11 @@ def test_junit_external_entities_are_rejected(evidence):
     path.write_text('<!DOCTYPE data [<!ENTITY a SYSTEM "file:///private">]><testsuites/>')
     with pytest.raises(InvalidInputError):
         junit_counts(path)
+
+
+def test_disabled_dependency_cannot_qualify_a_dependent_stage(evidence):
+    report = gate(evidence, enabled_features=tuple(f for f in FEATURE_GATES if f != "inventory"))
+    assert report["result"] == "passed"  # selected feature fixtures still passed
+    assert all(
+        r["result"] == "incomplete" for r in report["stages"] if r["stage"] in {"T01.1", "T01.2"}
+    )

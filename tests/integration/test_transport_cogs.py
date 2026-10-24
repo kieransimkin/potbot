@@ -11,6 +11,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from uuid import UUID, uuid4
 
 import grpc
@@ -76,6 +77,17 @@ def test_monitored_installed_transport_cogs_real_services_and_confinement(app_en
         }
 
     class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            query = parse_qs(urlsplit(self.path).query)
+            values = {k: int(query[k][0]) for k in ("a", "b")}
+            requests.append((urlsplit(self.path).path, values))
+            raw = json.dumps({"sum": values["a"] + values["b"]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             requests.append((self.path, body))
@@ -232,7 +244,11 @@ def test_monitored_installed_transport_cogs_real_services_and_confinement(app_en
                         protocol=protocol,
                         effect_class="read_only",
                         target="/fixture.Sum/Add" if protocol == "grpc" else f"/{protocol}",
-                        method="UNARY" if protocol == "grpc" else "POST",
+                        method="UNARY"
+                        if protocol == "grpc"
+                        else "GET"
+                        if protocol == "rest"
+                        else "POST",
                         source_hash="a" * 64,
                         input_schema_json=canonical_json(input_schema),
                         output_schema_json=canonical_json(output_schema),
@@ -243,7 +259,7 @@ def test_monitored_installed_transport_cogs_real_services_and_confinement(app_en
                         else None,
                     )
                     encoder = (
-                        (lambda _: {"body": args(None)})
+                        (lambda _: {"query": args(None)})
                         if protocol == "rest"
                         else (lambda _: {"variables": args(None)})
                         if protocol == "graphql"

@@ -197,6 +197,7 @@ def evaluate(
             not blockers
             and row["implementation_status"] == "complete"
             and feature in row["features"]
+            and all(by_stage[d]["result"] == "passed" for d in row["hard_prerequisites"])
         ):
             row.update(result="passed", reason="Complete stage has its source-bound Cog acceptance")
     unresolved = [r["stage"] for r in by_stage.values() if r["result"] != "passed"]
