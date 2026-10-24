@@ -1,0 +1,18 @@
+{
+  "schema": "keywordmoves-observations/v1",
+  "observations": [
+    {
+      "phrase": "coastal memories",
+      "source": "Synthetic reviewed YouTube export",
+      "metric": "impressions",
+      "value": 12,
+      "unit": "count",
+      "observed_at": "2026-10-20",
+      "platform": "YouTube",
+      "subject": "Example Song",
+      "availability": "observed",
+      "evidence_kind": "property_performance",
+      "limitations": "Synthetic offline fixture, not a real account report"
+    }
+  ]
+}

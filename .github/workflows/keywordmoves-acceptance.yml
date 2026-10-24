@@ -1,0 +1,58 @@
+name: DanceFlow KeywordMoves workflow acceptance
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keywordmoves-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      UV_PYTHON: "3.12"
+      POTBOT_KEYWORDMOVES_SOURCE: ${{ github.workspace }}/external/keywordmoves
+      POTBOT_KEYWORDMOVES_REPORT_DIR: ${{ github.workspace }}/artifacts/keywordmoves-workflow
+      POTBOT_DANCEFLOW_SOURCE: ${{ github.workspace }}/external/danceflow
+    steps:
+      - name: Checkout Potbot
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Checkout exact KeywordMoves source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kieransimkin/keywordmoves
+          ref: 9044ba40460af6e6165f6b2c49a0d2454704fdd7
+          path: external/keywordmoves
+          persist-credentials: false
+      - name: Checkout exact DanceFlow workflow reference
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kieransimkin/DanceFlow
+          ref: 8963a2f270ec5264ab78974ec22a77258e1e2161
+          path: external/danceflow
+          persist-credentials: false
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install locked Potbot test dependencies
+        run: uv sync --locked --dev
+      - name: Run guarded unit and genuine offline plugin acceptance
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_keywordmoves_workflows.py
+          tests/integration/test_keywordmoves_danceflow.py
+      - name: Retain synthetic workflow receipts and coverage matrix
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: keywordmoves-offline-acceptance
+          path: artifacts/keywordmoves-workflow/
+          if-no-files-found: warn
+          retention-days: 14

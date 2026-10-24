@@ -1,0 +1,114 @@
+{
+  "schema": "potbot-keywordmoves-workflow/v1",
+  "source_revision": "9044ba40460af6e6165f6b2c49a0d2454704fdd7",
+  "subject": "Example Song",
+  "steps": [
+    {
+      "name": "literal",
+      "plugin": "text-library",
+      "operation": "extract-literal",
+      "inputs": [
+        "file:lyrics.txt"
+      ],
+      "options": {
+        "limit": 40,
+        "max_ngram": 3
+      },
+      "keywords": [],
+      "approval": null
+    },
+    {
+      "name": "trends",
+      "plugin": "google-trends",
+      "operation": "import-interest",
+      "inputs": [
+        "file:trends.csv"
+      ],
+      "options": {
+        "observed_at": "2026-10-20",
+        "geography": "GB"
+      },
+      "keywords": [],
+      "approval": null
+    },
+    {
+      "name": "observed",
+      "plugin": "observed-evidence",
+      "operation": "import-observations",
+      "inputs": [
+        "file:observations.json"
+      ],
+      "keywords": [],
+      "options": {},
+      "approval": null
+    },
+    {
+      "name": "validate",
+      "plugin": "research-batch",
+      "operation": "validate-plan",
+      "inputs": [
+        "file:research.json"
+      ],
+      "keywords": [],
+      "options": {},
+      "approval": null
+    },
+    {
+      "name": "merged",
+      "plugin": "@potbot",
+      "operation": "merge-candidates",
+      "inputs": [
+        "step:literal",
+        "step:trends",
+        "step:observed"
+      ],
+      "keywords": [],
+      "options": {},
+      "approval": null
+    },
+    {
+      "name": "focus",
+      "plugin": "candidate-focus",
+      "operation": "related",
+      "inputs": [
+        "step:merged"
+      ],
+      "keywords": [
+        "coastal memories"
+      ],
+      "options": {
+        "limit": 40
+      },
+      "approval": null
+    },
+    {
+      "name": "pool",
+      "plugin": "@potbot",
+      "operation": "bind-target",
+      "inputs": [
+        "step:focus"
+      ],
+      "options": {
+        "subject": "Example Song",
+        "platform": "YouTube"
+      },
+      "keywords": [],
+      "approval": null
+    },
+    {
+      "name": "shortlist",
+      "plugin": "candidate-shortlist",
+      "operation": "select",
+      "inputs": [
+        "file:review.json",
+        "step:pool"
+      ],
+      "options": {
+        "limit": 5,
+        "minimum": 1
+      },
+      "keywords": [],
+      "approval": null
+    }
+  ]
+}

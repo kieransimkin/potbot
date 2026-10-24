@@ -249,6 +249,15 @@ The same arguments work with `start.bat` and `bash ./start.sh`. See
 catalogues retain media entries, while reasoning/coding jobs select text models.
 Hosted output remains unverified until admitted and checked by the coding workflow.
 
+## DanceFlow KeywordMoves workflow acceptance
+
+The [pinned KeywordMoves workflow acceptance guide](docs/implementation/22-danceflow-keywordmoves-workflow-acceptance.md)
+adds an opt-in, bounded DAG over host-authorized KeywordMoves operations. It
+exercises real offline extraction, Trends/observation imports, multi-source
+composition, editorial review and shortlist selection in separate CI, preserving
+source hashes and resuming without replay. It does not download models, scrape
+platforms, or grant external tool permissions to a reasoning model.
+
 ## Repository capture and controlled execution
 
 The [Phase 3 guide](docs/phase-3.md) describes its original migration history and the complete
