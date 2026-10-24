@@ -20,7 +20,7 @@ from uuid import UUID, uuid4, uuid5
 
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.embeddings import ArtifactEmbeddingManifest, NamedEmbeddingReference
-from potbot.domain.errors import InvalidInputError, ScopeDeniedError
+from potbot.domain.errors import InvalidInputError, ScopeDeniedError, SourceUnavailableError
 from potbot.domain.serialization import content_hash
 
 if TYPE_CHECKING:
@@ -39,6 +39,13 @@ class PublishedArtifact:
     digest: str
     byte_length: int
     locator: str
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedArtifactRange:
+    data: bytes
+    verified_byte_length: int
+    read_calls: int
 
 
 class ArtifactBackend(Protocol):
@@ -138,7 +145,9 @@ class LocalArtifactBackend:
             raise ArtifactIntegrityError("Artifact locator or size failed validation.")
         try:
             with self._directory(expected, create=False) as (directory, filename):
-                descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+                descriptor = os.open(
+                    filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+                )
                 with os.fdopen(descriptor, "rb") as stream:
                     metadata = os.fstat(stream.fileno())
                     if (
@@ -152,6 +161,77 @@ class LocalArtifactBackend:
         if len(data) != artifact.byte_length or hashlib.sha256(data).hexdigest() != artifact.digest:
             raise ArtifactIntegrityError("Artifact content digest does not match.")
         return data
+
+    def read_range(
+        self, workspace_id: UUID, artifact: PublishedArtifact, offset: int, length: int
+    ) -> VerifiedArtifactRange:
+        """Verify the entire immutable object using bounded reads, retain one slice.
+
+        Integrity is checked before returning any data. There is no whole-object
+        buffering or unverified early yield. Logical verification bytes are not
+        a measurement of physical disk I/O or process peak memory.
+        """
+        from potbot.tools.artifact_ranges import (
+            MAX_ARTIFACT_BYTES,
+            MAX_RANGE_BYTES,
+            READ_BLOCK_BYTES,
+        )
+
+        expected = self.locator(workspace_id, artifact.digest)
+        if (
+            artifact.locator != expected
+            or type(artifact.byte_length) is not int
+            or not 0 <= artifact.byte_length <= min(self.max_bytes, MAX_ARTIFACT_BYTES)
+            or type(offset) is not int
+            or not 0 <= offset <= artifact.byte_length
+            or type(length) is not int
+            or not 1 <= length <= MAX_RANGE_BYTES
+        ):
+            raise InvalidInputError("Artifact range or pinned revision is invalid.")
+        captured = bytearray()
+        digest, position, calls = hashlib.sha256(), 0, 0
+        try:
+            with self._directory(expected, create=False) as (directory, filename):
+                descriptor = os.open(
+                    filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+                )
+                with os.fdopen(descriptor, "rb") as stream:
+                    before = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(before.st_mode) or before.st_size != artifact.byte_length:
+                        raise ArtifactIntegrityError("Artifact size or file type has changed.")
+                    while True:
+                        block = stream.read(READ_BLOCK_BYTES)
+                        calls += 1
+                        if not block:
+                            break
+                        if position + len(block) > artifact.byte_length:
+                            raise ArtifactIntegrityError("Artifact grew during verification.")
+                        digest.update(block)
+                        start, end = (
+                            max(offset, position),
+                            min(offset + length, position + len(block)),
+                        )
+                        if start < end:
+                            captured.extend(block[start - position : end - position])
+                        position += len(block)
+                    after = os.fstat(stream.fileno())
+
+            def stamp(s: os.stat_result) -> tuple[int, int, int, int, int]:
+                return (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+            if (
+                stamp(before) != stamp(after)
+                or position != artifact.byte_length
+                or digest.hexdigest() != artifact.digest
+            ):
+                raise ArtifactIntegrityError("Artifact changed or its full digest does not match.")
+        except FileNotFoundError as error:
+            raise SourceUnavailableError("Retained artifact bytes are unavailable.") from error
+        except OSError as error:
+            raise ArtifactIntegrityError(
+                "Artifact range is unavailable or cannot be read safely."
+            ) from error
+        return VerifiedArtifactRange(bytes(captured), position, calls)
 
 
 class ArtifactStore:
@@ -297,6 +377,34 @@ class ArtifactStore:
     def read(self, context: WorkspaceContext, artifact_id: UUID) -> bytes:
         with self.db.transaction(context) as connection:
             return self.read_in_transaction(connection, context, artifact_id)
+
+    def read_range(
+        self,
+        context: WorkspaceContext,
+        artifact_id: UUID,
+        *,
+        expected_sha256: str,
+        expected_byte_length: int,
+        offset: int,
+        length: int,
+    ) -> VerifiedArtifactRange:
+        from potbot.domain.errors import CapabilityUnavailableError, StateMismatchError
+
+        row = self.metadata(context, artifact_id)
+        if row["digest"] != expected_sha256 or row["byte_length"] != expected_byte_length:
+            raise StateMismatchError("Artifact revision differs from its read lease.")
+        reader = getattr(self.backend, "read_range", None)
+        if row["backend"] != self.backend.name or not callable(reader):
+            raise CapabilityUnavailableError(
+                "This artifact backend has no qualified bounded range reader."
+            )
+        result: VerifiedArtifactRange = reader(
+            context.workspace_id,
+            PublishedArtifact(row["digest"], row["byte_length"], row["locator"]),
+            offset,
+            length,
+        )
+        return result
 
     def read_in_transaction(
         self, connection: Any, context: WorkspaceContext, artifact_id: UUID

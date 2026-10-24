@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev6`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev7`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -20,6 +20,13 @@ Hosted adapters now support Claude, OpenAI, Grok, Gemini and EvoLink, with dynam
 model discovery, explicit disclosure/rate policy and durable usage accounting.
 A PostgreSQL job queue, REST API, WebSocket streams and browser dashboard expose
 generation progress and retained output.
+
+The opt-in [artifact-range Cog profile](docs/implementation/15-artifact-range-cogs.md)
+opens actor/policy-bound read leases, returns verified ranges up to 32 KiB and
+closes access through the existing monitored SYN boundary. Its local POSIX
+backend verifies the full source using bounded reads; reconnecting clients can
+reconstruct exact bytes from out-of-order or duplicate ranges. Uploads, physical
+retention and other backend qualification remain separate gates.
 
 The Agent security extension adds published Ed25519 verification keys, base-certified
 hourly signatures, a one-shot native password custody tier, inherited Ember contracts

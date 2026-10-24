@@ -72,8 +72,11 @@ cursor grants observation only. It never dispatches the original operation, and
 changed input or policy invalidates reuse. A historical signature is not fresh
 execution authority. Full traces remain separate retained artifacts, capped at
 16 MiB, 256 runs, 2,048 events and depth 16. Paging bounds response size; this
-implementation reads that bounded artifact into memory. General artifact range
-streaming remains a later G10 requirement.
+implementation reads that bounded artifact into memory. A separate opt-in
+[artifact-range Cog profile](15-artifact-range-cogs.md) now provides bounded
+reads of general retained artifacts on the local POSIX backend. Receipt paging
+itself retains its existing bounded in-memory projection. Network streaming,
+uploads and physical retention remain later G10 requirements.
 
 The mandatory PostgreSQL fixture exercises all work-kind registrations, nested
 causation, supporting fan-in, actual Python CLI and MCP stdio subprocesses,
@@ -90,7 +93,7 @@ programming, SWD/JTAG debug, GDB transports and JIT crash attachment retain sepa
 qualification and effect gates.
 
 T01.3 remains **in progress** for production adoption by every existing producer,
-general artifact range transport, exporter failure qualification and independent
+network artifact transport, uploads/retention, exporter failure qualification and independent
 remote/hardware profiles. This release supplies the shared core and its durable
 fixture, rather than claiming those integrations are complete. The recorded
 demonstration and exact-source acceptance artifacts are linked after verification.

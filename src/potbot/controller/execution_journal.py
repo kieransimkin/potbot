@@ -32,11 +32,18 @@ class PinnedExecutionJournal:
         binding: WorkBinding,
         emitter: UUID,
     ) -> None:
+        from potbot.cogs.artifact_ranges import RANGE_COGS, artifact_range_snapshot
         from potbot.cogs.execution import EXECUTION_COGS, execution_cog_snapshot
 
+        allowed = EXECUTION_COGS
+        expected_catalog = execution_cog_snapshot().fingerprint
+        if context.cog_snapshot_hash != expected_catalog:
+            expected_catalog = artifact_range_snapshot().fingerprint
+            allowed = (*EXECUTION_COGS, *RANGE_COGS)
+
         if (
-            signature not in EXECUTION_COGS
-            or context.cog_snapshot_hash != execution_cog_snapshot().fingerprint
+            signature not in allowed
+            or context.cog_snapshot_hash != expected_catalog
             or source.type_ref != signature.input_type_ref
         ):
             raise ScopeDeniedError("Journal requires the exact installed Cog and semantic revision")

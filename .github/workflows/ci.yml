@@ -51,7 +51,7 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Verify Windows temporary files, child readback and cleanup
-        run: uv run --locked --extra security python -m pytest -q tests/unit/test_temporary.py tests/unit/test_pytest_temp_isolation.py tests/unit/test_check_runner.py tests/unit/test_syn_export.py tests/unit/test_identity_cli.py
+        run: uv run --locked --extra security --extra semantics python -m pytest -q tests/unit/test_temporary.py tests/unit/test_pytest_temp_isolation.py tests/unit/test_check_runner.py tests/unit/test_syn_export.py tests/unit/test_identity_cli.py tests/unit/test_artifact_ranges.py
 
   verify:
     runs-on: ubuntu-24.04
@@ -64,6 +64,7 @@ jobs:
       POTBOT_INVENTORY_EVIDENCE_DIR: artifacts/tool-inventory
       POTBOT_CONTRACT_EVIDENCE_DIR: artifacts/tool-contracts
       POTBOT_PROVENANCE_EVIDENCE_DIR: artifacts/execution-provenance
+      POTBOT_RANGE_EVIDENCE_DIR: artifacts/artifact-ranges
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -110,6 +111,16 @@ jobs:
         run: uv run --locked python scripts/check_semantic_tool_contracts.py artifacts/tool-contracts/semantic-contracts.json --output artifacts/tool-contracts/T01.2-gate.json
       - name: Verify T01.3 exact-source core execution provenance
         run: uv run --locked python scripts/check_execution_provenance.py artifacts/execution-provenance/execution-provenance.json --output artifacts/execution-provenance/T01.3-core-gate.json
+      - name: Verify T01.3 exact-source bounded artifact reads
+        run: uv run --locked python scripts/check_artifact_ranges.py artifacts/artifact-ranges/artifact-ranges.json --output artifacts/artifact-ranges/T01.3-range-gate.json
+      - name: Retain bounded artifact Cog acceptance
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: artifact-range-cog-evidence
+          path: artifacts/artifact-ranges/
+          if-no-files-found: error
+          retention-days: 14
       - name: Retain execution provenance Cog acceptance
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
