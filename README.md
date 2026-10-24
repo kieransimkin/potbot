@@ -431,3 +431,23 @@ explains migration 24, fenced checkpoints, database-backed steering, bounded
 adaptive expansion and using OpenAI and Gemini **as outbound providers**.
 This is not a claim of complete inbound protocol emulation or fully qualified
 parallel reasoning orchestration.
+
+## Model-role benchmarks and agentic graph monitoring
+
+Potbot includes an **opt-in**, source-reproducible benchmark runner for comparing
+small local models and explicitly authorised hosted OpenAI/Claude/Gemini models
+across graph roles and prompt variants. It offers per-model/per-role quality,
+latency, provider usage and cost reports, calibrated blind A/B judge tests, and
+advisory monitoring of workflows and assumptions. It never downloads weights,
+uses personal web accounts by assumption, runs paid CI inference or automatically
+promotes a model based on its own judgement.
+
+```bash
+uv run --locked python scripts/benchmark_agentic_models.py preflight \
+  --models examples/agentic-benchmark/local-models.json \
+  --suite examples/agentic-benchmark/role-suite.json
+```
+
+See [the operator and methodology guide](docs/implementation/23-agentic-model-benchmark-and-monitoring.md)
+for the full local and hosted run commands, private side-by-side reports, paid
+limits, judge position-swap checks and periodic drift monitoring.

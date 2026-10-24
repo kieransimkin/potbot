@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "qwen3-tiny-reasoning",
+      "backend": "loopback_openai",
+      "model": "qwen3:0.6b",
+      "revision": "operator-unqualified-local-alias",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "max_output_tokens": 384,
+      "roles": [
+        "triage",
+        "hypothesis",
+        "evidence",
+        "steering",
+        "critique",
+        "synthesis",
+        "judge",
+        "planning"
+      ],
+      "tier": "micro"
+    },
+    {
+      "id": "qwen3-small-reasoning",
+      "backend": "loopback_openai",
+      "model": "qwen3:1.7b",
+      "revision": "operator-unqualified-local-alias",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "max_output_tokens": 384,
+      "roles": [
+        "triage",
+        "hypothesis",
+        "planning",
+        "evidence",
+        "steering",
+        "critique",
+        "synthesis",
+        "judge",
+        "coding"
+      ],
+      "tier": "small"
+    },
+    {
+      "id": "qwen25-micro-coder",
+      "backend": "loopback_openai",
+      "model": "qwen2.5-coder:0.5b",
+      "revision": "operator-unqualified-local-alias",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "max_output_tokens": 384,
+      "roles": [
+        "coding",
+        "planning",
+        "triage",
+        "evidence",
+        "judge"
+      ],
+      "tier": "micro"
+    },
+    {
+      "id": "qwen25-tiny-coder",
+      "backend": "loopback_openai",
+      "model": "qwen2.5-coder:1.5b",
+      "revision": "operator-unqualified-local-alias",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "max_output_tokens": 384,
+      "roles": [
+        "coding",
+        "planning",
+        "triage",
+        "evidence",
+        "judge"
+      ],
+      "tier": "small"
+    },
+    {
+      "id": "smollm2-baseline",
+      "backend": "loopback_openai",
+      "model": "smollm2:360m",
+      "revision": "operator-unqualified-local-alias",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "max_output_tokens": 256,
+      "roles": [
+        "triage",
+        "evidence",
+        "steering",
+        "judge"
+      ],
+      "tier": "micro"
+    }
+  ]
+}

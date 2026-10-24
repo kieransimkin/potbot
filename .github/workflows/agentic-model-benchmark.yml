@@ -1,0 +1,49 @@
+name: Agentic model benchmark preflight (no paid calls)
+
+on:
+  push:
+    paths:
+      - 'src/potbot/evaluation/agentic_*'
+      - 'scripts/benchmark_agentic_models.py'
+      - 'examples/agentic-benchmark/**'
+      - 'tests/unit/test_agentic_*'
+      - '.github/workflows/agentic-model-benchmark.yml'
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly offline contract regression only; provider credentials are NOT used.
+    - cron: '37 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  model-benchmark-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install exact locked dev environment
+        run: uv sync --locked --extra providers --dev
+      - name: Verify offline model-role and judge calibration contracts
+        run: |
+          uv run --locked python -m pytest -q \
+            tests/unit/test_agentic_model_bench.py \
+            tests/unit/test_agentic_benchmark_transport.py \
+            tests/unit/test_agentic_benchmark_cli.py
+      - name: Inspect model benchmark plan without network calls
+        run: |
+          mkdir -p artifacts/agentic-benchmark
+          uv run --locked python scripts/benchmark_agentic_models.py preflight \
+            --models examples/agentic-benchmark/local-models.json \
+            --suite examples/agentic-benchmark/role-suite.json \
+            > artifacts/agentic-benchmark/preflight.json
+      - name: Upload unqualified plan evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1
+        with:
+          name: agentic-benchmark-offline-plan
+          path: artifacts/agentic-benchmark
+          retention-days: 14

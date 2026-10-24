@@ -370,6 +370,12 @@ class KeywordMovesWorkflow:
                     data = self.invoke(plugin=step.plugin, operation=step.operation,
                                        inputs=tuple(inputs), keywords=step.keywords,
                                        options=dict(step.options))
+                # KeywordMoves PluginResult.to_dict() preserves tuple-valued
+                # dataclass fields (keywords, evidence and notes). The durable
+                # workflow wire format is JSON, which represents them as lists.
+                # Canonicalize the complete bounded result before validating its
+                # shape; reject non-JSON values rather than weakening contracts.
+                data = json.loads(_canonical(data))
                 self._validate_result(step, data)
                 # Prevent result attribution to inputs changed during an invocation.
                 if any(_digest(path.read_bytes()) != original for path, original in

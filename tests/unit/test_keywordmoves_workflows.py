@@ -262,3 +262,31 @@ def test_manifest_schema_round_trip_and_catalogue_classification() -> None:
     assert index[("text-library", "extract")] == "not_enabled"
     assert index[("keybert", "extract")] == "not_enabled"  # may download model files
     assert index[("google-trends", "collect-browser")] == "not_enabled"
+
+
+def test_real_keywordmoves_tuple_shaped_plugin_result_is_canonicalised(tmp_path: Path):
+    source = tmp_path / "input"
+    source.mkdir()
+    (source / "lyrics.txt").write_text("Coastal memories", encoding="utf-8")
+
+    def keywordmoves_style(**kwargs):
+        return {
+            "plugin": kwargs["plugin"], "operation": kwargs["operation"],
+            "keywords": ({"phrase": "coastal memories", "evidence": (
+                {"source": "text-library", "metric": "occurrences", "value": 1},
+            ), "metadata": {}},),
+            "notes": ("Local evidence, not external demand.",),
+            "metadata": {},
+        }
+
+    flow = KeywordMovesWorkflow(
+        plan=_plan(WorkflowStep("literal", "text-library", "extract-literal",
+                                ("file:lyrics.txt",))),
+        input_root=source, output_root=tmp_path / "out", invoke=keywordmoves_style,
+    )
+    result = flow.run()
+    assert result.status == "completed"
+    decoded = json.loads((tmp_path / "out/results/literal.json").read_text())
+    assert isinstance(decoded["keywords"], list)
+    assert isinstance(decoded["keywords"][0]["evidence"], list)
+    assert isinstance(decoded["notes"], list)
