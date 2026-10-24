@@ -85,6 +85,11 @@ def main() -> None:
             "tools/temporary.py",
             "tools/patch_worker.py",
             "persistence/execution_provenance_schema.py",
+            "cogs/artifact_ranges.py",
+            "controller/artifact_ranges.py",
+            "tools/artifact_ranges.py",
+            "persistence/artifact_ranges_schema.py",
+            "persistence/artifacts.py",
         ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
                 raise SystemExit("Wheel debugger source differs from build input")
@@ -112,6 +117,7 @@ def main() -> None:
             "assert len(BoundCogRegistry.tool_inventory().installed()) == 5; "
             "assert len(BoundCogRegistry.tool_contracts().installed()) == 7; "
             "assert len(BoundCogRegistry.provenance().installed()) == 23; "
+            "assert len(BoundCogRegistry.artifact_ranges().installed()) == 26; "
             "print('Clean wheel version and installed SYN Cog catalog verified')",
             cwd=Path(temporary),
         )

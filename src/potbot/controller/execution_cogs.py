@@ -69,9 +69,6 @@ class ExecutionCall:
         self._check()
         if self.depth >= 16 or len(self.work.child_runs) >= 32 or kind not in WORK_KINDS:
             raise ScopeDeniedError("Nested work exceeds its bounded installed scope")
-        self.progress("child_dispatch")
-        assert self.work.previous is not None
-        context = replace(self.work.context, invocation_id=uuid4(), upstream_receipt_hash=None)
         signature = WORK_COGS[WORK_KINDS.index(kind)]
         source = TypedCogValue(
             signature.input_type_ref,
@@ -81,6 +78,29 @@ class ExecutionCall:
                 "input": {"type_ref": value.type_ref, "value": value.value},
             },
         )
+        return await self._child(signature, source, links)
+
+    async def child_cog(
+        self, cog_ref: str, source: TypedCogValue, *, links: tuple[UUID, ...] = ()
+    ) -> CogOutcome:
+        """Invoke a fixed installed tool through the same parent/admission boundary."""
+        self._check()
+        signature = next(
+            (s for s in self.runtime._direct_operations if str(s.cog_ref) == cog_ref), None
+        )
+        if signature is None:
+            raise ScopeDeniedError("Child Cog is not installed in this host profile")
+        return await self._child(signature, source, links)
+
+    async def _child(
+        self, signature: CogSignature, source: TypedCogValue, links: tuple[UUID, ...]
+    ) -> CogOutcome:
+        self._check()
+        if self.depth >= 16 or len(self.work.child_runs) >= 32:
+            raise ScopeDeniedError("Nested work exceeds its bounded installed scope")
+        self.progress("child_dispatch")
+        assert self.work.previous is not None
+        context = replace(self.work.context, invocation_id=uuid4(), upstream_receipt_hash=None)
         outcome = await self.runtime._invoke(
             signature,
             source,
@@ -115,6 +135,7 @@ class ExecutionCogRuntime:
         operations: tuple[HostOperation, ...],
         admit: Callable[[CogSignature, TypedCogValue, CogRunContext], None],
         receipts: Any = None,
+        artifact_ranges: Any = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -127,7 +148,28 @@ class ExecutionCogRuntime:
             raise ScopeDeniedError(
                 "Execution needs independent host admission and bounded installations"
             )
-        self.registry = BoundCogRegistry.provenance()
+        if artifact_ranges is not None:
+            from potbot.cogs.artifact_ranges import (
+                artifact_range_ember_bundle,
+                installed_operations,
+            )
+            from potbot.controller.artifact_ranges import ArtifactRangeService
+
+            if (
+                not isinstance(artifact_ranges, ArtifactRangeService)
+                or artifact_ranges.actor != actor
+                or artifact_ranges.policy != policy
+                or artifact_ranges.db is not database
+                or artifact_ranges.artifacts is not artifacts
+            ):
+                raise ScopeDeniedError("Artifact service belongs to another host scope")
+            self.registry = BoundCogRegistry.artifact_ranges()
+            ember_bundle = artifact_range_ember_bundle
+            self._direct_operations = installed_operations(artifact_ranges, policy)
+        else:
+            self.registry = BoundCogRegistry.provenance()
+            ember_bundle = execution_ember_bundle
+            self._direct_operations = {}
         with database.transaction(actor) as connection:
             sealed = SynService._snapshot(connection, actor, snapshot_id)
         imported = SynSnapshot.from_dict(
@@ -145,7 +187,7 @@ class ExecutionCogRuntime:
         EmberContractService(database).import_bundle(
             actor,
             snapshot_id,
-            execution_ember_bundle(
+            ember_bundle(
                 workspace_id=actor.workspace_id,
                 snapshot_id=snapshot_id,
                 namespace=sealed["namespace"],
@@ -171,7 +213,7 @@ class ExecutionCogRuntime:
             op.binding.policy != policy for op in operations
         ):
             raise ScopeDeniedError("Duplicate or differently pinned host installations")
-        for op in operations:
+        for op in (*operations, *self._direct_operations.values()):
             self.catalog.schema_hash(op.binding.input_type_ref)
             self.catalog.schema_hash(op.binding.output_type_ref)
         self._seen: set[UUID] = set()
@@ -204,8 +246,8 @@ class ExecutionCogRuntime:
         depth: int = 0,
     ) -> CogOutcome:
         if (
-            signature not in EXECUTION_COGS
-            or (self._poisoned and signature in WORK_COGS)
+            signature not in (*EXECUTION_COGS, *self._direct_operations)
+            or (self._poisoned and signature in (*WORK_COGS, *self._direct_operations))
             or context.cog_snapshot_hash != self.registry.snapshot.fingerprint
             or context.task_revision_id != self.task_revision
             or context.repository_state_id != self.repository_state
@@ -237,6 +279,10 @@ class ExecutionCogRuntime:
             typed = TypedCogValue(payload["type_ref"], json.loads(canonical_json(payload["value"])))
             typed_hash = typed.fingerprint
             self.catalog.validate(typed)
+            binding = replace(op.binding, parent_event_id=parent_event_id, links=links)
+        elif signature in self._direct_operations:
+            op = self._direct_operations[signature]
+            kind, typed, typed_hash = op.binding.kind, source, source.fingerprint
             binding = replace(op.binding, parent_event_id=parent_event_id, links=links)
         else:
             if self.receipts is None or parent_event_id is not None:
@@ -312,13 +358,17 @@ class ExecutionCogRuntime:
                 ):
                     raise StateMismatchError("Handler returned a different semantic port")
                 self.catalog.validate(result)
-                value = {
-                    "schema_version": 1,
-                    "operation_ref": op.binding.operation_ref,
-                    "result": {"type_ref": result.type_ref, "value": result.value},
-                    "work_run_id": str(context.invocation_id),
-                    "status": "completed",
-                }
+                value = (
+                    result.value
+                    if signature in self._direct_operations
+                    else {
+                        "schema_version": 1,
+                        "operation_ref": op.binding.operation_ref,
+                        "result": {"type_ref": result.type_ref, "value": result.value},
+                        "work_run_id": str(context.invocation_id),
+                        "status": "completed",
+                    }
+                )
             else:
 
                 async def inspect(call: ExecutionCall, request: TypedCogValue) -> TypedCogValue:
