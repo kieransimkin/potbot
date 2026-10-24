@@ -5,6 +5,10 @@ DAG before accepting a record-v2 federated policy replacement. Potbot's existing
 `governed_policy_resolver` verifies the entire retained chain, including this
 evidence, before returning the adopted Type-policy context.
 
+[Protected native signing and recovery](18-protected-dag-signing.md) now add an
+explicit v2 policy/proof profile with independent operator reservations. The v1
+research profile remains frozen; installing v2 requires the existing authority.
+
 ![Old policy DAG replay selects the first authorized proposal and old Type governance separately approves it before Syn append](../media/syn-dag-finality.svg)
 
 *Generated architecture illustration, mirrored from Syn. It describes implemented

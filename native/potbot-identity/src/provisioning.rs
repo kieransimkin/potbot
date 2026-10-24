@@ -1,6 +1,7 @@
 //! Operator-only hardened derivation and restricted, password-protected Agent vaults.
 //! No public API/command exports a private key, parent seed or group-derivation secret.
 use super::*;
+pub mod dag;
 
 pub const AGENT_PROFILE: &str = "syn-agent-account-v1";
 pub const AGENT_VAULT_PROFILE: &str = "syn-restricted-agent-vault-v1";
@@ -169,6 +170,10 @@ struct AgentState {
     secrets: AgentSecrets,
     epoch_high_water: u64,
     reservations: Vec<Reservation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    dag_heads: Vec<dag::DagHead>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    dag_pending: Vec<dag::ReservationIntent>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -209,6 +214,8 @@ impl AgentVault {
             || state.membership_sha256 != sha256_hex(&canonical(&self.membership)?)
             || state.reservations.len() > 1024
             || state.epoch_high_water > i32::MAX as u64
+            || state.dag_heads.len() > 64
+            || state.dag_pending.len() > 16
         {
             return Err(Error::Identity);
         }
@@ -323,6 +330,8 @@ impl Unlocked {
             },
             epoch_high_water: epoch(now)?,
             reservations: Vec::new(),
+            dag_heads: Vec::new(),
+            dag_pending: Vec::new(),
         };
         storage.seal(&master, &state)?;
         self.state.agent_allocations.push(Allocation {
@@ -348,6 +357,9 @@ impl Unlocked {
         unlocked: &mut AgentUnlocked,
         next_epoch: u32,
     ) -> Result<()> {
+        if !unlocked.state.dag_pending.is_empty() {
+            return Err(Error::Policy);
+        }
         let current = &agent.membership;
         current.validate(&operator.identity.signer_hash)?;
         if next_epoch >= HARDENED || next_epoch < current.group_epoch {

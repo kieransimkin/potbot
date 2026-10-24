@@ -2,6 +2,17 @@
 
 This package implements the local password custody tier and public Ed25519 verification-key publication. Python sends public requests to a short-lived native process. The process reads passwords itself and returns an allowlisted public descriptor or signature bundle. It has no private-key export command and no resident unlocked session.
 
+Protected DAG operations now persist an encrypted intent, require an independent
+operator reservation, and durably commit/recover the exact event before release.
+The operator anchor stays outside Agent backups; missing or mismatched history
+holds. Generic signatures cannot bypass the dedicated event domain. See the
+[signing and recovery guide](../../docs/implementation/18-protected-dag-signing.md)
+for commands, crash ordering, rollback assumptions and bounded storage.
+
+![Prepare, independent operator reservation and durable commit protect DAG events after Agent vault restore](../../docs/media/syn-dag-signing.svg)
+
+*Generated implementation illustration; it is not a live consensus screenshot.*
+
 The public contracts are `potbot-identity-v1`, `potbot-hourly-signing-v1`, descriptor version 2, delegation version 1, envelope version 2, and bundle version 1. The private storage format is **`potbot-native-password-v1`**, version 1. It is deliberately a separate profile from the larger design-only vault format: one password slot is implemented; hardware credentials, passkeys, resident vault handles and their qualification are not claimed.
 
 ## Build and checks

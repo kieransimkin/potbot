@@ -1,5 +1,6 @@
 //! Public JSON is the only stdout protocol. Passwords and recovery words never
 //! cross the Python/native boundary. There is deliberately no raw-key command.
+use potbot_identity::provisioning::dag::{AnchorLedger, AnchorReceipt, DagBody, ReservationIntent};
 use potbot_identity::provisioning::{AgentSignRequest, AgentVault, ProvisionRequest};
 use potbot_identity::{
     canonical, entropy_from_words, epoch, files::Store, now, parse, secure, ClockGuard, Error,
@@ -229,6 +230,7 @@ fn execute() -> Result<i32> {
         "--help" | "help" => {
             args.allowed(&[])?;
             println!("Agent custody: agent-provision, agent-public, agent-check, agent-sign, agent-rotate, agent-allocations. Agent operations require independently pinned --expect-operator/--expect-agent; provisioning uses --expect-signer for the operator. No raw-key export.");
+            println!("Protected DAG: agent-dag-prepare, agent-dag-commit; operator: dag-anchor-initialize, dag-anchor-reserve, dag-anchor-export. The independent operator anchor must never be restored with Agent vaults. Missing or mismatched anchor state holds; no reset or cancel command exists.");
             println!("potbot-identity preflight\npotbot-identity init --vault ABS_PATH --policy ABS_PATH\npotbot-identity public --vault ABS_PATH [--expect-signer HASH]\npotbot-identity sign --vault ABS_PATH --expect-signer HASH < public-request.json\npotbot-identity recovery --vault ABS_PATH --expect-signer HASH\npotbot-identity recover --vault ABS_PATH --policy ABS_PATH --expect-signer HASH\npotbot-identity change-password --vault ABS_PATH --expect-signer HASH\npotbot-identity backup --vault ABS_PATH --output ABS_PATH\nPasswords are prompted by native controlling TTY. Linux init/sign may receive a pre-opened private --password-fd N (N >= 3). No secret argv, environment, stdin, or stdout.");
         }
         "preflight" => {
@@ -237,6 +239,112 @@ fn execute() -> Result<i32> {
             let code = if status["ready"] == true { 0 } else { 78 };
             emit(&status)?;
             return Ok(code);
+        }
+        "agent-dag-prepare" | "agent-dag-commit" => {
+            args.allowed(&[
+                "--vault",
+                "--expect-operator",
+                "--expect-agent",
+                "--password-fd",
+            ])?;
+            qualify()?;
+            let data = read_bounded(std::io::stdin().lock(), 64 * 1024)?;
+            let store = Store::open(&args.path("--vault")?, false)?;
+            let mut vault: AgentVault = parse(&store.read()?)?;
+            let mut input = SecretInput::new(&args)?;
+            let password = input.password("Agent vault password: ")?;
+            let mut worker = vault.unlock(
+                password.as_bytes(),
+                args.get("--expect-operator")?,
+                args.get("--expect-agent")?,
+            )?;
+            if args.command == "agent-dag-prepare" {
+                let body: DagBody = parse(&data)?;
+                let intent = worker.prepare_dag(&mut vault, body)?;
+                store.write(&canonical(&vault)?, true)?;
+                emit(&intent)?;
+            } else {
+                let receipt: AnchorReceipt = parse(&data)?;
+                let event = worker.commit_dag(&mut vault, receipt)?;
+                store.write(&canonical(&vault)?, true)?;
+                emit(&event)?;
+            }
+        }
+        "dag-anchor-initialize" | "dag-anchor-reserve" | "dag-anchor-export" => {
+            args.allowed(&["--vault", "--anchor", "--expect-signer", "--password-fd"])?;
+            qualify()?;
+            let data = if args.command == "dag-anchor-initialize" {
+                None
+            } else {
+                Some(read_bounded(std::io::stdin().lock(), 64 * 1024)?)
+            };
+            let vault_path = args.path("--vault")?;
+            let anchor_path = args.path("--anchor")?;
+            if vault_path == anchor_path {
+                return Err(Error::Input);
+            }
+            let anchor_name = anchor_path.to_str().ok_or(Error::Input)?;
+            let store = Store::open(&vault_path, false)?;
+            let mut vault = load(&store)?;
+            let mut input = SecretInput::new(&args)?;
+            let password = input.password("Operator vault password: ")?;
+            let mut owner = vault.unlock(password.as_bytes(), args.expected()?)?;
+            let anchor = Store::open(&anchor_path, args.command == "dag-anchor-initialize")?;
+            if args.command == "dag-anchor-initialize" {
+                let empty = owner.bind_dag_anchor(&mut vault, anchor_name)?;
+                let exists = anchor.exists()?;
+                if exists {
+                    let current: AnchorLedger = parse(&anchor.read()?)?;
+                    if canonical(&current)? != canonical(&empty)? {
+                        return Err(Error::Storage);
+                    }
+                }
+                store.write(&canonical(&vault)?, true)?;
+                if !exists {
+                    anchor.write(&canonical(&empty)?, false)?;
+                }
+                owner.activate_dag_anchor(&mut vault, anchor_name, &empty)?;
+                store.write(&canonical(&vault)?, true)?;
+                emit(
+                    &json!({"schema_version":1,"profile":"syn-dag-anchor-ready-v1",
+                    "issuer_hash":vault.identity.signer_hash,"ledger_digest":empty.digest()?}),
+                )?;
+            } else {
+                let mut ledger: AnchorLedger = parse(&anchor.read()?)?;
+                // Repair only the exact authenticated write-ahead reservation.
+                ledger = owner.reconcile_dag_anchor(&mut vault, anchor_name, &ledger)?;
+                anchor.write(&canonical(&ledger)?, true)?;
+                store.write(&canonical(&vault)?, true)?;
+                if args.command == "dag-anchor-reserve" {
+                    let intent: ReservationIntent = parse(data.as_ref().unwrap())?;
+                    let receipt =
+                        owner.stage_dag_reservation(&mut vault, anchor_name, &ledger, intent)?;
+                    store.write(&canonical(&vault)?, true)?;
+                    ledger = owner.reconcile_dag_anchor(&mut vault, anchor_name, &ledger)?;
+                    anchor.write(&canonical(&ledger)?, true)?;
+                    store.write(&canonical(&vault)?, true)?;
+                    emit(&receipt)?;
+                } else {
+                    #[derive(serde::Deserialize)]
+                    #[serde(deny_unknown_fields)]
+                    struct Query {
+                        node_hash: String,
+                        context_digest: String,
+                        sequence: String,
+                    }
+                    let q: Query = parse(data.as_ref().unwrap())?;
+                    let receipt = ledger
+                        .records
+                        .iter()
+                        .find(|r| {
+                            r.intent.membership.agent.signer_hash == q.node_hash
+                                && r.intent.context_digest == q.context_digest
+                                && r.intent.sequence == q.sequence
+                        })
+                        .ok_or(Error::Policy)?;
+                    emit(receipt)?;
+                }
+            }
         }
         "agent-provision" => {
             args.allowed(&[

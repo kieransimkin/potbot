@@ -642,6 +642,157 @@ class NativeIdentityBroker:
             )
         return result
 
+    def prepare_dag_event(
+        self, vault: Path, body: dict[str, Any], *, membership: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Persist a sealed intent; no event signature crosses this boundary yet."""
+        from syn_client.consensus import canonical_bytes
+        from syn_client.custody import verify_membership
+        from syn_client.dag_finality import event_payload_digest
+        from syn_client.dag_signing import validate_dag_body, verify_reservation_intent
+
+        m = verify_membership(membership)
+        b = validate_dag_body(body)
+        if b["creator"] != m["agent"]["signer_hash"]:
+            raise NativeBrokerError("DAG body differs from its assigned account")
+        self._require_ready()
+        _, value = self._run(
+            [
+                "agent-dag-prepare",
+                "--vault",
+                str(vault),
+                "--expect-operator",
+                m["operator"]["signer_hash"],
+                "--expect-agent",
+                m["agent"]["signer_hash"],
+            ],
+            public_input=canonical_bytes(b),
+        )
+        intent = verify_reservation_intent(value, membership=m)
+        if intent["payload_sha256"] != event_payload_digest(b) or any(
+            intent[k] != b[k] for k in ("context_digest", "sequence", "self_parent", "timestamp_ms")
+        ):
+            raise NativeBrokerError("Native DAG intent differs from the reviewed body")
+        return intent
+
+    def commit_dag_event(
+        self, vault: Path, receipt: dict[str, Any], *, membership: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Commit or recover an exact external reservation before releasing its event."""
+        from syn_client.consensus import canonical_bytes
+        from syn_client.dag_signing import verify_anchor_receipt, verify_protected_event
+
+        verified = verify_anchor_receipt(receipt, membership=membership)
+        self._require_ready()
+        _, value = self._run(
+            [
+                "agent-dag-commit",
+                "--vault",
+                str(vault),
+                "--expect-operator",
+                membership["operator"]["signer_hash"],
+                "--expect-agent",
+                membership["agent"]["signer_hash"],
+            ],
+            public_input=canonical_bytes(verified),
+        )
+        result = verify_protected_event(value, membership=membership)
+        if canonical_bytes(result["reservation"]) != canonical_bytes(verified):
+            raise NativeBrokerError("Native DAG commit returned another reservation")
+        return result
+
+    def initialize_dag_anchor(
+        self, vault: Path, anchor: Path, *, expected_operator_hash: str
+    ) -> dict[str, Any]:
+        pin = _hash(expected_operator_hash, "operator fingerprint")
+        self._require_ready()
+        _, value = self._run(
+            [
+                "dag-anchor-initialize",
+                "--vault",
+                str(vault),
+                "--anchor",
+                str(anchor),
+                "--expect-signer",
+                pin,
+            ]
+        )
+        if set(value) != {"schema_version", "profile", "issuer_hash", "ledger_digest"} or (
+            type(value["schema_version"]) is not int
+            or value["schema_version"] != 1
+            or value["profile"] != "syn-dag-anchor-ready-v1"
+            or value["issuer_hash"] != pin
+        ):
+            raise NativeBrokerError("Native DAG anchor initialization response is invalid")
+        _hash(value["ledger_digest"], "anchor digest")
+        return value
+
+    def reserve_dag_event(
+        self, vault: Path, anchor: Path, intent: dict[str, Any], *, membership: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Operator operation; requires its own native password prompt and custody."""
+        from syn_client.consensus import canonical_bytes
+        from syn_client.dag_signing import verify_anchor_receipt, verify_reservation_intent
+
+        checked = verify_reservation_intent(intent, membership=membership)
+        self._require_ready()
+        _, value = self._run(
+            [
+                "dag-anchor-reserve",
+                "--vault",
+                str(vault),
+                "--anchor",
+                str(anchor),
+                "--expect-signer",
+                membership["operator"]["signer_hash"],
+            ],
+            public_input=canonical_bytes(checked),
+        )
+        result = verify_anchor_receipt(value, membership=membership)
+        if canonical_bytes(result["intent"]) != canonical_bytes(checked):
+            raise NativeBrokerError("Native DAG anchor returned another intent")
+        return result
+
+    def export_dag_reservation(
+        self,
+        vault: Path,
+        anchor: Path,
+        *,
+        membership: dict[str, Any],
+        context_digest: str,
+        sequence: str,
+    ) -> dict[str, Any]:
+        from syn_client.consensus import _revision, canonical_bytes, digest_text
+        from syn_client.custody import verify_membership
+        from syn_client.dag_signing import verify_anchor_receipt
+
+        m = verify_membership(membership)
+        digest_text(context_digest)
+        _revision(sequence)
+        query = dict(
+            node_hash=m["agent"]["signer_hash"], context_digest=context_digest, sequence=sequence
+        )
+        self._require_ready()
+        _, value = self._run(
+            [
+                "dag-anchor-export",
+                "--vault",
+                str(vault),
+                "--anchor",
+                str(anchor),
+                "--expect-signer",
+                m["operator"]["signer_hash"],
+            ],
+            public_input=canonical_bytes(query),
+        )
+        result = verify_anchor_receipt(value, membership=m)
+        if (
+            result["intent"]["context_digest"] != context_digest
+            or result["intent"]["sequence"] != sequence
+        ):
+            raise NativeBrokerError("Native DAG anchor exported another event slot")
+        return result
+
     def recover(
         self,
         vault: Path,

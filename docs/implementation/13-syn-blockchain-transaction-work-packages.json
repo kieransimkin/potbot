@@ -102,7 +102,7 @@
     {
       "id": "SBT03",
       "title": "Extend protected native custody",
-      "status": "planned",
+      "status": "in_progress",
       "depends_on": [
         "SBT02"
       ],
@@ -120,7 +120,13 @@
         "durable author reservations",
         "protected IPC contract"
       ],
-      "acceptance_gate": "Real native processes sign only scoped operations, survive crashes and never export raw keys."
+      "acceptance_gate": "Real native processes sign only scoped operations, survive crashes and never export raw keys.",
+      "implemented_progress": [
+        "protected DAG v2 event domain, durable native intents and operator reservation receipts",
+        "operator vault write-ahead state and independent journal fence Agent vault rollback",
+        "exact encrypted-capsule recovery with write-before-output and native/Rust-Python vectors"
+      ],
+      "remaining_gate": "Syn-only service transport, qualified continuous producer, authenticated checkpoints, retirement and operator-custody recovery remain pending."
     },
     {
       "id": "SBT04",
@@ -655,14 +661,23 @@
       ],
       "proof_profile": "syn.dag-hashgraph-finality/1",
       "pilot": "four_independent_root_delegates_three_required"
+    },
+    "syn.bft-dag-hashgraph/2": {
+      "status": "bounded_verifier_and_native_custody_implemented",
+      "fault_model": "byzantine_weight_less_than_one_third",
+      "membership": "independently_admitted_issuers_with_aggregate_weight_caps",
+      "node_address": "node_key_hash",
+      "proof_profile": "syn.dag-hashgraph-finality/2",
+      "signing_guard": "permanent_independent_operator_reservations_outside_agent_backups",
+      "first_candidate": "Hiero_platform_integration_spike"
     }
   },
   "implementation_progress": {
     "document": "15-syn-consensus-foundation.md",
     "scope": "canonical Type contracts, node-hash validation and pinned offline resolution; no runtime consensus",
     "pending": [
-      "durable governed adoption",
-      "native Rust parity and ledger signing",
+      "authenticated governed checkpoints and recovery",
+      "remaining native typed transaction and frame contracts",
       "live account/instance binding",
       "private mesh",
       "agreement adapters",

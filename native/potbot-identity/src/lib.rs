@@ -451,6 +451,8 @@ pub struct PrivateState {
     reservations: Vec<Reservation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     agent_allocations: Vec<provisioning::Allocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dag_anchor: Option<provisioning::dag::AnchorBinding>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -654,6 +656,7 @@ impl Vault {
             epoch_high_water: epoch(now)?,
             reservations: Vec::new(),
             agent_allocations: Vec::new(),
+            dag_anchor: None,
         };
         vault.seal(&master, &state)?;
         vault.validate()?;

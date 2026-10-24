@@ -122,8 +122,10 @@ ownership and authenticated reads checked against independent Potbot trust pins.
 quorums and old Type governors before appending a successor.
 [Bounded federated DAG replay](17-syn-dag-finality.md) now verifies record-v2
 replacements against the old epoch's first finalized authorized proposal and
-separate old Type-governance consent. Operational engine/coin qualification,
-new ledger signing, protected startup, mesh and consensus remain pending; neither
+separate old Type-governance consent. [Protected DAG signing and recovery](18-protected-dag-signing.md)
+now start SBT03 with native intents, permanent operator reservations and exact
+capsule recovery. Operational engine/coin qualification, remaining native
+transaction/frame contracts, protected startup, mesh and consensus remain pending; neither
 work package is marked complete.
 
 Syn's current receipt chain is a local ordered journal. It does not supply shared

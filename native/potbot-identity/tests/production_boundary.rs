@@ -179,6 +179,148 @@ fn production_restricted_agent_custody_acceptance() {
             agent_pin,
         ]
     };
+    // The REAL protected process reserves externally before releasing a DAG signature.
+    let anchor = temporary.path().join("operator").join("dag-anchor.json");
+    let anchor_path = anchor.to_str().unwrap();
+    let owner_arguments = |command| {
+        vec![
+            command,
+            "--vault",
+            root_path,
+            "--anchor",
+            anchor_path,
+            "--expect-signer",
+            pin,
+        ]
+    };
+    let owner_password = format!("{PASSWORD}\n");
+    public_json(&invoke(
+        &owner_arguments("dag-anchor-initialize"),
+        Some(&owner_password),
+        None,
+    ));
+    let original_vault = std::fs::read(&agent).unwrap();
+    let mut body = json!({"profile":"syn.hashgraph-event/2","context_digest":"a".repeat(64),
+        "creator":agent_pin,"sequence":"1","self_parent":null,"other_parent":null,
+        "timestamp_ms":1000,"proposal":null});
+    let intent = public_json(&invoke(
+        &arguments("agent-dag-prepare"),
+        Some(&agent_password),
+        Some(&canonical(&body).unwrap()),
+    ));
+    assert!(intent.get("proof").is_none());
+    let receipt = public_json(&invoke(
+        &owner_arguments("dag-anchor-reserve"),
+        Some(&owner_password),
+        Some(&canonical(&intent).unwrap()),
+    ));
+    let committed = public_json(&invoke(
+        &arguments("agent-dag-commit"),
+        Some(&agent_password),
+        Some(&canonical(&receipt).unwrap()),
+    ));
+    verify(
+        &member.agent.public_key,
+        committed["proof"]["signature"].as_str().unwrap(),
+        b"syn-dag-event-proof-v1",
+        &committed["proof"],
+    );
+    verify(
+        &member.operator.public_key,
+        receipt["signature"].as_str().unwrap(),
+        b"syn-dag-anchor-receipt-v1",
+        &receipt,
+    );
+    // Simulated vault restore excludes the independent operator journal and pin.
+    std::fs::write(&agent, &original_vault).unwrap();
+    body["timestamp_ms"] = 1001.into();
+    let fork = public_json(&invoke(
+        &arguments("agent-dag-prepare"),
+        Some(&agent_password),
+        Some(&canonical(&body).unwrap()),
+    ));
+    let refused = invoke(
+        &owner_arguments("dag-anchor-reserve"),
+        Some(&owner_password),
+        Some(&canonical(&fork).unwrap()),
+    );
+    assert!(!refused.status.success());
+    assert!(refused.stdout.is_empty());
+    let exported = public_json(&invoke(
+        &owner_arguments("dag-anchor-export"),
+        Some(&owner_password),
+        Some(
+            &canonical(
+                &json!({"node_hash":agent_pin,"context_digest":"a".repeat(64),"sequence":"1"}),
+            )
+            .unwrap(),
+        ),
+    ));
+    assert_eq!(canonical(&exported).unwrap(), canonical(&receipt).unwrap());
+    let recovered = public_json(&invoke(
+        &arguments("agent-dag-commit"),
+        Some(&agent_password),
+        Some(&canonical(&exported).unwrap()),
+    ));
+    assert_eq!(
+        canonical(&recovered).unwrap(),
+        canonical(&committed).unwrap()
+    );
+    // Two restored copies race for the next parent. The operator's file locks
+    // and permanent journal must allow exactly one public reservation.
+    let head_one = std::fs::read(&agent).unwrap();
+    body["sequence"] = "2".into();
+    body["self_parent"] = receipt["intent"]["event_digest"].clone();
+    body["timestamp_ms"] = 1002.into();
+    let first = public_json(&invoke(
+        &arguments("agent-dag-prepare"),
+        Some(&agent_password),
+        Some(&canonical(&body).unwrap()),
+    ));
+    std::fs::write(&agent, &head_one).unwrap();
+    body["timestamp_ms"] = 1003.into();
+    let second = public_json(&invoke(
+        &arguments("agent-dag-prepare"),
+        Some(&agent_password),
+        Some(&canonical(&body).unwrap()),
+    ));
+    let races = std::thread::scope(|scope| {
+        let one = scope.spawn(|| {
+            invoke(
+                &owner_arguments("dag-anchor-reserve"),
+                Some(&owner_password),
+                Some(&canonical(&first).unwrap()),
+            )
+        });
+        let two = scope.spawn(|| {
+            invoke(
+                &owner_arguments("dag-anchor-reserve"),
+                Some(&owner_password),
+                Some(&canonical(&second).unwrap()),
+            )
+        });
+        vec![one.join().unwrap(), two.join().unwrap()]
+    });
+    assert_eq!(races.iter().filter(|r| r.status.success()).count(), 1);
+    assert!(races
+        .iter()
+        .filter(|r| !r.status.success())
+        .all(|r| r.stdout.is_empty()));
+    let winning = public_json(races.iter().find(|r| r.status.success()).unwrap());
+    public_json(&invoke(
+        &arguments("agent-dag-commit"),
+        Some(&agent_password),
+        Some(&canonical(&winning).unwrap()),
+    ));
+    // Losing the anchor must not silently create an empty replacement.
+    std::fs::remove_file(&anchor).unwrap();
+    let missing = invoke(
+        &owner_arguments("dag-anchor-initialize"),
+        Some(&owner_password),
+        None,
+    );
+    assert!(!missing.status.success());
+    assert!(!anchor.exists());
     // Agent commands have only the assigned vault; the operator file is unavailable.
     std::fs::rename(&root, &offline).unwrap();
     let checked = public_json(&invoke(
