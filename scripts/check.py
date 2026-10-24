@@ -9,11 +9,11 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
 from potbot.evaluation.diagnostics import sanitize_text
+from potbot.tools.temporary import TemporaryDirectory, allocate_file
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,6 +34,7 @@ def main() -> int:
     started_at = datetime.now(UTC).isoformat()
     # Only successful completion of every requested gate may mark this run green.
     status = 1
+    process_scratch: TemporaryDirectory | None = None
 
     def run(
         label: str,
@@ -48,7 +49,7 @@ def main() -> int:
             completed = subprocess.run(
                 command,
                 cwd=cwd,
-                env=environment,
+                env=process_scratch.environment(environment) if process_scratch else environment,
                 capture_output=True,
                 text=True,
                 errors="replace",
@@ -76,9 +77,18 @@ def main() -> int:
             raise CheckFailed(f"{label} failed (exit {returncode})")
 
     try:
-        run("lint", [sys.executable, "-m", "ruff", "check", "."])
-        run("format", [sys.executable, "-m", "ruff", "format", "--check", "."])
-        run("types", [sys.executable, "-m", "mypy"])
+        process_scratch = TemporaryDirectory(
+            prefix="potbot-check-process-", dir=ROOT / ".potbot/temporary"
+        )
+        cache = str(process_scratch.path / "ruff-cache")
+        run("lint", [sys.executable, "-m", "ruff", "check", "--cache-dir", cache, "."])
+        run(
+            "format", [sys.executable, "-m", "ruff", "format", "--cache-dir", cache, "--check", "."]
+        )
+        run(
+            "types",
+            [sys.executable, "-m", "mypy", "--cache-dir", str(process_scratch.path / "mypy-cache")],
+        )
         run(
             "hierarchy-assets",
             [sys.executable, str(ROOT / "scripts/generate_type_hierarchy.py"), "--check"],
@@ -87,7 +97,7 @@ def main() -> int:
             "agent-security-assets",
             [sys.executable, str(ROOT / "scripts/generate_agent_security.py"), "--check"],
         )
-        with tempfile.TemporaryDirectory(prefix="potbot-check-") as temporary:
+        with TemporaryDirectory(prefix="potbot-check-", dir=process_scratch.path) as temporary:
             temp = Path(temporary)
             junit = temp / "tests.xml"
 
@@ -224,6 +234,13 @@ def main() -> int:
                 environment=clean_environment,
             )
             if args.with_postgres:
+                # Verify private recovery storage before acquiring a DB capability.
+                # Keep 0700 custody: a restricted host must fail before DB creation.
+                recovery = ROOT / ".test-runs"
+                recovery.mkdir(mode=0o700, exist_ok=True)
+                descriptor, probe = allocate_file(recovery, prefix=".access-probe-")
+                os.close(descriptor)
+                probe.unlink()
                 manifest = temp / "migration-run.json"
                 db_command = [sys.executable, "-m", "potbot", "db"]
                 try:
@@ -238,10 +255,8 @@ def main() -> int:
                             run("db-cleanup", [*db_command, "cleanup", "--manifest", str(manifest)])
                         except BaseException:
                             # Keep the capability outside uploaded diagnostics for manual recovery.
-                            recovery = ROOT / ".test-runs"
-                            recovery.mkdir(mode=0o700, exist_ok=True)
-                            descriptor, target = tempfile.mkstemp(
-                                prefix="recovery-", suffix=".json", dir=recovery
+                            descriptor, target = allocate_file(
+                                recovery, prefix="recovery-", suffix=".json"
                             )
                             with (
                                 os.fdopen(descriptor, "wb") as output,
@@ -269,6 +284,14 @@ def main() -> int:
             file=sys.stderr,
         )
     finally:
+        if process_scratch is not None:
+            try:
+                process_scratch.cleanup()
+            except OSError as error:
+                print(sanitize_text(str(error)), file=sys.stderr)
+                results.append({"check": "scratch-cleanup", "exit_code": 1})
+                if status == 0:
+                    status = 1
         summary = {
             "schema_version": 1,
             "started_at": started_at,

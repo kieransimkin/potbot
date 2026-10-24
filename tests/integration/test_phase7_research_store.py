@@ -128,7 +128,7 @@ def test_observations_bind_the_exact_repository_artifact(app_env, tmp_path):
         )
         == recorded
     )
-    with pytest.raises(RevisionConflictError):
+    with pytest.raises(StateMismatchError, match="Research excerpt is not present"):
         store.record_snapshot_observation(
             app_env.context,
             replace(observed, content_digest="f" * 64),

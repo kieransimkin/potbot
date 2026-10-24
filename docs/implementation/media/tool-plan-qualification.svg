@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="540" viewBox="0 0 1080 540" role="img" aria-labelledby="title description">
+  <title id="title">Potbot tool-plan qualification lanes</title>
+  <desc id="description">Generated planning illustration. A shared typed and admitted core supports independent core workflow, Python debugger and specialist qualification lanes. All converge on evidence and per-profile release gates. This diagram is not runtime evidence.</desc>
+  <style>text{font-family:system-ui,sans-serif;fill:#e9f2ff} .heading{font-size:27px;font-weight:700}.body{font-size:18px}.small{font-size:16px;fill:#b8cce4}.box{fill:#142841;stroke:#5995cd;stroke-width:2;rx:12}.lane{fill:#102035;stroke:#406380;stroke-width:2;rx:12}.arrow{stroke:#82c4ff;stroke-width:2;fill:none;marker-end:url(#arrow)}</style>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#82c4ff"/></marker></defs>
+  <rect width="1080" height="540" fill="#081422"/>
+  <text x="38" y="47" class="heading">One tool contract. Independent qualification lanes.</text>
+  <text x="38" y="77" class="small">Planning illustration · 48 retained stages · 18 requirement groups · no runtime acceptance claimed</text>
+  <rect x="38" y="108" width="1004" height="72" class="box"/>
+  <text x="61" y="138" class="body">Shared core: typed inputs, identity, admission, qualified executor and durable receipts</text>
+  <text x="61" y="165" class="small">Bounded artifacts · workspace isolation · source hashes · cancellation · revocation</text>
+  <path d="M205 180V212M540 180V212M875 180V212" class="arrow"/>
+  <rect x="38" y="220" width="310" height="151" class="lane"/>
+  <text x="59" y="251" class="body">Core workflows</text>
+  <text x="59" y="281" class="small">Two admitted local fixture tools</text>
+  <text x="59" y="308" class="small">Files, terminals, tests, recovery</text>
+  <text x="59" y="343" class="small">No optional vendor dependency</text>
+  <rect x="385" y="220" width="310" height="151" class="lane"/>
+  <text x="406" y="251" class="body">Python debugging first</text>
+  <text x="406" y="281" class="small">Breakpoints, stepping, stack</text>
+  <text x="406" y="308" class="small">Launch, attach, detach, cleanup</text>
+  <text x="406" y="343" class="small">Real backend + sandbox gates</text>
+  <rect x="732" y="220" width="310" height="151" class="lane"/>
+  <text x="753" y="251" class="body">Selected specialists</text>
+  <text x="753" y="281" class="small">Remote hosts, phones, probes</text>
+  <text x="753" y="308" class="small">Data, documents, media, solvers</text>
+  <text x="753" y="343" class="small">Each enabled profile tested</text>
+  <path d="M205 371V405M540 371V405M875 371V405" class="arrow"/>
+  <rect x="38" y="413" width="1004" height="72" class="box"/>
+  <text x="61" y="443" class="body">Independent outcome evidence + mandatory enabled-profile release gates</text>
+  <text x="61" y="470" class="small">Mock ≠ real host · Python ≠ every language · unavailable ≠ passed · plan ≠ implementation</text>
+  <text x="38" y="519" class="small">Full programme completion still requires all 48 stage reports and the applicable qualification dossier.</text>
+</svg>

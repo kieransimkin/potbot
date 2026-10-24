@@ -11,7 +11,7 @@ import hashlib
 import os
 import re
 import stat
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +20,12 @@ from uuid import UUID, uuid4, uuid5
 
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.embeddings import ArtifactEmbeddingManifest, NamedEmbeddingReference
-from potbot.domain.errors import InvalidInputError, ScopeDeniedError
+from potbot.domain.errors import (
+    CapabilityUnavailableError,
+    InvalidInputError,
+    ScopeDeniedError,
+    SourceUnavailableError,
+)
 from potbot.domain.serialization import content_hash
 
 if TYPE_CHECKING:
@@ -41,6 +46,13 @@ class PublishedArtifact:
     locator: str
 
 
+@dataclass(frozen=True, slots=True)
+class VerifiedArtifactRange:
+    data: bytes
+    verified_byte_length: int
+    read_calls: int
+
+
 class ArtifactBackend(Protocol):
     name: str
 
@@ -53,6 +65,8 @@ class LocalArtifactBackend:
     """Local immutable objects; path components are opened without symlink traversal."""
 
     name = "local-v1"
+    supports_range_reads = os.name == "posix"
+    supports_chunk_uploads = os.name == "posix"
 
     def __init__(self, root: Path, *, max_bytes: int = 64 * 1024 * 1024) -> None:
         if type(max_bytes) is not int or max_bytes < 1:
@@ -138,7 +152,9 @@ class LocalArtifactBackend:
             raise ArtifactIntegrityError("Artifact locator or size failed validation.")
         try:
             with self._directory(expected, create=False) as (directory, filename):
-                descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+                descriptor = os.open(
+                    filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+                )
                 with os.fdopen(descriptor, "rb") as stream:
                     metadata = os.fstat(stream.fileno())
                     if (
@@ -152,6 +168,160 @@ class LocalArtifactBackend:
         if len(data) != artifact.byte_length or hashlib.sha256(data).hexdigest() != artifact.digest:
             raise ArtifactIntegrityError("Artifact content digest does not match.")
         return data
+
+    def read_range(
+        self, workspace_id: UUID, artifact: PublishedArtifact, offset: int, length: int
+    ) -> VerifiedArtifactRange:
+        """Verify the entire immutable object using bounded reads, retain one slice.
+
+        Integrity is checked before returning any data. There is no whole-object
+        buffering or unverified early yield. Logical verification bytes are not
+        a measurement of physical disk I/O or process peak memory.
+        """
+        from potbot.tools.artifact_ranges import (
+            MAX_ARTIFACT_BYTES,
+            MAX_RANGE_BYTES,
+            READ_BLOCK_BYTES,
+        )
+
+        if not self.supports_range_reads:
+            raise CapabilityUnavailableError(
+                "Local artifact ranges require the POSIX backend profile."
+            )
+
+        expected = self.locator(workspace_id, artifact.digest)
+        if (
+            artifact.locator != expected
+            or type(artifact.byte_length) is not int
+            or not 0 <= artifact.byte_length <= min(self.max_bytes, MAX_ARTIFACT_BYTES)
+            or type(offset) is not int
+            or not 0 <= offset <= artifact.byte_length
+            or type(length) is not int
+            or not 1 <= length <= MAX_RANGE_BYTES
+        ):
+            raise InvalidInputError("Artifact range or pinned revision is invalid.")
+        captured = bytearray()
+        digest, position, calls = hashlib.sha256(), 0, 0
+        try:
+            with self._directory(expected, create=False) as (directory, filename):
+                descriptor = os.open(
+                    filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+                )
+                with os.fdopen(descriptor, "rb") as stream:
+                    before = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(before.st_mode) or before.st_size != artifact.byte_length:
+                        raise ArtifactIntegrityError("Artifact size or file type has changed.")
+                    while True:
+                        block = stream.read(READ_BLOCK_BYTES)
+                        calls += 1
+                        if not block:
+                            break
+                        if position + len(block) > artifact.byte_length:
+                            raise ArtifactIntegrityError("Artifact grew during verification.")
+                        digest.update(block)
+                        start, end = (
+                            max(offset, position),
+                            min(offset + length, position + len(block)),
+                        )
+                        if start < end:
+                            captured.extend(block[start - position : end - position])
+                        position += len(block)
+                    after = os.fstat(stream.fileno())
+
+            def stamp(s: os.stat_result) -> tuple[int, int, int, int, int]:
+                return (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+            if (
+                stamp(before) != stamp(after)
+                or position != artifact.byte_length
+                or digest.hexdigest() != artifact.digest
+            ):
+                raise ArtifactIntegrityError("Artifact changed or its full digest does not match.")
+        except FileNotFoundError as error:
+            raise SourceUnavailableError("Retained artifact bytes are unavailable.") from error
+        except OSError as error:
+            raise ArtifactIntegrityError(
+                "Artifact range is unavailable or cannot be read safely."
+            ) from error
+        return VerifiedArtifactRange(bytes(captured), position, calls)
+
+    def publish_chunks(
+        self,
+        workspace_id: UUID,
+        chunks: Iterable[bytes],
+        *,
+        expected_digest: str,
+        byte_length: int,
+        before_publish: Callable[[], None],
+    ) -> PublishedArtifact:
+        """Stage bounded chunks and atomically expose only the verified whole object."""
+        from potbot.tools.artifact_ranges import MAX_ARTIFACT_BYTES, MAX_RANGE_BYTES
+
+        if not self.supports_chunk_uploads:
+            raise CapabilityUnavailableError(
+                "Chunk publication requires the POSIX backend profile."
+            )
+        if (
+            type(byte_length) is not int
+            or not 0 <= byte_length <= min(self.max_bytes, MAX_ARTIFACT_BYTES)
+            or not callable(before_publish)
+        ):
+            raise InvalidInputError("Chunk publication exceeds its independently pinned bound.")
+        artifact = PublishedArtifact(
+            expected_digest, byte_length, self.locator(workspace_id, expected_digest)
+        )
+        digest, written = hashlib.sha256(), 0
+        try:
+            with self._directory(artifact.locator, create=True) as (directory, filename):
+                temporary = f".pending-{uuid4().hex}"
+                descriptor = os.open(
+                    temporary,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600,
+                    dir_fd=directory,
+                )
+                try:
+                    with os.fdopen(descriptor, "wb") as stream:
+                        for chunk in chunks:
+                            if (
+                                not isinstance(chunk, bytes)
+                                or not 1 <= len(chunk) <= MAX_RANGE_BYTES
+                                or written + len(chunk) > byte_length
+                            ):
+                                raise ArtifactIntegrityError(
+                                    "Upload chunk exceeds its bounded source."
+                                )
+                            if stream.write(chunk) != len(chunk):
+                                raise ArtifactIntegrityError(
+                                    "Upload chunk was not completely written."
+                                )
+                            digest.update(chunk)
+                            written += len(chunk)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    if written != byte_length or digest.hexdigest() != expected_digest:
+                        raise ArtifactIntegrityError("Complete upload length or SHA-256 differs.")
+                    before_publish()
+                    try:
+                        os.link(
+                            temporary,
+                            filename,
+                            src_dir_fd=directory,
+                            dst_dir_fd=directory,
+                            follow_symlinks=False,
+                        )
+                    except FileExistsError:
+                        pass
+                    os.fsync(directory)
+                finally:
+                    os.unlink(temporary, dir_fd=directory)
+                    os.fsync(directory)
+            # Also check a pre-existing content-addressed destination without buffering it.
+            self.read_range(workspace_id, artifact, 0, 1)
+            before_publish()
+            return artifact
+        except OSError as error:
+            raise ArtifactIntegrityError("Upload could not be published safely.") from error
 
 
 class ArtifactStore:
@@ -175,6 +345,49 @@ class ArtifactStore:
         if not isinstance(media_type, str) or not 1 <= len(media_type) <= 255:
             raise InvalidInputError("Artifact media type must be a nonempty string.")
         published = self.backend.publish(context.workspace_id, data)
+        return self._register(connection, context, published, media_type)
+
+    def put_chunks_in_transaction(
+        self,
+        connection: Any,
+        context: WorkspaceContext,
+        chunks: Iterable[bytes],
+        *,
+        expected_digest: str,
+        byte_length: int,
+        media_type: str,
+        before_publish: Callable[[], None],
+    ) -> dict[str, Any]:
+        publisher = getattr(self.backend, "publish_chunks", None)
+        if (
+            not callable(publisher)
+            or getattr(self.backend, "supports_chunk_uploads", False) is not True
+        ):
+            raise CapabilityUnavailableError("Artifact backend has no qualified chunk publisher.")
+        if not isinstance(media_type, str) or not 1 <= len(media_type) <= 255:
+            raise InvalidInputError("Artifact media type must be a nonempty string.")
+        published = publisher(
+            context.workspace_id,
+            chunks,
+            expected_digest=expected_digest,
+            byte_length=byte_length,
+            before_publish=before_publish,
+        )
+        if (
+            not isinstance(published, PublishedArtifact)
+            or published.digest != expected_digest
+            or published.byte_length != byte_length
+        ):
+            raise ArtifactIntegrityError("Backend publication differs from pinned upload.")
+        return self._register(connection, context, published, media_type)
+
+    def _register(
+        self,
+        connection: Any,
+        context: WorkspaceContext,
+        published: PublishedArtifact,
+        media_type: str,
+    ) -> dict[str, Any]:
         identity = uuid5(_ARTIFACT_NAMESPACE, f"{context.workspace_id}:{published.digest}")
         connection.execute(
             """INSERT INTO artifacts
@@ -297,6 +510,47 @@ class ArtifactStore:
     def read(self, context: WorkspaceContext, artifact_id: UUID) -> bytes:
         with self.db.transaction(context) as connection:
             return self.read_in_transaction(connection, context, artifact_id)
+
+    def read_range(
+        self,
+        context: WorkspaceContext,
+        artifact_id: UUID,
+        *,
+        expected_sha256: str,
+        expected_byte_length: int,
+        offset: int,
+        length: int,
+    ) -> VerifiedArtifactRange:
+        from potbot.domain.errors import CapabilityUnavailableError, StateMismatchError
+
+        row = self.metadata(context, artifact_id)
+        if row["digest"] != expected_sha256 or row["byte_length"] != expected_byte_length:
+            raise StateMismatchError("Artifact revision differs from its read lease.")
+        reader = getattr(self.backend, "read_range", None)
+        if (
+            row["backend"] != self.backend.name
+            or not callable(reader)
+            or getattr(self.backend, "supports_range_reads", False) is not True
+        ):
+            raise CapabilityUnavailableError(
+                "This artifact backend has no qualified bounded range reader."
+            )
+        result: VerifiedArtifactRange = reader(
+            context.workspace_id,
+            PublishedArtifact(row["digest"], row["byte_length"], row["locator"]),
+            offset,
+            length,
+        )
+        if (
+            not isinstance(result, VerifiedArtifactRange)
+            or not isinstance(result.data, bytes)
+            or len(result.data) != min(length, expected_byte_length - offset)
+            or result.verified_byte_length != expected_byte_length
+        ):
+            raise ArtifactIntegrityError(
+                "Artifact backend returned an incomplete or inconsistent range."
+            )
+        return result
 
     def read_in_transaction(
         self, connection: Any, context: WorkspaceContext, artifact_id: UUID

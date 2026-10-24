@@ -25,7 +25,7 @@ from potbot.domain.syn import SynRef, parse_type_ref, type_identity
 _TOOL_NAME = re.compile(r"[a-z][a-z0-9_.-]{0,79}\Z", re.ASCII)
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
 _ALLOWED_PROTOCOLS = frozenset(
-    {"mcp", "cli", "rest", "graphql", "grpc", "sql", "browser", "solver"}
+    {"cog", "mcp", "cli", "rest", "graphql", "grpc", "sql", "browser", "solver"}
 )
 _EFFECTS = frozenset({"read_only", "idempotent_write", "non_idempotent_write", "destructive"})
 _OUTCOMES = frozenset({"succeeded", "failed", "indeterminate"})

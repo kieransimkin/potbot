@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
@@ -20,6 +19,7 @@ from potbot.domain.errors import (
 from potbot.domain.serialization import canonical_json, content_hash
 from potbot.memory.embedding_profile import EmbeddingBatch, EmbeddingProfile
 from potbot.tools.supervisor import ProcessRequest, ProcessResult, ProcessSupervisor
+from potbot.tools.temporary import TemporaryDirectory, create_directory
 
 
 class SupervisedEncodingFailure(IndeterminateExecutionError):
@@ -116,8 +116,8 @@ class SupervisedQwenEncoder:
         temporary_parent = None
         if self.sandbox_root is not None:
             temporary_parent = self.sandbox_root / "tmp" / "embedding"
-            temporary_parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with tempfile.TemporaryDirectory(
+            create_directory(temporary_parent)
+        with TemporaryDirectory(
             prefix="potbot-embedding-worker-", dir=temporary_parent
         ) as temporary:
             work = Path(temporary)

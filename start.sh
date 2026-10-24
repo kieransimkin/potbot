@@ -17,6 +17,10 @@ uv_matches() {
     [[ "$version" == "uv $POTBOT_UV_VERSION" || "$version" == "uv $POTBOT_UV_VERSION "* ]]
 }
 
+export POTBOT_TEMP_ROOT="${POTBOT_TEMP_ROOT:-$POTBOT_ROOT/.potbot/temporary}"
+mkdir -p -m 700 -- "$POTBOT_TEMP_ROOT"
+export TMPDIR="$POTBOT_TEMP_ROOT" TEMP="$POTBOT_TEMP_ROOT" TMP="$POTBOT_TEMP_ROOT"
+
 progress "1/4 Checking uv $POTBOT_UV_VERSION"
 if [[ -x "$POTBOT_UV_DIRECTORY/uv" ]] && uv_matches "$POTBOT_UV_DIRECTORY/uv"; then
     POTBOT_UV="$POTBOT_UV_DIRECTORY/uv"
@@ -25,7 +29,7 @@ elif command -v uv >/dev/null 2>&1 && uv_matches "$(command -v uv)"; then
 else
     progress "Downloading uv $POTBOT_UV_VERSION from Astral"
     mkdir -p -- "$POTBOT_UV_DIRECTORY"
-    POTBOT_INSTALLER="$(mktemp "${TMPDIR:-/tmp}/potbot-uv.XXXXXXXX")"
+    POTBOT_INSTALLER="$(mktemp "$POTBOT_TEMP_ROOT/potbot-uv.XXXXXXXX")"
     trap 'rm -f -- "$POTBOT_INSTALLER"' EXIT
     POTBOT_INSTALLER_URL="https://astral.sh/uv/$POTBOT_UV_VERSION/install.sh"
     if command -v curl >/dev/null 2>&1; then

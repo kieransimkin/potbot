@@ -36,10 +36,10 @@ import heapq
 import json
 import os
 import re
-import tempfile
 import tomllib
 from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import Any
 
@@ -381,20 +381,23 @@ def snapshot_bytes(snapshot: dict[str, Any]) -> bytes:
 def write_snapshot(output: Path, snapshot: dict[str, Any]) -> None:
     """Complete and fsync a private temporary file before atomically replacing output."""
     encoded = snapshot_bytes(snapshot)
-    temporary: Path | None = None
+    # Load the standard-library-only helper by source path: SYN's existing
+    # environment needs neither Potbot installed nor its package imports.
+    helper = Path(__file__).resolve().parents[1] / "src/potbot/tools/temporary.py"
+    spec = spec_from_file_location("potbot_export_temporary", helper)
+    if spec is None or spec.loader is None:
+        raise ExportError("the bundled temporary-storage helper is unavailable")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    descriptor, temporary = module.allocate_file(output.parent, prefix=".potbot-snapshot-")
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb", prefix=f".{output.name}.", dir=output.parent, delete=False
-        ) as stream:
-            temporary = Path(stream.name)
+        with os.fdopen(descriptor, "wb") as stream:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, output)
-        temporary = None
     finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+        temporary.unlink(missing_ok=True)
 
 
 def _database_url(args: argparse.Namespace) -> str:

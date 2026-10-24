@@ -249,6 +249,7 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 cpu_seconds=request.cpu_seconds,
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
+                ipc_profile=request.ipc_profile,
             )
             # Do not inherit environment or CWD from the model/controller host.
             environment = {

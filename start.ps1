@@ -7,6 +7,7 @@ $PotbotRoot = [System.IO.Path]::GetFullPath($PSScriptRoot)
 $PotbotUvVersion = '0.12.23'
 $PotbotUvDirectory = Join-Path $PotbotRoot '.potbot\runtime\uv'
 $PotbotUv = $null
+$PotbotTemporaryRoot = $null
 
 function Write-PotbotProgress([string] $Message) {
     [Console]::Error.WriteLine('[Potbot startup] ' + $Message)
@@ -25,6 +26,9 @@ function Invoke-PotbotProcess([string] $Executable, [string[]] $Arguments) {
     $Info.FileName = $Executable
     $Info.Arguments = (($Arguments | ForEach-Object { ConvertTo-PotbotNativeArgument $_ }) -join ' ')
     $Info.UseShellExecute = $false
+    foreach ($Name in @('TEMP', 'TMP', 'TMPDIR', 'POTBOT_TEMP_ROOT')) {
+        $Info.EnvironmentVariables[$Name] = $PotbotTemporaryRoot
+    }
     # Inherit all three console streams: keyring onboarding must retain stdin.
     $Info.RedirectStandardInput = $false
     $Info.RedirectStandardOutput = $false
@@ -50,6 +54,21 @@ try {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
         throw 'Use start.sh on Linux or macOS.'
     }
+    $SelectedTemporaryRoot = if ($env:POTBOT_TEMP_ROOT) { $env:POTBOT_TEMP_ROOT } else { Join-Path $PotbotRoot '.potbot\temporary' }
+    $PotbotTemporaryRoot = [System.IO.Path]::GetFullPath($SelectedTemporaryRoot)
+    [System.IO.Directory]::CreateDirectory($PotbotTemporaryRoot) | Out-Null
+    $Probe = Join-Path $PotbotTemporaryRoot ('.access-probe-' + [guid]::NewGuid().ToString('N'))
+    $MovedProbe = $Probe + '-renamed'
+    try {
+        [System.IO.File]::WriteAllText($Probe, 'potbot-scratch-probe')
+        [System.IO.File]::Move($Probe, $MovedProbe)
+        if ([System.IO.File]::ReadAllText($MovedProbe) -cne 'potbot-scratch-probe') { throw 'Scratch readback failed.' }
+        [System.IO.File]::Delete($MovedProbe)
+    }
+    finally {
+        [System.IO.File]::Delete($Probe)
+        [System.IO.File]::Delete($MovedProbe)
+    }
     Write-PotbotProgress "1/4 Checking uv $PotbotUvVersion"
     $LocalUv = Join-Path $PotbotUvDirectory 'uv.exe'
     $PathUv = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -58,7 +77,7 @@ try {
     else {
         Write-PotbotProgress "Downloading uv $PotbotUvVersion from Astral"
         New-Item -ItemType Directory -Path $PotbotUvDirectory -Force | Out-Null
-        $Installer = Join-Path ([System.IO.Path]::GetTempPath()) ('potbot-uv-' + [guid]::NewGuid().ToString('N') + '.ps1')
+        $Installer = Join-Path $PotbotTemporaryRoot ('potbot-uv-' + [guid]::NewGuid().ToString('N') + '.ps1')
         $OldUnmanagedInstall = $env:UV_UNMANAGED_INSTALL
         $OldNoModifyPath = $env:UV_NO_MODIFY_PATH
         try {
@@ -96,6 +115,6 @@ try {
     exit $Code
 }
 catch {
-    Write-PotbotProgress 'Startup failed. Check connectivity, available disk space, and access to this project. On Linux/macOS use start.sh.'
+    Write-PotbotProgress "Startup failed. Check connectivity, disk space, project access and scratch root '$PotbotTemporaryRoot'. Select an accessible POTBOT_TEMP_ROOT if needed. On Linux/macOS use start.sh."
     exit 1
 }

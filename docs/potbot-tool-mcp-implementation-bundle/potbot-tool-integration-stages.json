@@ -6,10 +6,23 @@
     "name": "Current-state inventory and gap analysis",
     "prerequisites": "none",
     "deliverable": "A version-pinned capability inventory and migration-safe extension map",
-    "implementation": "Inspect actual Potbot APIs, PostgreSQL migrations, Cog registry, Syn catalog, sandbox profiles, credentials, jobs, REST, WebSocket, models and CI; record implemented vs unqualified vs missing; identify safe extension points.",
-    "acceptance": "Inventory matches pinned main commit; each existing service has an integration owner; no duplicate database or identity subsystem proposed; undocumented assumptions flagged.",
-    "demonstration": "Generate an inventory JSON and cross-reference report from the checked-out repository.",
-    "status": "not_started"
+    "implementation": "Inspect actual Potbot APIs, PostgreSQL migrations, Cog registry, Syn catalog, sandbox profiles, credentials, jobs, REST, WebSocket, models and CI; record implemented vs unqualified vs missing; identify safe extension points. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification. Apply gap requirements G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Inventory matches pinned main commit; each existing service has an integration owner; no duplicate database or identity subsystem proposed; undocumented assumptions flagged. Validate exact target and source identity, typed capture/stop/stack/value receipts and explicit unsupported capabilities without changing historical identities. Pass mapped G17 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Generate an inventory JSON and cross-reference report from the checked-out repository. Inspect a typed device/profiler/debug session contract with proposed Python-first qualification. Retain the corresponding G17 workflow demonstration and independent result readback.",
+    "status": "complete",
+    "gap_requirements": [
+      "G17"
+    ],
+    "hard_prerequisites": [],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T01.2",
@@ -18,10 +31,25 @@
     "name": "Canonical semantic type and Cog contracts",
     "prerequisites": "T01.1",
     "deliverable": "Versioned semantic schemas for tool, capability, implementation, installation, invocation and evidence",
-    "implementation": "Extend authoritative Syn/Synny Types using full syn:// or synny:// URIs; preserve inherited/default/required/optional Ember contracts; distinguish discovery descriptor from installed executable instance; represent typed input/output via one-input/one-output Cog or typed envelope; bind handler revisions and hashes.",
-    "acceptance": "Reject shorthand Type identifiers; reject unknown/unregistered data Type refs, invalid inheritance and Ember violations; detect incompatible schema evolution; serialize/deserialize deterministically.",
-    "demonstration": "Round-trip a SearchQuery \u2192 SearchResults Cog and a tool invocation receipt.",
-    "status": "not_started"
+    "implementation": "Extend authoritative Syn/Synny Types using full syn:// or synny:// URIs; preserve inherited/default/required/optional Ember contracts; distinguish discovery descriptor from installed executable instance; represent typed input/output via one-input/one-output Cog or typed envelope; bind handler revisions and hashes. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification. Apply gap requirements G18 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Reject shorthand Type identifiers; reject unknown/unregistered data Type refs, invalid inheritance and Ember violations; detect incompatible schema evolution; serialize/deserialize deterministically. Validate exact target and source identity, typed capture/stop/stack/value receipts and explicit unsupported capabilities without changing historical identities. Pass mapped G18 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Round-trip a SearchQuery \u2192 SearchResults Cog and a tool invocation receipt. Inspect a typed device/profiler/debug session contract with proposed Python-first qualification. Retain the corresponding G18 workflow demonstration and independent result readback.",
+    "status": "complete",
+    "gap_requirements": [
+      "G18"
+    ],
+    "hard_prerequisites": [
+      "T01.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T01.3",
@@ -30,10 +58,26 @@
     "name": "Execution envelope and provenance contracts",
     "prerequisites": "T01.2",
     "deliverable": "Signed, immutable invocation/result/receipt envelope and lifecycle schema",
-    "implementation": "Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions. Standardize one pinned, typed syn://event/<id> occurrence for every workflow/model/tool start, update, output, nested call and terminal state; require the exact semantic Type/version, unique process run ID, initiating process/input artifact and SHA-256, authenticated direct trigger, emitter, causal parent, timestamps, and private/redacted parameter projections. Broaden syn://event causation envelopes to EVERY admitted agent work unit: agent/sub-agent, MCP server/session/tool/workflow, ordinary tool, Cog, model, browser/API/SQL, local script, CI, queue and maintenance jobs. Each emitted occurrence carries a registered exact subject Type/version, distinct run/attempt ID, authenticated direct trigger and emitter, and private input artifact digest.",
-    "acceptance": "Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected. Every event—including progress/console/completion—has a resolvable cause and emitter; reject orphan, self-causal, cross-workspace, wrong-release, forged-input and unversioned event records; verify deterministic lineage and output receipts. Cross-protocol fixtures reject any tool/MCP/Cog/internal-job event without exact type/version, unique child run ID, root/parent input and authenticated emitter; no scope exemption for an unfamiliar job kind.",
-    "demonstration": "Replay an immutable read-only invocation and inspect the linked receipt chain. Replay a typed workflow-to-model-to-tool causal chain from a user input to each child run and its output receipt. Inspect an end-to-end agent job spawning a model, MCP tool workflow, plain CLI tool, Cog and nested agent, with distinct causal event/run identities.",
-    "status": "not_started"
+    "implementation": "Define job, run, invocation, input/output artifact hash, policy revision, executor version, causal parent, status, units, budgets, approval, redaction and external source provenance; use Potbot immutable receipts and event conventions. Standardize one pinned, typed syn://event/<id> occurrence for every workflow/model/tool start, update, output, nested call and terminal state; require the exact semantic Type/version, unique process run ID, initiating process/input artifact and SHA-256, authenticated direct trigger, emitter, causal parent, timestamps, and private/redacted parameter projections. Broaden syn://event causation envelopes to EVERY admitted agent work unit: agent/sub-agent, MCP server/session/tool/workflow, ordinary tool, Cog, model, browser/API/SQL, local script, CI, queue and maintenance jobs. Each emitted occurrence carries a registered exact subject Type/version, distinct run/attempt ID, authenticated direct trigger and emitter, and private input artifact digest. Inventory and define shared device, profiling and language-neutral debugger contracts, including exact target/session/process/source identity and capability support; see section 2C and the device/debugger specification. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G10, G13 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Canonical hashes stable on repeat; altered inputs or policy revision invalidate reuse; partial execution never appears verified; payloads over size limits are rejected. Every event\u2014including progress/console/completion\u2014has a resolvable cause and emitter; reject orphan, self-causal, cross-workspace, wrong-release, forged-input and unversioned event records; verify deterministic lineage and output receipts. Cross-protocol fixtures reject any tool/MCP/Cog/internal-job event without exact type/version, unique child run ID, root/parent input and authenticated emitter; no scope exemption for an unfamiliar job kind. Validate exact target and source identity, typed capture/stop/stack/value receipts and explicit unsupported capabilities without changing historical identities. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G10, G13 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Replay an immutable read-only invocation and inspect the linked receipt chain. Replay a typed workflow-to-model-to-tool causal chain from a user input to each child run and its output receipt. Inspect an end-to-end agent job spawning a model, MCP tool workflow, plain CLI tool, Cog and nested agent, with distinct causal event/run identities. Inspect a typed device/profiler/debug session contract with proposed Python-first qualification. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G10, G13 workflow demonstration and independent result readback.",
+    "status": "in_progress",
+    "gap_requirements": [
+      "G10",
+      "G13"
+    ],
+    "hard_prerequisites": [
+      "T01.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T01.4",
@@ -42,10 +86,27 @@
     "name": "Build matrix and stage acceptance harness",
     "prerequisites": "T01.1\u2013T01.3",
     "deliverable": "Stage-aware CI, disposable integration services and machine-readable gate reports",
-    "implementation": "Use existing uv lock, Python 3.12, scripts/check.py and GitHub CI; add fast offline tests, real PostgreSQL, qualified Linux Bubblewrap/seccomp, contract/fuzz and optional live-provider gates; publish JUnit/JSON and skipped-gate reasons.",
-    "acceptance": "Fail if mandated DB/sandbox suite skipped; never treat synthetic fixtures as live qualification; prove migration compatibility; preserve all existing test suites.",
-    "demonstration": "One command produces a P01 gate report and a reproducible failing negative test.",
-    "status": "not_started"
+    "implementation": "Use existing uv lock, Python 3.12, scripts/check.py and GitHub CI; add fast offline tests, real PostgreSQL, qualified Linux Bubblewrap/seccomp, contract/fuzz and optional live-provider gates; publish JUnit/JSON and skipped-gate reasons. Apply gap requirements G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Fail if mandated DB/sandbox suite skipped; never treat synthetic fixtures as live qualification; prove migration compatibility; preserve all existing test suites. Pass mapped G17 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "One command produces a P01 gate report and a reproducible failing negative test. Retain the corresponding G17 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G17"
+    ],
+    "hard_prerequisites": [
+      "T01.1",
+      "T01.2",
+      "T01.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T02.1",
@@ -54,22 +115,55 @@
     "name": "MCP stdio adapter",
     "prerequisites": "T01.2,T01.3,T01.4",
     "deliverable": "Fully tested stdio MCP client for curated servers",
-    "implementation": "Implement protocol negotiation, tool/resource/prompt enumeration, argument validation, results/content blocks, cancellation, progress, logging, pagination and failure normalization using an official SDK rather than hand-coded wire protocols; pin server packages. Instrument MCP stdio server-process lifetimes, discovery, tool/resource/prompt operations and MCP-composed tool workflows as individual typed agent jobs. Bind server/install digest, negotiated version, MCP session/request ID, controller-minted invocation run ID, caller trigger and child progress/result/console callbacks.",
-    "acceptance": "Fixture MCP server passes discovery, calls, tool errors, pagination, server crash, oversized payload and cancellation tests; blocked tools cannot be called by guessing IDs. MCP request IDs reused in separate sessions cannot collide; every stdio tool, prompt, resource and composite-workflow step has a unique run, durable start/update/terminal events and verified parent input, with secret-safe output.",
-    "demonstration": "Invoke a local calculator MCP server in a confined workspace. Stream a model-initiated MCP stdio workflow with two nested tools, distinct session/server/request IDs, callback progress and terminal receipts.",
-    "status": "not_started"
+    "implementation": "Implement protocol negotiation, tool/resource/prompt enumeration, argument validation, results/content blocks, cancellation, progress, logging, pagination and failure normalization using an official SDK rather than hand-coded wire protocols; pin server packages. Instrument MCP stdio server-process lifetimes, discovery, tool/resource/prompt operations and MCP-composed tool workflows as individual typed agent jobs. Bind server/install digest, negotiated version, MCP session/request ID, controller-minted invocation run ID, caller trigger and child progress/result/console callbacks. Apply gap requirements G18 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Fixture MCP server passes discovery, calls, tool errors, pagination, server crash, oversized payload and cancellation tests; blocked tools cannot be called by guessing IDs. MCP request IDs reused in separate sessions cannot collide; every stdio tool, prompt, resource and composite-workflow step has a unique run, durable start/update/terminal events and verified parent input, with secret-safe output. Pass mapped G18 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Invoke a local calculator MCP server in a confined workspace. Stream a model-initiated MCP stdio workflow with two nested tools, distinct session/server/request IDs, callback progress and terminal receipts. Retain the corresponding G18 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G18"
+    ],
+    "hard_prerequisites": [
+      "T01.2",
+      "T01.3",
+      "T01.4"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T02.2",
     "phase": 2,
     "stage": 2,
     "name": "MCP Streamable HTTP and authorization",
-    "prerequisites": "T02.1,T01.3; security design review before remote calls",
+    "prerequisites": "T02.1,T01.3",
     "deliverable": "Remote MCP transport with authenticated resource-scoped access",
-    "implementation": "Support target protocol version 2026-07-28 and negotiate compatibility for earlier supported versions; implement stateless request flow, multi-round-trip where applicable, transport timeouts, header routing, server identity, OAuth protected-resource metadata, scope checks and token audience validation. Extend the same canonical execution-event envelope to remote MCP Streamable HTTP sessions, MCP tool workflows and server-initiated progress notifications; correlate transport session, local invocation, provider callback and authenticated parent run without granting authority to remote identifiers.",
-    "acceptance": "Mismatched protocol fails clearly; expired/wrong-audience OAuth token rejected; untrusted redirects blocked; 401/403 and disconnect produce correct statuses; reconnect does not repeat writes. MCP HTTP reconnect/cancellation, reused remote request IDs, stale sessions and forged parent callbacks cannot invent runs or duplicate terminal events; each authorized attempt has causal replay.",
-    "demonstration": "Call a controlled remote read-only MCP endpoint using scoped OAuth test credentials. Replay remote MCP workflow tool calls across reconnect with nested child run IDs and no cross-session collisions.",
-    "status": "not_started"
+    "implementation": "Support target protocol version 2026-07-28 and negotiate compatibility for earlier supported versions; implement stateless request flow, multi-round-trip where applicable, transport timeouts, header routing, server identity, OAuth protected-resource metadata, scope checks and token audience validation. Extend the same canonical execution-event envelope to remote MCP Streamable HTTP sessions, MCP tool workflows and server-initiated progress notifications; correlate transport session, local invocation, provider callback and authenticated parent run without granting authority to remote identifiers. Apply gap requirements G18 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Security design review remains required before remote calls. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Mismatched protocol fails clearly; expired/wrong-audience OAuth token rejected; untrusted redirects blocked; 401/403 and disconnect produce correct statuses; reconnect does not repeat writes. MCP HTTP reconnect/cancellation, reused remote request IDs, stale sessions and forged parent callbacks cannot invent runs or duplicate terminal events; each authorized attempt has causal replay. Pass mapped G18 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Call a controlled remote read-only MCP endpoint using scoped OAuth test credentials. Replay remote MCP workflow tool calls across reconnect with nested child run IDs and no cross-session collisions. Retain the corresponding G18 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G18"
+    ],
+    "hard_prerequisites": [
+      "T01.3",
+      "T02.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T02.3",
@@ -78,10 +172,30 @@
     "name": "CLI and local process adapters",
     "prerequisites": "T01.3,T01.4",
     "deliverable": "Typed CLI/process adapter running only through approved executors",
-    "implementation": "Add allowlisted executable identities, argument schemas, stdin/stdout/stderr caps, workdir mapping, exit status and resource limits; reuse qualified Potbot Bubblewrap rather than unrestricted shell access. Emit causal typed process/tool events for each local CLI, script and subprocess run including immutable argv/input hash, sandbox/worker identity, stdout/stderr chunk source, exit/signal, child process relationships and resource/time measurements where available.",
-    "acceptance": "Reject arbitrary host executable, paths outside registered workspace, shell injection and environment leakage; kill child process trees at timeout; stream bounded progress. Every launched process has a distinct run and provenance chain; outputs cannot be attributed to another PID/lease, and unobserved resource quantities remain unavailable rather than zero.",
-    "demonstration": "Run git status, python -V and a controlled failing command from workspace tooling. Inspect a shell-independent local CLI execution and child subprocess with streamed console data and exact parent/tool invocation IDs.",
-    "status": "not_started"
+    "implementation": "Add allowlisted executable identities, argument schemas, stdin/stdout/stderr caps, workdir mapping, exit status and resource limits; reuse qualified Potbot Bubblewrap rather than unrestricted shell access. Emit causal typed process/tool events for each local CLI, script and subprocess run including immutable argv/input hash, sandbox/worker identity, stdout/stderr chunk source, exit/signal, child process relationships and resource/time measurements where available. Add bounded typed ADB, scrcpy and profiler CLI routes plus Appium/WebDriver, DAP and qualified remote-host transports; preserve protocol capabilities, target routing and cancellation. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G01, G02, G03, G05, G12 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Reject arbitrary host executable, paths outside registered workspace, shell injection and environment leakage; kill child process trees at timeout; stream bounded progress. Every launched process has a distinct run and provenance chain; outputs cannot be attributed to another PID/lease, and unobserved resource quantities remain unavailable rather than zero. Reject arbitrary device-shell escapes, mismatched device/process sessions and malformed or stale protocol events; bound output and terminate only owned helpers. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G01, G02, G03, G05, G12 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Run git status, python -V and a controlled failing command from workspace tooling. Inspect a shell-independent local CLI execution and child subprocess with streamed console data and exact parent/tool invocation IDs. Replay device-control and language-neutral debugger transport fixtures without physical hardware. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G01, G02, G03, G05, G12 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G01",
+      "G02",
+      "G03",
+      "G05",
+      "G12"
+    ],
+    "hard_prerequisites": [
+      "T01.3",
+      "T01.4"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T02.4",
@@ -90,10 +204,28 @@
     "name": "HTTP, SDK, GraphQL and gRPC adapters",
     "prerequisites": "T02.1,T02.2",
     "deliverable": "Common schema-checked API adapter framework",
-    "implementation": "OpenAPI request/response validation, HTTP pagination and rate limits, JSON Schema, streaming responses; optional GraphQL introspection and gRPC reflection; map API operations into precise semantic Types and side-effect categories. Instrument REST, SDK, GraphQL and gRPC tool adapters with typed execution runs for each actual call/attempt, approved method/version, request/input receipt, external correlation ID, redacted progress and final status; connect follow-on agent/MCP jobs as child runs.",
-    "acceptance": "Malformed schemas, hostile redirects, unbounded pagination, malformed response bodies and timeout retry paths fail safely; idempotent reads cache correctly; writes are never blindly retried. Every API operation has an authenticated invoking process and a locally unique run ID; remote IDs cannot spoof causes, repeated writes never auto-retry, and failure/unknown receipts remain distinct.",
-    "demonstration": "Use a mocked versioned REST service and a real local GraphQL/gRPC fixture. Trace a single agent request through GraphQL, gRPC and a child MCP tool with reproducible causal/output receipts.",
-    "status": "not_started"
+    "implementation": "OpenAPI request/response validation, HTTP pagination and rate limits, JSON Schema, streaming responses; optional GraphQL introspection and gRPC reflection; map API operations into precise semantic Types and side-effect categories. Instrument REST, SDK, GraphQL and gRPC tool adapters with typed execution runs for each actual call/attempt, approved method/version, request/input receipt, external correlation ID, redacted progress and final status; connect follow-on agent/MCP jobs as child runs. Add bounded typed ADB, scrcpy and profiler CLI routes plus Appium/WebDriver, DAP and qualified remote-host transports; preserve protocol capabilities, target routing and cancellation. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G04, G09, G10 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Malformed schemas, hostile redirects, unbounded pagination, malformed response bodies and timeout retry paths fail safely; idempotent reads cache correctly; writes are never blindly retried. Every API operation has an authenticated invoking process and a locally unique run ID; remote IDs cannot spoof causes, repeated writes never auto-retry, and failure/unknown receipts remain distinct. Reject arbitrary device-shell escapes, mismatched device/process sessions and malformed or stale protocol events; bound output and terminate only owned helpers. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G04, G09, G10 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Use a mocked versioned REST service and a real local GraphQL/gRPC fixture. Trace a single agent request through GraphQL, gRPC and a child MCP tool with reproducible causal/output receipts. Replay device-control and language-neutral debugger transport fixtures without physical hardware. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G04, G09, G10 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G04",
+      "G09",
+      "G10"
+    ],
+    "hard_prerequisites": [
+      "T02.1",
+      "T02.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T03.1",
@@ -102,10 +234,26 @@
     "name": "Capability permission and risk policy",
     "prerequisites": "T01.2,T01.3",
     "deliverable": "Policy decision service with explainable authorization",
-    "implementation": "Define read, external disclosure, file mutation, network, DB write, code execution, money and admin capability tiers; bind policy to agent identity, wallet hierarchy, workspace, tool instance and user/operator grants; integrate existing security-lock Cog semantics.",
-    "acceptance": "Default deny; parent grant cannot be broadened by child; privilege escalation by modifying tool metadata rejected; deny decisions logged without leaking secrets.",
-    "demonstration": "Show authorized search and denied cloud-delete operations for same agent.",
-    "status": "not_started"
+    "implementation": "Define read, external disclosure, file mutation, network, DB write, code execution, money and admin capability tiers; bind policy to agent identity, wallet hierarchy, workspace, tool instance and user/operator grants; integrate existing security-lock Cog semantics. Extend policy, confinement, custody and durable approvals to external phone resources and debug/profile targets: exact device/app/PID leases, pairing/signing authority, per-operation effects, expression execution and uncertain outcome reconciliation. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G05 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Default deny; parent grant cannot be broadened by child; privilege escalation by modifying tool metadata rejected; deny decisions logged without leaking secrets. Deny cross-workspace/device/process attachment or input, revoked leases and unapproved evaluation; preserve secrets and prevent replay after a disconnect. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G05 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Show authorized search and denied cloud-delete operations for same agent. Show a denied wrong-target action and reconciliation of a disconnected effectful operation. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G05 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G05"
+    ],
+    "hard_prerequisites": [
+      "T01.2",
+      "T01.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T03.2",
@@ -114,10 +262,28 @@
     "name": "Workspace and network confinement",
     "prerequisites": "T02.3,T03.1",
     "deliverable": "Enforced filesystem/network boundary for local and remote tool tasks",
-    "implementation": "Reuse immutable registered sandbox root; all models/tools/dependencies/artifacts/cache inside root; Linux Bubblewrap/seccomp for local untrusted execution; broker egress by hostname/IP with DNS pinning and SSRF protection; Windows/macOS require separately qualified VM/container backend or fail closed.",
-    "acceptance": "Traversal, symlink, junction, mount, /proc leakage, localhost metadata probing and redirect-to-internal-IP are denied; host files cannot be read/written; unqualified platform cannot run untrusted workloads.",
-    "demonstration": "Adversarial fixture attempts workspace escape and forbidden network destinations.",
-    "status": "not_started"
+    "implementation": "Reuse immutable registered sandbox root; all models/tools/dependencies/artifacts/cache inside root; Linux Bubblewrap/seccomp for local untrusted execution; broker egress by hostname/IP with DNS pinning and SSRF protection; Windows/macOS require separately qualified VM/container backend or fail closed. Extend policy, confinement, custody and durable approvals to external phone resources and debug/profile targets: exact device/app/PID leases, pairing/signing authority, per-operation effects, expression execution and uncertain outcome reconciliation. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G01, G03, G04 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Traversal, symlink, junction, mount, /proc leakage, localhost metadata probing and redirect-to-internal-IP are denied; host files cannot be read/written; unqualified platform cannot run untrusted workloads. Deny cross-workspace/device/process attachment or input, revoked leases and unapproved evaluation; preserve secrets and prevent replay after a disconnect. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G01, G03, G04 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Adversarial fixture attempts workspace escape and forbidden network destinations. Show a denied wrong-target action and reconciliation of a disconnected effectful operation. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G01, G03, G04 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G01",
+      "G03",
+      "G04"
+    ],
+    "hard_prerequisites": [
+      "T02.3",
+      "T03.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T03.3",
@@ -126,10 +292,26 @@
     "name": "Credential broker and identity integration",
     "prerequisites": "T03.1,T03.2",
     "deliverable": "Non-exportable scoped credential acquisition and usage",
-    "implementation": "Extend current OS credential/native broker; preserve public Ed25519 verification keys and private-key custody; use scoped OAuth where available and short-lived provider credentials; never put bearer secrets in model context, tool receipts or logs; categorize passkeys/TPM/hardware as future qualified backends.",
-    "acceptance": "Secret scanner finds no credentials in traces/artifacts; incorrect identity/recipient rejected; child tool cannot read broker storage; key rotation invalidates stale rights; no unsupported custody profile claims.",
-    "demonstration": "Call an authenticated test API while the agent sees only an opaque credential handle.",
-    "status": "not_started"
+    "implementation": "Extend current OS credential/native broker; preserve public Ed25519 verification keys and private-key custody; use scoped OAuth where available and short-lived provider credentials; never put bearer secrets in model context, tool receipts or logs; categorize passkeys/TPM/hardware as future qualified backends. Extend policy, confinement, custody and durable approvals to external phone resources and debug/profile targets: exact device/app/PID leases, pairing/signing authority, per-operation effects, expression execution and uncertain outcome reconciliation. Apply gap requirements G03 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Secret scanner finds no credentials in traces/artifacts; incorrect identity/recipient rejected; child tool cannot read broker storage; key rotation invalidates stale rights; no unsupported custody profile claims. Deny cross-workspace/device/process attachment or input, revoked leases and unapproved evaluation; preserve secrets and prevent replay after a disconnect. Pass mapped G03 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Call an authenticated test API while the agent sees only an opaque credential handle. Show a denied wrong-target action and reconciliation of a disconnected effectful operation. Retain the corresponding G03 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G03"
+    ],
+    "hard_prerequisites": [
+      "T03.1",
+      "T03.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T03.4",
@@ -138,10 +320,34 @@
     "name": "Durable tool gateway and approvals",
     "prerequisites": "T02.*,T03.1\u2013T03.3",
     "deliverable": "First end-to-end authorized tool runner",
-    "implementation": "Add invocation admission, budget reservation, durable queue claim/lease fencing, immutable result, approval handshake, cancellation, reconciliation and side-effect-aware retries via existing PostgreSQL jobs; preserve typed Cog separation: transforming data does not authorize external execution. Record fenced start/progress/output/tool-invocation/completion/failure events transactionally with actual dispatch/admission decisions; require the trigger process or input, lease generation, typed run and authorization identity on each event. Preserve existing job_events/evidence_events and shared workspace cursor semantics. Enforce one controller-owned event-emission boundary across ALL admitted jobs: regular tools, MCP operations/workflows, subagents, Cogs, browser/API/DB, scheduled/CI/internal jobs and models. Transactionally bind dispatch authorization, actor/worker lease, root trigger, child attempts, terminal results and immutable evidence; unknown writes remain indeterminate.",
-    "acceptance": "100 simulated worker crashes result in no unauthorized repeat of side-effecting call; concurrent claims do not double execute; denied approval means zero side effects; read-only invocations replay safely. A denied, unleased or stale-generation execution cannot emit a valid start/completion or forged causal reference; duplicate or uncertain side effects remain un-replayed and explicit. 100% of admitted cross-protocol work has authorized queued/start/outcome events and each update is attributable; denied/expired/stale workers cannot publish false execution or fabricated child events.",
-    "demonstration": "An operator approves a restricted tool invocation from CLI/API; job/receipt appears in WebSocket replay. Follow an approved tool's start, progress, child invocation and terminal events by immutable run ID; reject a spoofed trigger. Show denied, running and completed ordinary-tool/MCP/Cog/internal jobs from one parent agent timeline, without duplicating effects.",
-    "status": "not_started"
+    "implementation": "Add invocation admission, budget reservation, durable queue claim/lease fencing, immutable result, approval handshake, cancellation, reconciliation and side-effect-aware retries via existing PostgreSQL jobs; preserve typed Cog separation: transforming data does not authorize external execution. Record fenced start/progress/output/tool-invocation/completion/failure events transactionally with actual dispatch/admission decisions; require the trigger process or input, lease generation, typed run and authorization identity on each event. Preserve existing job_events/evidence_events and shared workspace cursor semantics. Enforce one controller-owned event-emission boundary across ALL admitted jobs: regular tools, MCP operations/workflows, subagents, Cogs, browser/API/DB, scheduled/CI/internal jobs and models. Transactionally bind dispatch authorization, actor/worker lease, root trigger, child attempts, terminal results and immutable evidence; unknown writes remain indeterminate. Extend policy, confinement, custody and durable approvals to external phone resources and debug/profile targets: exact device/app/PID leases, pairing/signing authority, per-operation effects, expression execution and uncertain outcome reconciliation. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G02, G10, G15, G16 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "100 simulated worker crashes result in no unauthorized repeat of side-effecting call; concurrent claims do not double execute; denied approval means zero side effects; read-only invocations replay safely. A denied, unleased or stale-generation execution cannot emit a valid start/completion or forged causal reference; duplicate or uncertain side effects remain un-replayed and explicit. 100% of admitted cross-protocol work has authorized queued/start/outcome events and each update is attributable; denied/expired/stale workers cannot publish false execution or fabricated child events. Deny cross-workspace/device/process attachment or input, revoked leases and unapproved evaluation; preserve secrets and prevent replay after a disconnect. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G02, G10, G15, G16 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "An operator approves a restricted tool invocation from CLI/API; job/receipt appears in WebSocket replay. Follow an approved tool's start, progress, child invocation and terminal events by immutable run ID; reject a spoofed trigger. Show denied, running and completed ordinary-tool/MCP/Cog/internal jobs from one parent agent timeline, without duplicating effects. Show a denied wrong-target action and reconciliation of a disconnected effectful operation. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G02, G10, G15, G16 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G02",
+      "G10",
+      "G15",
+      "G16"
+    ],
+    "hard_prerequisites": [
+      "T02.1",
+      "T02.2",
+      "T02.3",
+      "T02.4",
+      "T03.1",
+      "T03.2",
+      "T03.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T04.1",
@@ -150,10 +356,30 @@
     "name": "Curated registry and trusted package catalog",
     "prerequisites": "T02.*,T03.*",
     "deliverable": "Local signed/version-pinned capability and adapter catalog",
-    "implementation": "Provide declarative manifest for name, versions, protocol, origin, trust tier, scopes, schemas, SemVer, hashes/SBOM, update policy and dependencies; separate catalog listing from installation/execution.",
-    "acceptance": "Unpinned or unsigned high-risk package rejected by policy; stale manifest flagged; malicious package cannot gain network/filesystem grants by self-description.",
-    "demonstration": "List and inspect 20 curated adapters without installing all dependencies.",
-    "status": "not_started"
+    "implementation": "Provide declarative manifest for name, versions, protocol, origin, trust tier, scopes, schemas, SemVer, hashes/SBOM, update policy and dependencies; separate catalog listing from installation/execution. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status. Register and route optional device-control, profiling and language-neutral debug adapters with pinned tool/driver versions, host requirements, capability negotiation, capture/control scopes, health and revocation. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Unpinned or unsigned high-risk package rejected by policy; stale manifest flagged; malicious package cannot gain network/filesystem grants by self-description. Apply docs/implementation/plugin-discovery-strategy.md acceptance extensions; status remains unchanged until implemented and verified. Unsupported languages/operations and unqualified hosts remain explicit; never infer physical-device acceptance from an emulator or route iOS to an unqualified host. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "List and inspect 20 curated adapters without installing all dependencies. Discover Android, Apple-host and Python-first debugger profiles with exact supported and unavailable operations.",
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T02.1",
+      "T02.2",
+      "T02.3",
+      "T02.4",
+      "T03.1",
+      "T03.2",
+      "T03.3",
+      "T03.4"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T04.2",
@@ -162,10 +388,27 @@
     "name": "MCP discovery, rescan and schema reconciliation",
     "prerequisites": "T04.1,T02.1,T02.2",
     "deliverable": "Incremental MCP search and dynamic catalog updates",
-    "implementation": "Discover enabled server toolsets, tools/resources/prompts, listChanged events, pagination, schemas and supported versions; cache with TTL/revision; ingest third-party MCP registry metadata as untrusted candidates pending operator admission.",
-    "acceptance": "Discovery is deterministic across reconnects; tool removal invalidates planner references; changed schema requires revalidation; list pagination returns every permitted tool.",
-    "demonstration": "Add a fake MCP tool during an active session; see tool appear without restarting the agent.",
-    "status": "not_started"
+    "implementation": "Discover enabled server toolsets, tools/resources/prompts, listChanged events, pagination, schemas and supported versions; cache with TTL/revision; ingest third-party MCP registry metadata as untrusted candidates pending operator admission. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status. Register and route optional device-control, profiling and language-neutral debug adapters with pinned tool/driver versions, host requirements, capability negotiation, capture/control scopes, health and revocation. Apply gap requirements G18 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Discovery is deterministic across reconnects; tool removal invalidates planner references; changed schema requires revalidation; list pagination returns every permitted tool. Apply docs/implementation/plugin-discovery-strategy.md acceptance extensions; status remains unchanged until implemented and verified. Unsupported languages/operations and unqualified hosts remain explicit; never infer physical-device acceptance from an emulator or route iOS to an unqualified host. Pass mapped G18 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Add a fake MCP tool during an active session; see tool appear without restarting the agent. Discover Android, Apple-host and Python-first debugger profiles with exact supported and unavailable operations. Retain the corresponding G18 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G18"
+    ],
+    "hard_prerequisites": [
+      "T02.1",
+      "T02.2",
+      "T04.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T04.3",
@@ -174,10 +417,25 @@
     "name": "Capability search and routing",
     "prerequisites": "T04.1,T04.2,T01.2",
     "deliverable": "Semantic + symbolic selector with cost/security filtering",
-    "implementation": "Build keyword, graph and vector search over type hierarchy, metadata and examples; rank by required data types, trust, scopes, observed quality, latency and cost; expose inspect/select and alternative suggestions; lazy-load only relevant tool definitions.",
-    "acceptance": "A golden set of 40 requests routes to expected capability class; permission-disallowed option never ranks as executable; cold discovery bounded by token/tool budget.",
-    "demonstration": "Ask for screenshot inspection, satisfiability solving and commit inspection without naming vendors.",
-    "status": "not_started"
+    "implementation": "Build keyword, graph and vector search over type hierarchy, metadata and examples; rank by required data types, trust, scopes, observed quality, latency and cost; expose inspect/select and alternative suggestions; lazy-load only relevant tool definitions. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status. Register and route optional device-control, profiling and language-neutral debug adapters with pinned tool/driver versions, host requirements, capability negotiation, capture/control scopes, health and revocation. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "A golden set of 40 requests routes to expected capability class; permission-disallowed option never ranks as executable; cold discovery bounded by token/tool budget. Apply docs/implementation/plugin-discovery-strategy.md acceptance extensions; status remains unchanged until implemented and verified. Unsupported languages/operations and unqualified hosts remain explicit; never infer physical-device acceptance from an emulator or route iOS to an unqualified host. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Ask for screenshot inspection, satisfiability solving and commit inspection without naming vendors. Discover Android, Apple-host and Python-first debugger profiles with exact supported and unavailable operations. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified.",
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T01.2",
+      "T04.1",
+      "T04.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T04.4",
@@ -186,10 +444,27 @@
     "name": "Versioning, health, revocation and install lifecycle",
     "prerequisites": "T04.1\u2013T04.3",
     "deliverable": "Operator lifecycle APIs and circuit breakers",
-    "implementation": "Install/uninstall/pin/up/downgrade adapters inside workspace tools/; healthcheck schema/runtime compatibility; quarantine compromised packages, recall capability revisions and invalidate stale invocations.",
-    "acceptance": "Rolling update preserves old active runs; revoked instance is denied immediately to new calls; rollback restores previous manifest without corrupting receipts; health state is visible.",
-    "demonstration": "Disable a known-bad test tool during queued invocations and verify safe behavior.",
-    "status": "not_started"
+    "implementation": "Install/uninstall/pin/up/downgrade adapters inside workspace tools/; healthcheck schema/runtime compatibility; quarantine compromised packages, recall capability revisions and invalidate stale invocations. Apply docs/implementation/plugin-discovery-strategy.md for source provenance, keyword-aware ownership-neutral retrieval, continuing research and separate installation/qualification gates; this planning reference does not change implementation status. Register and route optional device-control, profiling and language-neutral debug adapters with pinned tool/driver versions, host requirements, capability negotiation, capture/control scopes, health and revocation. Apply gap requirements G14 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Rolling update preserves old active runs; revoked instance is denied immediately to new calls; rollback restores previous manifest without corrupting receipts; health state is visible. Apply docs/implementation/plugin-discovery-strategy.md acceptance extensions; status remains unchanged until implemented and verified. Unsupported languages/operations and unqualified hosts remain explicit; never infer physical-device acceptance from an emulator or route iOS to an unqualified host. Pass mapped G14 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Disable a known-bad test tool during queued invocations and verify safe behavior. Discover Android, Apple-host and Python-first debugger profiles with exact supported and unavailable operations. Retain the corresponding G14 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G14"
+    ],
+    "hard_prerequisites": [
+      "T04.1",
+      "T04.2",
+      "T04.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T05.1",
@@ -198,10 +473,24 @@
     "name": "Search provider adapters and result normalization",
     "prerequisites": "T03.4,T04.3",
     "deliverable": "Multi-provider search capability with source timestamps",
-    "implementation": "Integrate Google via supported licensed API/provider, Brave, Bing where supported, and Tavily/Exa or comparable providers; credentials brokered; normalized query, ranked results, snippet, retrieval time, canonical URL, source engine and quota; do not assume Google public website is a stable API.",
-    "acceptance": "Mocked quota failure falls back when policy allows; duplicates deduplicated but source lineage retained; restricted result providers cannot silently exfiltrate sensitive queries.",
+    "implementation": "Integrate Google via supported licensed API/provider, Brave, Bing where supported, and Tavily/Exa or comparable providers; credentials brokered; normalized query, ranked results, snippet, retrieval time, canonical URL, source engine and quota; do not assume Google public website is a stable API. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Mocked quota failure falls back when policy allows; duplicates deduplicated but source lineage retained; restricted result providers cannot silently exfiltrate sensitive queries. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Compare two providers for a technical research query and save independent result sets.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T03.4",
+      "T04.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T05.2",
@@ -210,10 +499,25 @@
     "name": "Fetch, extraction and canonical source artifacts",
     "prerequisites": "T05.1",
     "deliverable": "Web fetch/crawler with robust content provenance",
-    "implementation": "HTTP fetch with robots/terms/rate constraints; structured HTML/JSON extraction; PDF/document parser, tables, code and metadata; redirects canonicalized; content-addressed copies with extraction versions; optional OCR only on scanned material.",
-    "acceptance": "Correctly extracts authored text from HTML, PDF and JSON fixtures; preserves citation spans and source hashes; rejects zip bombs, huge pages and private-network redirects.",
-    "demonstration": "Follow search results and answer with verifiable document-location citations.",
-    "status": "not_started"
+    "implementation": "HTTP fetch with robots/terms/rate constraints; structured HTML/JSON extraction; PDF/document parser, tables, code and metadata; redirects canonicalized; content-addressed copies with extraction versions; optional OCR only on scanned material. Apply gap requirements G07 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Correctly extracts authored text from HTML, PDF and JSON fixtures; preserves citation spans and source hashes; rejects zip bombs, huge pages and private-network redirects. Pass mapped G07 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Follow search results and answer with verifiable document-location citations. Retain the corresponding G07 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G07"
+    ],
+    "hard_prerequisites": [
+      "T05.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T05.3",
@@ -222,22 +526,50 @@
     "name": "Specialist scientific and archival retrieval",
     "prerequisites": "T05.2",
     "deliverable": "Domain source connectors with query contracts",
-    "implementation": "Add Crossref, OpenAlex, arXiv, PubMed, Semantic Scholar (subject to API availability), Wikidata/SPARQL and Internet Archive; record primary vs secondary source and publication/event date separately.",
-    "acceptance": "DOI resolution and duplicate author/title matching work; retractions/corrections represented; unsupported endpoints degrade explicitly; rate-limits respected.",
+    "implementation": "Add Crossref, OpenAlex, arXiv, PubMed, Semantic Scholar (subject to API availability), Wikidata/SPARQL and Internet Archive; record primary vs secondary source and publication/event date separately. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "DOI resolution and duplicate author/title matching work; retractions/corrections represented; unsupported endpoints degrade explicitly; rate-limits respected. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Retrieve a paper and its linked metadata from two independent sources.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T05.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T05.4",
     "phase": 5,
     "stage": 4,
     "name": "Evidence comparison and research workflows",
-    "prerequisites": "T05.1\u2013T05.3,T09.1 later enhancement",
+    "prerequisites": "T05.1\u2013T05.3",
     "deliverable": "Reproducible research workflow and contradiction matrix",
-    "implementation": "Build claim/source/evidence triples, corroboration, temporal validity, independence, contradiction flags and cited answer assembly; stop with uncertainty rather than inventing verification.",
-    "acceptance": "Planted conflicting claims produce an unresolved state; old news not mislabeled current; every quoted claim has traceable source offsets; zero fabricated citations in gold fixture.",
+    "implementation": "Build claim/source/evidence triples, corroboration, temporal validity, independence, contradiction flags and cited answer assembly; stop with uncertainty rather than inventing verification. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Planted conflicting claims produce an unresolved state; old news not mislabeled current; every quoted claim has traceable source offsets; zero fabricated citations in gold fixture. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Research a contested technical specification and show supported vs unresolved claims.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T05.1",
+      "T05.2",
+      "T05.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T06.1",
@@ -246,10 +578,25 @@
     "name": "Playwright controlled browser service",
     "prerequisites": "T03.2,T03.4,T04.3",
     "deliverable": "Managed isolated browser sessions via Playwright MCP/CLI",
-    "implementation": "Install browser runtimes within allowed workspace tool assets; use isolated profiles, accessibility snapshots, navigation, screenshots, forms, controlled downloads/uploads and deterministic session replay; persistent profiles opt-in and separately partitioned.",
-    "acceptance": "Two workspaces cannot read each others cookies; malicious webpage instructions cannot authorize new tool calls; downloads remain under workspace; session recovery does not invent form submission status.",
-    "demonstration": "Automate an internal test application from login through read-only dashboard export.",
-    "status": "not_started"
+    "implementation": "Install browser runtimes within allowed workspace tool assets; use isolated profiles, accessibility snapshots, navigation, screenshots, forms, controlled downloads/uploads and deterministic session replay; persistent profiles opt-in and separately partitioned. Compose isolated browser sessions with owned Android/iOS app and mobile web contexts through admitted phone adapters; keep native app and browser-session identity distinct. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Two workspaces cannot read each others cookies; malicious webpage instructions cannot authorize new tool calls; downloads remain under workspace; session recovery does not invent form submission status. Device/app/context selection cannot cross leases or leak sessions, and stale UI state cannot authorize input. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Automate an internal test application from login through read-only dashboard export. Inspect a controlled app and its mobile web context with independent outcome readback.",
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T03.2",
+      "T03.4",
+      "T04.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T06.2",
@@ -258,10 +605,26 @@
     "name": "Chrome DevTools and network debugger",
     "prerequisites": "T06.1",
     "deliverable": "CDP-based debugging and performance capability",
-    "implementation": "Integrate Chrome DevTools MCP for console errors, network waterfall, trace, coverage, heap/performance and DOM/AX inspection; bind traces to run receipts; disable unintended data sharing/telemetry when required.",
-    "acceptance": "Captures and attributes a deliberately failing request; rejects debugger connection outside permitted sessions; large traces redacted and bounded.",
-    "demonstration": "Locate a simulated CORS, 404 or frontend JavaScript failure.",
-    "status": "not_started"
+    "implementation": "Integrate Chrome DevTools MCP for console errors, network waterfall, trace, coverage, heap/performance and DOM/AX inspection; bind traces to run receipts; disable unintended data sharing/telemetry when required. Extend remote Android Chrome/WebView CDP debugging and bounded CPU/heap/network traces; add Perfetto and qualified Apple Instruments/xctrace capture/analysis with exact targets and clocks. Apply gap requirements G04, G13 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Captures and attributes a deliberately failing request; rejects debugger connection outside permitted sessions; large traces redacted and bounded. Attribute a planted mobile/UI hotspot to hashed traces; missing counters and unqualified Apple/Android routes remain unavailable. Pass mapped G04, G13 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Locate a simulated CORS, 404 or frontend JavaScript failure. Capture, inspect and compare an authorized mobile/browser performance regression with source-bound evidence. Retain the corresponding G04, G13 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G04",
+      "G13"
+    ],
+    "hard_prerequisites": [
+      "T06.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T06.3",
@@ -270,10 +633,26 @@
     "name": "Visual regression, accessibility and desktop fallback",
     "prerequisites": "T06.1,T06.2",
     "deliverable": "Multimodal browser result and UI test adapters",
-    "implementation": "Create image diff, screenshots, DOM/AX cross-check, semantic interaction and layout regression snapshots; optional native desktop automation only in qualified isolated VMs; prioritize structured UI before coordinate clicks.",
-    "acceptance": "Detect known 1-pixel/large-layout regressions with tuned thresholds; keyboard-only path tested; false-positive baseline reported; no raw browser profile credentials exported.",
-    "demonstration": "Compare UI screenshots and explain visually detected vs DOM-detected changes.",
-    "status": "not_started"
+    "implementation": "Create image diff, screenshots, DOM/AX cross-check, semantic interaction and layout regression snapshots; optional native desktop automation only in qualified isolated VMs; prioritize structured UI before coordinate clicks. Add native phone control via ADB USB/paired wireless, Appium UiAutomator2 and qualified XCUITest/WebDriverAgent; optional scrcpy mirroring/input, scoped package/file/log operations, gestures, UI hierarchy, screenshots and recordings. Keep emulated and physical routes separate. Apply gap requirements G16 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Detect known 1-pixel/large-layout regressions with tuned thresholds; keyboard-only path tested; false-positive baseline reported; no raw browser profile credentials exported. Reject wrong/unauthorized/offline devices, stale coordinates/orientation, unrelated app data and broad shell commands; verify action outcomes and cleanup of owned sessions/forwards. Pass mapped G16 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Compare UI screenshots and explain visually detected vs DOM-detected changes. Run an Android native-app control/capture fixture and a separate qualified iOS fixture with actual visual evidence. Retain the corresponding G16 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G16"
+    ],
+    "hard_prerequisites": [
+      "T06.1",
+      "T06.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T06.4",
@@ -282,10 +661,25 @@
     "name": "Browser reliability benchmark and test fixtures",
     "prerequisites": "T06.1\u2013T06.3",
     "deliverable": "Browser action benchmark with deterministic replay",
-    "implementation": "Build local fixture site for auth, forms, redirects, pagination, downloads, popups, slow response and malicious prompt content; run Playwright, CLI and optional alternative engines on identical tasks; report outcome, context tokens, elapsed time and costs.",
-    "acceptance": ">=95% deterministic success on own stable fixture at pinned environment after agreed retries; zero unauthorized form submissions; reproducible traces for every failed case.",
-    "demonstration": "Dashboard of browser methods and sample CI artifact.",
-    "status": "not_started"
+    "implementation": "Build local fixture site for auth, forms, redirects, pagination, downloads, popups, slow response and malicious prompt content; run Playwright, CLI and optional alternative engines on identical tasks; report outcome, context tokens, elapsed time and costs. Extend fixture coverage to phone disconnects, multiple devices, app/context switches, rotation, recording limits and native UI failures; keep physical, emulator and simulator benchmark results separate. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": ">=95% deterministic success on own stable fixture at pinned environment after agreed retries; zero unauthorized form submissions; reproducible traces for every failed case. No duplicate tap/install/submit after disconnect; scoped sessions and evidence survive cancellation without leaked helpers or false physical qualification. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Dashboard of browser methods and sample CI artifact. Compare replayable native-phone and browser outcomes with retained screenshots and failure traces.",
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T06.1",
+      "T06.2",
+      "T06.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T07.1",
@@ -294,22 +688,53 @@
     "name": "GitHub and GitLab integration",
     "prerequisites": "T03.4,T04.3",
     "deliverable": "Repository-host adapters with scoped tools",
-    "implementation": "Integrate GitHub MCP official server, REST fallback for missing operations and optional GitLab/Gitea; repo/PR/issue/commit/actions read APIs; write scopes and approval requests explicit; webhook and polling options.",
-    "acceptance": "Read-only PAT cannot create PR; pagination complete; webhook replays deduplicated; pull request operations bound to exact branch and current revision.",
+    "implementation": "Integrate GitHub MCP official server, REST fallback for missing operations and optional GitLab/Gitea; repo/PR/issue/commit/actions read APIs; write scopes and approval requests explicit; webhook and polling options. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Read-only PAT cannot create PR; pagination complete; webhook replays deduplicated; pull request operations bound to exact branch and current revision. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Read failing GitHub Actions log and create a proposed issue draft in test repo.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T03.4",
+      "T04.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T07.2",
     "phase": 7,
     "stage": 2,
     "name": "Local Git, AST and LSP intelligence",
-    "prerequisites": "T07.1,T02.3",
+    "prerequisites": "T02.3,T03.2",
     "deliverable": "Source-aware repository exploration",
-    "implementation": "Integrate git status/diff/log/blame, ripgrep, Tree-sitter, ast-grep, LSP symbol/ref/diagnostics; cache against immutable source snapshot; never mutate original host repository.",
-    "acceptance": "Rename/function reference lookup correct in fixtures; stale index invalidated on git commit; path outside workspace denied; binary and malformed files handled safely.",
-    "demonstration": "Locate definition, usages and tests of a method and produce a navigation graph.",
-    "status": "not_started"
+    "implementation": "Integrate git status/diff/log/blame, ripgrep, Tree-sitter, ast-grep, LSP symbol/ref/diagnostics; cache against immutable source snapshot; never mutate original host repository. Bind debugger source paths, compiler/interpreter identity, build/symbol/source-map hashes and stack locations to immutable repository snapshots for any admitted language adapter. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G01, G12 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Rename/function reference lookup correct in fixtures; stale index invalidated on git commit; path outside workspace denied; binary and malformed files handled safely. Reject stale source mappings, wrong builds and frames from another session or stop revision. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G01, G12 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Locate definition, usages and tests of a method and produce a navigation graph. Resolve current stopped stack frames to the exact source snapshot, first using Python/debugpy. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G01, G12 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G01",
+      "G12"
+    ],
+    "hard_prerequisites": [
+      "T02.3",
+      "T03.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T07.3",
@@ -318,10 +743,30 @@
     "name": "Build/test/static/security toolchain",
     "prerequisites": "T07.2,T03.2",
     "deliverable": "Normalized verification runner",
-    "implementation": "Use uv-managed pytest and language-specific tests, lint, types, formatting, Semgrep/CodeQL where available, OSV/Trivy/Syft and configurable SBOM; record exit codes, commands, tool versions, environment digests and logs.",
-    "acceptance": "A planted vulnerability/test failure is detected; changed test definition invalidates prior success; absence of mandatory checker fails; no secret in logs; no automatic network dependency download unless allowed.",
-    "demonstration": "Run verified code quality profile against a controlled faulty sample project.",
-    "status": "not_started"
+    "implementation": "Use uv-managed pytest and language-specific tests, lint, types, formatting, Semgrep/CodeQL where available, OSV/Trivy/Syft and configurable SBOM; record exit codes, commands, tool versions, environment digests and logs. Add bounded CPU/memory/allocation profiling and language-neutral interactive debugging through a common DAP-compatible contract. Implement shared schemas/state/conformance first and exercise Python/debugpy first: launch/attach, verified line/exception breakpoints, step over/into/out, continue/pause, thread/stack/frame/scopes/locals/arguments inspection and permitted watches/evaluation; later qualify other language adapters. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G05, G11, G12, G13, G14 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "A planted vulnerability/test failure is detected; changed test definition invalidates prior success; absence of mandatory checker fails; no secret in logs; no automatic network dependency download unless allowed. Real Python/debugpy fixture hits verified breakpoints, inspects at least two frames and their variables, steps over/into/out and stops on an exception; launch and attach both pass. Reject stale handles and unapproved expression effects; detach preserves attached processes. A Python pass never qualifies other languages. Profiles locate planted hotspots with repeatable workload and measured overhead. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G05, G11, G12, G13, G14 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Run verified code quality profile against a controlled faulty sample project. Follow the eight-step common debugging workflow with a nested-call Python fixture; retain actual breakpoint/stack/stepping evidence and independently rerun the failing test. Show a hashed profile and comparable baseline. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G05, G11, G12, G13, G14 workflow demonstration and independent result readback.",
+    "status": "in_progress",
+    "gap_requirements": [
+      "G05",
+      "G11",
+      "G12",
+      "G13",
+      "G14"
+    ],
+    "hard_prerequisites": [
+      "T03.2",
+      "T07.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T07.4",
@@ -330,10 +775,29 @@
     "name": "Safe patch/PR/CI closure workflow",
     "prerequisites": "T07.1\u2013T07.3,T03.4",
     "deliverable": "Artifact-bound proposed changes with CI feedback loop",
-    "implementation": "Re-use Potbot existing baseline\u2192candidate\u2192patch\u2192exact-state-check\u2192manifest pipeline; commit on isolated branch, open draft PR when approved, poll CI/replay events and assemble results; no autonomous merge by default.",
-    "acceptance": "Wrong base hash or stale contract blocks write; required checks cannot be deleted to pass; fake CI success rejected; branch creation/write requires explicit scope; output includes patch provenance.",
-    "demonstration": "Repair a failing fixture, open draft PR in test repository and record CI outcome.",
-    "status": "not_started"
+    "implementation": "Re-use Potbot existing baseline\u2192candidate\u2192patch\u2192exact-state-check\u2192manifest pipeline; commit on isolated branch, open draft PR when approved, poll CI/replay events and assemble results; no autonomous merge by default. Use debugger and profiler findings as evidence for isolated patches; rerun original failures outside the debugger and compare performance using the same workload and measurement method. Apply gap requirements G01, G11 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Wrong base hash or stale contract blocks write; required checks cannot be deleted to pass; fake CI success rejected; branch creation/write requires explicit scope; output includes patch provenance. Debugger diagnosis is not a verified fix, and an instrumented run alone cannot establish a speedup. Pass mapped G01, G11 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Repair a failing fixture, open draft PR in test repository and record CI outcome. Repair the Python-first fixture using stack/value evidence and verify the regression independently. Retain the corresponding G01, G11 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G01",
+      "G11"
+    ],
+    "hard_prerequisites": [
+      "T03.4",
+      "T07.1",
+      "T07.2",
+      "T07.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T08.1",
@@ -342,10 +806,29 @@
     "name": "Safe SQL and analytical data adapters",
     "prerequisites": "T02.4,T03.1\u2013T03.4",
     "deliverable": "PostgreSQL, SQLite and DuckDB read/query interfaces",
-    "implementation": "Use existing owner-separated PostgreSQL store; separate user/workspace query connection from internal persistence; prepared statements, schema introspection, read-only transactions by default, row/output caps, explain plan, cost guardrails; DuckDB loads workspace files only.",
-    "acceptance": "RLS cross-workspace query fails; SQL injection and multi-statement mutation rejected; explain cost-limit works; raw DSN never exposed; queries interrupted on budget.",
-    "demonstration": "Query workspace-owned fixture and join CSV/Parquet with DuckDB.",
-    "status": "not_started"
+    "implementation": "Use existing owner-separated PostgreSQL store; separate user/workspace query connection from internal persistence; prepared statements, schema introspection, read-only transactions by default, row/output caps, explain plan, cost guardrails; DuckDB loads workspace files only. Apply gap requirements G06 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "RLS cross-workspace query fails; SQL injection and multi-statement mutation rejected; explain cost-limit works; raw DSN never exposed; queries interrupted on budget. Pass mapped G06 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Query workspace-owned fixture and join CSV/Parquet with DuckDB. Retain the corresponding G06 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G06"
+    ],
+    "hard_prerequisites": [
+      "T02.4",
+      "T03.1",
+      "T03.2",
+      "T03.3",
+      "T03.4"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T08.2",
@@ -354,10 +837,24 @@
     "name": "Vector, full-text and graph retrieval",
     "prerequisites": "T08.1,T04.3",
     "deliverable": "Hybrid retrieval and semantic graph capability",
-    "implementation": "Extend current pgvector/named embeddings, full-text and relationship types; plug in Neo4j/Kuzu/Qdrant only when justified; implement citations and source snapshot scoping, identity and revision filters.",
-    "acceptance": "Cross-tenant leakage absent under 100 adversarial queries; wrong embedding model revision cannot silently mix vectors; graph traversal respects max depth; search results reproduce from snapshot.",
+    "implementation": "Extend current pgvector/named embeddings, full-text and relationship types; plug in Neo4j/Kuzu/Qdrant only when justified; implement citations and source snapshot scoping, identity and revision filters. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Cross-tenant leakage absent under 100 adversarial queries; wrong embedding model revision cannot silently mix vectors; graph traversal respects max depth; search results reproduce from snapshot. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Return semantic and structural matches for a coding question.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T04.3",
+      "T08.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T08.3",
@@ -366,10 +863,28 @@
     "name": "Schema-aware external API integration",
     "prerequisites": "T02.4,T08.1",
     "deliverable": "API catalog generated from OpenAPI/GraphQL/gRPC schemas",
-    "implementation": "Map API methods to capability and cog contracts, generate typed request models, validate response, paginate/resume and classify read vs write vs destructive operations; store provider schema hash and refresh diff.",
-    "acceptance": "Breaking API schema change blocks invocation until requalified; rate-limit fallback emits status; idempotency-key write behavior validated; provider errors correctly mapped.",
-    "demonstration": "Import OpenAPI spec and perform safe request using generated capability.",
-    "status": "not_started"
+    "implementation": "Map API methods to capability and cog contracts, generate typed request models, validate response, paginate/resume and classify read vs write vs destructive operations; store provider schema hash and refresh diff. Apply gap requirements G04, G06, G09 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Breaking API schema change blocks invocation until requalified; rate-limit fallback emits status; idempotency-key write behavior validated; provider errors correctly mapped. Pass mapped G04, G06, G09 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Import OpenAPI spec and perform safe request using generated capability. Retain the corresponding G04, G06, G09 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G04",
+      "G06",
+      "G09"
+    ],
+    "hard_prerequisites": [
+      "T02.4",
+      "T08.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T08.4",
@@ -378,10 +893,30 @@
     "name": "Cloud, files, collaboration and optional services",
     "prerequisites": "T08.3,T03.3",
     "deliverable": "Policy-controlled specialist connector profile",
-    "implementation": "Provide adapters/connector templates for S3-compatible object stores, Google Drive/SharePoint, Slack/Teams, GitHub Releases, Docker/Kubernetes/cloud control planes, Unity/Blender and domain tools; prioritize need rather than auto-install; privileged operations behind approval.",
-    "acceptance": "Each added connector passes standard contract suite; unavailable authorization reported accurately; cloud destructive action denied by default; cross-workspace secrets isolated.",
-    "demonstration": "Enable one chosen optional connector from registry and run qualification script.",
-    "status": "not_started"
+    "implementation": "Provide adapters/connector templates for S3-compatible object stores, Google Drive/SharePoint, Slack/Teams, GitHub Releases, Docker/Kubernetes/cloud control planes, Unity/Blender and domain tools; prioritize need rather than auto-install; privileged operations behind approval. Apply gap requirements G03, G05, G07, G08, G09 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Each added connector passes standard contract suite; unavailable authorization reported accurately; cloud destructive action denied by default; cross-workspace secrets isolated. Pass mapped G03, G05, G07, G08, G09 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Enable one chosen optional connector from registry and run qualification script. Retain the corresponding G03, G05, G07, G08, G09 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G03",
+      "G05",
+      "G07",
+      "G08",
+      "G09"
+    ],
+    "hard_prerequisites": [
+      "T03.3",
+      "T08.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T09.1",
@@ -390,10 +925,27 @@
     "name": "Python, statistics and symbolic computation",
     "prerequisites": "T03.2,T03.4",
     "deliverable": "Reasoning compute profile with Python/NumPy/SciPy/SymPy",
-    "implementation": "Provide typed operations for exact algebra, calculus, numerical experiments, statistics, plots and reproducible notebooks/scripts; include input dataset hashes, versions, numerical tolerances and execution environment; external code strictly sandboxed.",
-    "acceptance": "Curated numeric/symbolic gold tasks meet exact/tolerance targets; NaN/overflow/ill-conditioned cases flagged; independent recomputation matches receipts; no untrusted wheel network install.",
-    "demonstration": "Solve sample analytical task both symbolically and numerically.",
-    "status": "not_started"
+    "implementation": "Provide typed operations for exact algebra, calculus, numerical experiments, statistics, plots and reproducible notebooks/scripts; include input dataset hashes, versions, numerical tolerances and execution environment; external code strictly sandboxed. Apply gap requirements G07, G08 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Curated numeric/symbolic gold tasks meet exact/tolerance targets; NaN/overflow/ill-conditioned cases flagged; independent recomputation matches receipts; no untrusted wheel network install. Pass mapped G07, G08 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Solve sample analytical task both symbolically and numerically. Retain the corresponding G07, G08 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G07",
+      "G08"
+    ],
+    "hard_prerequisites": [
+      "T03.2",
+      "T03.4"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T09.2",
@@ -402,10 +954,24 @@
     "name": "SMT, optimization and counterexamples",
     "prerequisites": "T09.1,T01.2",
     "deliverable": "Z3/cvc5 and OR-Tools reasoning capabilities",
-    "implementation": "Translate typed constraints and problem instances into bounded SMT/CP-SAT jobs; expose satisfiable, unsatisfiable, unknown and timeout distinctly; request models/counterexamples, unsat cores and objective bounds when available.",
-    "acceptance": "Known SAT/UNSAT suites return correct outcome; timeout never recast as UNSAT; no untrusted solver expressions executed as Python; constraint model provenance retained.",
+    "implementation": "Translate typed constraints and problem instances into bounded SMT/CP-SAT jobs; expose satisfiable, unsatisfiable, unknown and timeout distinctly; request models/counterexamples, unsat cores and objective bounds when available. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Known SAT/UNSAT suites return correct outcome; timeout never recast as UNSAT; no untrusted solver expressions executed as Python; constraint model provenance retained. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Identify contradiction in cryptographic key-rotation rules and show counterexample.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T01.2",
+      "T09.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T09.3",
@@ -414,10 +980,24 @@
     "name": "Wolfram, domain mathematics and simulation",
     "prerequisites": "T09.1,T09.2",
     "deliverable": "Advanced computational backend with fallbacks",
-    "implementation": "Integrate Wolfram via supported API/MCP where authorized, local SageMath/Julia or domain simulation as optional profiles; compare answer consistency with SymPy/numerical solver; distinguish computational result from tool-generated natural-language explanation.",
-    "acceptance": "No paid API calls without budget authorization; inconsistent symbolic results trigger verification; units/dimensional checks pass; reproducibility report notes external provider version.",
+    "implementation": "Integrate Wolfram via supported API/MCP where authorized, local SageMath/Julia or domain simulation as optional profiles; compare answer consistency with SymPy/numerical solver; distinguish computational result from tool-generated natural-language explanation. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "No paid API calls without budget authorization; inconsistent symbolic results trigger verification; units/dimensional checks pass; reproducibility report notes external provider version. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Compute same integral or optimization using two backends and compare.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T09.1",
+      "T09.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T09.4",
@@ -426,22 +1006,53 @@
     "name": "Formal proof and model checking",
     "prerequisites": "T09.2,T01.2",
     "deliverable": "Proof-checking and state-machine analysis profile",
-    "implementation": "Integrate Lean 4, TLA+/Apalache/Alloy (qualified tools) for invariants, temporal behavior and counterexample traces; encode specs, preserve assumptions, run kernel/checker separately; no claim that arbitrary code is proven by example tests.",
-    "acceptance": "One true theorem checked, one deliberately false theorem rejected; flawed state-machine exposes counterexample; missing proof treated unverified; proof artifact retains checker revision.",
+    "implementation": "Integrate Lean 4, TLA+/Apalache/Alloy (qualified tools) for invariants, temporal behavior and counterexample traces; encode specs, preserve assumptions, run kernel/checker separately; no claim that arbitrary code is proven by example tests. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "One true theorem checked, one deliberately false theorem rejected; flawed state-machine exposes counterexample; missing proof treated unverified; proof artifact retains checker revision. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Check no-double-dispatch invariant on a simplified tool queue state machine.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T01.2",
+      "T09.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T10.1",
     "phase": 10,
     "stage": 1,
     "name": "Composable typed Cog workflow planner",
-    "prerequisites": "T04.3,T05.*,T07.*,T08.*,T09.*",
+    "prerequisites": "T04.3,T03.4",
     "deliverable": "Type-directed workflow graph assembler",
-    "implementation": "Infer typed routes from capability input/output contracts, selecting explicitly installed Cogs and data converters; support fan-out/fan-in via typed envelope nodes; reject cycles unless loop bounds and termination guard explicitly supplied; explain plan and required rights before executing. Compile typed workflow and Cog dataflow nodes into exact per-node run identities and immutable triggering input/parent-event edges. Explicitly represent MCP-composed workflow steps, nested subagents, tool adapters and fan-in contributing input sources.",
-    "acceptance": "50 golden dataflow cases compile; incompatible types rejected; cycles without bounds rejected; every edge carries immutable type/version; unauthorized transform cannot trigger a tool. Every graph node's initiating event or input artifact resolves, including multiple fan-in sources; no synthesized sole parent, orphan Cogs or implicit privilege from type conversion.",
-    "demonstration": "Compose SearchQuery → Pages → Claims → VerifiedReport without naming specific adapters. Display a typed workflow graph combining MCP nested tool calls, Cogs and a delegated sub-agent, with fully resolved causal inputs.",
-    "status": "not_started"
+    "implementation": "Infer typed routes from capability input/output contracts, selecting explicitly installed Cogs and data converters; support fan-out/fan-in via typed envelope nodes; reject cycles unless loop bounds and termination guard explicitly supplied; explain plan and required rights before executing. Compile typed workflow and Cog dataflow nodes into exact per-node run identities and immutable triggering input/parent-event edges. Explicitly represent MCP-composed workflow steps, nested subagents, tool adapters and fan-in contributing input sources. Apply gap requirements G17, G18 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "50 golden dataflow cases compile; incompatible types rejected; cycles without bounds rejected; every edge carries immutable type/version; unauthorized transform cannot trigger a tool. Every graph node's initiating event or input artifact resolves, including multiple fan-in sources; no synthesized sole parent, orphan Cogs or implicit privilege from type conversion. Pass mapped G17, G18 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Compose SearchQuery \u2192 Pages \u2192 Claims \u2192 VerifiedReport without naming specific adapters. Display a typed workflow graph combining MCP nested tool calls, Cogs and a delegated sub-agent, with fully resolved causal inputs. Retain the corresponding G17, G18 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G17",
+      "G18"
+    ],
+    "hard_prerequisites": [
+      "T03.4",
+      "T04.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T10.2",
@@ -450,46 +1061,115 @@
     "name": "Durable parallel workflow runtime",
     "prerequisites": "T10.1,T03.4",
     "deliverable": "Resumable DAG executor and event stream",
-    "implementation": "Extend existing PostgreSQL queue/REST/WebSocket jobs with graph node scheduling, deduplication, lease fences, bounded concurrency, pause/resume, approval handoff, checkpointing and compensation proposals; avoid replaying uncertain non-idempotent effects. Instrument workflow DAG nodes and nested model/tool processes with unique run IDs, immutable input snapshots and parent syn://event causation; emit lifecycle, safe console output and progress events via the existing durable cursor, and retain finished/indeterminate metrics, tool-run links and typed output artifacts. Extend the durable DAG executor and shared workspace event cursor to every agent-executed work type, not merely models/tools: nested agents, MCP sessions/composite workflows, Cogs, CLI/browser/API/DB, CI and internal scheduled jobs. Track each start/update/child/terminal event, fan-out/fan-in ancestry, retries and indeterminate remote effects.",
-    "acceptance": "Kill workers at 5 fault points and require no double side effects; event cursor replay identical after restart; fan-in waits for all required verified inputs; budget exhaustion halts safely. Every nested execution is traceable to its parent process or exact input through restart/replay; no missing parent, duplicated event, false completion or repeated side effect; terminal events carry measured/estimated/unknown wall time and resource metrics. Mixed MCP/model/Cog/subagent workflows replay an identical causal tree after crash/reconnect; no duplicate side effects, lost terminal state or inferred provider completion; distinct run and child-attempt identities survive restart.",
-    "demonstration": "Run fan-out multi-source research workflow with injected worker crash. Stream a parallel workflow live, inspect the exact input/process triggering every event, reconnect from the last cursor and expand its model/tool run tree. Stream a fan-out agent workflow with model→MCP→API and Cog→sub-agent branches and inspect each recorded cause and resource/output receipt.",
-    "status": "not_started"
+    "implementation": "Extend existing PostgreSQL queue/REST/WebSocket jobs with graph node scheduling, deduplication, lease fences, bounded concurrency, pause/resume, approval handoff, checkpointing and compensation proposals; avoid replaying uncertain non-idempotent effects. Instrument workflow DAG nodes and nested model/tool processes with unique run IDs, immutable input snapshots and parent syn://event causation; emit lifecycle, safe console output and progress events via the existing durable cursor, and retain finished/indeterminate metrics, tool-run links and typed output artifacts. Extend the durable DAG executor and shared workspace event cursor to every agent-executed work type, not merely models/tools: nested agents, MCP sessions/composite workflows, Cogs, CLI/browser/API/DB, CI and internal scheduled jobs. Track each start/update/child/terminal event, fan-out/fan-in ancestry, retries and indeterminate remote effects. Persist device/profile/debug child sessions and ordered pause/step/stop events with target leases and stop revisions in the existing execution ledger; reconcile disconnects before replay. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G02, G09, G10, G15 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Kill workers at 5 fault points and require no double side effects; event cursor replay identical after restart; fan-in waits for all required verified inputs; budget exhaustion halts safely. Every nested execution is traceable to its parent process or exact input through restart/replay; no missing parent, duplicated event, false completion or repeated side effect; terminal events carry measured/estimated/unknown wall time and resource metrics. Mixed MCP/model/Cog/subagent workflows replay an identical causal tree after crash/reconnect; no duplicate side effects, lost terminal state or inferred provider completion; distinct run and child-attempt identities survive restart. Worker restart cannot repeat a tap, restart or continue against an unknown target or reuse expired stack/variable handles. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G02, G09, G10, G15 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Run fan-out multi-source research workflow with injected worker crash. Stream a parallel workflow live, inspect the exact input/process triggering every event, reconnect from the last cursor and expand its model/tool run tree. Stream a fan-out agent workflow with model\u2192MCP\u2192API and Cog\u2192sub-agent branches and inspect each recorded cause and resource/output receipt. Recover a disconnected device/debug session with accurate indeterminate outcomes and owned-resource cleanup. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G02, G09, G10, G15 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G02",
+      "G09",
+      "G10",
+      "G15"
+    ],
+    "hard_prerequisites": [
+      "T03.4",
+      "T10.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T10.3",
     "phase": 10,
     "stage": 3,
     "name": "Model reasoning controller and independent critics",
-    "prerequisites": "T10.1,T10.2,T09.*",
+    "prerequisites": "T10.1,T10.2",
     "deliverable": "Tool-aware reasoning and independent challenge workflow",
-    "implementation": "Extend existing multi-model selection, provider gateway and Phase 6 graph/search instead of creating competing planner; add tool proposals with confidence/uncertainty, bounded alternative plan search, independent verifier role, contradiction tests and grounded action selection. Emit version-pinned model and critic start/progress/output/completion events with independent run identifiers, triggering workflow/context packet, provider/deployment revision, elapsed clock time, tokens, CPU/GPU/memory where observable, cost and all nested external tool run IDs. Correlate every model/critic call and its requested ordinary or MCP tools with exact parent reasoning/workflow input, model invocation identity, downstream MCP server/session/tool IDs, child agent runs and full terminal usage/output accounting.",
-    "acceptance": "Planted false claims challenged, unsupported conclusions labeled; reviewer cannot self-approve writes; no added model call bypasses budget; role context isolation passes. Each local or hosted model event has an authenticated causal input and exact selected model/deployment identity; unavailable provider revisions and resource measurements remain explicitly unknown, never invented or zero-filled. A model-triggered MCP workflow has independently typed server/tool/subtool/agent events; provider tool-call IDs are never used as untrusted global run identities, and each completion lists observed child receipts.",
-    "demonstration": "Run same coding problem with and without tool/critic loop and compare verified outcomes. Trace two distinct reasoning/coding model runs and their external tool invocations with different model revisions and independent accounting receipts. Trace a reasoning model calling an MCP search workflow that calls an API tool and another model, including each trigger and unique run ID.",
-    "status": "not_started"
+    "implementation": "Extend existing multi-model selection, provider gateway and Phase 6 graph/search instead of creating competing planner; add tool proposals with confidence/uncertainty, bounded alternative plan search, independent verifier role, contradiction tests and grounded action selection. Emit version-pinned model and critic start/progress/output/completion events with independent run identifiers, triggering workflow/context packet, provider/deployment revision, elapsed clock time, tokens, CPU/GPU/memory where observable, cost and all nested external tool run IDs. Correlate every model/critic call and its requested ordinary or MCP tools with exact parent reasoning/workflow input, model invocation identity, downstream MCP server/session/tool IDs, child agent runs and full terminal usage/output accounting. Apply gap requirements G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Planted false claims challenged, unsupported conclusions labeled; reviewer cannot self-approve writes; no added model call bypasses budget; role context isolation passes. Each local or hosted model event has an authenticated causal input and exact selected model/deployment identity; unavailable provider revisions and resource measurements remain explicitly unknown, never invented or zero-filled. A model-triggered MCP workflow has independently typed server/tool/subtool/agent events; provider tool-call IDs are never used as untrusted global run identities, and each completion lists observed child receipts. Pass mapped G17 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Run same coding problem with and without tool/critic loop and compare verified outcomes. Trace two distinct reasoning/coding model runs and their external tool invocations with different model revisions and independent accounting receipts. Trace a reasoning model calling an MCP search workflow that calls an API tool and another model, including each trigger and unique run ID. Retain the corresponding G17 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G17"
+    ],
+    "hard_prerequisites": [
+      "T10.1",
+      "T10.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T10.4",
     "phase": 10,
     "stage": 4,
     "name": "Adaptive selection, caching and capability utility",
-    "prerequisites": "T10.3; offline utility fixture (expanded by T11.1)",
+    "prerequisites": "T10.3",
     "deliverable": "Policy-safe empirically learned router",
-    "implementation": "Collect per-task-family success, cost, latency, failure and context usage; choose by permissions and expected utility, back off on poor health, allow manual override and deterministic baseline; cached responses must respect exact source/credential/revision scope.",
-    "acceptance": "Forced override honored; no unqualified tool promoted automatically; wrong-scope cache never served; with evidence insufficient route remains baseline rather than inventing performance gain.",
+    "implementation": "Collect per-task-family success, cost, latency, failure and context usage; choose by permissions and expected utility, back off on poor health, allow manual override and deterministic baseline; cached responses must respect exact source/credential/revision scope. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Forced override honored; no unqualified tool promoted automatically; wrong-scope cache never served; with evidence insufficient route remains baseline rather than inventing performance gain. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
     "demonstration": "Display a tool-selection decision explanation and its evidence.",
-    "status": "not_started"
+    "status": "not_started",
+    "gap_requirements": [],
+    "hard_prerequisites": [
+      "T10.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T11.1",
     "phase": 11,
     "stage": 1,
     "name": "Representative task benchmark suite",
-    "prerequisites": "T05.*,T06.*,T07.*,T08.*,T09.*",
+    "prerequisites": "T01.4,T03.4,T04.3",
     "deliverable": "Versioned baseline/gold dataset and blind task splits",
-    "implementation": "Assemble Potbot/DanceFlow real tasks plus web, browser, API, SQL, math, formal proof and adverse cases; keep authored fixtures distinct from held-out and actual provider runs; immutable baseline and scorer revisions.",
-    "acceptance": "At least 20 tasks per target domain to start with explicit difficulty and expected observable outcome; benchmark contamination checked; each outcome independently scored.",
-    "demonstration": "Produce model-only versus single-tool versus composite-tool comparison report.",
-    "status": "not_started"
+    "implementation": "Assemble Potbot/DanceFlow real tasks plus web, browser, API, SQL, math, formal proof and adverse cases; keep authored fixtures distinct from held-out and actual provider runs; immutable baseline and scorer revisions. Include device-control, profiling and language-neutral debugger conformance, Python-first real debugging, repeatable hotspot comparisons and cross-target/replay/secret-redaction adversarial cases. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G07, G08, G11, G12, G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "At least 20 tasks per target domain to start with explicit difficulty and expected observable outcome; benchmark contamination checked; each outcome independently scored. Separate mock, simulator/emulator and real-host evidence; reject forged stops, stale frames, unsupported backend claims and unqualified performance comparisons. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G07, G08, G11, G12, G17 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Produce model-only versus single-tool versus composite-tool comparison report. Inspect the Python breakpoint/step/stack test and device/profile qualification matrix with exact source/tool receipts. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G07, G08, G11, G12, G17 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G07",
+      "G08",
+      "G11",
+      "G12",
+      "G17"
+    ],
+    "hard_prerequisites": [
+      "T01.4",
+      "T03.4",
+      "T04.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T11.2",
@@ -498,10 +1178,27 @@
     "name": "Evidence integrity and factual verification",
     "prerequisites": "T11.1,T01.3,T05.4",
     "deliverable": "Evidence checker and provenance audit",
-    "implementation": "Implement immutable citations, external source hashes, assertion→support mapping, independent execution checks, source freshness, contradictory evidence and replay audit; integrate with patch verification and solver result retention. Audit every syn://event occurrence against the exact triggering process/input, parent event, workspace, typed semantic release, run/lease generation, output hash, terminal metrics provenance and external tool receipt chain. Audit universal causal event ancestry across MCP transports, model callbacks, Cogs, browser/API/SQL, nested workers and queued jobs. Verify server/session/request correlation, workspace-scoped run/lease IDs, root input digests, child outcome/usage receipts and one global event-cursor ordering.",
-    "acceptance": "Tampered citation/patch/proof hash detected; unsupported claims fail; stale docs flagged; reproducible receipts for offline tasks; partial tool success not promoted to verified claim. Tampered parent event or input SHA-256, unregistered Type/version, cross-workspace causal link, forged emitter, missing triggered-by identity or fabricated resource measure fails acceptance. Reject forged MCP callback parents, orphan internal/Cog events, cross-session reused IDs, fan-in input substitution, false child completion and wrong-workspace roots; legacy job-only events stay readable.",
-    "demonstration": "Show accepted claim, challenged claim and unresolved claim with source chain. Render a verified event ancestry and show a rejected event with a falsified initiating workflow step or source input. Challenge an MCP tool response that attempts to spoof another agent's run and show the rejected causal edge.",
-    "status": "not_started"
+    "implementation": "Implement immutable citations, external source hashes, assertion\u2192support mapping, independent execution checks, source freshness, contradictory evidence and replay audit; integrate with patch verification and solver result retention. Audit every syn://event occurrence against the exact triggering process/input, parent event, workspace, typed semantic release, run/lease generation, output hash, terminal metrics provenance and external tool receipt chain. Audit universal causal event ancestry across MCP transports, model callbacks, Cogs, browser/API/SQL, nested workers and queued jobs. Verify server/session/request correlation, workspace-scoped run/lease IDs, root input digests, child outcome/usage receipts and one global event-cursor ordering. Include device-control, profiling and language-neutral debugger conformance, Python-first real debugging, repeatable hotspot comparisons and cross-target/replay/secret-redaction adversarial cases. Apply gap requirements G13 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Tampered citation/patch/proof hash detected; unsupported claims fail; stale docs flagged; reproducible receipts for offline tasks; partial tool success not promoted to verified claim. Tampered parent event or input SHA-256, unregistered Type/version, cross-workspace causal link, forged emitter, missing triggered-by identity or fabricated resource measure fails acceptance. Reject forged MCP callback parents, orphan internal/Cog events, cross-session reused IDs, fan-in input substitution, false child completion and wrong-workspace roots; legacy job-only events stay readable. Separate mock, simulator/emulator and real-host evidence; reject forged stops, stale frames, unsupported backend claims and unqualified performance comparisons. Pass mapped G13 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Show accepted claim, challenged claim and unresolved claim with source chain. Render a verified event ancestry and show a rejected event with a falsified initiating workflow step or source input. Challenge an MCP tool response that attempts to spoof another agent's run and show the rejected causal edge. Inspect the Python breakpoint/step/stack test and device/profile qualification matrix with exact source/tool receipts. Retain the corresponding G13 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G13"
+    ],
+    "hard_prerequisites": [
+      "T01.3",
+      "T05.4",
+      "T11.1"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T11.3",
@@ -510,10 +1207,27 @@
     "name": "Statistical evaluation and regression policies",
     "prerequisites": "T11.1,T11.2,T10.4",
     "deliverable": "Comparable experiments and release regression gates",
-    "implementation": "Compare model-only, retrieval-only, calculation-only, solver, critic and adaptive configurations; paired task sets, repeated seeds, confidence intervals, pre-registered metrics: verified success, false-pass, tool selection, cost/success, tokens, latency, reliability; budget-adjusted quality.",
-    "acceptance": "No aggregate metric mixes synthetic with live; baseline regressions fail gate at configured threshold; confidence uncertainty reported; all runs include pinned configs and costs.",
-    "demonstration": "Generate a CI report showing whether each tool meaningfully improves a target task family.",
-    "status": "not_started"
+    "implementation": "Compare model-only, retrieval-only, calculation-only, solver, critic and adaptive configurations; paired task sets, repeated seeds, confidence intervals, pre-registered metrics: verified success, false-pass, tool selection, cost/success, tokens, latency, reliability; budget-adjusted quality. Include device-control, profiling and language-neutral debugger conformance, Python-first real debugging, repeatable hotspot comparisons and cross-target/replay/secret-redaction adversarial cases. Apply gap requirements G11 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "No aggregate metric mixes synthetic with live; baseline regressions fail gate at configured threshold; confidence uncertainty reported; all runs include pinned configs and costs. Separate mock, simulator/emulator and real-host evidence; reject forged stops, stale frames, unsupported backend claims and unqualified performance comparisons. Pass mapped G11 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Generate a CI report showing whether each tool meaningfully improves a target task family. Inspect the Python breakpoint/step/stack test and device/profile qualification matrix with exact source/tool receipts. Retain the corresponding G11 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G11"
+    ],
+    "hard_prerequisites": [
+      "T10.4",
+      "T11.1",
+      "T11.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T11.4",
@@ -522,34 +1236,95 @@
     "name": "Security, chaos and adversarial qualification",
     "prerequisites": "T03.*,T10.2,T11.2",
     "deliverable": "Red-team and failure-injection release suite",
-    "implementation": "Test prompt injection, tool-result laundering, malicious MCP manifests, poisoned document retrieval, SSRF, symlink races, quota exhaustion, replay after crash, dependency compromise, OAuth confusion and cross-tenant leakage.",
-    "acceptance": "Zero critical successful boundary escapes in gated corpus; kill-switch works during incident; unqualified host fails closed; secrets absent in logs; data destruction requires explicit authorization.",
-    "demonstration": "Execute attack corpus in disposable CI environment and retain audit evidence.",
-    "status": "not_started"
+    "implementation": "Test prompt injection, tool-result laundering, malicious MCP manifests, poisoned document retrieval, SSRF, symlink races, quota exhaustion, replay after crash, dependency compromise, OAuth confusion and cross-tenant leakage. Include device-control, profiling and language-neutral debugger conformance, Python-first real debugging, repeatable hotspot comparisons and cross-target/replay/secret-redaction adversarial cases. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G06, G15 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Zero critical successful boundary escapes in gated corpus; kill-switch works during incident; unqualified host fails closed; secrets absent in logs; data destruction requires explicit authorization. Separate mock, simulator/emulator and real-host evidence; reject forged stops, stale frames, unsupported backend claims and unqualified performance comparisons. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G06, G15 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Execute attack corpus in disposable CI environment and retain audit evidence. Inspect the Python breakpoint/step/stack test and device/profile qualification matrix with exact source/tool receipts. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G06, G15 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G06",
+      "G15"
+    ],
+    "hard_prerequisites": [
+      "T03.1",
+      "T03.2",
+      "T03.3",
+      "T03.4",
+      "T10.2",
+      "T11.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T12.1",
     "phase": 12,
     "stage": 1,
     "name": "Installation and dependency qualification",
-    "prerequisites": "T01\u2013T11",
+    "prerequisites": "T01.4,T03.2,T04.4",
     "deliverable": "Reproducible cross-platform deployment profiles",
-    "implementation": "Use existing start.bat, start.ps1, start.sh and uv lock; provision adapters/models to workspace-local directories; pin all tool binaries, hashes, browsers and packages; optional profiles avoid bloating default; report host sandbox qualification separately.",
-    "acceptance": "Fresh Linux install passes standard suite; Windows/macOS untrusted execution either passes qualified isolation or fails closed; offline smoke mode works without paid credentials; rollback documented.",
-    "demonstration": "Run fresh install and capability discovery from clean checkout.",
-    "status": "not_started"
+    "implementation": "Use existing start.bat, start.ps1, start.sh and uv lock; provision adapters/models to workspace-local directories; pin all tool binaries, hashes, browsers and packages; optional profiles avoid bloating default; report host sandbox qualification separately. Package optional workspace-local device SDKs/drivers/profilers/debug adapters and explicit Apple/remote host profiles; expose target/session, breakpoint, stepping, stack/variable and trace views with lifecycle controls and actual demonstration guides. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G03, G14, G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Fresh Linux install passes standard suite; Windows/macOS untrusted execution either passes qualified isolation or fails closed; offline smoke mode works without paid credentials; rollback documented. Core setup remains lightweight; absent hosts/tools are named holds; actual Python-first demonstrations and verified owned-session cleanup accompany supported profiles. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G03, G14, G17 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Run fresh install and capability discovery from clean checkout. Install a selected profile and demonstrate device control, trace analysis or language-neutral debugging using Python first, with real screenshots/recording rather than mock runtime claims. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G03, G14, G17 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G03",
+      "G14",
+      "G17"
+    ],
+    "hard_prerequisites": [
+      "T01.4",
+      "T03.2",
+      "T04.4"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T12.2",
     "phase": 12,
     "stage": 2,
     "name": "Operator UI, monitoring and controls",
-    "prerequisites": "T10.*,T04.4,T11.*",
+    "prerequisites": "T10.2,T04.4,T11.2",
     "deliverable": "Unified tool dashboard and API surfaces",
-    "implementation": "Extend current web dashboard/REST/WebSocket with catalog, permissions, health, active DAG, tool calls, prompts/resources, evidence, cost budgets, approvals, audit and diagnostic outputs; filter by workspace. Add workspace-scoped live execution REST read models and resumable WebSocket streams for running workflows, model calls, child tools, typed syn://event history, per-event triggering process/input, timelines, progress, bounded/redacted console, wall time, resource/cost metrics and final output artifact links; retain legacy job clients. Expose one authenticated universal execution API and live WebSocket tree for ALL job kinds: workflows, models, ordinary tools, MCP servers/sessions/tool workflows, agents/subagents, Cogs, scripts, browser/API/DB/CI, scheduler and internal jobs. Include per-event trigger/emitter, exact Type/version, child links, duration/usage and output receipts, preserving legacy /v1/jobs clients.",
-    "acceptance": "Read-only users cannot approve; replay cursor shows same state after reconnect; all secret fields redacted; API and UI agree on execution status and verification state. API, WebSocket replay and dashboard agree on each event's Type/version, unique run ID, direct cause, emitter, parent-child trace, status and accounting; unauthorized clients cannot access private inputs or cross-workspace events; slow subscribers resume without loss. REST, WebSocket and UI present identical mixed-protocol hierarchical timelines and authorized redacted outputs; one workspace cursor replays job-only plus standalone agent execution events with no omissions after reconnect.",
-    "demonstration": "Operator inspects running workflow, approves a safe write and sees immutable result. Open the running-workflows dashboard, inspect every start/update/completion, drill into exactly what triggered a model/tool event, and replay the same timeline after reconnecting. Inspect the complete nested model→MCP→tool→Cog→subagent job tree live; filter by kind and click every event to its exact initiating input or process.",
-    "status": "not_started"
+    "implementation": "Extend current web dashboard/REST/WebSocket with catalog, permissions, health, active DAG, tool calls, prompts/resources, evidence, cost budgets, approvals, audit and diagnostic outputs; filter by workspace. Add workspace-scoped live execution REST read models and resumable WebSocket streams for running workflows, model calls, child tools, typed syn://event history, per-event triggering process/input, timelines, progress, bounded/redacted console, wall time, resource/cost metrics and final output artifact links; retain legacy job clients. Expose one authenticated universal execution API and live WebSocket tree for ALL job kinds: workflows, models, ordinary tools, MCP servers/sessions/tool workflows, agents/subagents, Cogs, scripts, browser/API/DB/CI, scheduler and internal jobs. Include per-event trigger/emitter, exact Type/version, child links, duration/usage and output receipts, preserving legacy /v1/jobs clients. Package optional workspace-local device SDKs/drivers/profilers/debug adapters and explicit Apple/remote host profiles; expose target/session, breakpoint, stepping, stack/variable and trace views with lifecycle controls and actual demonstration guides. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G02, G10, G13, G15, G16 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "Read-only users cannot approve; replay cursor shows same state after reconnect; all secret fields redacted; API and UI agree on execution status and verification state. API, WebSocket replay and dashboard agree on each event's Type/version, unique run ID, direct cause, emitter, parent-child trace, status and accounting; unauthorized clients cannot access private inputs or cross-workspace events; slow subscribers resume without loss. REST, WebSocket and UI present identical mixed-protocol hierarchical timelines and authorized redacted outputs; one workspace cursor replays job-only plus standalone agent execution events with no omissions after reconnect. Core setup remains lightweight; absent hosts/tools are named holds; actual Python-first demonstrations and verified owned-session cleanup accompany supported profiles. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G02, G10, G13, G15, G16 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Operator inspects running workflow, approves a safe write and sees immutable result. Open the running-workflows dashboard, inspect every start/update/completion, drill into exactly what triggered a model/tool event, and replay the same timeline after reconnecting. Inspect the complete nested model\u2192MCP\u2192tool\u2192Cog\u2192subagent job tree live; filter by kind and click every event to its exact initiating input or process. Install a selected profile and demonstrate device control, trace analysis or language-neutral debugging using Python first, with real screenshots/recording rather than mock runtime claims. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G02, G10, G13, G15, G16 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G02",
+      "G10",
+      "G13",
+      "G15",
+      "G16"
+    ],
+    "hard_prerequisites": [
+      "T04.4",
+      "T10.2",
+      "T11.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T12.3",
@@ -558,10 +1333,27 @@
     "name": "Developer docs, SDK, examples and migration guides",
     "prerequisites": "T12.1,T12.2",
     "deliverable": "Stable extension SDK and adoption documentation",
-    "implementation": "Publish semantic Type reference, adapter contract, sample MCP server/client, custom CLI/REST/Cog plug-in templates, version/migration guide, isolation requirements, threat model, troubleshooting and tests; keep existing docs linked and authoritative.",
-    "acceptance": "External contributor can build a sample adapter following docs; examples run in CI; old project migrations preserve receipts and types; no unpinned download instructions.",
-    "demonstration": "Create sample custom tool using SDK and pass conformance tests.",
-    "status": "not_started"
+    "implementation": "Publish semantic Type reference, adapter contract, sample MCP server/client, custom CLI/REST/Cog plug-in templates, version/migration guide, isolation requirements, threat model, troubleshooting and tests; keep existing docs linked and authoritative. Package optional workspace-local device SDKs/drivers/profilers/debug adapters and explicit Apple/remote host profiles; expose target/session, breakpoint, stepping, stack/variable and trace views with lifecycle controls and actual demonstration guides. Extend the common debugger contract to authorized network/embedded targets: GDB RSP/gdbserver, OpenOCD/pyOCD/probe-rs, explicitly selected JTAG/SWD probes and supported ICSP vendor routes; model JIT crash-triggered attachment separately. Bind probe/target/core/firmware/symbol identity, halted-state revision, negotiated register/memory/stepping features and explicit reset/flash/effect policy. Test local Python first, then remote Python, then a real board/probe fixture. Apply gap requirements G08, G16 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "External contributor can build a sample adapter following docs; examples run in CI; old project migrations preserve receipts and types; no unpinned download instructions. Core setup remains lightweight; absent hosts/tools are named holds; actual Python-first demonstrations and verified owned-session cleanup accompany supported profiles. Reject wrong probe/core, stale halted-state views, mismatched firmware/symbols, unprotected remote endpoints and implicit reset/flash/erase/unlock; programming success does not qualify debugging. Real remote/hardware qualification and JIT/ICSP acceptance remain separate from the Python-first test. Pass mapped G08, G16 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Create sample custom tool using SDK and pass conformance tests. Install a selected profile and demonstrate device control, trace analysis or language-neutral debugging using Python first, with real screenshots/recording rather than mock runtime claims. Inspect an authorized remote-process or physical-board breakpoint/step/stack/register session with exact target receipts and independently verified final state; unsupported targets remain unqualified. Retain the corresponding G08, G16 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G08",
+      "G16"
+    ],
+    "hard_prerequisites": [
+      "T12.1",
+      "T12.2"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   },
   {
     "id": "T12.4",
@@ -570,9 +1362,30 @@
     "name": "Release certification and maintenance policy",
     "prerequisites": "T12.1\u2013T12.3,T11.4",
     "deliverable": "Signed release with acceptance dossier and ongoing change control",
-    "implementation": "Pin commit, migrations, tools, model configs, execution host qualification, SBOM, security scans and benchmark reports; publish release, downgrade/rollback, compatibility table, deprecation and routine requalification policy; label limitations prominently.",
-    "acceptance": "All required tests pass on claimed hosts; no known critical security escape; release can be restored and receipts validated; metrics vs prior qualified version reported with no fabricated score.",
-    "demonstration": "Reproduce full gated demonstration from clean tagged checkout.",
-    "status": "not_started"
+    "implementation": "Pin commit, migrations, tools, model configs, execution host qualification, SBOM, security scans and benchmark reports; publish release, downgrade/rollback, compatibility table, deprecation and routine requalification policy; label limitations prominently. Apply gap requirements G06, G14, G15, G17 in section 2D and the tool-plan gap specification; retain their per-profile effect and qualification boundaries. Apply the mandatory SYN tool-Cog contract in section 2E: registered single-input/single-output Types, pinned handlers, controller-mediated effects and distinct receipts; transports remain internal implementations.",
+    "acceptance": "All required tests pass on claimed hosts; no known critical security escape; release can be restored and receipts validated; metrics vs prior qualified version reported with no fabricated score. Pass mapped G06, G14, G15, G17 fixtures and record exact source/profile/evidence; unavailable enabled mandatory gates cannot silently skip. Record applicable C01\u2013C07 Cog contract/conformance evidence; direct adapter tests alone cannot qualify Cog integration. Every tool Cog must retain start, actual progress and completion statistics through the specified Cog work-monitoring ledger, with causal run identities, output/child receipts and measured or explicitly unavailable metrics.",
+    "demonstration": "Reproduce full gated demonstration from clean tagged checkout. Retain the corresponding G06, G14, G15, G17 workflow demonstration and independent result readback.",
+    "status": "not_started",
+    "gap_requirements": [
+      "G06",
+      "G14",
+      "G15",
+      "G17"
+    ],
+    "hard_prerequisites": [
+      "T11.4",
+      "T12.1",
+      "T12.2",
+      "T12.3"
+    ],
+    "cog_requirements": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07"
+    ]
   }
 ]

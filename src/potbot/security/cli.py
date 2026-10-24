@@ -8,7 +8,6 @@ import json
 import os
 import stat
 import sys
-import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Never
@@ -17,6 +16,7 @@ from uuid import UUID, uuid4
 from potbot.domain.errors import DomainError, InvalidInputError
 from potbot.domain.syn import MAX_SYN_SNAPSHOT_BYTES, SynSnapshot
 from potbot.semantics.catalog import merge_types
+from potbot.tools.temporary import allocate_file
 
 from .broker import NativeIdentityBroker, build_native_broker
 from .public import (
@@ -89,7 +89,7 @@ def _emit(
     if any(_same_path(output, path) for path in protected_paths):
         raise InvalidInputError("public output must not replace a vault, input, or replay ledger")
     # No recursive mkdir: native custody owns its private vault-directory ACL.
-    descriptor, temporary = tempfile.mkstemp(prefix=".potbot-public-", dir=output.parent)
+    descriptor, temporary = allocate_file(output.parent, prefix=".potbot-public-")
     try:
         with os.fdopen(descriptor, "wb") as stream:
             stream.write(encoded)

@@ -1,0 +1,152 @@
+{
+  "qualification": "Actual installed SYN Cog fixture; memory journals, not durable or host qualification",
+  "schema_count": 13,
+  "catalog_hash": "71faf59dc06bba9a1d8b2813a0c313184b5ce2ada7f7ebe3965475eac73ad24a",
+  "search": {
+    "schema_version": 1,
+    "query_hash": "5ff6c701e500473d9e541ea7a8a3c816d8b798d3eddab247f8e931c82cfc75b2",
+    "corpus_hash": "b3b75c81530545296bedb660ee0f6b8f4c45d6d9b72c68674581fd9062e93f6f",
+    "items": [
+      {
+        "id": "fixture",
+        "source_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "text": "Python debugger stack"
+      }
+    ],
+    "complete": true
+  },
+  "checked": {
+    "schema_version": 1,
+    "type_ref": "syn://type/potbot-tool-search-results-v1",
+    "schema_hash": "2624654577386688b0ed37a49a828f5a9bf692d0a7b6f9fbfdd8bc32211d4402",
+    "value_hash": "ca38d12ef568063907fe5f418558e9fa557522ec9f2e08bcfbd59e7d6dce9d5c",
+    "canonical_json": "{\"schema_hash\":\"2624654577386688b0ed37a49a828f5a9bf692d0a7b6f9fbfdd8bc32211d4402\",\"type_ref\":\"syn://type/potbot-tool-search-results-v1\",\"value\":{\"complete\":true,\"corpus_hash\":\"b3b75c81530545296bedb660ee0f6b8f4c45d6d9b72c68674581fd9062e93f6f\",\"items\":[{\"id\":\"fixture\",\"source_sha256\":\"8888888888888888888888888888888888888888888888888888888888888888\",\"text\":\"Python debugger stack\"}],\"query_hash\":\"5ff6c701e500473d9e541ea7a8a3c816d8b798d3eddab247f8e931c82cfc75b2\",\"schema_version\":1}}"
+  },
+  "converted": {
+    "encoding": "utf-8",
+    "locale": "und",
+    "mime": "application/json",
+    "precision": 3,
+    "rows": [
+      {
+        "source_end": 9,
+        "source_start": 5,
+        "value": "1.250"
+      }
+    ],
+    "schema_version": 1,
+    "source_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+    "target_unit": "s",
+    "timezone": "UTC",
+    "tolerance": "0",
+    "unit": "s",
+    "loss": []
+  },
+  "events": [
+    {
+      "cog": "syn://cog/potbot-contract-search-v1",
+      "stage": "started",
+      "phase": "executing",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-search-v1",
+      "stage": "updated",
+      "phase": "admitted_dispatch",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-search-v1",
+      "stage": "updated",
+      "phase": "corpus_searched",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-search-v1",
+      "stage": "updated",
+      "phase": "typed_result_validated",
+      "wall_ms": 31,
+      "cpu_ms": 31
+    },
+    {
+      "cog": "syn://cog/potbot-contract-search-v1",
+      "stage": "completed",
+      "phase": "result_received",
+      "wall_ms": 31,
+      "cpu_ms": 31
+    },
+    {
+      "cog": "syn://cog/potbot-contract-validate-v1",
+      "stage": "started",
+      "phase": "executing",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-validate-v1",
+      "stage": "updated",
+      "phase": "admitted_dispatch",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-validate-v1",
+      "stage": "updated",
+      "phase": "contract_round_tripped",
+      "wall_ms": 62,
+      "cpu_ms": 62
+    },
+    {
+      "cog": "syn://cog/potbot-contract-validate-v1",
+      "stage": "updated",
+      "phase": "typed_result_validated",
+      "wall_ms": 93,
+      "cpu_ms": 93
+    },
+    {
+      "cog": "syn://cog/potbot-contract-validate-v1",
+      "stage": "completed",
+      "phase": "result_received",
+      "wall_ms": 93,
+      "cpu_ms": 93
+    },
+    {
+      "cog": "syn://cog/potbot-contract-convert-units-v1",
+      "stage": "started",
+      "phase": "executing",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-convert-units-v1",
+      "stage": "updated",
+      "phase": "admitted_dispatch",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-convert-units-v1",
+      "stage": "updated",
+      "phase": "unit_table_converted",
+      "wall_ms": 0,
+      "cpu_ms": 0
+    },
+    {
+      "cog": "syn://cog/potbot-contract-convert-units-v1",
+      "stage": "updated",
+      "phase": "typed_result_validated",
+      "wall_ms": 31,
+      "cpu_ms": 31
+    },
+    {
+      "cog": "syn://cog/potbot-contract-convert-units-v1",
+      "stage": "completed",
+      "phase": "result_received",
+      "wall_ms": 31,
+      "cpu_ms": 31
+    }
+  ]
+}

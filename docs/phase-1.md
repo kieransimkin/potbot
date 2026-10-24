@@ -79,7 +79,7 @@ Example lifecycle:
 
 ```python
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from potbot.tools.temporary import TemporaryDirectory
 
 from potbot.evaluation.repository_fixture import (
     check_repository_fixture,

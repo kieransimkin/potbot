@@ -6,6 +6,7 @@ The authenticated controller supplies workspace and emitting principal identity.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -51,8 +52,21 @@ class ExecutionEventInput:
     output_artifact_ref: str | None = None
     output_sha256: str | None = None
     elapsed_ms: int | None = None
+    telemetry_json: str = "{}"
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.telemetry_json, str)
+            or len(self.telemetry_json.encode("utf-8")) > 32768
+        ):
+            raise InvalidInputError("Execution telemetry exceeds its bounded JSON contract")
+        try:
+            telemetry = json.loads(self.telemetry_json)
+            if not isinstance(telemetry, dict):
+                raise ValueError("Telemetry must be an object")
+            json.dumps(telemetry, allow_nan=False)
+        except (ValueError, TypeError, RecursionError) as error:
+            raise InvalidInputError("Execution telemetry must be a finite JSON object") from error
         if any(
             not isinstance(ref, str) or not _TYPE.fullmatch(ref)
             for ref in (self.event_type_ref, self.subject_type_ref)

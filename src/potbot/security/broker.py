@@ -15,7 +15,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -23,6 +22,7 @@ from typing import Any
 from potbot.domain.errors import CapabilityUnavailableError, DomainError
 from potbot.domain.syn import type_identity
 from potbot.semantics.registry import strict_json
+from potbot.tools.temporary import TemporaryDirectory
 
 from .public import (
     MAX_PUBLIC_DOCUMENT_BYTES,
@@ -434,7 +434,7 @@ class NativeIdentityBroker:
         self._require_ready()
         # Pass an immutable checked policy snapshot; never read or create the
         # vault's final directory. Native code applies its private ACL contract.
-        with tempfile.TemporaryDirectory(prefix="potbot-public-policy-") as directory:
+        with TemporaryDirectory(prefix="potbot-public-policy-") as directory:
             snapshot = Path(directory) / "policy.json"
             snapshot.write_text(
                 json.dumps(checked, sort_keys=True, separators=(",", ":")), encoding="ascii"

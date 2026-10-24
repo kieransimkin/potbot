@@ -36,6 +36,9 @@ def test_root_event_requires_verifiable_input_and_type():
         {"trigger_kind": "unknown"},
         {"stage": "made-up"},
         {"elapsed_ms": -1},
+        {"telemetry_json": "[]"},
+        {"telemetry_json": '{"usage": NaN}'},
+        {"telemetry_json": "x" * 32769},
     ):
         with pytest.raises(InvalidInputError):
             replace(item, **change)
@@ -57,9 +60,17 @@ def test_causal_child_requires_parent_event_and_run():
     assert child.parent_run_id == root.run_id
 
 
-def test_migration_19_keeps_previous_ledger():
-    migrations = application_migrations()
-    assert migrations[-1].version == 19
-    assert migrations[-1].name == "execution_events_schema"
-    assert migrations[-1].workspace_tables == ("syn_execution_events",)
-    assert migrations[-1].append_only_tables == ("syn_execution_events",)
+@pytest.mark.parametrize("lineage", ["main", "phase3-preview"])
+def test_migration_19_keeps_previous_ledger(lineage: str):
+    migrations = application_migrations(lineage=lineage)
+    assert tuple(item.version for item in migrations) == tuple(range(1, len(migrations) + 1))
+    assert tuple(item.name for item in migrations[15:18]) == (
+        "phase7_schema",
+        "phase7_worker_schema",
+        "phase7_graph_schema",
+    )
+    ledger = migrations[18]
+    assert ledger.version == 19
+    assert ledger.name == "execution_events_schema"
+    assert ledger.workspace_tables == ("syn_execution_events",)
+    assert ledger.append_only_tables == ("syn_execution_events",)

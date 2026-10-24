@@ -9,6 +9,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from potbot.controller.execution_cogs import ExecutionCogRuntime
+    from potbot.controller.tool_contracts import ToolContractRuntime
+    from potbot.controller.tool_inventory import ToolInventoryRuntime
+    from potbot.debugging.cog_runtime import DebuggerCogRuntime
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.serialization import canonical_json
@@ -218,14 +225,86 @@ class BoundCogRegistry:
     """Only locally installed, snapshot-checked implementations are runnable."""
 
     snapshot: SynSnapshot
+    execution_profile: bool = False
+    inventory_profile: bool = False
+    contracts_profile: bool = False
+    provenance_profile: bool = False
+    artifact_range_profile: bool = False
+    artifact_upload_profile: bool = False
+
+    def installed(self) -> tuple[CogSignature, ...]:
+        if self.artifact_upload_profile:
+            from potbot.cogs.artifact_ranges import RANGE_COGS
+            from potbot.cogs.artifact_uploads import UPLOAD_COGS
+            from potbot.cogs.execution import EXECUTION_COGS
+
+            return (*INSTALLED_COGS, *EXECUTION_COGS, *RANGE_COGS, *UPLOAD_COGS)
+        if self.artifact_range_profile:
+            from potbot.cogs.artifact_ranges import RANGE_COGS
+            from potbot.cogs.execution import EXECUTION_COGS
+
+            return (*INSTALLED_COGS, *EXECUTION_COGS, *RANGE_COGS)
+        if self.provenance_profile:
+            from potbot.cogs.execution import EXECUTION_COGS
+
+            return (*INSTALLED_COGS, *EXECUTION_COGS)
+        if self.contracts_profile:
+            from potbot.cogs.tool_contracts import CONTRACT_COGS
+
+            return (*INSTALLED_COGS, *CONTRACT_COGS)
+        if self.inventory_profile:
+            from potbot.cogs.inventory import SIGNATURE
+
+            return (*INSTALLED_COGS, SIGNATURE)
+        if self.execution_profile:
+            from potbot.cogs.debugger import DEBUGGER_COGS
+
+            return (*INSTALLED_COGS, *DEBUGGER_COGS)
+        return INSTALLED_COGS
 
     def __post_init__(self) -> None:
-        expected = builtin_cog_snapshot()
+        from potbot.cogs.artifact_ranges import artifact_range_snapshot
+        from potbot.cogs.artifact_uploads import artifact_upload_snapshot
+        from potbot.cogs.debugger import debugger_cog_snapshot
+        from potbot.cogs.execution import execution_cog_snapshot
+        from potbot.cogs.inventory import inventory_cog_snapshot
+        from potbot.cogs.tool_contracts import contract_cog_snapshot
+
+        if (
+            sum(
+                (
+                    self.execution_profile,
+                    self.inventory_profile,
+                    self.contracts_profile,
+                    self.provenance_profile,
+                    self.artifact_range_profile,
+                    self.artifact_upload_profile,
+                )
+            )
+            > 1
+        ):
+            raise ScopeDeniedError("Choose one exact installed execution profile")
+        expected = (
+            artifact_upload_snapshot()
+            if self.artifact_upload_profile
+            else artifact_range_snapshot()
+            if self.artifact_range_profile
+            else execution_cog_snapshot()
+            if self.provenance_profile
+            else contract_cog_snapshot()
+            if self.contracts_profile
+            else inventory_cog_snapshot()
+            if self.inventory_profile
+            else debugger_cog_snapshot()
+            if self.execution_profile
+            else builtin_cog_snapshot()
+        )
         if self.snapshot.fingerprint != expected.fingerprint:
             raise ScopeDeniedError("Cog catalogue must match the installed pinned definitions")
         declared = {type_identity(t.ref): t for t in merge_types(self.snapshot)}
         closure = type_ancestors(declared.values())
-        signatures = {str(signature.cog_ref): signature for signature in INSTALLED_COGS}
+        installed = self.installed()
+        signatures = {str(signature.cog_ref): signature for signature in installed}
         for entry in self.snapshot.objects:
             signature = signatures.get(str(entry.ref))
             if signature is None:
@@ -249,10 +328,11 @@ class BoundCogRegistry:
                 or payload["outputTypeRef"] != signature.output_type_ref
                 or payload["implementationBindingHash"] != signature.binding_hash
                 or payload["handlerRef"] != signature.handler_ref
+                or payload["implementationRevision"] != signature.implementation_revision
                 or payload["requiresControllerScope"] != signature.requires_controller_scope
             ):
                 raise ScopeDeniedError("Cog public Ember declarations differ from installed code")
-        if len(self.snapshot.objects) != len(INSTALLED_COGS):
+        if len(self.snapshot.objects) != len(installed):
             raise ScopeDeniedError("Incomplete Cog catalogue")
         if any(s.handler_ref not in builtin.BUILTIN_HANDLERS for s in INSTALLED_COGS):
             raise ScopeDeniedError("Cog handler binding is not installed")
@@ -260,6 +340,108 @@ class BoundCogRegistry:
     @classmethod
     def builtins(cls) -> BoundCogRegistry:
         return cls(builtin_cog_snapshot())
+
+    @classmethod
+    def debugger(cls) -> BoundCogRegistry:
+        from potbot.cogs.debugger import debugger_cog_snapshot
+
+        return cls(debugger_cog_snapshot(), execution_profile=True)
+
+    @classmethod
+    def provenance(cls) -> BoundCogRegistry:
+        from potbot.cogs.execution import execution_cog_snapshot
+
+        return cls(execution_cog_snapshot(), provenance_profile=True)
+
+    @classmethod
+    def artifact_ranges(cls) -> BoundCogRegistry:
+        from potbot.cogs.artifact_ranges import artifact_range_snapshot
+
+        return cls(artifact_range_snapshot(), artifact_range_profile=True)
+
+    @classmethod
+    def artifact_uploads(cls) -> BoundCogRegistry:
+        from potbot.cogs.artifact_uploads import artifact_upload_snapshot
+
+        return cls(artifact_upload_snapshot(), artifact_upload_profile=True)
+
+    @classmethod
+    def tool_contracts(cls) -> BoundCogRegistry:
+        from potbot.cogs.tool_contracts import contract_cog_snapshot
+
+        return cls(contract_cog_snapshot(), contracts_profile=True)
+
+    @classmethod
+    def tool_inventory(cls) -> BoundCogRegistry:
+        from potbot.cogs.inventory import inventory_cog_snapshot
+
+        return cls(inventory_cog_snapshot(), inventory_profile=True)
+
+    async def invoke(
+        self,
+        cog_ref: str,
+        source: TypedCogValue,
+        context: CogRunContext,
+        *,
+        controller: DebuggerCogRuntime
+        | ToolInventoryRuntime
+        | ToolContractRuntime
+        | ExecutionCogRuntime,
+    ) -> CogOutcome:
+        """Explicit async execution path. Pure transform() never dispatches tools."""
+        from potbot.cogs.debugger import DEBUGGER_COGS
+        from potbot.cogs.execution import EXECUTION_COGS
+        from potbot.cogs.inventory import SIGNATURE
+        from potbot.cogs.tool_contracts import CONTRACT_COGS
+        from potbot.controller.execution_cogs import ExecutionCogRuntime
+        from potbot.controller.tool_contracts import ToolContractRuntime
+        from potbot.controller.tool_inventory import ToolInventoryRuntime
+        from potbot.debugging.cog_runtime import DebuggerCogRuntime
+
+        if self.artifact_upload_profile and isinstance(controller, ExecutionCogRuntime):
+            from potbot.cogs.artifact_ranges import RANGE_COGS
+            from potbot.cogs.artifact_uploads import UPLOAD_COGS
+
+            selected = next(
+                (
+                    s
+                    for s in (*EXECUTION_COGS, *RANGE_COGS, *UPLOAD_COGS)
+                    if str(s.cog_ref) == cog_ref
+                ),
+                None,
+            )
+        elif self.artifact_range_profile and isinstance(controller, ExecutionCogRuntime):
+            from potbot.cogs.artifact_ranges import RANGE_COGS
+
+            selected = next(
+                (s for s in (*EXECUTION_COGS, *RANGE_COGS) if str(s.cog_ref) == cog_ref), None
+            )
+        elif self.provenance_profile and isinstance(controller, ExecutionCogRuntime):
+            selected = next((s for s in EXECUTION_COGS if str(s.cog_ref) == cog_ref), None)
+        elif self.contracts_profile and isinstance(controller, ToolContractRuntime):
+            selected = next((s for s in CONTRACT_COGS if str(s.cog_ref) == cog_ref), None)
+        elif self.inventory_profile and isinstance(controller, ToolInventoryRuntime):
+            selected = SIGNATURE if str(SIGNATURE.cog_ref) == cog_ref else None
+        elif self.execution_profile and isinstance(controller, DebuggerCogRuntime):
+            selected = next((s for s in DEBUGGER_COGS if str(s.cog_ref) == cog_ref), None)
+        else:
+            raise ScopeDeniedError("Execution Cogs require their installed controller profile")
+        if selected is None or selected.handler_ref not in {
+            "potbot.cogs.debugger.execute",
+            "potbot.cogs.inventory.execute",
+            "potbot.cogs.tool_contracts.execute",
+            "potbot.cogs.execution.execute",
+        }:
+            raise ScopeDeniedError("Execution Cog handler is not installed")
+        if context.cog_snapshot_hash != self.snapshot.fingerprint:
+            raise StateMismatchError("Execution Cog catalog changed")
+        check_cog_input(selected, source)
+        # Freeze the serialized value before an async boundary; the caller's
+        # mutable dict cannot alter a dispatched request or its later receipt.
+        source = TypedCogValue(
+            source.type_ref, json.loads(canonical_json(source.value)), source.source_artifact_id
+        )
+        return await controller.invoke(selected, source, context)
 
     def transform(
         self,

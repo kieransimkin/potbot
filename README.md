@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev2`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev8`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -21,6 +21,16 @@ model discovery, explicit disclosure/rate policy and durable usage accounting.
 A PostgreSQL job queue, REST API, WebSocket streams and browser dashboard expose
 generation progress and retained output.
 
+The opt-in [artifact-range Cog profile](docs/implementation/15-artifact-range-cogs.md)
+opens actor/policy-bound read leases, returns verified ranges up to 8 KiB and
+closes access through the existing monitored SYN boundary. Its local POSIX
+backend verifies the full source using bounded reads; reconnecting clients can
+reconstruct exact bytes from out-of-order or duplicate ranges. The optional
+[31-Cog upload profile](docs/implementation/16-artifact-upload-cogs.md) adds open,
+chunk, inspect, commit and abort tools with durable slots, bounded missing-offset
+pages and verified streaming assembly. Physical retention, actual network/crash
+recovery and other backend qualification remain separate gates.
+
 The Agent security extension adds published Ed25519 verification keys, base-certified
 hourly signatures, a one-shot native password custody tier, inherited Ember contracts
 and owner-separated PostgreSQL storage. Semantic signing checks inherited implementation
@@ -34,6 +44,24 @@ Multi-model reasoning-tree selection, local-model live qualification, learned me
 admission, live web discovery, IBM MCP, DanceFlow MCP, and the custom semantic embedding
 space remain later stages. The five default reasoning and coding models are registered
 as **unqualified catalog entries**; a name is never treated as a tested deployment.
+
+The [plugin discovery strategy](docs/implementation/plugin-discovery-strategy.md)
+plans task-led capability search, inspectable installation choices and qualification
+gates, including continuing research across agent ecosystems. It preserves the
+tool platform's existing stage statuses; this roadmap does not establish live discovery.
+
+The [tool-plan gap audit](docs/implementation/09-tool-plan-gap-audit.md) defines
+18 additional requirement groups, concrete acceptance scenarios and independent
+core/Python/specialist qualification gates. The [mandatory SYN tool-Cog contract](docs/implementation/10-syn-tool-cogs.md) specifies one typed input/output, handler binding, controller-mediated effects and the Cog-driven Python debugger test. These remain planned work; validate
+the synchronized 48-stage roadmap with `python scripts/check_tool_plan.py`.
+
+The [Python-first debugger Cog interface](docs/implementation/08-debugger-python-first.md) adds registered language-neutral operations, controller admission, stop-scoped stack/variable handles and start/progress/terminal telemetry on the existing execution ledger. Python is the first backend; the guide separates local fixture, durable PostgreSQL and qualified Linux sandbox evidence.
+
+The [source inventory Cog](docs/implementation/11-tool-source-inventory.md) implements T01.1 over existing committed repository snapshots. It maps every captured source module to its integration owner and roadmap stages, retains source/lock hashes and records monitored progress. Existing adapter code is distinguished from installation and host qualification; no inspected code is imported or executed. Its required CI gate uses real PostgreSQL, sealed SYN definitions and API replay.
+
+The [canonical semantic tool contracts](docs/implementation/12-canonical-tool-contracts.md) implement T01.2 with versioned tool/capability/implementation/installation/invocation/evidence records. Three installed SYN Cogs search a host-owned corpus, round-trip checked contracts and convert explicitly typed units. Inherited Ember checks and start/progress/completion statistics use the existing semantic and execution services; mandatory real PostgreSQL/API acceptance remains separate from the documentation fixture.
+
+The [execution provenance core](docs/implementation/13-execution-provenance.md) adds 17 registered work-kind Cogs and seal/replay Cogs with policy-bound causal runs, signed trace artifacts and read-only historical inspection. T01.3 remains in progress for universal production adoption, general artifact range transport and remote hardware qualification. [Shared temporary storage](docs/implementation/14-windows-temporary-storage.md) preserves inherited Windows scratch ACLs across tests, builds and workers, with actual file-lifecycle checks and explicit cleanup failures.
 
 ## Install and check
 
@@ -328,6 +356,14 @@ new release does not rewrite historical configurations or packets. Structural
 validation leaves an envelope as a proposal: entity resolution, truth adjudication,
 guard evaluation, and learned semantic classification remain later work. See the
 [semantic API and compatibility notes](docs/phase-3.md#semantic-contracts-and-release-pins).
+
+## Object memory implementation plan
+
+The [per-object memory implementation plan](docs/object-memory/implementation-plan.md)
+specifies a separate memory graph for every Syn object, integrated with existing
+Type inheritance, Ember contracts, candidate admission and qualified context packets.
+Its [32-stage register](docs/object-memory/plan.json) is entirely `not_started`;
+run `python scripts/check_memory_graph_plan.py` for planning consistency, not runtime acceptance.
 
 ## Package boundaries
 
