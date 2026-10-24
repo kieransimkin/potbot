@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -22,6 +23,33 @@ class CheckFailed(RuntimeError):
     """A named check failed after its sanitized diagnostics were saved."""
 
 
+def source_identity() -> dict[str, object]:
+    """Bind a run to committed source; unavailable identity can never qualify CI."""
+    try:
+        revision = subprocess.run(
+            ["git", "show", "-s", "--format=%H%n%T", "HEAD"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        state = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=normal"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        lines = revision.stdout.splitlines()
+        if revision.returncode or state.returncode or len(lines) != 2:
+            return {"commit": None, "tree": None, "clean": False}
+        return {"commit": lines[0], "tree": lines[1], "clean": not state.stdout.strip()}
+    except (OSError, RuntimeError, subprocess.TimeoutExpired):
+        return {"commit": None, "tree": None, "clean": False}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--with-postgres", action="store_true")
@@ -32,6 +60,7 @@ def main() -> int:
     artifacts.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, object]] = []
     started_at = datetime.now(UTC).isoformat()
+    source_at_start = source_identity()
     # Only successful completion of every requested gate may mark this run green.
     status = 1
     process_scratch: TemporaryDirectory | None = None
@@ -45,6 +74,7 @@ def main() -> int:
         environment: dict[str, str] | None = None,
     ) -> None:
         print(f"Running {label}...", flush=True)
+        started = time.monotonic_ns()
         try:
             completed = subprocess.run(
                 command,
@@ -72,7 +102,13 @@ def main() -> int:
         clean_output = sanitize_text(output)
         (artifacts / f"{label}.log").write_text(clean_output, encoding="utf-8")
         print(clean_output, end="" if clean_output.endswith("\n") else "\n", flush=True)
-        results.append({"check": label, "exit_code": returncode})
+        results.append(
+            {
+                "check": label,
+                "exit_code": returncode,
+                "wall_ms": (time.monotonic_ns() - started) // 1_000_000,
+            }
+        )
         if returncode:
             raise CheckFailed(f"{label} failed (exit {returncode})")
 
@@ -162,6 +198,8 @@ def main() -> int:
                     "-I",
                     "-c",
                     "from pathlib import Path; import sys, potbot, potbot.domain; "
+                    "from potbot.controller.transport_cogs import TransportPorts; "
+                    "assert 'httpx' not in sys.modules; "
                     "assert Path(potbot.__file__).resolve().is_relative_to("
                     "Path(sys.prefix).resolve()), 'package imported outside the clean environment'; "
                     "print('installed domain import passed')",
@@ -300,6 +338,8 @@ def main() -> int:
             "sandbox_requested": args.with_sandbox,
             "success": status == 0,
             "checks": results,
+            "source_at_start": source_at_start,
+            "source": source_identity(),
         }
         (artifacts / "summary.json").write_text(
             json.dumps(summary, indent=2) + "\n", encoding="utf-8"

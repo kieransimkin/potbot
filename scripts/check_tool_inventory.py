@@ -56,6 +56,7 @@ def check(value: dict) -> dict:
         "stage": "T01.1",
         "result": "passed",
         "source_commit": head,
+        "version": __version__,
         "inventory_sha256": inventory["inventory_sha256"],
         "components": len(OWNERS),
         "source_modules": sum(len(c["source_files"]) for c in inventory["components"]),

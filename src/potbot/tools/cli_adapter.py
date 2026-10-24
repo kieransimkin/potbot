@@ -100,7 +100,9 @@ class ApprovedCliAdapter:
         self.pinned_executables = dict(pinned_executables)
         self.argument_policies = dict(argument_policies or {})
 
-    def run(self, proposal: ActionProposal) -> CliObservation:
+    def run(
+        self, proposal: ActionProposal, *, cancelled: Callable[[], bool] | None = None
+    ) -> CliObservation:
         if not isinstance(proposal, ActionProposal):
             raise InvalidInputError("CLI requires a typed ActionProposal")
         tool = self.registry.get(proposal.kind)
@@ -154,7 +156,7 @@ class ApprovedCliAdapter:
                 for area in ("tmp", "cache", "environments", "builds", "tests")
             ),
         )
-        result: ProcessResult = self.supervisor.run(request)
+        result: ProcessResult = self.supervisor.run(request, cancelled=cancelled)
         if result.dispatched and not result.isolation_identity:
             raise StateMismatchError("CLI claimed dispatch without an isolation identity")
         return CliObservation(

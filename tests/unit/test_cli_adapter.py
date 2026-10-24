@@ -21,7 +21,7 @@ class RecordingSupervisor(ProcessSupervisor):
         self.requests = []
         self.isolation_identity = isolation_identity
 
-    def run(self, request):
+    def run(self, request, *, cancelled=None):
         self.requests.append(request)
         return ProcessResult(
             "completed",

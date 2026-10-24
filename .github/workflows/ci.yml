@@ -51,7 +51,7 @@ jobs:
           version: "0.12.23"
           enable-cache: true
       - name: Verify Windows temporary files, child readback and cleanup
-        run: uv run --locked --extra security --extra semantics python -m pytest -q tests/unit/test_temporary.py tests/unit/test_pytest_temp_isolation.py tests/unit/test_check_runner.py tests/unit/test_syn_export.py tests/unit/test_identity_cli.py tests/unit/test_artifact_ranges.py tests/unit/test_artifact_uploads.py
+        run: uv run --locked --extra security --extra semantics python -m pytest -q tests/unit/test_temporary.py tests/unit/test_pytest_temp_isolation.py tests/unit/test_check_runner.py tests/unit/test_syn_export.py tests/unit/test_identity_cli.py tests/unit/test_artifact_ranges.py tests/unit/test_artifact_uploads.py tests/unit/test_tool_programme.py
 
   verify:
     runs-on: ubuntu-24.04
@@ -66,6 +66,7 @@ jobs:
       POTBOT_PROVENANCE_EVIDENCE_DIR: artifacts/execution-provenance
       POTBOT_RANGE_EVIDENCE_DIR: artifacts/artifact-ranges
       POTBOT_UPLOAD_EVIDENCE_DIR: artifacts/artifact-uploads
+      POTBOT_TRANSPORT_EVIDENCE_DIR: artifacts/transport-cogs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -103,6 +104,8 @@ jobs:
         run: uv run --locked python -m pytest -q tests/integration/test_artifact_range_cogs.py
       - name: Verify resumable upload Cogs independently on real PostgreSQL
         run: uv run --locked python -m pytest -q tests/integration/test_artifact_upload_cogs.py
+      - name: Verify admitted transport Cogs with real services and Linux confinement
+        run: uv run --locked python -m pytest -q tests/integration/test_transport_cogs.py
       - name: Verify application, repositories, migrations, and database isolation
         run: uv run --locked python scripts/check.py --with-postgres --with-sandbox
       - name: Verify source-preview release packaging and clean wheel install
@@ -120,6 +123,24 @@ jobs:
         run: uv run --locked python scripts/check_artifact_ranges.py artifacts/artifact-ranges/artifact-ranges.json --output artifacts/artifact-ranges/T01.3-range-gate.json
       - name: Verify T01.3 exact-source resumable artifact uploads
         run: uv run --locked python scripts/check_artifact_uploads.py artifacts/artifact-uploads/artifact-uploads.json --output artifacts/artifact-uploads/T01.3-upload-gate.json
+      - name: Verify implemented tool profiles and report all 48 programme stages
+        run: uv run --locked python scripts/check_transport_cogs.py artifacts/transport-cogs/transport-cogs.json --output artifacts/transport-cogs/transport-gate.json
+      - name: Evaluate all 48 stages without promoting passing subsets
+        run: uv run --locked python scripts/tool_programme_gate.py --artifacts artifacts --output artifacts/tool-programme/report.json
+      - name: Retain stage matrix and mandatory suite receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tool-programme-evidence
+          path: |
+            artifacts/tool-programme/
+            artifacts/transport-cogs/
+            artifacts/summary.json
+            artifacts/unit-and-git.xml
+            artifacts/postgres.xml
+            artifacts/sandbox.xml
+          if-no-files-found: error
+          retention-days: 14
       - name: Retain resumable upload Cog acceptance
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

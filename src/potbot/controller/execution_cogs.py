@@ -429,7 +429,10 @@ class ExecutionCogRuntime:
             work.complete(outcome)
             return outcome
         except BaseException as error:
-            uncertain = dispatched and binding.effect_class != "read_only"
+            uncertain = dispatched and (
+                binding.effect_class != "read_only"
+                or isinstance(error, IndeterminateExecutionError)
+            )
             self._poisoned |= uncertain
             try:
                 if not work.terminal:
