@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev7`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev8`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -25,8 +25,11 @@ The opt-in [artifact-range Cog profile](docs/implementation/15-artifact-range-co
 opens actor/policy-bound read leases, returns verified ranges up to 8 KiB and
 closes access through the existing monitored SYN boundary. Its local POSIX
 backend verifies the full source using bounded reads; reconnecting clients can
-reconstruct exact bytes from out-of-order or duplicate ranges. Uploads, physical
-retention and other backend qualification remain separate gates.
+reconstruct exact bytes from out-of-order or duplicate ranges. The optional
+[31-Cog upload profile](docs/implementation/16-artifact-upload-cogs.md) adds open,
+chunk, inspect, commit and abort tools with durable slots, bounded missing-offset
+pages and verified streaming assembly. Physical retention, actual network/crash
+recovery and other backend qualification remain separate gates.
 
 The Agent security extension adds published Ed25519 verification keys, base-certified
 hourly signatures, a one-shot native password custody tier, inherited Ember contracts

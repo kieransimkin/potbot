@@ -230,8 +230,15 @@ class BoundCogRegistry:
     contracts_profile: bool = False
     provenance_profile: bool = False
     artifact_range_profile: bool = False
+    artifact_upload_profile: bool = False
 
     def installed(self) -> tuple[CogSignature, ...]:
+        if self.artifact_upload_profile:
+            from potbot.cogs.artifact_ranges import RANGE_COGS
+            from potbot.cogs.artifact_uploads import UPLOAD_COGS
+            from potbot.cogs.execution import EXECUTION_COGS
+
+            return (*INSTALLED_COGS, *EXECUTION_COGS, *RANGE_COGS, *UPLOAD_COGS)
         if self.artifact_range_profile:
             from potbot.cogs.artifact_ranges import RANGE_COGS
             from potbot.cogs.execution import EXECUTION_COGS
@@ -257,6 +264,7 @@ class BoundCogRegistry:
 
     def __post_init__(self) -> None:
         from potbot.cogs.artifact_ranges import artifact_range_snapshot
+        from potbot.cogs.artifact_uploads import artifact_upload_snapshot
         from potbot.cogs.debugger import debugger_cog_snapshot
         from potbot.cogs.execution import execution_cog_snapshot
         from potbot.cogs.inventory import inventory_cog_snapshot
@@ -270,13 +278,16 @@ class BoundCogRegistry:
                     self.contracts_profile,
                     self.provenance_profile,
                     self.artifact_range_profile,
+                    self.artifact_upload_profile,
                 )
             )
             > 1
         ):
             raise ScopeDeniedError("Choose one exact installed execution profile")
         expected = (
-            artifact_range_snapshot()
+            artifact_upload_snapshot()
+            if self.artifact_upload_profile
+            else artifact_range_snapshot()
             if self.artifact_range_profile
             else execution_cog_snapshot()
             if self.provenance_profile
@@ -349,6 +360,12 @@ class BoundCogRegistry:
         return cls(artifact_range_snapshot(), artifact_range_profile=True)
 
     @classmethod
+    def artifact_uploads(cls) -> BoundCogRegistry:
+        from potbot.cogs.artifact_uploads import artifact_upload_snapshot
+
+        return cls(artifact_upload_snapshot(), artifact_upload_profile=True)
+
+    @classmethod
     def tool_contracts(cls) -> BoundCogRegistry:
         from potbot.cogs.tool_contracts import contract_cog_snapshot
 
@@ -381,7 +398,19 @@ class BoundCogRegistry:
         from potbot.controller.tool_inventory import ToolInventoryRuntime
         from potbot.debugging.cog_runtime import DebuggerCogRuntime
 
-        if self.artifact_range_profile and isinstance(controller, ExecutionCogRuntime):
+        if self.artifact_upload_profile and isinstance(controller, ExecutionCogRuntime):
+            from potbot.cogs.artifact_ranges import RANGE_COGS
+            from potbot.cogs.artifact_uploads import UPLOAD_COGS
+
+            selected = next(
+                (
+                    s
+                    for s in (*EXECUTION_COGS, *RANGE_COGS, *UPLOAD_COGS)
+                    if str(s.cog_ref) == cog_ref
+                ),
+                None,
+            )
+        elif self.artifact_range_profile and isinstance(controller, ExecutionCogRuntime):
             from potbot.cogs.artifact_ranges import RANGE_COGS
 
             selected = next(
