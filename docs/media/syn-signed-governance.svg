@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="465" viewBox="0 0 1160 465" role="img" aria-labelledby="t d">
+<title id="t">Signed replacement requires both existing authorities</title>
+<desc id="d">Pinned current state supplies policy rosters and Type governors. Both approve the exact successor before Syn atomically appends it. Proposed new authorities cannot approve their own replacement. BFT replacements await a finality verifier.</desc>
+<rect width="1160" height="465" rx="18" fill="#f4f7fa"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#47677e"/></marker></defs>
+<g font-family="Arial,sans-serif" fill="#17374a">
+<text x="28" y="42" font-size="25" font-weight="bold">The existing authorities approve the exact successor.</text>
+<rect x="28" y="85" width="300" height="210" rx="12" fill="#e7eff8" stroke="#5d7996"/>
+<rect x="416" y="85" width="330" height="90" rx="12" fill="#fff1d6" stroke="#9d7938"/>
+<rect x="416" y="205" width="330" height="90" rx="12" fill="#fff1d6" stroke="#9d7938"/>
+<rect x="834" y="85" width="298" height="210" rx="12" fill="#e2f3e9" stroke="#4d866c"/>
+<text x="48" y="122" font-size="21" font-weight="bold">Current pinned state</text><text x="48" y="163" font-size="17">Signed genesis + verified chain</text><text x="48" y="199" font-size="17">Retained current-head digest</text><text x="48" y="235" font-size="17">Old rosters and Type governors</text><text x="48" y="271" font-size="17">Native assigned-account signer</text>
+<text x="436" y="120" font-size="20" font-weight="bold">Every existing policy quorum</text><text x="436" y="153" font-size="17">Separate role-bound consent proofs</text>
+<text x="436" y="240" font-size="20" font-weight="bold">Existing Type governance</text><text x="436" y="273" font-size="17">Old threshold and authorized keys</text>
+<text x="854" y="122" font-size="21" font-weight="bold">Atomic local successor</text><text x="854" y="163" font-size="17">Exact parent + next sequence</text><text x="854" y="199" font-size="17">Verify both approval sets</text><text x="854" y="235" font-size="17">Keep namespace ownership</text><text x="854" y="271" font-size="17">Append; never overwrite history</text>
+<g fill="none" stroke="#47677e" stroke-width="2" marker-end="url(#a)"><path d="M333 170H372V130H406"/><path d="M333 210H372V250H406"/><path d="M751 130H788V170H824"/><path d="M751 250H788V210H824"/></g>
+<text x="28" y="349" font-size="18">New governors or weaker policies cannot ratify their own installation. Independent pins select genesis and head.</text>
+<text x="28" y="394" font-size="18">Local consent + SQL serialization are implemented. Federated replacements await real DAG finality verification.</text>
+<text x="28" y="435" font-size="17">Generated implementation illustration · public proofs only · no distributed-finality or peer-mesh claim</text>
+</g></svg>

@@ -1068,7 +1068,7 @@ semantics = [
     { name = "jsonschema" },
 ]
 syn = [
-    { name = "syn-client" },
+    { name = "syn-client", extra = ["governance"] },
 ]
 web = [
     { name = "fastapi" },
@@ -1086,7 +1086,7 @@ dev = [
     { name = "protobuf" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "syn-client" },
+    { name = "syn-client", extra = ["governance"] },
     { name = "types-jsonschema" },
     { name = "types-protobuf" },
     { name = "uvicorn" },
@@ -1101,7 +1101,7 @@ requires-dist = [
     { name = "jsonschema", marker = "extra == 'semantics'", specifier = ">=4.26,<5" },
     { name = "keyring", marker = "extra == 'credentials'", specifier = "==25.7.0" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2,<4" },
-    { name = "syn-client", marker = "extra == 'syn'", editable = "vendor/syn/packages/syn-client" },
+    { name = "syn-client", extras = ["governance"], marker = "extra == 'syn'", editable = "vendor/syn/packages/syn-client" },
     { name = "torch", marker = "(sys_platform == 'linux' and extra == 'embeddings') or (sys_platform == 'win32' and extra == 'embeddings')", specifier = "==2.9.1", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'embeddings'", specifier = "==2.9.1" },
     { name = "transformers", marker = "extra == 'embeddings'", specifier = "==4.57.6" },
@@ -1120,7 +1120,7 @@ dev = [
     { name = "protobuf", specifier = ">=5,<7" },
     { name = "pytest", specifier = ">=8.3,<10" },
     { name = "ruff", specifier = ">=0.11,<1" },
-    { name = "syn-client", editable = "vendor/syn/packages/syn-client" },
+    { name = "syn-client", extras = ["governance"], editable = "vendor/syn/packages/syn-client" },
     { name = "types-jsonschema", specifier = ">=4.26.0.20261006" },
     { name = "types-protobuf", specifier = ">=7.35.1.20260906" },
     { name = "uvicorn", specifier = ">=0.34,<1" },
@@ -1762,6 +1762,15 @@ wheels = [
 name = "syn-client"
 version = "0.1.0"
 source = { editable = "vendor/syn/packages/syn-client" }
+
+[package.optional-dependencies]
+governance = [
+    { name = "cryptography" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cryptography", marker = "extra == 'governance'", specifier = "==50.0.2" }]
+provides-extras = ["governance"]
 
 [[package]]
 name = "tokenizers"

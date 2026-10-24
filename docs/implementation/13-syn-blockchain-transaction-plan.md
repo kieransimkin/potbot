@@ -118,8 +118,10 @@ and offline pinned resolution, consumed by Potbot. Syn-owned application, client
 portability and PostgreSQL workflows now replace the former CI gap. On 24 October,
 explicit local genesis adds durable domain anchors, cross-catalog namespace
 ownership and authenticated reads checked against independent Potbot trust pins.
-Governed policy replacement, native ledger signing, protected startup, mesh and
-consensus remain pending; neither work package is marked complete.
+[Signed local governance](16-syn-signed-governance.md) now requires old policy
+quorums and old Type governors before appending a successor. Federated replacement,
+new ledger signing, protected startup, mesh and consensus remain pending; neither
+work package is marked complete.
 
 Syn's current receipt chain is a local ordered journal. It does not supply shared
 consensus, validator finality or a global sequence. The new protocol preserves

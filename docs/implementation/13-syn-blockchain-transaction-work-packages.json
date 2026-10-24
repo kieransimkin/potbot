@@ -46,9 +46,10 @@
       "implemented_progress": [
         "explicit local epoch-one genesis manifests with independently provisioned pins",
         "atomic durable domain anchors and cross-catalog conflict namespace ownership",
-        "authenticated exact reads and Potbot adoption-pin resolution"
+        "authenticated exact reads and Potbot adoption-pin resolution",
+        "signed genesis and append-only local succession under all old policy quorums and old Type governance"
       ],
-      "remaining_gate": "Signed Type-governance genesis authority, governed transitions and runtime admission remain pending; local administrative genesis is not a governance certificate.",
+      "remaining_gate": "BFT finality, explicit unsigned-legacy migration, coordinated credential rotation, authenticated checkpoints and runtime admission remain pending; local consent is not distributed finality.",
       "depends_on": [],
       "owners": [
         "Syn",
@@ -73,7 +74,8 @@
       "implemented_progress": [
         "canonical policy, Type/release, node-hash and immutable PolicyContext contracts",
         "domain-separated explicit local genesis codec and portable synthetic fixture",
-        "strict persisted-document validation and incompatible atomic write refusal"
+        "strict persisted-document validation and incompatible atomic write refusal",
+        "domain-separated role/proposal approval targets verified with frozen native membership/proof bytes"
       ],
       "remaining_gate": "Native Rust/Python byte and signature parity, roster credentials and policy-bound intent contracts remain pending.",
       "depends_on": [

@@ -82,6 +82,37 @@ def resolve_policy_write_set(
         raise InvalidInputError(str(error)) from error
 
 
+def governed_policy_resolver(
+    client: SynClient,
+    *,
+    workspace_id: str,
+    catalog_id: str,
+    expected_genesis_digest: str,
+    expected_head_digest: str,
+) -> CanonicalTypePolicyResolver:
+    """Verify the signed history without adopting a server-selected latest head."""
+    from syn_client import SynError
+    from syn_client.consensus import PolicyError
+    from syn_client.governance import verified_chain
+
+    try:
+        chain = client.governed_policy_chain(
+            workspace_id,
+            catalog_id=catalog_id,
+            expected_genesis_digest=expected_genesis_digest,
+            expected_head_digest=expected_head_digest,
+        )
+        return verified_chain(
+            chain,
+            expected_workspace=workspace_id,
+            expected_catalog=catalog_id,
+            expected_genesis_digest=expected_genesis_digest,
+            expected_head_digest=expected_head_digest,
+        )
+    except (PolicyError, SynError, ValueError) as error:
+        raise InvalidInputError("Pinned signed Syn governance is unavailable or invalid") from error
+
+
 def node_identity_from_membership(
     certificate: dict[str, Any], *, expected_issuer_hash: str, expected_node_hash: str
 ) -> NodeIdentity:
