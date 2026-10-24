@@ -116,6 +116,7 @@ class ExecutionReceiptService:
             "schema_version": 1,
             "type_ref": RECEIPT,
             "workspace_id": str(self.actor.workspace_id),
+            "owner_principal_id": str(self.actor.principal_id),
             "root_run_id": str(root),
             "catalog_hash": root_binding["scope"]["catalog_hash"],
             "policy_hash": self.policy.fingerprint,
@@ -287,6 +288,10 @@ class ExecutionReceiptService:
             signature, row["body_sha256"], policy=self.verification, now=row["verified_at"]
         )
         body, trace = json.loads(body_raw), json.loads(trace_raw)
+        if body["owner_principal_id"] != str(self.actor.principal_id) or body[
+            "workspace_id"
+        ] != str(self.actor.workspace_id):
+            raise ScopeDeniedError("Signed receipt belongs to another authenticated actor")
         self._expected(body["input_sha256"], body["policy_hash"], expected)
         if (
             body["trace_sha256"] != row["trace_sha256"]

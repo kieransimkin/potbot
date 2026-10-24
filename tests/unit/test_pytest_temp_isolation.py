@@ -35,6 +35,7 @@ def _environment(temp_root: Path) -> dict[str, str]:
     env.pop("PYTEST_ADDOPTS", None)
     env.pop("PYTEST_PLUGINS", None)
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2] / "src")
     return env
 
 

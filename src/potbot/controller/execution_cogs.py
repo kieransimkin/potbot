@@ -163,6 +163,8 @@ class ExecutionCogRuntime:
             emitter_run_id,
         )
         self.policy, self.admit, self.receipts = policy, admit, receipts
+        if receipts is not None and (receipts.actor != actor or receipts.policy != policy):
+            raise ScopeDeniedError("Receipt service belongs to another actor or policy revision")
         self.catalog = ToolSemanticCatalog(imported)
         self.operations = {(op.binding.kind, op.binding.operation_ref): op for op in operations}
         if len(self.operations) != len(operations) or any(
@@ -174,6 +176,17 @@ class ExecutionCogRuntime:
             self.catalog.schema_hash(op.binding.output_type_ref)
         self._seen: set[UUID] = set()
         self._live: dict[UUID, ExecutionCall] = {}
+        self._poisoned = False
+
+    def _admission(
+        self, signature: CogSignature, source: TypedCogValue, context: CogRunContext
+    ) -> None:
+        checked = TypedCogValue(
+            source.type_ref, json.loads(canonical_json(source.value)), source.source_artifact_id
+        )
+        self.admit(signature, checked, context)
+        if checked.fingerprint != source.fingerprint:
+            raise StateMismatchError("Admission changed the supplied work input")
 
     async def invoke(
         self, signature: CogSignature, source: TypedCogValue, context: CogRunContext
@@ -192,6 +205,7 @@ class ExecutionCogRuntime:
     ) -> CogOutcome:
         if (
             signature not in EXECUTION_COGS
+            or (self._poisoned and signature in WORK_COGS)
             or context.cog_snapshot_hash != self.registry.snapshot.fingerprint
             or context.task_revision_id != self.task_revision
             or context.repository_state_id != self.repository_state
@@ -219,7 +233,8 @@ class ExecutionCogRuntime:
                 or payload["type_ref"] != op.binding.input_type_ref
             ):
                 raise InvalidInputError("Work input differs from the installed semantic port")
-            typed = TypedCogValue(payload["type_ref"], payload["value"])
+            typed = TypedCogValue(payload["type_ref"], json.loads(canonical_json(payload["value"])))
+            typed_hash = typed.fingerprint
             self.catalog.validate(typed)
             binding = replace(op.binding, parent_event_id=parent_event_id, links=links)
         else:
@@ -254,17 +269,25 @@ class ExecutionCogRuntime:
         original_hash = source.fingerprint
         self._seen.add(context.invocation_id)
         try:
-            self.admit(signature, source, context)
+            self._admission(signature, source, context)
         except ScopeDeniedError:
-            monitor.denied(signature, source, context)
+            try:
+                monitor.denied(signature, source, context)
+            except Exception:
+                self._poisoned = True
+                raise
             raise
         if source.fingerprint != original_hash:
             raise StateMismatchError("Admission changed the frozen work input")
-        work = monitor.begin(signature, source, context, implementation=binding.to_dict())
+        try:
+            work = monitor.begin(signature, source, context, implementation=binding.to_dict())
+        except Exception:
+            self._poisoned = True
+            raise
         dispatched = False
         try:
             work.progress("admitted_dispatch")
-            self.admit(signature, source, context)
+            self._admission(signature, source, context)
             if source.fingerprint != original_hash:
                 raise StateMismatchError("Work input changed before dispatch")
             dispatched = True
@@ -280,6 +303,8 @@ class ExecutionCogRuntime:
                         self._live.pop(context.invocation_id, None)
 
                 result = await asyncio.wait_for(run(), timeout=self.policy.max_wall_ms / 1000)
+                if typed.fingerprint != typed_hash:
+                    raise StateMismatchError("Handler mutated its pinned semantic input")
                 if (
                     not isinstance(result, TypedCogValue)
                     or result.type_ref != op.binding.output_type_ref
@@ -325,7 +350,7 @@ class ExecutionCogRuntime:
                 source.fingerprint,
                 output.type_ref,
                 output.fingerprint,
-                source.source_artifact_id,
+                UUID(str(work.input["id"])),
                 context.upstream_receipt_hash,
                 journal.scope_hash,
             )
@@ -334,6 +359,7 @@ class ExecutionCogRuntime:
             return outcome
         except BaseException as error:
             uncertain = dispatched and binding.effect_class != "read_only"
+            self._poisoned |= uncertain
             try:
                 if not work.terminal:
                     work.fail(
@@ -342,6 +368,7 @@ class ExecutionCogRuntime:
                         reason=type(error).__name__,
                     )
             except Exception:
+                self._poisoned = True
                 raise IndeterminateExecutionError(
                     "Work monitoring failed; reconcile the durable invocation"
                 ) from error

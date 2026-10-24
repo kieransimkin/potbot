@@ -113,6 +113,11 @@ class ExecutionPolicy:
         ):
             raise InvalidInputError("Large output must use a retained artifact reference")
         try:
+            if (
+                not isinstance(self.budget_json, str)
+                or len(self.budget_json.encode("utf-8")) > 4096
+            ):
+                raise ValueError("Budget exceeds its bounded contract")
             budgets = json.loads(self.budget_json)
             if (
                 not isinstance(budgets, dict)
@@ -188,6 +193,8 @@ class WorkBinding:
             raise InvalidInputError("Execution effect class is undeclared")
         if not isinstance(self.policy, ExecutionPolicy):
             raise InvalidInputError("Execution requires an independently supplied policy")
+        if (self.trace_id is None) != (self.span_id is None):
+            raise InvalidInputError("Trace and span identities must be supplied together")
         if self.parent_event_id is not None and not isinstance(self.parent_event_id, UUID):
             raise InvalidInputError("Direct cause must be an authenticated event reference")
         if (

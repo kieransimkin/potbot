@@ -481,10 +481,96 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
             registry.invoke(str(tool.cog_ref), write_source, write_context, controller=writer)
         )
     assert write_effects == ["dispatched"]
+    with pytest.raises(ScopeDeniedError):
+        asyncio.run(
+            registry.invoke(
+                str(tool.cog_ref),
+                write_source,
+                replace(write_context, invocation_id=uuid4()),
+                controller=writer,
+            )
+        )
+    assert write_effects == ["dispatched"]
     assert (
         read.events(app_env.context, run_id=write_context.invocation_id)["items"][-1]["stage"]
         == "indeterminate"
     )
+
+    async def mutating_handler(call, value):
+        value.value["text"] = "mutated"
+        return result("This output must not complete the original invocation")
+
+    mutator = ExecutionCogRuntime(
+        database=app_env.db,
+        artifacts=artifacts,
+        actor=app_env.context,
+        snapshot_id=snapshot_id,
+        task_revision_id=runtime.task_revision,
+        repository_state_id=state["id"],
+        emitter_run_id=runtime.emitter,
+        policy=policy,
+        operations=(
+            HostOperation(
+                replace(write_operation.binding, effect_class="read_only"), mutating_handler
+            ),
+        ),
+        admit=admit,
+    )
+    mutate_context = replace(write_context, invocation_id=uuid4())
+    with pytest.raises(StateMismatchError):
+        asyncio.run(
+            registry.invoke(str(tool.cog_ref), write_source, mutate_context, controller=mutator)
+        )
+    mutated_events = read.events(app_env.context, run_id=mutate_context.invocation_id)["items"]
+    assert mutated_events[-1]["stage"] == "failed"
+    assert (
+        json.loads(
+            artifacts.read(
+                app_env.context,
+                UUID(mutated_events[0]["input_artifact_ref"].removeprefix("artifact:")),
+            )
+        )["value"]
+        == write_source.value
+    )
+
+    class UnavailableArtifacts:
+        def __getattr__(self, name):
+            return getattr(artifacts, name)
+
+        def put(self, *args, **kwargs):
+            raise OSError("Fixture artifact storage unavailable before dispatch")
+
+    unavailable = ExecutionCogRuntime(
+        database=app_env.db,
+        artifacts=UnavailableArtifacts(),
+        actor=app_env.context,
+        snapshot_id=snapshot_id,
+        task_revision_id=runtime.task_revision,
+        repository_state_id=state["id"],
+        emitter_run_id=runtime.emitter,
+        policy=policy,
+        operations=(write_operation,),
+        admit=admit,
+    )
+    with pytest.raises(OSError):
+        asyncio.run(
+            registry.invoke(
+                str(tool.cog_ref),
+                write_source,
+                replace(write_context, invocation_id=uuid4()),
+                controller=unavailable,
+            )
+        )
+    assert write_effects == ["dispatched"]
+    with pytest.raises(ScopeDeniedError):
+        asyncio.run(
+            registry.invoke(
+                str(tool.cog_ref),
+                write_source,
+                replace(write_context, invocation_id=uuid4()),
+                controller=unavailable,
+            )
+        )
     revoked.append(True)
     with pytest.raises(ScopeDeniedError):
         invoke(
@@ -504,6 +590,11 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         if not page["has_more"]:
             break
     assert_lifecycles(events, outcomes)
+    for outcome in outcomes:
+        first = next(e for e in events if e["run_id"] == str(outcome.receipt.invocation_id))
+        assert outcome.receipt.input_artifact_id == UUID(
+            first["input_artifact_ref"].removeprefix("artifact:")
+        )
     assert {e["telemetry"]["work_kind"] for e in events if e["stage"] == "completed"} == {
         *WORK_KINDS,
         "seal",

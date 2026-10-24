@@ -8,7 +8,7 @@ import pytest
 from potbot.cogs.execution import EXECUTION_COGS, execution_ember_bundle
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
-from potbot.domain.serialization import content_hash
+from potbot.domain.serialization import canonical_json, content_hash
 from potbot.semantics.catalog import merge_types
 from potbot.semantics.embers import EmberContractResolver
 from potbot.tools.execution_contracts import (
@@ -153,6 +153,16 @@ def test_configuration_and_policy_changes_invalidate_the_scope_digest():
         binding(policy=policy(policy_revision_hash="f" * 64)).policy.fingerprint
         != first.policy.fingerprint
     )
+
+
+def test_budget_document_and_trace_context_are_bounded():
+    large = canonical_json({f"budget-{i}": {"limit": 10**1500, "unit": "n"} for i in range(3)})
+    with pytest.raises(InvalidInputError):
+        policy(budget_json=large)
+    for changes in ({"trace_id": "a" * 32}, {"span_id": "b" * 16}):
+        with pytest.raises(InvalidInputError):
+            binding(**changes)
+    assert binding(trace_id="a" * 32, span_id="b" * 16).to_dict()["trace_id"] == "a" * 32
 
 
 @pytest.mark.parametrize(

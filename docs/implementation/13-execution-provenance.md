@@ -20,6 +20,8 @@ bounded deadline and output limit; it reports actual progress through its suppli
 `ExecutionCall`. Children return through the same Cog boundary with their own run
 identities. A failed write after dispatch is indeterminate and requires
 reconciliation; the controller never retries it automatically.
+Uncertain writes or unavailable monitoring fence further work dispatch in that
+runtime; historical receipt inspection remains available for reconciliation.
 
 ```mermaid
 flowchart LR
