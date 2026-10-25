@@ -72,57 +72,103 @@ def _physical_directory(path: Path) -> Path:
     return resolved
 
 
-def _scan(root: Path, *, max_files: int, max_bytes: int, max_file_bytes: int) -> dict[str, dict[str, Any]]:
-    """Bounded, no-follow snapshot. Abort on symlinks/special files/changes during read."""
+def _scan(root: Path, *, max_files: int, max_bytes: int,
+          max_file_bytes: int) -> dict[str, dict[str, Any]]:
+    """Snapshot with dirfd-relative traversal, never following a raced parent link.
+
+    Every ancestor is held open by file descriptor and checked before/after
+    traversal. Path-based ``os.walk`` plus O_NOFOLLOW only on a leaf does NOT
+    prevent a concurrently replaced parent directory escaping /etc/ai.
+    """
     entries: dict[str, dict[str, Any]] = {}
     total = 0
-    for parent, dirs, files in os.walk(root, topdown=True, followlinks=False):
-        directory = Path(parent)
-        if directory.is_symlink():
-            raise ScopeDeniedError("AI configuration contains a symlink directory")
-        relative_parent = directory.relative_to(root)
-        # Sort for deterministic receipts and defend against no-follow walk escapes.
-        for name in sorted(dirs + files):
-            relative = (relative_parent / name).as_posix()
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    file_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+
+    def same_entry(a: os.stat_result, b: os.stat_result) -> bool:
+        return (a.st_dev, a.st_ino, a.st_mode, a.st_size, a.st_mtime_ns) == (
+            b.st_dev, b.st_ino, b.st_mode, b.st_size, b.st_mtime_ns
+        )
+
+    def walk(parent_fd: int, prefix: str) -> None:
+        nonlocal total
+        original = os.fstat(parent_fd)
+        for name in sorted(os.listdir(parent_fd)):
+            relative = name if not prefix else f"{prefix}/{name}"
             _relative(relative)
-            path = directory / name
-            before = path.lstat()
-            if stat.S_ISLNK(before.st_mode):
-                raise ScopeDeniedError("AI configuration may not contain symlinks")
             if len(entries) >= max_files:
                 raise CapabilityUnavailableError("AI configuration file count exceeded")
+            before = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
             if stat.S_ISDIR(before.st_mode):
-                entries[relative] = {"type": "dir", "mode": stat.S_IMODE(before.st_mode)}
+                try:
+                    child_fd = os.open(name, directory_flags, dir_fd=parent_fd)
+                except OSError as exc:
+                    raise StateMismatchError("AI config directory changed during snapshot") from exc
+                try:
+                    if not same_entry(before, os.fstat(child_fd)):
+                        raise StateMismatchError("AI config directory was replaced during snapshot")
+                    entries[relative] = {"type": "dir", "mode": stat.S_IMODE(before.st_mode)}
+                    walk(child_fd, relative)
+                finally:
+                    os.close(child_fd)
             elif stat.S_ISREG(before.st_mode):
+                # Hardlinked files can be altered through a path outside the
+                # monitored tree without emitting inotify events under /etc/ai.
+                if before.st_nlink != 1:
+                    raise ScopeDeniedError("AI configuration files must not have hardlinks")
                 if before.st_size > max_file_bytes or total + before.st_size > max_bytes:
                     raise CapabilityUnavailableError("AI configuration byte budget exceeded")
-                # O_NOFOLLOW blocks leaf substitution; compare dev/inode/mtime after read.
-                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
                 try:
-                    opened = os.fstat(fd)
-                    if (opened.st_ino, opened.st_dev) != (before.st_ino, before.st_dev):
-                        raise StateMismatchError("AI configuration changed during snapshot")
+                    fd = os.open(name, file_flags, dir_fd=parent_fd)
+                except OSError as exc:
+                    raise StateMismatchError("AI config file changed during snapshot") from exc
+                try:
+                    if not same_entry(before, os.fstat(fd)):
+                        raise StateMismatchError("AI config file changed before reading")
                     data = bytearray()
                     while len(data) <= max_file_bytes:
                         part = os.read(fd, min(65536, max_file_bytes - len(data) + 1))
                         if not part:
                             break
                         data.extend(part)
-                    finished = os.fstat(fd)
+                    after = os.fstat(fd)
+                    if (len(data) != before.st_size or len(data) > max_file_bytes
+                            or not same_entry(before, after)):
+                        raise StateMismatchError("AI configuration mutated while reading")
                 finally:
                     os.close(fd)
-                if (len(data) != before.st_size or len(data) > max_file_bytes
-                        or (finished.st_ino, finished.st_dev, finished.st_mtime_ns,
-                            finished.st_size) != (before.st_ino, before.st_dev,
-                                                 before.st_mtime_ns, before.st_size)):
-                    raise StateMismatchError("AI configuration mutated while reading")
                 total += len(data)
                 payload = bytes(data)
-                entries[relative] = {"type": "file", "mode": stat.S_IMODE(before.st_mode),
-                                     "sha256": _sha(payload),
-                                     "data_base64": base64.b64encode(payload).decode("ascii")}
+                entries[relative] = {
+                    "type": "file", "mode": stat.S_IMODE(before.st_mode),
+                    "sha256": _sha(payload),
+                    "data_base64": base64.b64encode(payload).decode("ascii"),
+                }
             else:
                 raise ScopeDeniedError("AI configuration may contain only regular files/directories")
+            try:
+                current = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            except OSError as exc:
+                raise StateMismatchError("AI configuration entry vanished during snapshot") from exc
+            if not same_entry(before, current):
+                raise StateMismatchError("AI configuration entry changed during snapshot")
+        if not same_entry(original, os.fstat(parent_fd)):
+            raise StateMismatchError("AI configuration directory changed during traversal")
+
+    # The host preflights the physical source. Retain an FD to the root so a
+    # concurrent rename cannot change which tree is being traversed.
+    fd = os.open(root, directory_flags)
+    try:
+        before = os.fstat(fd)
+        walk(fd, "")
+        try:
+            after = os.stat(root, follow_symlinks=False)
+        except OSError as exc:
+            raise StateMismatchError("AI config root vanished during snapshot") from exc
+        if not same_entry(before, after):
+            raise StateMismatchError("AI configuration root was replaced during snapshot")
+    finally:
+        os.close(fd)
     return dict(sorted(entries.items()))
 
 
@@ -345,6 +391,21 @@ class AiConfigHistoryMonitor:
                         raise StateMismatchError("AI history has an uncommitted reverse record")
                     if any(int(p.name[:12]) > self._sequence for p in self.past_dir.glob("*.reverse.json")):
                         raise StateMismatchError("AI history has an orphaned reversal")
+                    # The current head alone is insufficient evidence: a stale
+                    # head can be made self-consistent after an older revision
+                    # or diff was corrupted. Replay the ENTIRE backwards chain
+                    # under the same exclusive operator lock before admission.
+                    from potbot.tools.ai_history_audit import audit_ai_history
+
+                    audited = audit_ai_history(
+                        self.past_dir, lock_held=True,
+                        max_files=self.max_files,
+                        max_snapshot_bytes=self.max_bytes,
+                        max_document_bytes=max(64 * 1024 * 1024, self.max_bytes * 4),
+                    )
+                    if (audited.latest_sequence != self._sequence
+                            or audited.current_digest != _identity(self._snapshot)):
+                        raise StateMismatchError("AI configuration history chain failed readback")
                 else:
                     if any(p.name != ".monitor.lock" for p in self.past_dir.iterdir()):
                         raise StateMismatchError("AI past has files without a trusted baseline")
