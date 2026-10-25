@@ -330,7 +330,9 @@ class SharedBashSessionSupervisor:
                     simulated_uid=agent_home.uid if agent_home else None,
                     simulated_gid=agent_home.gid if agent_home else None,
                     ai_healthy=(self.backend.ai_monitor.is_healthy
-                                if self.backend.ai_monitor is not None else None),
+                                if self.backend.ai_monitor is not None
+                                else self.backend.operator_attachment.healthy
+                                if self.backend.operator_attachment is not None else None),
                 )
                 self._sessions[session_id] = session
                 return session.view()

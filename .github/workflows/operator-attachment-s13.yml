@@ -1,0 +1,32 @@
+name: S13 Operator Attachment
+on:
+  push:
+    paths:
+      - 'src/potbot/tools/operator_attachment_s13.py'
+      - 'src/potbot/tools/operator_cli.py'
+      - 'src/potbot/tools/shared_workspace_isolation.py'
+      - 'src/potbot/tools/ai_workspace_operator.py'
+      - 'src/potbot/tools/supervisor.py'
+      - 'src/potbot/service.py'
+      - 'src/potbot/api/ui_operator_s13.py'
+      - 'src/potbot/api/server_cli.py'
+      - 'tests/unit/*operator*s13*.py'
+      - 'frontend/src/lib/operator-status.ts'
+      - 'frontend/tests/operator-status-s13.test.mjs'
+      - '.github/workflows/operator-attachment-s13.yml'
+  pull_request:
+  workflow_dispatch:
+jobs:
+  offline-attachment:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: uv sync --locked --group dev
+      - run: uv run --locked --dev python -m pytest -q tests/unit/test_operator_attachment_s13.py tests/unit/test_ui_operator_s13.py
+      - run: node --experimental-strip-types --test frontend/tests/operator-status-s13.test.mjs

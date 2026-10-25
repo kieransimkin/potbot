@@ -183,6 +183,21 @@ class AiWorkspaceOperator:
     def status(self) -> dict[str, object]:
         monitor = self._monitor
         worker = self._supervisor
+        # Read the S12 host-only gate ledger. Unknown schema is reported as
+        # unknown, never as a clean or released workspace.
+        with self.ledger._connect() as db:
+            exists = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='trusted_tool_release_gates'"
+            ).fetchone()
+            pending: int | None = None
+            if exists is not None:
+                record = db.execute(
+                    "SELECT COUNT(*) AS n FROM trusted_tool_release_gates "
+                    "WHERE workspace_id=? AND state NOT IN ('released','rolled_back')",
+                    (str(self.workspace_id),),
+                ).fetchone()
+                pending = int(record["n"])
         return {
             "schema": "potbot-ai-workspace-operator/v1",
             "workspace_id": str(self.workspace_id),
@@ -190,6 +205,7 @@ class AiWorkspaceOperator:
             "running": self._started and not self._closed,
             "history_healthy": bool(monitor is not None and monitor.is_healthy()),
             "supervised_runs": worker.active_runs if worker is not None else 0,
+            "pending_release_gates": pending,
         }
 
     def close(self, *, timeout_seconds: float = 10.0) -> None:

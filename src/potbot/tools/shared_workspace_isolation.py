@@ -21,6 +21,7 @@ from potbot.domain.serialization import content_hash
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.isolation import BubblewrapBackend, IsolationLaunch, _seccomp_fd
 from potbot.tools.model_cache_routes import model_environment
+from potbot.tools.operator_attachment_s13 import runtime_attachment
 from potbot.tools.shared_tool_mounts import ToolWriteGrant
 
 
@@ -105,8 +106,15 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         self.runtime = runtime
         self.tool_write_grant = tool_write_grant
         self.ai_monitor = ai_monitor
+        # In a managed native service, workers attach to the operator's live
+        # host-only socket; they MUST NOT instantiate another history watcher.
+        self.operator_attachment = runtime_attachment(runtime)
         self.executable = executable or Path(shutil.which("bwrap") or "/unavailable/bwrap")
         self.prlimit = prlimit or Path(shutil.which("prlimit") or "/unavailable/prlimit")
+
+    def operator_healthy(self) -> bool:
+        attachment = self.operator_attachment
+        return attachment is None or attachment.healthy()
 
     def prepare(
         self, *, argv: tuple[str, ...], workspace_root: Path, cwd: Path,
@@ -124,6 +132,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             raise InvalidInputError("sandbox guest identity must use allocated UID and GID 69")
         if ipc_profile != "none" or read_only_roots or writable_roots:
             raise ScopeDeniedError("shared workspace forbids extra writable/readable host mounts or IPC")
+        # Admission precedes executable inspection, bind mounts and dispatch.
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
         if platform.system() != "Linux" or platform.machine() not in {"x86_64", "aarch64"}:
             raise CapabilityUnavailableError("shared sandbox requires a qualified Linux/WSL2 guest")
         if not all(p.is_file() and os.access(p, os.X_OK) for p in (self.executable, self.prlimit)):
@@ -186,6 +197,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             or self.runtime.ai_config_dir is not None
             or self.runtime.ai_history_dir is not None
             or self.ai_monitor is not None
+            or self.operator_attachment is not None
         )
         config_ai: Path | None = None
         history_ai: Path | None = None
@@ -195,7 +207,8 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 if not target.is_dir() or target.is_symlink():
                     raise CapabilityUnavailableError("system rootfs lacks safe /etc/ai mount targets")
             if (self.runtime.ai_config_dir is None or self.runtime.ai_history_dir is None
-                    or not isinstance(self.ai_monitor, AiConfigHistoryMonitor)):
+                    or (not isinstance(self.ai_monitor, AiConfigHistoryMonitor)
+                        and self.operator_attachment is None)):
                 raise CapabilityUnavailableError("AI configuration mounts require an active operator watcher")
             if self.runtime.ai_config_dir.is_symlink() or self.runtime.ai_history_dir.is_symlink():
                 raise ScopeDeniedError("AI config mounts may not be symlinks")
@@ -212,7 +225,12 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 raise ScopeDeniedError("AI config and history storage must be disjoint from sandbox assets")
             if not config_ai.stat().st_mode & stat.S_IWGRP:
                 raise ScopeDeniedError("/etc/ai backing store must be workspace-group writable")
-            self.ai_monitor.require_active(config_dir=config_ai, past_dir=history_ai)
+            if self.ai_monitor is not None:
+                self.ai_monitor.require_active(config_dir=config_ai, past_dir=history_ai)
+            elif self.operator_attachment is not None:
+                # This is a live, mount-bound remote operator assertion; the
+                # private socket itself is NEVER made visible inside the guest.
+                self.operator_attachment.require_healthy()
         # Guest executable must be present inside immutable image; no host executable bind.
         if not argv or not argv[0].startswith("/"):
             raise InvalidInputError("guest command must use an absolute path")

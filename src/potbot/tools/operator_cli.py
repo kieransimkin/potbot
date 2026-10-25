@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from contextlib import ExitStack
 import re
 import signal
 import sys
@@ -114,13 +115,32 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
 
 
 def run_operator(paths: OperatorPaths, *, stop: threading.Event,
-                 pulse: Callable[[dict[str, object]], None] | None = None) -> None:
+                 pulse: Callable[[dict[str, object]], None] | None = None,
+                 socket_path: Path | None = None) -> None:
     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
+    from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
 
     ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
     with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
-                             runtime=paths.runtime()) as operator:
+                             runtime=paths.runtime()) as operator, ExitStack() as resources:
+        # The history watcher owns the singleton lock BEFORE the socket appears.
+        # Stop offering new admissions BEFORE the watcher can be shut down.
+        if socket_path is not None:
+            endpoint = Path(socket_path)
+            for mount in (paths.rootfs, paths.home, paths.model_staging,
+                          paths.shared_models, paths.shared_tools,
+                          paths.ai_config_dir, paths.ai_history_dir):
+                physical = mount.resolve(strict=True)
+                if endpoint == physical or endpoint.is_relative_to(physical):
+                    raise ScopeDeniedError("Operator endpoint overlaps a guest mount")
+            resources.enter_context(OperatorAttachmentServer(
+                socket_path=socket_path, workspace_id=paths.workspace_id,
+                image_digest=paths.image_digest,
+                qualification_sha256=paths.qualification_sha256,
+                mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
+                status=operator.status,
+            ))
         while True:
             status = operator.status()
             if not status["history_healthy"]:
@@ -139,6 +159,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="potbot operator", description=__doc__)
     parser.add_argument("run", nargs="?", default="run")
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--socket-path", type=Path, default=None,
+                        help="host-private Linux operator health socket (never guest-mounted)")
     args = parser.parse_args(argv)
     try:
         paths = parse_manifest(args.manifest)
@@ -146,7 +168,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for sig in (signal.SIGINT, signal.SIGTERM):
             if sig is not None:
                 signal.signal(sig, lambda _sig, _frame: stopped.set())
-        run_operator(paths, stop=stopped)
+        run_operator(paths, stop=stopped, socket_path=args.socket_path)
         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
         return 0
     except (CapabilityUnavailableError, InvalidInputError, ScopeDeniedError) as error:

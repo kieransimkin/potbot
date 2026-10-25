@@ -27,7 +27,7 @@ from potbot.api.observability import EventLogger
 from potbot.credentials import CredentialStore, credential_profile, resolve_postgres_dsn
 from potbot.dependencies import project_root
 from potbot.domain.auth import WorkspaceContext
-from potbot.domain.errors import DomainError, InvalidInputError
+from potbot.domain.errors import CapabilityUnavailableError, DomainError, InvalidInputError
 from potbot.models.hosted_policy import HostedPolicy
 
 UNIT_NAME = "potbot.service"
@@ -46,6 +46,7 @@ class ServiceConfig:
     allowed_origins: tuple[str, ...] = ()
     log_content: bool = False
     credential_profile: str = "default"
+    operator_manifest: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> ServiceConfig:
@@ -80,6 +81,12 @@ class ServiceConfig:
             if type(self.log_content) is not bool:
                 raise ValueError
             if not Path(self.provider_policy).is_absolute():
+                raise ValueError
+            if self.operator_manifest is not None and (
+                not isinstance(self.operator_manifest, str)
+                or not Path(self.operator_manifest).is_absolute()
+                or not sys.platform.startswith("linux")
+            ):
                 raise ValueError
         except (ValueError, TypeError):
             raise InvalidInputError("Service configuration contains invalid scope or listener settings.") from None
@@ -269,8 +276,15 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
         schema=args.schema, host=args.host, port=args.port,
         allowed_origins=tuple(args.allowed_origin), log_content=args.log_content,
         credential_profile=credential_profile(),
+        operator_manifest=str(args.operator_manifest.resolve(strict=True))
+        if args.operator_manifest is not None else None,
     )
     config.validate()
+    if config.operator_manifest is not None:
+        from potbot.tools.operator_cli import parse_manifest
+        selected = parse_manifest(Path(config.operator_manifest))
+        if str(selected.workspace_id) != config.workspace_id:
+            raise InvalidInputError("Operator manifest belongs to a different workspace")
     # Server-side disclosure policy always governs external provider use.
     if not policy.rules or not policy.allow_prompt_disclosure:
         print("[Potbot setup] No hosted models enabled by provider policy; "
@@ -300,6 +314,10 @@ def _supervise(config: ServiceConfig) -> int:
         raise InvalidInputError("Service credential profile does not match the running user.")
     home = service_home()
     home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if home.is_symlink():
+        raise InvalidInputError("Operator service home must not be a symbolic link")
+    if os.name == "posix":
+        home.chmod(0o700)
     events = EventLogger(log_path=home / "supervisor.jsonl")
     policy = config.provider_policy
     common = ["--workspace-id", config.workspace_id, "--principal-id", config.principal_id,
@@ -328,6 +346,41 @@ def _supervise(config: ServiceConfig) -> int:
     env["POTBOT_PROJECT_ROOT"] = str(project_root())
     env["POTBOT_LOG_FILE"] = str(home / "worker.jsonl")
     env["POTBOT_LOG_CONTENT"] = "1" if config.log_content else "0"
+    operator_attachment = None
+    if config.operator_manifest is not None:
+        from potbot.tools.operator_cli import parse_manifest
+        from potbot.tools.operator_attachment_s13 import (
+            OperatorAttachmentClient, mount_fingerprint,
+        )
+        paths = parse_manifest(Path(config.operator_manifest))
+        if str(paths.workspace_id) != config.workspace_id:
+            raise InvalidInputError("Operator manifest workspace differs from service scope")
+        socket_path = home / "operator.sock"
+        for mount in (paths.rootfs, paths.home, paths.model_staging,
+                      paths.shared_models, paths.shared_tools,
+                      paths.ai_config_dir, paths.ai_history_dir):
+            physical = mount.resolve(strict=True)
+            if socket_path == physical or socket_path.is_relative_to(physical):
+                raise InvalidInputError("Managed service socket overlaps a guest mount")
+        operator_attachment = OperatorAttachmentClient(
+            socket_path=socket_path, workspace_id=paths.workspace_id,
+            image_digest=paths.image_digest,
+            qualification_sha256=paths.qualification_sha256,
+            mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
+        )
+        env.update({
+            "POTBOT_OPERATOR_REQUIRED": "1",
+            "POTBOT_OPERATOR_SOCKET": str(socket_path),
+            "POTBOT_OPERATOR_WORKSPACE_ID": str(paths.workspace_id),
+            "POTBOT_OPERATOR_IMAGE_DIGEST": paths.image_digest,
+            "POTBOT_OPERATOR_QUALIFICATION_SHA256": paths.qualification_sha256,
+            "POTBOT_OPERATOR_MOUNTS_SHA256": operator_attachment.mounts_sha256,
+        })
+        commands = {"operator": _service_command()[:2] + [
+            "potbot.startup", "operator", "run", "--manifest",
+            config.operator_manifest,
+            "--socket-path", str(socket_path),
+        ], **commands}
     threads: list[threading.Thread] = []
 
     def watch(name: str, process: subprocess.Popen[str]) -> None:
@@ -339,6 +392,15 @@ def _supervise(config: ServiceConfig) -> int:
         while not stopped.is_set():
             for name, command in commands.items():
                 previous = children.get(name)
+                if name == "operator" and previous is not None:
+                    # Never silently adopt a replacement operator epoch.
+                    if previous.poll() is not None or (
+                        operator_attachment is not None and not operator_attachment.healthy()
+                    ):
+                        raise CapabilityUnavailableError("Managed operator disappeared")
+                    continue
+                if name != "operator" and operator_attachment is not None:
+                    operator_attachment.require_healthy()
                 if previous is not None and previous.poll() is None:
                     continue
                 if previous is not None:
@@ -353,17 +415,41 @@ def _supervise(config: ServiceConfig) -> int:
                 thread.start()
                 threads.append(thread)
                 events.emit("service.started", component=name, pid=process.pid)
-            stopped.wait(5)
+                if name == "operator":
+                    assert operator_attachment is not None
+                    # Admit no API/worker before the real operator attests.
+                    for _ in range(80):
+                        if process.poll() is not None or stopped.is_set():
+                            break
+                        if operator_attachment.healthy():
+                            break
+                        stopped.wait(0.1)
+                    operator_attachment.require_healthy()
+            if operator_attachment is not None:
+                operator_attachment.require_healthy()
+            stopped.wait(0.5 if operator_attachment is not None else 5)
     finally:
-        for process in children.values():
-            if process.poll() is None:
+        # Stop API and worker before asking the history owner to exit.
+        for name, process in children.items():
+            if name != "operator" and process.poll() is None:
                 process.terminate()
-        for process in children.values():
+        for name, process in children.items():
+            if name == "operator":
+                continue
             try:
                 process.wait(timeout=15)
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=5)
+        operator_process = children.get("operator")
+        if operator_process is not None and operator_process.poll() is None:
+            operator_process.terminate()
+            try:
+                operator_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                # Indeterminate workspace leases block clean operator shutdown;
+                # do not forcibly reap the owner and destroy recovery evidence.
+                events.emit("service.operator_stop_blocked", recovery_required=True)
         events.emit("service.stopped")
         events.close()
     return 0
@@ -376,6 +462,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_parser.add_argument("--workspace-id", required=True, type=UUID)
     install_parser.add_argument("--principal-id", required=True, type=UUID)
     install_parser.add_argument("--provider-policy", required=True, type=Path)
+    install_parser.add_argument("--operator-manifest", type=Path, default=None,
+                                help="opt into Linux/WSL2 managed operator startup")
     install_parser.add_argument("--schema", default="potbot")
     install_parser.add_argument("--host", default="127.0.0.1")
     install_parser.add_argument("--port", type=int, default=8765)

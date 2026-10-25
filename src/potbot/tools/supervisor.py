@@ -170,6 +170,16 @@ class ProcessSupervisor:
     ) -> ProcessResult:
         started = time.monotonic()
         redactor = redactor or CaptureRedactor()
+        # Poll for operator disappearance while a guest is running. A worker
+        # never treats an old positive handshake as authority after an epoch
+        # change or a monitoring fault.
+        health = getattr(self.backend, "operator_attachment", None)
+        if health is not None:
+            earlier_cancelled = cancelled
+            def cancelled() -> bool:
+                if not health.healthy():
+                    raise CapabilityUnavailableError("Operator disappeared during execution")
+                return earlier_cancelled() if earlier_cancelled is not None else False
         if not getattr(self.backend, "guest_executable", False) and (
             not Path(request.argv[0]).is_file() or not os.access(request.argv[0], os.X_OK)
         ):

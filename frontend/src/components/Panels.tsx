@@ -109,6 +109,7 @@ export function MenuPanel() {
       <h2>OPERATOR SETUP</h2>
       <a className="menu-item" href="/setup/apis"><span>Remote API credentials</span><span aria-hidden="true">↗</span></a>
       <a className="menu-item" href="/setup/tools"><span>Tool testing and upgrades</span><span aria-hidden="true">↗</span></a>
+      <a className="menu-item" href="/setup/operator"><span>Operator health and release gates</span><span aria-hidden="true">↗</span></a>
     </div>}
     {isLive && <div className="menu-section">
       <h2>XPRA APPLICATION WINDOWS</h2>
