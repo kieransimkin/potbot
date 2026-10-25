@@ -178,3 +178,26 @@ def test_rejected_origin_does_not_consume_another_workspaces_capability(
             assert not server.consume_ticket(secret)
     finally:
         server.stop()
+
+
+def test_restart_rejects_unknown_socket_directory_files(tmp_path: Path, fake_xpra: Path) -> None:
+    """Clean Xpra recovery must never delete another tenant's arbitrary files."""
+    require_xauth()
+    root = tmp_path / "orphan-safe"
+    root.mkdir()
+    server = WorkspaceXServer(uuid4(), root, xpra_executable=str(fake_xpra))
+    server.start()
+    xpra = server._xpra
+    assert xpra is not None
+    server.stop()
+    xpra.socket_dir.mkdir(parents=True, exist_ok=True)
+    unknown = xpra.socket_dir / "unrelated-file"
+    unknown.write_text("keep this file", encoding="utf-8")
+    from potbot.tools.xpra_seamless import XpraSessionError
+
+    with pytest.raises(XpraSessionError, match="operator reconciliation"):
+        server.start()
+    assert unknown.read_text(encoding="utf-8") == "keep this file"
+    unknown.unlink()
+    server.start()
+    server.stop()

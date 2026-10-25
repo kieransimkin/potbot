@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "benchmark:graph": "node --experimental-strip-types tests/bench-workbench.mjs",
-    "benchmark:xpra": "node --experimental-strip-types tests/bench-xpra-damage.mjs"
+    "benchmark:xpra": "node --experimental-strip-types tests/bench-xpra-damage.mjs",
+    "benchmark:windows": "node --experimental-strip-types tests/bench-xpra-window-manager.mjs"
   },
   "dependencies": {
     "dockview-react": "8.6.1",

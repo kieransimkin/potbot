@@ -186,3 +186,29 @@ claimed to have passed locally** without that host.
    IDs after server restart; currently one configured authorized workspace.
 5. Review TLS/reverse-proxy routing, origin/CSP and browser iframe boundaries
    before untrusted remote access.
+
+## UI-7: multiple docked application windows and frame pacing
+
+The Xpra connection is **one per workspace**, not one per Git repository. A
+new dockable **Xpra applications** panel lists all known windows, including
+ones minimized in Dockview. Closing a pane preserves its X11 process;
+restoring the pane requests a complete frame before accepting damage patches.
+The utility rail displays a window count and an entry into the switcher.
+When the WebSocket disconnects, the client preserves the inventory, displays
+connection status, and offers **Reconnect Xpra** after bounded retries.
+
+Missing incremental bitmap sequences trigger a resynchronization request.
+Per-window FPS, P95 frame intervals and input-to-next-frame timings are
+**client-side approximations**. These samples cannot prove server input
+receipt and should not be used as authoritative remote-control latency.
+
+The real multiwindow acceptance is `tests/acceptance/xpra_xbill_dock_smoke.py`.
+It requires both XBill and xterm in a bubblewrap sandbox and asserts separate
+Dockview canvases, pointer/key forwarding, and recovery of a minimized xterm
+without stopping the process. Enable the manual `run_xbill_browser` workflow
+only on an authorized preprovisioned runner labeled `xpra`. This test has not
+been executed in a local no-Xpra environment; it must be run on the actual host.
+
+The Xpra restart shim removes only a socket inode previously observed and
+owned by the same session after clean termination. Unknown files in private
+socket folders remain a **fail-closed** error requiring operator inspection.

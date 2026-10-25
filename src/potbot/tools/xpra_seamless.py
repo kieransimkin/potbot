@@ -46,6 +46,11 @@ class XpraSeamlessSession:
         self._process: subprocess.Popen[bytes] | None = None
         self._log: BinaryIO | None = None
         self._log_owned = False
+        # Private socket identity previously observed from this object. Only a
+        # cleanly stopped, inode-matching orphan can ever be reconciled on a
+        # same-object restart; unrelated socket files remain a hard failure.
+        self._last_owned_socket: tuple[Path, int, int] | None = None
+        self._stopped_cleanly = False
 
     @property
     def running(self) -> bool:
@@ -131,6 +136,17 @@ class XpraSeamlessSession:
             if directory.stat().st_uid != os.getuid():
                 raise XpraSessionError("Xpra runtime directory owner mismatch")
             os.chmod(directory, 0o700)
+        if self._stopped_cleanly and self._last_owned_socket is not None:
+            owned_path, device, inode = self._last_owned_socket
+            if owned_path.parent == self.socket_dir and not owned_path.is_symlink():
+                try:
+                    metadata = owned_path.lstat()
+                    if (metadata.st_uid == os.getuid() and stat.S_ISSOCK(metadata.st_mode)
+                            and metadata.st_dev == device and metadata.st_ino == inode):
+                        owned_path.unlink()
+                except FileNotFoundError:
+                    pass
+        self._stopped_cleanly = False
         if list(self.socket_dir.iterdir()) or self.log_path.exists() or self.log_path.is_symlink():
             raise XpraSessionError("stale Xpra session needs operator reconciliation")
         fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -148,6 +164,9 @@ class XpraSeamlessSession:
                     raise XpraSessionError("Xpra exited before its display was ready")
                 if len(self.socket_files()) == 1 and self.x_socket.is_socket():
                     self._verify_no_tcp_listener()
+                    owned = self.socket_files()[0]
+                    metadata = owned.lstat()
+                    self._last_owned_socket = (owned, metadata.st_dev, metadata.st_ino)
                     return
                 time.sleep(.1)
             raise XpraSessionError("Xpra display and protocol socket startup timed out")
@@ -194,6 +213,9 @@ class XpraSeamlessSession:
                 archived = self.log_path.with_name(f"xpra-{time.time_ns()}.log")
                 self.log_path.rename(archived)
             self._log_owned = False
+        # Remember successful termination for a later same-object restart, but
+        # never treat unknown files or changed socket inodes as owned resources.
+        self._stopped_cleanly = process is not None and process.poll() is not None
         # The subprocess owns its X11 and protocol sockets. Never delete unknown
         # sockets or restart on top of an ambiguous leftover display.
         for folder in (self.socket_dir, self.runtime_dir, self.socket_dir.parent):

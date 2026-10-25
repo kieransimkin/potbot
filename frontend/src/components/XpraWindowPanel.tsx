@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { attachXpraCanvas, xpraFrameStats } from "@/lib/xpra-frames";
+import { attachXpraCanvas, markXpraInput, xpraFrameStats } from "@/lib/xpra-frames";
 import type { XpraFrameStats } from "@/lib/xpra-frames";
 import { normalizedPointerPosition, XWINDOW_ID } from "@/lib/xpra-contract";
 import { useWorkspace } from "./WorkspaceContext";
@@ -43,6 +43,7 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
       if (!point) return;
       event.preventDefault();
       event.stopPropagation();
+      markXpraInput(id);
       sendXpra(id, { action: "wheel", ...point,
         deltaY: Math.max(-1000, Math.min(1000, event.deltaY)) });
     };
@@ -69,6 +70,7 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
     if (!point) return;
     if (action === "pointer") sendXpra(id, { action, ...point });
     else {
+      markXpraInput(id);
       sendXpra(id, { action, ...point, button: event.button, pressed });
       if (pressed) {
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -77,7 +79,8 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
       }
     }
   }
-  return <section className="xwindow-panel" aria-label={`Xpra application ${info?.title || id}`}>
+  return <section className="xwindow-panel" data-xpra-window-id={id}
+    aria-label={`Xpra application ${info?.title || id}`}>
     <header className="xwindow-toolbar">
       <strong title={info?.title}>{info?.title || "Xpra window"}</strong>
       <small>Native Xpra damage stream · Dockview chrome</small>
@@ -95,10 +98,11 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
           e.currentTarget.releasePointerCapture(e.pointerId); sendXpra(id, { action: "blur" }); }}
         onContextMenu={e => e.preventDefault()}
         onBlur={() => sendXpra(id, { action: "blur" })}
-        onKeyDown={e => { e.preventDefault(); e.stopPropagation(); if (!e.repeat) sendXpra(id, {
+        onKeyDown={e => { e.preventDefault(); e.stopPropagation(); if (!e.repeat) {
+          markXpraInput(id); sendXpra(id, {
           action: "key", key: e.key, code: e.code, pressed: true,
           shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey,
-        }); }}
+        }); } }}
         onKeyUp={e => { e.preventDefault(); e.stopPropagation(); sendXpra(id, {
           action: "key", key: e.key, code: e.code, pressed: false,
           shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey,
@@ -112,6 +116,12 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
     <footer className="xwindow-bottom">
       <span>{info ? `${info.width} × ${info.height}` : "Awaiting Xpra window"} · workspace-owned application</span>
       <span aria-label="Xpra frame diagnostics">{stats ? `${stats.fps} FPS · ${stats.incremental} partial · ${stats.estimatedDecodedPixelBytes / 1024 / 1024 < 100 ? (stats.estimatedDecodedPixelBytes / 1024 / 1024).toFixed(1) : Math.round(stats.estimatedDecodedPixelBytes / 1024 / 1024)} MiB copied` : "Awaiting first frame"}</span>
+      <span title="Browser-side measurements; the next frame may be unrelated to an input">
+        {stats?.p95FrameIntervalMs !== null && stats?.p95FrameIntervalMs !== undefined
+          ? `P95 frame gap ${stats.p95FrameIntervalMs} ms` : "Frame timing pending"}
+        {stats?.medianInputToNextFrameMs !== null && stats?.medianInputToNextFrameMs !== undefined
+          ? ` · Input→frame ${stats.medianInputToNextFrameMs} ms (proxy, n=${stats.inputSamples})` : ""}
+      </span>
     </footer>
   </section>;
 }

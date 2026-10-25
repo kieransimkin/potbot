@@ -50,11 +50,14 @@ def _wait_ready(url: str, *, token: str | None = None, timeout: float = 50) -> N
     raise RuntimeError("Xpra/Next service failed its readiness deadline")
 
 
-def _game_in_sandbox(display: str, authfile: Path, workspace: Path) -> subprocess.Popen[bytes]:
+def _application_in_sandbox(display: str, authfile: Path, workspace: Path,
+                            application: str) -> subprocess.Popen[bytes]:
+    if application not in {"xbill", "xterm"}:
+        raise RuntimeError("Only the two pinned UI acceptance X applications are admitted")
     bwrap = shutil.which("bwrap")
-    xbill = shutil.which("xbill")
-    if not bwrap or not xbill:
-        raise RuntimeError("XBill acceptance requires real bubblewrap and xbill binaries")
+    binary = shutil.which(application)
+    if not bwrap or not binary:
+        raise RuntimeError("Xpra acceptance requires real bubblewrap, XBill and xterm binaries")
     socket_path = Path("/tmp/.X11-unix/X" + display.removeprefix(":"))
     if not socket_path.is_socket():
         raise RuntimeError("Xpra did not create the workspace X11 Unix socket")
@@ -68,7 +71,10 @@ def _game_in_sandbox(display: str, authfile: Path, workspace: Path) -> subproces
             "--ro-bind", str(authfile), "/run/potbot/Xauthority",
             "--bind", str(workspace), "/workspace", "--chdir", "/workspace",
             "--setenv", "DISPLAY", display,
-            "--setenv", "XAUTHORITY", "/run/potbot/Xauthority", "--", xbill]
+            "--setenv", "XAUTHORITY", "/run/potbot/Xauthority", "--", binary]
+    if application == "xterm":
+        cmd.extend(["-title", "Potbot Xterm", "-geometry", "60x14"])
+
     return subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                             start_new_session=True)
@@ -80,8 +86,8 @@ def main() -> int:
         raise SystemExit("Set POTBOT_RUN_REAL_XPRA_XBILL=1 for real acceptance")
     if not (FRONT / "public/xpra-html5/UPSTREAM-REVISION").is_file():
         raise SystemExit("Prepare the pinned Xpra HTML5 source before acceptance")
-    if not shutil.which("xpra") or not shutil.which("xauth"):
-        raise SystemExit("Xpra/Xauthority dependencies are not installed")
+    if not shutil.which("xpra") or not shutil.which("xauth") or not shutil.which("xterm"):
+        raise SystemExit("Xpra/Xauthority/xterm dependencies are not installed")
     from playwright.sync_api import sync_playwright  # explicit optional dependency
 
     bridge_port, front_port, stub_port = _port(), _port(), _port()
@@ -135,6 +141,7 @@ def main() -> int:
                                   start_new_session=True)
         nextjs = None
         game = None
+        terminal = None
         try:
             deadline = time.monotonic() + 40
             while not state.exists() and time.monotonic() < deadline and bridge.poll() is None:
@@ -142,7 +149,8 @@ def main() -> int:
             _wait_ready(f"http://127.0.0.1:{bridge_port}/v1/xpra/status", token=bridge_secret)
             metadata = json.loads(state.read_text())
             display = metadata["display"]
-            game = _game_in_sandbox(display, Path(metadata["xauthority"]), sandbox)
+            game = _application_in_sandbox(display, Path(metadata["xauthority"]), sandbox, "xbill")
+            terminal = _application_in_sandbox(display, Path(metadata["xauthority"]), sandbox, "xterm")
             nextjs = subprocess.Popen(["./node_modules/.bin/next", "dev", "--hostname", "127.0.0.1",
                                        "--port", str(front_port)], env=ui_env, cwd=FRONT,
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -165,6 +173,25 @@ def main() -> int:
                 }""", timeout=15000)
                 canvas.click(position={"x": 40, "y": 40})
                 canvas.press("ArrowRight")
+                other = page.locator(".xwindow-panel").filter(has_text="Potbot Xterm")
+                other.wait_for(timeout=45000)
+                other_canvas = other.locator(".xpra-app-canvas")
+                other_canvas.wait_for()
+                assert other_canvas.count() == 1
+                other_canvas.click(position={"x": 20, "y": 35})
+                other_canvas.press("a")
+                # App chrome is managed by Dockview, not Xpra's upstream client.
+                other.get_by_role("button", name="Minimize application pane").click()
+                assert other.count() == 0
+                assert terminal.poll() is None, "Minimizing the pane killed the X11 process"
+                page.get_by_role("button", name="Manage Xpra application windows").click()
+                manager = page.get_by_role("region", name="Workspace Xpra applications")
+                manager.wait_for()
+                manager.get_by_role("button", name="Minimized").click()
+                manager.get_by_role("button", name="Restore Potbot Xterm").click()
+                other.wait_for(timeout=20000)
+                other_canvas.wait_for()
+                assert game.poll() is None and terminal.poll() is None
                 screenshot = Path(os.environ.get("POTBOT_XPRA_ACCEPTANCE_SCREENSHOT",
                     str(ROOT / "artifacts/xpra-xbill-dock.png")))
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +200,7 @@ def main() -> int:
                 print("Screenshot:", screenshot)
                 browser.close()
         finally:
-            for process in (game, nextjs, bridge):
+            for process in (terminal, game, nextjs, bridge):
                 if process is not None and process.poll() is None:
                     process.terminate()
                     with contextlib.suppress(subprocess.TimeoutExpired):

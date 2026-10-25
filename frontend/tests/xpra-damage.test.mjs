@@ -161,3 +161,43 @@ test('pinned Xpra adapter sends only cropped windows, throttles correctly and co
   handlers.get('message')({source:parent,origin:'https://evil.test',data:{type:'potbot:xpra-control',channel,id:'xwin-2a',action:'focus'}});
   assert.equal(forwarded.length,before);
 });
+
+test('lost incremental frame forces full resync rather than corrupting the canvas', () => {
+  const canvas=mockCanvas();
+  const release=attachXpraCanvas('xwin-2a',canvas,7);
+  try {
+    assert.equal(deliverXpraFrame('xwin-2a',bitmap(100,70),frame({generation:7,sequence:10})),'applied');
+    const dropped=bitmap(20,10);
+    assert.equal(deliverXpraFrame('xwin-2a',dropped,frame({generation:7,sequence:12,
+      full:false,x:3,y:4,width:20,height:10})),'resync');
+    assert.equal(dropped.closeCount,1);
+    assert.equal(canvas.draws.length,1);
+    assert.equal(deliverXpraFrame('xwin-2a',bitmap(100,70),frame({generation:7,sequence:13})),'applied');
+    assert.equal(deliverXpraFrame('xwin-2a',bitmap(20,10),frame({generation:7,sequence:14,
+      full:false,x:3,y:4,width:20,height:10})),'applied');
+  } finally {release();}
+});
+
+test('frame pacing and input-to-next-frame stats stay bounded and are not inferred as acknowledgements',async()=>{
+  const {markXpraInput}=await import('../src/lib/xpra-frames.ts');
+  const canvas=mockCanvas();
+  const release=attachXpraCanvas('xwin-2a',canvas,8);
+  const native=globalThis.performance;
+  let time=1000;
+  Object.defineProperty(globalThis,'performance',{value:{now:()=>time},configurable:true});
+  try {
+    assert.equal(deliverXpraFrame('xwin-2a',bitmap(100,70),frame({generation:8,sequence:1})),'applied');
+    time+=15;
+    markXpraInput('xwin-2a');
+    time+=27;
+    assert.equal(deliverXpraFrame('xwin-2a',bitmap(20,10),frame({generation:8,sequence:2,
+      full:false,x:5,y:6,width:20,height:10})),'applied');
+    const stats=xpraFrameStats('xwin-2a');
+    assert.equal(stats?.p95FrameIntervalMs,42);
+    assert.equal(stats?.medianInputToNextFrameMs,27);
+    assert.equal(stats?.inputSamples,1);
+    time+=3000;
+    assert.equal(xpraFrameStats('xwin-2a')?.fps,0);
+    assert.equal(xpraFrameStats('xwin-2a')?.lastFrameAgeMs,3000);
+  } finally {release();Object.defineProperty(globalThis,'performance',{value:native,configurable:true});}
+});

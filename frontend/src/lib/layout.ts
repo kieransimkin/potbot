@@ -4,10 +4,11 @@ export const PANEL_TITLES: Record<PanelId, string> = {
   chat: "Conversation", menu: "Control menu", graph: "Thought graph",
   terminal: "Workspace Bash", browser: "Controlled browser",
   preferences: "Preferences", downloads: "Downloads", installations: "Model installations",
+  applications: "Xpra applications",
 };
 
 export const RESTORABLE_PANELS: UtilityPanel[] = [
-  "menu", "graph", "terminal", "browser", "preferences", "downloads", "installations",
+  "menu", "graph", "terminal", "browser", "preferences", "downloads", "installations", "applications",
 ];
 
 export type SavedLayout = {

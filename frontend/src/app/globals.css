@@ -278,3 +278,27 @@ a { color: #9cdef8; }
 .xwindow-error span { flex:1; }
 .xwindow-error button { background:#704047; color:white; padding:6px 12px;
   border:1px solid #dba0a3; border-radius:6px; cursor:pointer; }
+
+/* UI-7: a dockable, keyboard-accessible window switcher. Xpra still owns each
+   application's process; the list is only a presentation projection. */
+.applications-pane { display:flex; flex-direction:column; gap:14px; padding:16px; min-height:100%; }
+.applications-header h2 { margin:6px 0; font-size:1.2rem; }
+.applications-header p { margin:5px 0; font-size:.82rem; }
+.connection-ok { color:#72d9b1; }
+.connection-warning { color:#f6b976; }
+.applications-search { display:grid; gap:8px; }
+.applications-search label { font-size:.8rem; }
+.applications-search input { width:100%; min-width:0; border-radius:9px; padding:10px; color:inherit;
+  border:1px solid #657791; background:#152538; }
+.applications-filters { display:flex; gap:5px; flex-wrap:wrap; }
+.applications-filters button { padding:5px 10px; border:1px solid #667a94; border-radius:20px; }
+.applications-filters button[aria-pressed="true"] { background:#376388; border-color:#85bde5; }
+.applications-list { display:grid; gap:7px; list-style:none; margin:0; padding:0; }
+.applications-item { display:flex; gap:8px; align-items:center; padding:10px; border-radius:10px;
+  background:#18293a; border:1px solid #36495c; }
+.applications-symbol { color:#94c5e9; font-size:1.3rem; }
+.applications-description { flex:1; min-width:0; display:grid; gap:4px; }
+.applications-description strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; }
+.applications-description small { color:#aebed0; font-size:.73rem; }
+.applications-item button { flex-shrink:0; padding:5px 8px; }
+@media (max-width:500px) { .applications-item { flex-wrap:wrap; } .applications-description { flex-basis:60%; } }

@@ -75,7 +75,7 @@ export function MenuPanel() {
   const { workspace, openPanel, isLive, logout, xWindows, openXWindow,
     xAvailable, xTransport } = useWorkspace();
   const sections: { heading: string; items: [PanelId, string][] }[] = [
-    { heading: "WORKSPACE", items: [["graph", "Thought graph"], ["terminal", "Bash console"], ["browser", "Controlled browser"]] },
+    { heading: "WORKSPACE", items: [["graph", "Thought graph"], ["terminal", "Bash console"], ["browser", "Controlled browser"], ["applications", "Xpra applications"]] },
     { heading: "USER PREFERENCES", items: [["preferences", "General preferences"], ["downloads", "Downloads and transfers"], ["installations", "Model installations"]] },
   ];
   return <section className="menu-pane panel-scroll">

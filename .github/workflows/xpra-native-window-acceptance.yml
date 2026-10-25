@@ -65,6 +65,9 @@ jobs:
       - name: Estimate synthetic partial-frame copy volume (not GPU FPS)
         working-directory: frontend
         run: npm run benchmark:xpra
+      - name: CPU-only window inventory search benchmark
+        working-directory: frontend
+        run: npm run benchmark:windows
       - name: Install Next.js packages and check types
         working-directory: frontend
         run: |
@@ -104,7 +107,7 @@ jobs:
           node-version: '22'
       - name: Require real Xpra, XBill, xauth, bubblewrap, browser prerequisites
         run: |
-          command -v xpra && command -v xbill && command -v xauth && command -v bwrap
+          command -v xpra && command -v xbill && command -v xterm && command -v xauth && command -v bwrap
           xpra --version
           uv sync --locked --extra web --dev
           uv pip install --python .venv/bin/python 'playwright>=1.52,<2'
@@ -116,7 +119,7 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --no-audit --no-fund
-      - name: Verify sandboxed XBill appears in Dockview and accepts input
+      - name: Verify XBill and xterm appear independently, minimize/restore and accept input
         env:
           POTBOT_RUN_REAL_XPRA_XBILL: '1'
           POTBOT_XPRA_ACCEPTANCE_SCREENSHOT: ${{ github.workspace }}/artifacts/xpra-xbill-dock.png
@@ -125,7 +128,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: xpra-xbill-dockview-screenshot
+          name: xpra-multiwindow-dockview-screenshot
           path: artifacts/xpra-xbill-dock.png
           if-no-files-found: warn
           retention-days: 14

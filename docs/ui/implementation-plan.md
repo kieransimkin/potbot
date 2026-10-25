@@ -180,3 +180,38 @@ complete setup, pin, contract and end-to-end test plan.
 - **Pending:** full pinned HTML5 production build, actual browser WebGL/Canvas
   frame-rate profiling, real Xpra/XBill dock-and-input acceptance and
   multi-workspace backend discovery/session storage.
+
+### UI-7 — Xpra application manager, window lifecycle and measured diagnostics
+
+- Add a dedicated dockable **Xpra applications** window, accessible from the
+  menu and from a bounded utility-rail entry. Search and filter all windows by
+  title, X window ID and minimized/visible state; the panel is a projection
+  only and never kills applications. Minimize state remains workspace-scoped.
+- Keep Xpra binary socket admission and private authentication unchanged.
+  Restore a minimized pane by reattaching its canvas and requesting a full
+  frame. Missing incremental sequence numbers request a full resynchronization
+  rather than drawing an incompletely updated image.
+- Add an explicit **Reconnect Xpra** action when automatic reconnect attempts
+  are exhausted. The client continues to show known windows while offline,
+  but does not claim that disconnected applications are currently paintable.
+- Add per-window rolling P95 frame interval and median input-to-next-frame
+  timings as **browser-side proxies**. An unrelated X11 animation can satisfy
+  the proxy, so it must not be reported as acknowledged input latency. Actual
+  input-to-painted-frame round-trip requires server-side correlation IDs.
+- The opt-in self-hosted acceptance script now opens **both XBill and xterm**
+  in the same private workspace Xpra display and tests two separate Dockview
+  windows, input routing, minimize/restore, surviving processes and screenshot
+  capture. It does not run on ordinary GitHub-hosted runners. It still requires
+  a qualified Linux Xpra 6.3+ host, bubblewrap, Chromium and test X11 packages.
+- The frontend CI additionally runs a synthetic 500-window search benchmark;
+  this is **CPU time only**, not browser GPU FPS, Xpra transport bandwidth or
+  measured window switching latency.
+- Fix UI-6 TypeScript narrowing errors involving asynchronous React state
+  updates and the Xpra window ID; the next CI run must confirm `tsc --noEmit`.
+
+**Still pending:** Xpra input-to-frame correlation acknowledgements, per-window
+icon extraction from upstream Xpra icon events, qualified compositor/WebGL FPS,
+IME/multi-key layouts, audited remote TLS deployments, and the persistent
+multi-user workspace identity contract. UI preferences, model installations,
+progress bars, downloads, PTYs and browsing sessions remain backend-dependent:
+these views should never fabricate active jobs, bytes or install success.

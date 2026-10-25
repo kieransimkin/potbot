@@ -248,3 +248,30 @@ not actual browser/GPU FPS. Live acceptance still needs the Xpra/XBill and
 Playwright-equipped host described in the Xpra integration guide. This patch
 also fixes two Xpra CI failures: a TypeScript control union and cleanup of
 orphaned sockets after an owned Xpra process exits.
+
+### UI-7 — Workspace Xpra application manager
+
+Click **Manage Xpra application windows** in the utility rail or open
+**Xpra applications** from the menu. Search by title or X window ID, filter
+Visible / Minimized, focus an existing window or restore one that was hidden.
+Each pane remains dockable and resizable; the **Minimize** action never kills
+the application. If the Xpra session is disconnected, the panel offers a manual
+**Reconnect Xpra** control after automatic retries are exhausted.
+
+Window footers report approximate decoded-copy volume, observed frame rate,
+P95 client-side frame gap, and input-to-next-frame **proxy** latency. Do not
+interpret these as measured GPU FPS, bandwidth or verified input acknowledgements.
+
+```bash
+cd frontend
+npm test
+npm run benchmark:windows    # CPU only: 500 synthetic application windows
+npm run benchmark:xpra       # CPU only: synthetic damage rectangles
+npm run typecheck
+npm run build
+```
+
+The opt-in Linux acceptance workflow adds a second application (`xterm`) next
+to XBill, verifies both become separate Dockview windows, sends input to each,
+then minimizes/restores xterm while its sandbox process continues to run.
+This requires a provisioned Linux Xpra host and is not simulated as passing.

@@ -10,7 +10,7 @@ export type Workspace = {
 
 export type PanelId =
   | "chat" | "menu" | "graph" | "terminal" | "browser"
-  | "preferences" | "downloads" | "installations";
+  | "preferences" | "downloads" | "installations" | "applications";
 export type UtilityPanel = Exclude<PanelId, "chat">;
 export type DockEdge = "left" | "right" | "above" | "below";
 
