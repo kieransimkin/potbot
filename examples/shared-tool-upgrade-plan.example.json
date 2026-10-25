@@ -1,0 +1,31 @@
+{
+  "schema": "potbot-shared-tool-upgrade-plan/v1",
+  "expected_old_commit": "0000000000000000000000000000000000000000",
+  "replacement": {
+    "slug": "stemlab",
+    "repository": "https://github.com/kieransimkin/stemlab",
+    "commit": "1111111111111111111111111111111111111111",
+    "cleanup_paths": ["build", ".pytest_cache"],
+    "lockfiles": [
+      ["requirements.lock", "2222222222222222222222222222222222222222222222222222222222222222"]
+    ],
+    "model_downloads": true,
+    "reusable_artifacts": [
+      ["static/stemlab", "3333333333333333333333333333333333333333333333333333333333333333"]
+    ]
+  },
+  "tests": [
+    {
+      "name": "source-visible",
+      "kind": "smoke",
+      "argv": ["/bin/bash", "--noprofile", "--norc", "-c", "test -d \"$1\" && test -f \"$1/README.md\"", "s9", "{checkout}"],
+      "timeout_ms": 30000
+    },
+    {
+      "name": "source-git-revision",
+      "kind": "unit",
+      "argv": ["/usr/bin/git", "-C", "{checkout}", "rev-parse", "--verify", "HEAD"],
+      "timeout_ms": 30000
+    }
+  ]
+}

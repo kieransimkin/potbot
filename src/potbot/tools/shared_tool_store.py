@@ -285,6 +285,20 @@ class SharedToolStore:
 
     def definition(self, workspace_id: UUID, slug: str) -> SharedToolDefinition:
         with self.ledger._connect() as db:
+            # When S9 is installed, an interrupted directory exchange must
+            # block every brokered use until an operator has reconciled it.
+            upgrade_table = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='trusted_tool_upgrades'"
+            ).fetchone()
+            if upgrade_table is not None:
+                unsettled = db.execute(
+                    "SELECT 1 FROM trusted_tool_upgrades WHERE workspace_id=? AND slug=? "
+                    "AND state IN ('switching','rolling_back','indeterminate') LIMIT 1",
+                    (str(workspace_id), _name(slug)),
+                ).fetchone()
+                if unsettled is not None:
+                    raise StateMismatchError("Shared tool upgrade requires operator reconciliation")
             item = db.execute(
                 "SELECT definition_json FROM trusted_shared_tools WHERE workspace_id=? AND slug=?",
                 (str(workspace_id), _name(slug)),

@@ -31,6 +31,7 @@ _HEX = re.compile(r"[0-9a-f]{64}\Z")
 _FIELDS = frozenset({"workspace_id", "image_digest", "qualification_sha256", "rootfs",
                      "home", "model_staging", "shared_models", "shared_tools", "ai_config_dir",
                      "ai_history_dir", "controller_ledger"})
+_ENTRYPOINT = re.compile(r"/usr/local/tools/[a-z][a-z0-9-]{1,62}/(?:environment|static)/[A-Za-z0-9_./+-]{1,220}\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,7 @@ class OperatorPaths:
     ai_config_dir: Path
     ai_history_dir: Path
     controller_ledger: Path
+    tool_entrypoints: tuple[tuple[str, str], ...] = ()
 
     def runtime(self) -> SharedWorkspaceRuntime:
         from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
@@ -55,6 +57,7 @@ class OperatorPaths:
             model_staging=self.model_staging, shared_models=self.shared_models,
             shared_tools=self.shared_tools, ai_config_dir=self.ai_config_dir,
             ai_history_dir=self.ai_history_dir,
+            tool_entrypoints=self.tool_entrypoints,
         )
 
 
@@ -70,7 +73,7 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
         raise InvalidInputError("Operator manifest exceeds size allowance")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict) or set(payload) != _FIELDS:
+        if not isinstance(payload, dict) or set(payload) not in (_FIELDS, _FIELDS | {"tool_entrypoints"}):
             raise ValueError
         identity = UUID(payload["workspace_id"])
         if str(identity) != payload["workspace_id"]:
@@ -87,6 +90,16 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
             if resolved != p:
                 raise ValueError
             return resolved
+        selected = payload.get("tool_entrypoints", {})
+        if not isinstance(selected, dict) or len(selected) > 96:
+            raise ValueError
+        pins = []
+        for entrypoint, digest in selected.items():
+            if (not isinstance(entrypoint, str) or not _ENTRYPOINT.fullmatch(entrypoint)
+                    or any(part in {"", ".", ".."} for part in entrypoint.split("/")[1:])
+                    or not isinstance(digest, str) or not _HEX.fullmatch(digest)):
+                raise ValueError
+            pins.append((entrypoint, digest))
         fields = {name: absolute(name) for name in _FIELDS - {
             "workspace_id", "image_digest", "qualification_sha256"
         }}
@@ -95,7 +108,7 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
         if fields["ai_history_dir"].is_relative_to(fields["home"]):
             raise ValueError
         return OperatorPaths(identity, payload["image_digest"], payload["qualification_sha256"],
-                             **fields)
+                             tool_entrypoints=tuple(sorted(pins)), **fields)
     except (KeyError, ValueError, TypeError, UnicodeError, OSError):
         raise InvalidInputError("Operator manifest contains unsafe paths or identity") from None
 

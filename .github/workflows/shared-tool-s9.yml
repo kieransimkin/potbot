@@ -1,0 +1,47 @@
+name: S9 shared-tool test and upgrade contracts
+
+on:
+  push:
+    paths:
+      - 'src/potbot/tools/shared_tool_store.py'
+      - 'src/potbot/tools/shared_tool_upgrades.py'
+      - 'tests/unit/test_shared_tool_upgrades_s9.py'
+      - 'tests/unit/test_s9_sandbox_test_executor.py'
+      - 'tests/unit/test_operator_runtime_pins_s9.py'
+      - 'tests/unit/test_s9_operator_cli_contract.py'
+      - 'src/potbot/tools/operator_cli.py'
+      - 'scripts/tool_upgrade_s9.py'
+      - '.github/workflows/shared-tool-s9.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s9-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.23'
+      - name: Install repository-pinned dependencies
+        run: uv sync --locked --dev
+      - name: S9 unit, cleanup and transactional upgrade tests
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_shared_tool_upgrades_s9.py
+          tests/unit/test_s9_sandbox_test_executor.py
+          tests/unit/test_operator_runtime_pins_s9.py
+          tests/unit/test_s9_operator_cli_contract.py
+          tests/unit/test_shared_tool_store.py
+          tests/unit/test_shared_tool_mounts_s5.py
+      - name: Compile new controller modules
+        run: >-
+          uv run --locked python -m compileall -q
+          src/potbot/tools/shared_tool_upgrades.py
+          scripts/tool_upgrade_s9.py
