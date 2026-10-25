@@ -20,6 +20,7 @@ from potbot.tools.model_cache_routes import (
 )
 
 
+@pytest.mark.skipif(os.name != "posix", reason="Linux/WSL agent home POSIX descriptors")
 def test_skeleton_aliases_are_in_installed_agent_homes(tmp_path: Path) -> None:
     from potbot.tools.agent_skeleton import install_agent_skeleton
 
