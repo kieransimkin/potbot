@@ -72,7 +72,8 @@ export function ChatPanel() {
 }
 
 export function MenuPanel() {
-  const { workspace, openPanel, isLive, logout } = useWorkspace();
+  const { workspace, openPanel, isLive, logout, xWindows, openXWindow,
+    xAvailable, xTransport } = useWorkspace();
   const sections: { heading: string; items: [PanelId, string][] }[] = [
     { heading: "WORKSPACE", items: [["graph", "Thought graph"], ["terminal", "Bash console"], ["browser", "Controlled browser"]] },
     { heading: "USER PREFERENCES", items: [["preferences", "General preferences"], ["downloads", "Downloads and transfers"], ["installations", "Model installations"]] },
@@ -86,6 +87,16 @@ export function MenuPanel() {
         <span>{label}</span><span aria-hidden="true">↗</span>
       </button>)}
     </div>)}
+    {isLive && <div className="menu-section">
+      <h2>XPRA APPLICATION WINDOWS</h2>
+      {xAvailable && <p className="muted-note">{xTransport === "xpra-native-binary"
+        ? "Xpra seamless · native binary stream · individual docked windows"
+        : "Xpra disconnected"}</p>}
+      {xWindows.map(window => <button key={window.id} className="menu-item"
+        onClick={() => openXWindow(window.id)}><span>▣ {window.title}</span><span>↗</span></button>)}
+      {!xAvailable && <p className="muted-note">Workspace Xpra bridge not configured or offline.</p>}
+      {xAvailable && xWindows.length === 0 && <p className="muted-note">No X applications running yet.</p>}
+    </div>}
     {isLive && <button className="menu-item" onClick={logout}><span>Sign out of operator workspace</span><span aria-hidden="true">⇥</span></button>}
     <p className="muted-note">Drag the titlebar to float this menu; dock it along any edge. The menu cannot maximize.</p>
     <DockControls id="menu" />

@@ -194,3 +194,24 @@ The UI-4 patch also removes the `tabAnimation` Dockview prop, which was rejected
 by the pinned `dockview-react` TypeScript contract in the preceding CI run.
 The full dependency typecheck, Next production build, and a real-browser WebGL
 benchmark still require npm installation in the target/CI environment.
+
+## Native Xpra-only application windows (UI-5)
+
+Potbot uses **one Xpra-owned X11 display per workspace** and the pinned
+upstream Xpra HTML5 protocol/codec engine with *no visible Xpra desktop
+chrome*. Each application window is an independently draggable/dockable
+Dockview canvas. The operator's keyboard, pointer, focus and resize commands
+are sent back via the same Xpra binary WebSocket protocol, not via XTEST.
+No independent Xvfb server or PNG screenshot polling path exists.
+
+Prepare the exact pinned HTML5 client before running Next.js:
+
+```bash
+python frontend/scripts/prepare-xpra-html5.py \
+  --upstream external/xpra-html5 --output frontend/public/xpra-html5
+```
+
+The private backend relay and the Next.js server require the Xpra token and
+public WebSocket URL described in
+[`docs/ui/xpra-seamless-integration.md`](../docs/ui/xpra-seamless-integration.md).
+Real sandboxed XBill/Dockview acceptance remains opt-in until qualified.

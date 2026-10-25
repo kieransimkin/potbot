@@ -246,3 +246,26 @@ a { color: #9cdef8; }
   .graph-timeline { right: 5px; top: 5px; width: calc(100% - 10px); max-height: 55%; }
   .graph-perf { right: 5px; bottom: 5px; }
 }
+/* Application windows are individual X11 surfaces managed by Dockview, not a desktop iframe. */
+.xwindow-panel { background: #0a1421; display:flex; flex-direction:column; height:100%; width:100%; min-height:0; }
+.xwindow-toolbar { display:flex; align-items:center; gap:8px; color:#deeffc; padding:8px 11px;
+  border-bottom:1px solid #314963; background:#1a2a3a; }
+.xwindow-toolbar strong { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.81rem; }
+.xwindow-toolbar small { color:#9db6ca; font-size:.63rem; white-space:nowrap; }
+.xwindow-toolbar button { color:#cfebfa; border:1px solid #48718d; background:#264358; border-radius:5px; padding:4px 8px; }
+.xwindow-icon { font-size:1.1rem; color:#73dbf9; }
+.xwindow-viewport { flex:1; min-height:0; overflow:hidden; display:grid; place-items:center; background:#09111a; }
+.xwindow-empty { color:#87a2b9; font-size:.78rem; padding:1rem; }
+.xwindow-notice { padding:4px 10px; color:#ffd9a3; background:#4d352a; font-size:.68rem; }
+.xwindow-bottom { color:#82a2ba; background:#162438; padding:5px 9px; font-size:.65rem;
+  display:flex; justify-content:space-between; gap:8px; }
+@media(max-width:630px) { .xwindow-toolbar small { display:none } .xwindow-bottom span { display:none } }
+
+/* Xpra HTML5 runs once as a non-visual protocol/decoder iframe; only its per-
+   window ImageBitmap frames enter visible Dockview-owned surfaces. */
+.xpra-protocol-frame { position:fixed; width:1920px; height:1200px;
+  top:-20000px; left:-20000px; visibility:hidden;
+  border:0; pointer-events:none; }
+.xpra-app-canvas { display:block; width:100%; height:100%; min-height:110px;
+  background:#0d1723; object-fit:contain; touch-action:none; outline-offset:-2px; }
+.xpra-app-canvas:focus-visible { outline:2px solid #91d9ff; }

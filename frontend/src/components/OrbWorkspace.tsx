@@ -9,16 +9,20 @@ import { readChatStream } from "@/lib/chat-stream";
 import { DEFAULT_GRAPH_VIEW, mergeGraphTimeline, sanitizedGraphView } from "@/lib/graph-workbench";
 import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
 import { RUN_ID } from "@/lib/live-schema";
+import { validXpraWindow, xpraFrameURL, validXpraControl, windowPanelId, XWINDOW_ID } from "@/lib/xpra-contract";
+import { deliverXpraFrame } from "@/lib/xpra-frames";
+import type { XWindowInfo, XWindowTransport } from "@/lib/xpra-contract";
 import { decodeSavedLayout, layoutStorageKey, PANEL_TITLES, shouldMinimizePanel } from "@/lib/layout";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 import { WorkspaceOrbit } from "./WorkspaceOrbit";
 import { WorkspaceProvider } from "./WorkspaceContext";
+import { XpraWindowPanel } from "./XpraWindowPanel";
 import { BrowserPanel, ChatPanel, DownloadsPanel, FullscreenGraph, GraphPanel, InstallationsPanel, MenuPanel, PreferencesPanel, TerminalPanel } from "./Panels";
 
 const COMPONENTS = {
   chat: ChatPanel, graph: GraphPanel, menu: MenuPanel, terminal: TerminalPanel,
   browser: BrowserPanel, preferences: PreferencesPanel, downloads: DownloadsPanel,
-  installations: InstallationsPanel,
+  installations: InstallationsPanel, xwindow: XpraWindowPanel,
 };
 
 function floatingDefaults(panel: PanelId) {
@@ -46,9 +50,10 @@ function initialPanel(api: DockviewApi, id: PanelId) {
   }
 }
 
-function DockedScene({ workspace, onGraphMinimized }: {
+function DockedScene({ workspace, onGraphMinimized, onXWindowHidden }: {
   workspace: Workspace;
   onGraphMinimized: (value: boolean) => void;
+  onXWindowHidden: (windowId: string) => void;
 }) {
   const apiRef = useDockApi();
   useEffect(() => () => { apiRef.current = null; }, [apiRef]);
@@ -89,6 +94,8 @@ function DockedScene({ workspace, onGraphMinimized }: {
         if (apiRef.current !== api || api.getPanel(panel.id)) return;
         if (panel.id === "chat") initialPanel(api, "chat"); // chat cannot be permanently closed
         if (panel.id === "graph") onGraphMinimized(true);
+        if (panel.id.startsWith("x11:") && XWINDOW_ID.test(panel.id.slice(4)))
+          onXWindowHidden(panel.id.slice(4));
       });
     });
     const maximized = api.onDidMaximizedGroupChange(() => {
@@ -98,7 +105,7 @@ function DockedScene({ workspace, onGraphMinimized }: {
     onGraphMinimized(!api.getPanel("graph"));
     // Cleanup is handled when workspace-specific Dockview unmounts.
     cleanupRef.current = () => { clearTimeout(debounce); persist(); changed.dispose(); removed.dispose(); maximized.dispose(); };
-  }, [apiRef, workspace.id, onGraphMinimized]);
+  }, [apiRef, workspace.id, onGraphMinimized, onXWindowHidden]);
   const cleanupRef = useRef<() => void>(() => {});
   useEffect(() => () => cleanupRef.current(), []);
   return <DockviewReact className="dockview-theme-dark potbot-dockview" onReady={onReady}
@@ -128,6 +135,14 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [runIds, setRunIds] = useState<Record<string, string>>({});
   const [graphs, setGraphs] = useState<Record<string, GraphProjection>>({});
+  const [xWindowsByWorkspace, setXWindowsByWorkspace] = useState<Record<string, XWindowInfo[]>>({});
+  const [xAvailable, setXAvailable] = useState(false);
+  const [xpraIframeSrc, setXpraIframeSrc] = useState<string | null>(null);
+  const xpraIframe = useRef<HTMLIFrameElement | null>(null);
+  const xpraChannel = useRef("");
+  const [xTransportByWorkspace, setXTransportByWorkspace] = useState<Record<string, XWindowTransport | null>>({});
+  const xSeen = useRef<Record<string, Set<string>>>({});
+  const xHidden = useRef<Record<string, Set<string>>>({});
   const [graphHealth, setGraphHealth] = useState<Record<string, string>>({});
   const [graphTimelines, setGraphTimelines] = useState<Record<string, Timeline>>({});
   const [graphViews, setGraphViews] = useState<Record<string, GraphView>>({});
@@ -228,6 +243,129 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     setSelected(index);
     try { localStorage.setItem("potbot:ui:selected-workspace:v1", workspaces[index].id); } catch {}
   }, [workspaces]);
+
+  const onXWindowHidden = useCallback((windowId: string) => {
+    if (!workspace || !XWINDOW_ID.test(windowId)) return;
+    (xHidden.current[workspace.id] ??= new Set()).add(windowId);
+  }, [workspace]);
+
+  const openXWindow = useCallback((windowId: string) => {
+    if (!workspace || !XWINDOW_ID.test(windowId)) return;
+    const item = (xWindowsByWorkspace[workspace.id] ?? []).find(w => w.id === windowId);
+    const api = apiRef.current;
+    if (!item || !api) return;
+    (xHidden.current[workspace.id] ??= new Set()).delete(windowId);
+    (xSeen.current[workspace.id] ??= new Set()).add(windowId);
+    const id = windowPanelId(windowId);
+    const existing = api.getPanel(id);
+    if (existing) { existing.api.setActive(); return; }
+    const width = Math.min(item.width + 36, 750, Math.max(280, window.innerWidth - 48));
+    const height = Math.min(item.height + 80, 570, Math.max(200, window.innerHeight - 150));
+    api.addPanel({ id, component: "xwindow", title: item.title, params: { windowId },
+      floating: { position: { top: 105, right: 40 }, width, height },
+      minimumHeight: 160, minimumWidth: 230 });
+  }, [workspace, xWindowsByWorkspace]);
+
+  const closeXWindow = useCallback((windowId: string) => {
+    if (!workspace || !XWINDOW_ID.test(windowId)) return;
+    onXWindowHidden(windowId);
+    const api = apiRef.current;
+    const pane = api?.getPanel(windowPanelId(windowId));
+    if (pane) api?.removePanel(pane);
+    // Closing a Dockview surface must NOT terminate the underlying X process.
+  }, [workspace, onXWindowHidden]);
+
+  // Xpra owns a single binary connection, one decoded canvas per application
+  // window. No Xvfb, XTEST or HTTP screenshot polling exists in this transport.
+  const sendXpra = useCallback((windowId: string, command: XpraControl) => {
+    if (!XWINDOW_ID.test(windowId) || !validXpraControl(command)) return;
+    xpraIframe.current?.contentWindow?.postMessage({
+      type: "potbot:xpra-control", channel: xpraChannel.current, id: windowId, ...command,
+    }, window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const workspaceId = workspace.id;
+    let alive = true;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let reconnects = 0;
+    const requestTicket = async () => {
+      if (!alive) return;
+      try {
+        const response = await fetch("/api/ui/xpra/ticket", { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, body: "{}", cache: "no-store" });
+        if (response.status === 401) { setGateway("login"); return; }
+        if (!response.ok) throw new Error("Xpra relay unavailable");
+        const document = await response.json() as { workspaceId?: string; wsUrl?: string;
+          transport?: string; expiresInSeconds?: number };
+        if (!alive || document.workspaceId !== workspaceId || document.transport !== "xpra-native-binary" ||
+            document.expiresInSeconds !== 30 || typeof document.wsUrl !== "string") throw new Error("Invalid Xpra scope");
+        const channel = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+          .map(n => n.toString(16).padStart(2, "0")).join("");
+        xpraChannel.current = channel;
+        setXpraIframeSrc(xpraFrameURL(document.wsUrl, channel));
+      } catch {
+        if (!alive) return;
+        setXAvailable(false);
+        if (reconnects++ < 8) retry = setTimeout(requestTicket, Math.min(15000, 1200 * 2 ** reconnects));
+      }
+    };
+    const message = (event: MessageEvent) => {
+      if (!alive || event.origin !== location.origin ||
+          event.source !== xpraIframe.current?.contentWindow) return;
+      const payload = event.data as Record<string, unknown> | null;
+      if (!payload || payload.type !== "potbot:xpra" || payload.channel !== xpraChannel.current) return;
+      if (payload.action === "ready") { setXAvailable(true);
+        setXTransportByWorkspace(old => ({ ...old, [workspaceId]: "xpra-native-binary" }));
+        reconnects = 0; return; }
+      if (payload.action === "disconnected") {
+        setXAvailable(false);
+        setXpraIframeSrc(null);
+        if (reconnects++ < 8) retry = setTimeout(requestTicket, Math.min(15000, 1200 * 2 ** reconnects));
+        return;
+      }
+      if (payload.action === "frame" && typeof payload.id === "string" &&
+          XWINDOW_ID.test(payload.id) && payload.bitmap instanceof ImageBitmap) {
+        deliverXpraFrame(payload.id, payload.bitmap);
+        return;
+      }
+      if (payload.action === "close" && typeof payload.id === "string" && XWINDOW_ID.test(payload.id)) {
+        setXWindowsByWorkspace(state => ({ ...state, [workspaceId]:
+          (state[workspaceId] || []).filter(item => item.id !== payload.id) }));
+        const pane = apiRef.current?.getPanel(windowPanelId(payload.id));
+        if (pane) apiRef.current?.removePanel(pane);
+        xSeen.current[workspaceId]?.delete(payload.id);
+        xHidden.current[workspaceId]?.delete(payload.id);
+        return;
+      }
+      if (payload.action === "open") {
+        const item = validXpraWindow(payload);
+        if (!item) return;
+        setXWindowsByWorkspace(state => ({ ...state, [workspaceId]: [
+          ...(state[workspaceId] || []).filter(w => w.id !== item.id), item,
+        ] }));
+        const api = apiRef.current;
+        const seen = xSeen.current[workspaceId] ??= new Set();
+        const hidden = xHidden.current[workspaceId] ??= new Set();
+        if (api && !seen.has(item.id) && !hidden.has(item.id)) {
+          seen.add(item.id);
+          if (!api.getPanel(windowPanelId(item.id))) api.addPanel({
+            id: windowPanelId(item.id), component: "xwindow", title: item.title,
+            params: { windowId: item.id },
+            floating: { position: { top: 135, right: 30 },
+              width: Math.min(item.width + 42, 700, Math.max(270, innerWidth - 48)),
+              height: Math.min(item.height + 76, 540, Math.max(180, innerHeight - 160)) },
+            minimumWidth: 230, minimumHeight: 160,
+          });
+        }
+      }
+    };
+    window.addEventListener("message", message);
+    void requestTicket();
+    return () => { alive = false; if (retry) clearTimeout(retry);
+      window.removeEventListener("message", message); setXpraIframeSrc(null); setXAvailable(false); };
+  }, [demo, gateway, workspace?.id]);
 
   const openPanel = useCallback((id: PanelId) => {
     const api = apiRef.current;
@@ -377,6 +515,8 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       if (!response.ok) throw new Error("Logout not acknowledged");
       setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
       setGraphHealth({}); setGraphTimelines({}); setGraphViews({}); setCompactPrefs({});
+      setXAvailable(false); setXWindowsByWorkspace({}); setXTransportByWorkspace({});
+      xSeen.current = {}; xHidden.current = {};
       setPassword(""); setSelected(0); apiRef.current = null;
     }).catch(() => setNotice("Logout failed; your existing operator session may still be active."));
   }, []);
@@ -390,11 +530,17 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     compact: compactPrefs[workspace.id] === true,
     setCompactPreference, updateGraphView,
     runId: runIds[workspace.id] ?? null,
+    xAvailable, xTransport: xTransportByWorkspace[workspace.id] ?? null,
+    xWindows: xWindowsByWorkspace[workspace.id] ?? [],
+    sendXpra,
+    openXWindow, closeXWindow,
     logout, sendMessage, openPanel, closePanel, dockPanel,
     floatPanel, graphFullscreen, setGraphFullscreen }) : null,
     [workspace, demo, messages, busy, graphs, graphHealth, graphTimelines, graphViews,
       compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
-      dockPanel, floatPanel, graphFullscreen]);
+      dockPanel, floatPanel, graphFullscreen, xAvailable, xTransportByWorkspace,
+      xWindowsByWorkspace, sendXpra,
+      openXWindow, closeXWindow]);
 
   if (!workspace || !session) return <main className="setup-screen">
     <span className="setup-icon">✳</span><h1>Potbot Orb Workspace</h1>
@@ -428,12 +574,19 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       <div className="utility-rail" aria-label="Utility panes">
         {graphMinimized && <motion.button layoutId="potbot-graph-window" className="utility-orb" onClick={() => openPanel("graph")}
           aria-label="Restore reasoning graph" title="Restore thought graph">◇</motion.button>}
+        {!demo && (xWindowsByWorkspace[workspace.id] ?? []).slice(0, 5).map(win =>
+          <button key={win.id} className="utility-small" onClick={() => openXWindow(win.id)}
+            title={`Open Xpra application: ${win.title}`} aria-label={`Open Xpra window ${win.title}`}>▣</button>)}
         <button onClick={() => openPanel("preferences")} className="utility-small" aria-label="Preferences" title="Preferences">⚙</button>
       </div>
       <div className="scene-presence"><span className="presence-light" />{demo ? "INTERACTIVE PREVIEW" : "SCOPED LIVE CONNECTION"}</div>
+      {!demo && xpraIframeSrc && <iframe ref={xpraIframe} src={xpraIframeSrc}
+        title="Workspace Xpra protocol and decoding engine" className="xpra-protocol-frame"
+        aria-hidden="true" tabIndex={-1} sandbox="allow-scripts allow-same-origin" />}
       <DockApiContext.Provider value={apiRef}>
         <div className="dock-root" key={workspace.id}>
-          <DockedScene workspace={workspace} onGraphMinimized={setGraphMinimized} />
+          <DockedScene workspace={workspace} onGraphMinimized={setGraphMinimized}
+            onXWindowHidden={onXWindowHidden} />
         </div>
       </DockApiContext.Provider>
       <AnimatePresence>

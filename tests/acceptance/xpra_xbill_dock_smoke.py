@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""Opt-in end-to-end: real Xpra server + sandboxed XBill + Next/Dockview.
+
+This is NOT exercised by ordinary unit CI. Requires Xpra >= 6.3 with Xdummy,
+Xauthority, bubblewrap, xbill, Next dependencies, the generated upstream HTML5
+client, and Python Playwright with a locally installed Chromium. Fails rather
+than substituting Xvfb, an unsandboxed app or fake window imagery.
+"""
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import secrets
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Thread
+from uuid import uuid4
+
+import httpx
+
+ROOT = Path(__file__).resolve().parents[2]
+FRONT = ROOT / "frontend"
+
+
+def _port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _wait_ready(url: str, *, token: str | None = None, timeout: float = 50) -> None:
+    stop = time.monotonic() + timeout
+    while time.monotonic() < stop:
+        try:
+            headers = {"Authorization": "Bearer " + token} if token else {}
+            with httpx.Client(timeout=2, follow_redirects=False, trust_env=False) as client:
+                result = client.get(url, headers=headers)
+            if result.status_code == 200:
+                return
+        except (OSError, httpx.HTTPError):
+            pass
+        time.sleep(.25)
+    raise RuntimeError("Xpra/Next service failed its readiness deadline")
+
+
+def _game_in_sandbox(display: str, authfile: Path, workspace: Path) -> subprocess.Popen[bytes]:
+    bwrap = shutil.which("bwrap")
+    xbill = shutil.which("xbill")
+    if not bwrap or not xbill:
+        raise RuntimeError("XBill acceptance requires real bubblewrap and xbill binaries")
+    socket_path = Path("/tmp/.X11-unix/X" + display.removeprefix(":"))
+    if not socket_path.is_socket():
+        raise RuntimeError("Xpra did not create the workspace X11 Unix socket")
+    cmd = [bwrap, "--die-with-parent", "--unshare-all", "--new-session",
+           "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+           "--dir", "/tmp/.X11-unix", "--dir", "/run", "--dir", "/run/potbot"]
+    for directory in ("/usr", "/bin", "/lib", "/lib64", "/etc/fonts"):
+        if Path(directory).exists():
+            cmd += ["--ro-bind", directory, directory]
+    cmd += ["--bind", str(socket_path), str(socket_path),
+            "--ro-bind", str(authfile), "/run/potbot/Xauthority",
+            "--bind", str(workspace), "/workspace", "--chdir", "/workspace",
+            "--setenv", "DISPLAY", display,
+            "--setenv", "XAUTHORITY", "/run/potbot/Xauthority", "--", xbill]
+    return subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            start_new_session=True)
+
+
+def main() -> int:
+    # Explicit opt-in prevents accidentally launching a browser/X server on CI.
+    if os.environ.get("POTBOT_RUN_REAL_XPRA_XBILL") != "1":
+        raise SystemExit("Set POTBOT_RUN_REAL_XPRA_XBILL=1 for real acceptance")
+    if not (FRONT / "public/xpra-html5/UPSTREAM-REVISION").is_file():
+        raise SystemExit("Prepare the pinned Xpra HTML5 source before acceptance")
+    if not shutil.which("xpra") or not shutil.which("xauth"):
+        raise SystemExit("Xpra/Xauthority dependencies are not installed")
+    from playwright.sync_api import sync_playwright  # explicit optional dependency
+
+    bridge_port, front_port, stub_port = _port(), _port(), _port()
+    workspace_id = str(uuid4())
+    private_password = secrets.token_urlsafe(28)
+    bridge_secret = secrets.token_urlsafe(44)
+    cookie_key = secrets.token_urlsafe(56)
+    origin = f"http://127.0.0.1:{front_port}"
+    class ModelsStub(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            if self.path != "/v1/models":
+                self.send_error(404)
+                return
+            document = b'{"object":"list","data":[]}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(document)))
+            self.end_headers()
+            self.wfile.write(document)
+        def log_message(self, *_args) -> None:
+            pass
+    stub = ThreadingHTTPServer(("127.0.0.1", stub_port), ModelsStub)
+    server_thread = Thread(target=stub.serve_forever, daemon=True)
+    server_thread.start()
+    with tempfile.TemporaryDirectory(prefix="potbot-xpra-accept-") as tmp:
+        sandbox = Path(tmp) / "workspace"
+        sandbox.mkdir()
+        state = sandbox / ".potbot/x11/session.json"
+        environment = dict(os.environ)
+        environment.update({
+            "PYTHONPATH": str(ROOT / "src"),
+            "POTBOT_XPRA_BRIDGE_TOKEN": bridge_secret,
+        })
+        bridge_cmd = [sys.executable, "-m", "potbot.tools.x11_workspace_server",
+                      "--workspace-id", workspace_id, "--sandbox-root", str(sandbox),
+                      "--port", str(bridge_port), "--browser-origin", origin]
+        ui_env = dict(os.environ)
+        ui_env.update({
+            "POTBOT_UI_PUBLIC_ORIGIN": origin,
+            "POTBOT_UI_PASSWORD": private_password,
+            "POTBOT_UI_COOKIE_SECRET": cookie_key,
+            "POTBOT_UI_BACKEND_URL": f"http://127.0.0.1:{stub_port}",
+            "POTBOT_UI_BACKEND_TOKEN": secrets.token_urlsafe(24),
+            "POTBOT_UI_WORKSPACE_ID": workspace_id,
+            "POTBOT_UI_XPRA_BRIDGE_URL": f"http://127.0.0.1:{bridge_port}/",
+            "POTBOT_UI_XPRA_BRIDGE_TOKEN": bridge_secret,
+            "POTBOT_UI_XPRA_PUBLIC_WS_URL": f"ws://127.0.0.1:{bridge_port}/v1/xpra/ws",
+        })
+        bridge = subprocess.Popen(bridge_cmd, env=environment, cwd=ROOT,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                  start_new_session=True)
+        nextjs = None
+        game = None
+        try:
+            deadline = time.monotonic() + 40
+            while not state.exists() and time.monotonic() < deadline and bridge.poll() is None:
+                time.sleep(.1)
+            _wait_ready(f"http://127.0.0.1:{bridge_port}/v1/xpra/status", token=bridge_secret)
+            metadata = json.loads(state.read_text())
+            display = metadata["display"]
+            game = _game_in_sandbox(display, Path(metadata["xauthority"]), sandbox)
+            nextjs = subprocess.Popen(["./node_modules/.bin/next", "dev", "--hostname", "127.0.0.1",
+                                       "--port", str(front_port)], env=ui_env, cwd=FRONT,
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                      start_new_session=True)
+            _wait_ready(origin + "/")
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(origin, wait_until="domcontentloaded")
+                page.locator("#operator-password").fill(private_password)
+                page.get_by_role("button", name="Unlock workspace").click()
+                panel = page.locator(".xwindow-panel").filter(has_text="XBill")
+                panel.wait_for(timeout=45000)
+                canvas = panel.locator(".xpra-app-canvas")
+                canvas.wait_for()
+                # Must have an actual decoded Xpra window, not a placeholder.
+                page.wait_for_function("""() => {
+                  const c = document.querySelector('.xwindow-panel .xpra-app-canvas');
+                  return Boolean(c && c.width > 200 && c.height > 120);
+                }""", timeout=15000)
+                canvas.click(position={"x": 40, "y": 40})
+                canvas.press("ArrowRight")
+                screenshot = Path(os.environ.get("POTBOT_XPRA_ACCEPTANCE_SCREENSHOT",
+                    str(ROOT / "artifacts/xpra-xbill-dock.png")))
+                screenshot.parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(screenshot), full_page=False)
+                print("Xpra-only XBill appeared in Dockview; input was sent through the native client")
+                print("Screenshot:", screenshot)
+                browser.close()
+        finally:
+            for process in (game, nextjs, bridge):
+                if process is not None and process.poll() is None:
+                    process.terminate()
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        process.wait(timeout=8)
+                    if process.poll() is None:
+                        process.kill()
+                        process.wait(timeout=3)
+            stub.shutdown()
+            stub.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

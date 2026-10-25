@@ -137,3 +137,26 @@ Next before UI-4:
 5. Run cross-browser Playwright tests for graph selection, redraw diagnostics,
    dock ↔ float, fullscreen focus trap, preference persistence, reduced
    motion, touch navigation and a large graph under actual browser GPUs.
+
+## UI-5 — native Xpra-only seamless application windows
+
+- Potbot's workspace Xpra server owns the private virtual X11 display; no
+  standalone Xvfb lifecycle or XTEST/PNG compatibility bridge remains.
+- Xpra's pinned, MPL-2.0 HTML5 protocol/codec client runs in one hidden
+  same-origin iframe and forwards individual decoded window `ImageBitmap`
+  updates to Dockview-owned surfaces. Its own window borders, toolbar and
+  menus are not displayed; real X11 input/focus/resize returns through Xpra.
+- The relay accepts only short-lived single-use tickets minted by the
+  authenticated Next server and checks the browser Origin. The workspace X
+  socket and Xauthority are sandbox-mountable; the private Xpra protocol
+  socket is never exposed to sandbox tools.
+- Real Xpra startup, XBill in bubblewrap, and the resulting Docker/browser
+  dock view require a qualified acceptance host. CI runs pinned upstream
+  source-contract and bridge tests automatically; actual XBill/Playwright
+  runs are manual on a preprovisioned self-hosted runner.
+- Further work: damage-region GPU updates, diverse keyboard/IME support,
+  multiple display reconnect epochs, bandwidth memory benchmarking, and
+  audited TLS deployment.
+
+See [`xpra-seamless-integration.md`](xpra-seamless-integration.md) for the
+complete setup, pin, contract and end-to-end test plan.
