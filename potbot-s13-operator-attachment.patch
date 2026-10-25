@@ -1,0 +1,1382 @@
+diff --git a/.github/workflows/operator-attachment-s13.yml b/.github/workflows/operator-attachment-s13.yml
+new file mode 100644
+--- /dev/null
++++ b/.github/workflows/operator-attachment-s13.yml
+@@ -0,0 +1,32 @@
++name: S13 Operator Attachment
++on:
++  push:
++    paths:
++      - 'src/potbot/tools/operator_attachment_s13.py'
++      - 'src/potbot/tools/operator_cli.py'
++      - 'src/potbot/tools/shared_workspace_isolation.py'
++      - 'src/potbot/tools/ai_workspace_operator.py'
++      - 'src/potbot/tools/supervisor.py'
++      - 'src/potbot/service.py'
++      - 'src/potbot/api/ui_operator_s13.py'
++      - 'src/potbot/api/server_cli.py'
++      - 'tests/unit/*operator*s13*.py'
++      - 'frontend/src/lib/operator-status.ts'
++      - 'frontend/tests/operator-status-s13.test.mjs'
++      - '.github/workflows/operator-attachment-s13.yml'
++  pull_request:
++  workflow_dispatch:
++jobs:
++  offline-attachment:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++      - uses: astral-sh/setup-uv@v6
++      - uses: actions/setup-node@v4
++        with:
++          node-version: '22'
++      - run: uv sync --locked --group dev
++      - run: uv run --locked --dev python -m pytest -q tests/unit/test_operator_attachment_s13.py tests/unit/test_ui_operator_s13.py
++      - run: node --experimental-strip-types --test frontend/tests/operator-status-s13.test.mjs
+diff --git a/docs/implementation/39-s13-operator-service-attachment.md b/docs/implementation/39-s13-operator-service-attachment.md
+new file mode 100644
+--- /dev/null
++++ b/docs/implementation/39-s13-operator-service-attachment.md
+@@ -0,0 +1,56 @@
++# S13 — operator attachment, workspace admission, and UI health
++
++**Baseline:** GitHub `68d65e25f647652b4b4119495779ea8fb57e4cae` plus S12 post-activation release gates. The S13 source changes are additive to S12; S12 must be applied separately if it has not yet been committed.
++
++## Purpose
++
++S7's in-process `/etc/ai` watcher cannot be shared with API/worker processes. S13 makes the operator the **only** AI-history owner, publishes a read-only status socket on the host, and allows other processes to attach without instantiating duplicate watchers. The operator starts under the native user service **before** workers/API in managed mode. Ordinary hosted-provider inference can still run without a shared workspace in legacy mode, but do not call that arrangement "S13-qualified".
++
++## Trust and mount boundaries
++
++- The endpoint is AF_UNIX at an explicit host-private path, mode `0600`, within an existing user-owned `0700` directory **outside** every guest mount. Linux `SO_PEERCRED` must match the controller's effective UID at both ends. This is protection from *other Unix users*, not from malicious processes running as the same UID. Stronger protection still needs a dedicated operator UID and delegated privileged IPC.
++- Every request binds exact workspace UUID, OCI image digest, qualification digest, and a SHA-256 of both canonical `/etc/ai` source paths. The response carries a fresh per-process epoch, live watcher status, running-process count, and an S12 release-gate count (or `null` when absent). No shell, file, PID, secret or run-output RPC exists.
++- A worker's first successful response latches the epoch; it refuses a new operator epoch without worker process restart. Short-lived positive cache is at most 150ms. A missing/unhealthy endpoint fails closed for **managed** sandbox dispatch. `ProcessSupervisor` also polls it while running; loss makes outcomes inconclusive and stops the process group.
++- In managed mode a `SharedWorkspaceBubblewrapBackend` accepts a live attached operator instead of a duplicate `AiConfigHistoryMonitor`, but still validates disjoint mounts, a trusted rootfs, pinned binaries, Bubblewrap/seccomp and the original `/etc/ai` backing directories. The socket is never mounted in the guest.
++- S12's per-tool release gate remains authoritative: a reported healthy operator is **not** permission to run an unreleased tool, and a pending release doesn't disable unrelated tools. UI projections intentionally omit filesystem paths and bearer values.
++
++## Operator startup
++
++For native Linux or a dedicated WSL2 guest, install a managed service with a previously reviewed and pinned operator manifest:
++
++```bash
++./start.sh service install \
++  --workspace-id WORKSPACE_UUID --principal-id PRINCIPAL_UUID \
++  --provider-policy /operator/private/hosted-policy.json \
++  --operator-manifest /operator/private/workspace.json \
++  --replace
++```
++
++The service config retains the manifest's canonical path. On service start it verifies workspace identity, starts `potbot operator run --manifest ... --socket-path <private-server-dir>/operator.sock`, waits for successful local attestation (bounded to 8 seconds), and only then launches the API/worker with pinned `POTBOT_OPERATOR_*` environment variables. Operator exit or a stale epoch fences new guest launches. Operator shutdown is last, after confirmed child-process shutdown. **Do not place the manifest or socket under `/home`, `/etc/ai`, `/usr/local/tools` or any other writable guest mount.**
++
++The corresponding explicitly managed standalone command is:
++
++```bash
++./start.sh operator run --manifest /operator/private/workspace.json \
++  --socket-path /operator/private/run/operator.sock
++```
++
++The socket directory must already exist with mode `0700` and must not be a symlink. The operator reuses its S7 single-writer history lock; after a crash it can reclaim only a stale socket inode while holding that lock. It does not discard uncertain workspace leases or replay uncertain tool upgrades.
++
++## Status contract
++
++`GET /v1/ui/operator` requires the ordinary workspace bearer, exact configured Origin and fresh RLS membership. Next.js proxies through `/api/ui/operator` with an authenticated operator session and strict response projection. The page `/setup/operator` polls every 3 seconds while visible. It shows current attachment health, a short epoch identifier, active supervised runs and **unreleased** S12 gate count (`unknown` if migration/module not present); no control endpoints are exposed.
++
++## Acceptance and known limits
++
++```bash
++PYTHONPATH=src pytest -q tests/unit/test_operator_attachment_s13.py
++python scripts/qualify_operator_attachment_s13.py \
++  --manifest /operator/private/workspace.json \
++  --socket-path /operator/private/run/operator.sock \
++  --report /operator/private/qualification-s13.json
++```
++
++The second is a genuine local socket/manifest check, **not** proof that hostile code is isolated. On your qualified Linux/WSL2 runner also execute `scripts/qualify_shared_workspace.py` with telemetry enabled, validate `/etc/ai` write and `/etc/ai-past` denial, test a supervised worker after deliberately stopping its owner, and verify an S12 upgrade remains blocked before postflight/repin. Exercise service stop while a lease is indeterminate; the service must not report a clean reconciliation. Check native manager semantics (`systemd KillMode`, WSL lifecycle) before production deployment.
++
++S13 does **not** replace the host-private S9/S12 SQLite journal with a cross-host ledger. Cross-host fencing requires PostgreSQL or an equivalent distributed lease service. The status socket never bypasses existing tool leases or PostgreSQL RLS. The shared Bash PTY watchdog additionally checks the live remote attachment and requests forceful termination on failure. Xpra/browser subprocesses and other auxiliary processes still need their own explicit cancellation/stop qualification; merely exposing this health socket does not automatically stop every process.
+diff --git a/frontend/src/app/api/ui/operator/route.ts b/frontend/src/app/api/ui/operator/route.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/app/api/ui/operator/route.ts
+@@ -0,0 +1,24 @@
++import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
++import { requireOperator, safeError } from "../../../../lib/server/security.ts";
++import { projectOperatorStatus } from "../../../../lib/operator-status.ts";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++
++export async function GET(request: Request): Promise<Response> {
++  const auth = requireOperator(request);
++  if (auth instanceof Response) return auth;
++  if (new URL(request.url).search) return safeError("Unexpected operator status query.", 400);
++  const config = potbotConfigForRequest(request);
++  if (!config) return safeError("Workspace is not configured.", 503);
++  try {
++    const response = await upstream(config, "/v1/ui/operator", {}, 2500);
++    if (!response.ok) return upstreamFailure(response);
++    const buffer = await response.arrayBuffer();
++    if (buffer.byteLength > 2048) return safeError("Invalid operator status.", 502);
++    const raw: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(buffer));
++    const projection = projectOperatorStatus(raw, config.workspaceId);
++    if (!projection) return safeError("Invalid operator status.", 502);
++    return Response.json(projection, { headers: { "Cache-Control": "private, no-store" } });
++  } catch { return safeError("Operator status unavailable.", 503); }
++}
+diff --git a/frontend/src/app/setup/operator/page.tsx b/frontend/src/app/setup/operator/page.tsx
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/app/setup/operator/page.tsx
+@@ -0,0 +1,86 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import styles from "../apis/setup.module.css";
++
++type Workspace = { id: string; name: string };
++type Status = {
++  workspaceId: string; configured: boolean; healthy: boolean;
++  journal: "healthy" | "unavailable"; releaseGate: "observed" | "unknown";
++  pendingReleases: number | null; activeRuns: number | null; epoch: string | null;
++};
++
++export default function OperatorStatusPage() {
++  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
++  const [workspace, setWorkspace] = useState("");
++  const [state, setState] = useState<Status | null>(null);
++  const [notice, setNotice] = useState("Loading operator workspaces…");
++  useEffect(() => {
++    let alive = true;
++    fetch("/api/ui/bootstrap", { credentials: "same-origin", cache: "no-store" })
++      .then(async res => { if (!res.ok) throw Error(); return res.json(); })
++      .then(data => {
++        if (!alive || !Array.isArray(data.workspaces)) return;
++        const list = (data.workspaces as Workspace[]).filter(w =>
++          typeof w.id === "string" && typeof w.name === "string");
++        setWorkspaces(list);
++        if (list[0]) setWorkspace(list[0].id);
++        else setNotice("No authorized workspace is available.");
++      }).catch(() => { if (alive) setNotice("Sign in to inspect the operator."); });
++    return () => { alive = false; };
++  }, []);
++  useEffect(() => {
++    if (!workspace) return;
++    let active = true;
++    async function poll() {
++      try {
++        const res = await fetch("/api/ui/operator", { cache: "no-store", credentials: "same-origin",
++          headers: { "X-Potbot-Workspace": workspace } });
++        if (!res.ok) throw Error();
++        const doc: Status = await res.json();
++        if (doc.workspaceId !== workspace) throw Error();
++        if (active) { setState(doc); setNotice(""); }
++      } catch { if (active) { setState(null); setNotice("Operator attachment unavailable."); } }
++    }
++    void poll();
++    const handle = window.setInterval(() => { if (!document.hidden) void poll(); }, 3000);
++    return () => { active = false; window.clearInterval(handle); };
++  }, [workspace]);
++  return <main className={styles.shell}>
++    <header className={styles.header}>
++      <a className={styles.back} href="/">← Return to Potbot</a>
++      <span className={styles.kicker}>OPERATOR SETUP / WORKSPACE HEALTH</span>
++      <h1>Operator attachment</h1>
++      <p>This read-only view checks the live operator that owns AI configuration history.
++        It does not grant tool execution or override upgrade release gates.</p>
++    </header>
++    <section className={styles.toolbar}>
++      <label>Authorized workspace
++        <select value={workspace} onChange={e => { setWorkspace(e.target.value); setState(null); }}>
++          {workspaces.map(w => <option value={w.id} key={w.id}>{w.name}</option>)}
++        </select>
++      </label>
++    </section>
++    <p role="status" className={styles.status}>{notice ||
++      (state?.healthy ? "Operator attached and healthy" : "Operator unavailable or not configured")}</p>
++    {state && <section className={styles.cards} aria-label="Operator health">
++      <article className={styles.card}>
++        <h2>Configuration history</h2>
++        <p>{state.journal === "healthy" ? "Watcher healthy" : "No healthy watcher reported"}</p>
++        <p>Operator: {state.configured ? "Configured" : "Not configured"}</p>
++        <p>Active supervised runs: {state.activeRuns ?? "Unknown"}</p>
++      </article>
++      <article className={styles.card}>
++        <h2>Shared tool release gates</h2>
++        <p>{state.releaseGate === "observed" ?
++          `${state.pendingReleases ?? 0} unreleased or unresolved upgrade(s)` :
++          "Release-gate ledger not observed"}</p>
++        <p>Process epoch: {state.epoch?.slice(0, 12) ?? "Unavailable"}</p>
++      </article>
++    </section>}
++    <footer className={styles.footer}>
++      <p>Monitoring updates while this page is visible. Release approval and rollback remain
++        separate host-authorized workflows. Lost operator connectivity blocks managed sandbox launches.</p>
++    </footer>
++  </main>;
++}
+diff --git a/frontend/src/components/Panels.tsx b/frontend/src/components/Panels.tsx
+--- a/frontend/src/components/Panels.tsx
++++ b/frontend/src/components/Panels.tsx
+@@ -107,2 +107,3 @@
+       <a className="menu-item" href="/setup/apis"><span>Remote API credentials</span><span aria-hidden="true">↗</span></a>
++      <a className="menu-item" href="/setup/operator"><span>Operator health and release gates</span><span aria-hidden="true">↗</span></a>
+     </div>}
+diff --git a/frontend/src/lib/operator-status.ts b/frontend/src/lib/operator-status.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/lib/operator-status.ts
+@@ -0,0 +1,29 @@
++const EPOCH = /^[0-9a-f]{32}$/;
++const SCHEMA = "potbot-ui-operator/v1";
++
++type OperatorView = {
++  schema: typeof SCHEMA; workspaceId: string; configured: boolean; healthy: boolean;
++  journal: "healthy" | "unavailable"; releaseGate: "observed" | "unknown";
++  pendingReleases: number | null; activeRuns: number | null; epoch: string | null;
++};
++
++export function projectOperatorStatus(raw: unknown, workspaceId: string): OperatorView | null {
++  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
++  const r = raw as Record<string, unknown>;
++  if (r.schema !== SCHEMA || r.workspaceId !== workspaceId ||
++      typeof r.configured !== "boolean" || typeof r.healthy !== "boolean" ||
++      !["healthy", "unavailable"].includes(String(r.journal)) ||
++      !["observed", "unknown"].includes(String(r.releaseGate)) ||
++      !(r.pendingReleases === null || (Number.isSafeInteger(r.pendingReleases) &&
++        (r.pendingReleases as number) >= 0 && (r.pendingReleases as number) <= 100000)) ||
++      !(r.activeRuns === null || (Number.isSafeInteger(r.activeRuns) &&
++        (r.activeRuns as number) >= 0 && (r.activeRuns as number) <= 100000)) ||
++      !(r.epoch === null || (typeof r.epoch === "string" && EPOCH.test(r.epoch)))) return null;
++  if (r.healthy === true && (r.configured !== true || r.journal !== "healthy" ||
++      typeof r.epoch !== "string" || r.activeRuns === null)) return null;
++  return { schema: SCHEMA, workspaceId, configured: r.configured as boolean,
++    healthy: r.healthy as boolean, journal: r.journal as OperatorView["journal"],
++    releaseGate: r.releaseGate as OperatorView["releaseGate"],
++    pendingReleases: r.pendingReleases as number | null, activeRuns: r.activeRuns as number | null,
++    epoch: r.epoch as string | null };
++}
+diff --git a/frontend/tests/operator-status-s13.test.mjs b/frontend/tests/operator-status-s13.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/frontend/tests/operator-status-s13.test.mjs
+@@ -0,0 +1,13 @@
++import assert from 'node:assert/strict';
++import test from 'node:test';
++import { projectOperatorStatus } from '../src/lib/operator-status.ts';
++const ws = '55d15cd6-34fd-44d2-92e4-2e9331879994';
++const record = {schema:'potbot-ui-operator/v1',workspaceId:ws,configured:true,healthy:true,
++ journal:'healthy',releaseGate:'observed',pendingReleases:0,activeRuns:2,epoch:'a'.repeat(32)};
++test('operator status projection retains only bounded public fields',()=>{
++ assert.deepEqual(projectOperatorStatus({...record,secret:'should-not-show'},ws), record);
++ assert.equal(projectOperatorStatus({...record,workspaceId:'other'},ws),null);
++ assert.equal(projectOperatorStatus({...record,healthy:true,journal:'unavailable'},ws),null);
++ assert.equal(projectOperatorStatus({...record,activeRuns:1e50},ws),null);
++ assert.equal(projectOperatorStatus({...record,epoch:'bad'},ws),null);
++});
+diff --git a/scripts/qualify_operator_attachment_s13.py b/scripts/qualify_operator_attachment_s13.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/qualify_operator_attachment_s13.py
+@@ -0,0 +1,60 @@
++#!/usr/bin/env python3
++"""Real, read-only local operator socket qualification. Not an OS escape test."""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import sys
++from pathlib import Path
++
++from potbot.tools.operator_attachment_s13 import OperatorAttachmentClient, mount_fingerprint
++from potbot.tools.operator_cli import parse_manifest
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--manifest", type=Path, required=True)
++    parser.add_argument("--socket-path", type=Path, required=True)
++    parser.add_argument("--report", type=Path, required=True)
++    args = parser.parse_args()
++    try:
++        paths = parse_manifest(args.manifest)
++        if args.report.resolve() == args.manifest.resolve() or (
++            args.report.resolve().is_relative_to(paths.home.resolve())
++        ):
++            raise ValueError("Qualification receipts must be controller-private")
++        client = OperatorAttachmentClient(
++            socket_path=args.socket_path, workspace_id=paths.workspace_id,
++            image_digest=paths.image_digest,
++            qualification_sha256=paths.qualification_sha256,
++            mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
++        )
++        status = client.require_healthy()
++        report = {"schema": "potbot-s13-live-local-attachment/v1",
++                  "workspaceId": str(paths.workspace_id),
++                  "imageDigest": paths.image_digest,
++                  "epoch": status["epoch"],
++                  "watcherHealthy": status["history_healthy"],
++                  "releaseGatesPending": status["pending_release_gates"],
++                  "readOnlyProbe": True,
++                  "warning": "A live Unix socket check is not adversarial OS sandbox qualification"}
++        report["sha256"] = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
++        if args.report.is_symlink():
++            raise ValueError("Qualification report destination may not be redirected")
++        args.report.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
++        fd = os.open(args.report, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
++        with os.fdopen(fd, "w", encoding="utf-8") as stream:
++            stream.write(json.dumps(report, sort_keys=True, indent=2) + "\n")
++            stream.flush()
++            os.fsync(stream.fileno())
++        print(json.dumps({"qualified_local_socket": True, "receipt_sha256": report["sha256"]}))
++        return 0
++    except Exception:
++        print('{"qualified_local_socket":false,"error":"operator_attach_failed"}', file=sys.stderr)
++        return 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/src/potbot/api/server_cli.py b/src/potbot/api/server_cli.py
+--- a/src/potbot/api/server_cli.py
++++ b/src/potbot/api/server_cli.py
+@@ -114,4 +114,7 @@
+     from potbot.api.ui_resources import register_ui_routes
+     from potbot.api.ui_api_setup import register_api_setup_routes
++    from potbot.api.ui_operator_s13 import register_operator_routes
+ 
+     register_ui_routes(app, database, authenticate, settings.allowed_origins)
++    register_operator_routes(app, database, authenticate, settings.allowed_origins,
++                             context.workspace_id)
+diff --git a/src/potbot/api/ui_operator_s13.py b/src/potbot/api/ui_operator_s13.py
+new file mode 100644
+--- /dev/null
++++ b/src/potbot/api/ui_operator_s13.py
+@@ -0,0 +1,92 @@
++"""S13: authenticated, status-only operator projection for the existing UI.
++
++The browser receives no controller path, lease token, backend credential,
++process command, private telemetry, or privileged operator RPC surface.
++"""
++
++from __future__ import annotations
++
++import os
++import re
++from collections.abc import Callable
++from pathlib import Path
++from typing import TYPE_CHECKING, Any
++from uuid import UUID
++
++from fastapi import Request
++from fastapi.responses import JSONResponse
++from starlette.concurrency import run_in_threadpool
++
++from potbot.domain.auth import WorkspaceContext
++from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
++from potbot.tools.operator_attachment_s13 import OperatorAttachmentClient
++
++if TYPE_CHECKING:
++    from fastapi import FastAPI
++    from potbot.persistence.database import Database
++
++_SHA = re.compile(r"[0-9a-f]{64}\Z")
++_HEADERS = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"}
++
++
++def _configured_client(workspace_id: UUID) -> OperatorAttachmentClient | None:
++    path = os.environ.get("POTBOT_OPERATOR_SOCKET")
++    if not path:
++        if os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1":
++            raise CapabilityUnavailableError("Managed operator endpoint is not configured")
++        return None
++    variables = (
++        os.environ.get("POTBOT_OPERATOR_IMAGE_DIGEST"),
++        os.environ.get("POTBOT_OPERATOR_QUALIFICATION_SHA256"),
++        os.environ.get("POTBOT_OPERATOR_MOUNTS_SHA256"),
++    )
++    if (os.environ.get("POTBOT_OPERATOR_WORKSPACE_ID") != str(workspace_id)
++            or any(not isinstance(v, str) or not _SHA.fullmatch(v) for v in variables)):
++        raise CapabilityUnavailableError("Managed operator has no verified pins")
++    return OperatorAttachmentClient(
++        socket_path=Path(path), workspace_id=workspace_id,
++        image_digest=variables[0], qualification_sha256=variables[1],
++        mounts_sha256=variables[2],
++    )
++
++
++def register_operator_routes(
++    app: FastAPI, database: Database, authenticate: Callable[[str | None], WorkspaceContext],
++    allowed_origins: tuple[str, ...], workspace_id: UUID,
++) -> None:
++    # This client survives requests and refuses epoch changes in a still-live
++    # API process; the native service must restart children after owner failure.
++    client = _configured_client(workspace_id)
++
++    @app.get("/v1/ui/operator")
++    async def operator_status(request: Request) -> JSONResponse:
++        origin = request.headers.get("origin")
++        if origin is not None and origin not in allowed_origins:
++            raise ScopeDeniedError("Browser origin unavailable")
++        if request.query_params:
++            raise ScopeDeniedError("Operator status does not accept query parameters")
++        actor = authenticate(request.headers.get("authorization"))
++        if actor.workspace_id != workspace_id:
++            raise ScopeDeniedError("Operator state is outside authenticated workspace")
++        # The RLS transaction validates current membership even if the socket
++        # status was recently cached by this process.
++        with database.transaction(actor):
++            pass
++        if client is None:
++            return JSONResponse({"schema": "potbot-ui-operator/v1", "workspaceId": str(workspace_id),
++                    "configured": False, "healthy": False, "journal": "unavailable",
++                    "releaseGate": "unknown", "pendingReleases": None,
++                    "activeRuns": None, "epoch": None}, headers=_HEADERS)
++        try:
++            status = await run_in_threadpool(client.require_healthy)
++        except (CapabilityUnavailableError, ScopeDeniedError):
++            return JSONResponse({"schema": "potbot-ui-operator/v1", "workspaceId": str(workspace_id),
++                    "configured": True, "healthy": False, "journal": "unavailable",
++                    "releaseGate": "unknown", "pendingReleases": None,
++                    "activeRuns": None, "epoch": None}, headers=_HEADERS)
++        return JSONResponse({"schema": "potbot-ui-operator/v1", "workspaceId": str(workspace_id),
++                "configured": True, "healthy": True, "journal": "healthy",
++                "releaseGate": "observed" if status["pending_release_gates"] is not None else "unknown",
++                "pendingReleases": status["pending_release_gates"],
++                "activeRuns": status["supervised_runs"], "epoch": status["epoch"]},
++                headers=_HEADERS)
+diff --git a/src/potbot/service.py b/src/potbot/service.py
+--- a/src/potbot/service.py
++++ b/src/potbot/service.py
+@@ -22,2 +22,2 @@
+-from potbot.domain.errors import DomainError, InvalidInputError
++from potbot.domain.errors import CapabilityUnavailableError, DomainError, InvalidInputError
+ from potbot.models.hosted_policy import HostedPolicy
+@@ -48,3 +48,4 @@
+     credential_profile: str = "default"
++    operator_manifest: str | None = None
+ 
+     @classmethod
+@@ -82,3 +83,9 @@
+             if not Path(self.provider_policy).is_absolute():
+                 raise ValueError
++            if self.operator_manifest is not None and (
++                not isinstance(self.operator_manifest, str)
++                or not Path(self.operator_manifest).is_absolute()
++                or not sys.platform.startswith("linux")
++            ):
++                raise ValueError
+         except (ValueError, TypeError):
+@@ -268,3 +275,5 @@
+         allowed_origins=tuple(args.allowed_origin), log_content=args.log_content,
+         credential_profile=credential_profile(),
++        operator_manifest=str(args.operator_manifest.resolve(strict=True))
++        if args.operator_manifest is not None else None,
+     )
+@@ -273,2 +282,7 @@
+     config.validate()
++    if config.operator_manifest is not None:
++        from potbot.tools.operator_cli import parse_manifest
++        selected = parse_manifest(Path(config.operator_manifest))
++        if str(selected.workspace_id) != config.workspace_id:
++            raise InvalidInputError("Operator manifest belongs to a different workspace")
+     # Server-side disclosure policy always governs external provider use.
+@@ -302,3 +316,7 @@
+     home = service_home()
+     home.mkdir(parents=True, exist_ok=True, mode=0o700)
++    if home.is_symlink():
++        raise InvalidInputError("Operator service home must not be a symbolic link")
++    if os.name == "posix":
++        home.chmod(0o700)
+     events = EventLogger(log_path=home / "supervisor.jsonl")
+@@ -330,2 +348,37 @@
+     env["POTBOT_LOG_CONTENT"] = "1" if config.log_content else "0"
++    operator_attachment = None
++    if config.operator_manifest is not None:
++        from potbot.tools.operator_cli import parse_manifest
++        from potbot.tools.operator_attachment_s13 import (
++            OperatorAttachmentClient, mount_fingerprint,
++        )
++        paths = parse_manifest(Path(config.operator_manifest))
++        if str(paths.workspace_id) != config.workspace_id:
++            raise InvalidInputError("Operator manifest workspace differs from service scope")
++        socket_path = home / "operator.sock"
++        for mount in (paths.rootfs, paths.home, paths.model_staging,
++                      paths.shared_models, paths.shared_tools,
++                      paths.ai_config_dir, paths.ai_history_dir):
++            physical = mount.resolve(strict=True)
++            if socket_path == physical or socket_path.is_relative_to(physical):
++                raise InvalidInputError("Managed service socket overlaps a guest mount")
++        operator_attachment = OperatorAttachmentClient(
++            socket_path=socket_path, workspace_id=paths.workspace_id,
++            image_digest=paths.image_digest,
++            qualification_sha256=paths.qualification_sha256,
++            mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
++        )
++        env.update({
++            "POTBOT_OPERATOR_REQUIRED": "1",
++            "POTBOT_OPERATOR_SOCKET": str(socket_path),
++            "POTBOT_OPERATOR_WORKSPACE_ID": str(paths.workspace_id),
++            "POTBOT_OPERATOR_IMAGE_DIGEST": paths.image_digest,
++            "POTBOT_OPERATOR_QUALIFICATION_SHA256": paths.qualification_sha256,
++            "POTBOT_OPERATOR_MOUNTS_SHA256": operator_attachment.mounts_sha256,
++        })
++        commands = {"operator": _service_command()[:2] + [
++            "potbot.startup", "operator", "run", "--manifest",
++            config.operator_manifest,
++            "--socket-path", str(socket_path),
++        ], **commands}
+     threads: list[threading.Thread] = []
+@@ -338,32 +391,65 @@
+     try:
+         while not stopped.is_set():
+             for name, command in commands.items():
+                 previous = children.get(name)
++                if name == "operator" and previous is not None:
++                    # Never silently adopt a replacement operator epoch.
++                    if previous.poll() is not None or (
++                        operator_attachment is not None and not operator_attachment.healthy()
++                    ):
++                        raise CapabilityUnavailableError("Managed operator disappeared")
++                    continue
++                if name != "operator" and operator_attachment is not None:
++                    operator_attachment.require_healthy()
+                 if previous is not None and previous.poll() is None:
+                     continue
+                 if previous is not None:
+                     events.emit("service.restart", component=name, return_code=previous.returncode)
+                 process = subprocess.Popen(
+                     command, cwd=project_root(), env=env, stdin=subprocess.DEVNULL,
+                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                     encoding="utf-8", errors="replace", bufsize=1,
+                 )
+                 children[name] = process
+                 thread = threading.Thread(target=watch, args=(name, process), daemon=True)
+                 thread.start()
+                 threads.append(thread)
+                 events.emit("service.started", component=name, pid=process.pid)
++                if name == "operator":
++                    assert operator_attachment is not None
++                    # Admit no API/worker before the real operator attests.
++                    for _ in range(80):
++                        if process.poll() is not None or stopped.is_set():
++                            break
++                        if operator_attachment.healthy():
++                            break
+-            stopped.wait(5)
++                        stopped.wait(0.1)
++                    operator_attachment.require_healthy()
++            if operator_attachment is not None:
++                operator_attachment.require_healthy()
++            stopped.wait(0.5 if operator_attachment is not None else 5)
+     finally:
++        # Stop API and worker before asking the history owner to exit.
+-        for process in children.values():
++        for name, process in children.items():
+-            if process.poll() is None:
++            if name != "operator" and process.poll() is None:
+                 process.terminate()
+-        for process in children.values():
++        for name, process in children.items():
++            if name == "operator":
++                continue
+             try:
+                 process.wait(timeout=15)
+             except subprocess.TimeoutExpired:
+                 process.kill()
+                 process.wait(timeout=5)
++        operator_process = children.get("operator")
++        if operator_process is not None and operator_process.poll() is None:
++            operator_process.terminate()
++            try:
++                operator_process.wait(timeout=10)
++            except subprocess.TimeoutExpired:
++                # Indeterminate workspace leases block clean operator shutdown;
++                # do not forcibly reap the owner and destroy recovery evidence.
++                events.emit("service.operator_stop_blocked", recovery_required=True)
+         events.emit("service.stopped")
+         events.close()
+     return 0
+@@ -383,2 +469,4 @@
+     install_parser.add_argument("--provider-policy", required=True, type=Path)
++    install_parser.add_argument("--operator-manifest", type=Path, default=None,
++                                help="opt into Linux/WSL2 managed operator startup")
+     install_parser.add_argument("--schema", default="potbot")
+diff --git a/src/potbot/tools/ai_workspace_operator.py b/src/potbot/tools/ai_workspace_operator.py
+--- a/src/potbot/tools/ai_workspace_operator.py
++++ b/src/potbot/tools/ai_workspace_operator.py
+@@ -183,4 +183,19 @@
+     def status(self) -> dict[str, object]:
+         monitor = self._monitor
+         worker = self._supervisor
++        # Read the S12 host-only gate ledger. Unknown schema is reported as
++        # unknown, never as a clean or released workspace.
++        with self.ledger._connect() as db:
++            exists = db.execute(
++                "SELECT 1 FROM sqlite_master WHERE type='table' "
++                "AND name='trusted_tool_release_gates'"
++            ).fetchone()
++            pending: int | None = None
++            if exists is not None:
++                record = db.execute(
++                    "SELECT COUNT(*) AS n FROM trusted_tool_release_gates "
++                    "WHERE workspace_id=? AND state NOT IN ('released','rolled_back')",
++                    (str(self.workspace_id),),
++                ).fetchone()
++                pending = int(record["n"])
+         return {
+@@ -191,2 +206,3 @@
+             "supervised_runs": worker.active_runs if worker is not None else 0,
++            "pending_release_gates": pending,
+         }
+diff --git a/src/potbot/tools/operator_attachment_s13.py b/src/potbot/tools/operator_attachment_s13.py
+new file mode 100644
+--- /dev/null
++++ b/src/potbot/tools/operator_attachment_s13.py
+@@ -0,0 +1,360 @@
++"""S13: local, operator-owned health attachment for sandbox worker processes.
++
++The Unix socket is a *read-only* live-attestation endpoint, not a process-control
++RPC. It never carries secrets, arbitrary paths, commands, or filesystem contents.
++The owning operator must remain the only writer of /etc/ai history and the
++controller must place the socket outside every guest-visible mount.
++
++Linux SO_PEERCRED and an owner-only directory/socket protect other OS users;
++other hostile processes running as the SAME OS user are not isolated by this
++transport. The OS sandbox and supervisor remain mandatory security boundaries.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++import socket
++import stat
++import struct
++import threading
++import time
++from collections.abc import Callable, Mapping
++from pathlib import Path
++from typing import Any
++from uuid import UUID, uuid4
++
++from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
++
++_SCHEMA = "potbot-operator-attachment/v1"
++_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
++_EPOCH = re.compile(r"[0-9a-f]{32}\Z")
++_MAX_WIRE = 2048
++
++
++def _identity(workspace_id: UUID, image_digest: str, qualification_sha256: str) -> None:
++    if not isinstance(workspace_id, UUID) or any(
++        not isinstance(v, str) or not _DIGEST.fullmatch(v)
++        for v in (image_digest, qualification_sha256)
++    ):
++        raise InvalidInputError("Operator attachment requires a pinned workspace identity")
++
++
++def mount_fingerprint(config: Path, history: Path) -> str:
++    """Bind a live operator to the two exact host-backed /etc/ai sources."""
++    for candidate in (config, history):
++        if candidate.is_symlink() or not candidate.is_dir():
++            raise CapabilityUnavailableError("Operator AI mount source is unavailable")
++    payload = json.dumps([str(config.resolve(strict=True)), str(history.resolve(strict=True))],
++                         separators=(",", ":")).encode()
++    return hashlib.sha256(payload).hexdigest()
++
++
++def _peer_uid(conn: socket.socket) -> int:
++    if not hasattr(socket, "SO_PEERCRED") or os.name != "posix":
++        raise CapabilityUnavailableError("Operator attachment requires Linux peer credentials")
++    payload = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
++    pid, uid, _gid = struct.unpack("3i", payload)
++    if pid <= 0:
++        raise ScopeDeniedError("Operator peer has no kernel identity")
++    return uid
++
++
++def _socket_path(path: Path, *, existing: bool) -> Path:
++    selected = Path(path)
++    if not selected.is_absolute() or len(os.fsencode(selected)) > 200:
++        raise ScopeDeniedError("Operator socket must have an absolute bounded path")
++    parent = selected.parent
++    if (parent.is_symlink() or not parent.is_dir() or parent.resolve(strict=True) != parent):
++        raise ScopeDeniedError("Operator socket directory must not be redirected")
++    details = parent.stat(follow_symlinks=False)
++    if details.st_uid != os.getuid() or details.st_mode & 0o077:
++        raise ScopeDeniedError("Operator socket directory must be owned and private")
++    if existing:
++        try:
++            entry = selected.lstat()
++        except FileNotFoundError as exc:
++            raise CapabilityUnavailableError("Operator socket is not available") from exc
++        if (not stat.S_ISSOCK(entry.st_mode) or entry.st_uid != os.getuid()
++                or entry.st_mode & 0o077):
++            raise ScopeDeniedError("Operator socket must be a private Unix socket")
++    return selected
++
++
++def _recv_line(conn: socket.socket) -> dict[str, Any]:
++    data = bytearray()
++    while len(data) <= _MAX_WIRE:
++        chunk = conn.recv(min(512, _MAX_WIRE + 1 - len(data)))
++        if not chunk:
++            break
++        data.extend(chunk)
++        if b"\n" in chunk:
++            break
++    if len(data) > _MAX_WIRE or not data.endswith(b"\n") or data.count(b"\n") != 1:
++        raise InvalidInputError("Operator protocol frame was incomplete or too large")
++    try:
++        value = json.loads(data[:-1].decode("utf-8"))
++    except (UnicodeError, ValueError, RecursionError) as exc:
++        raise InvalidInputError("Operator protocol frame is invalid") from exc
++    if not isinstance(value, dict):
++        raise InvalidInputError("Operator protocol expects an object")
++    return value
++
++
++def _write_line(conn: socket.socket, document: dict[str, Any]) -> None:
++    payload = json.dumps(document, separators=(",", ":"), sort_keys=True).encode() + b"\n"
++    if len(payload) > _MAX_WIRE:
++        raise InvalidInputError("Operator status exceeds the wire bound")
++    conn.sendall(payload)
++
++
++class OperatorAttachmentServer:
++    """One read-only local endpoint belonging to an active AiWorkspaceOperator.
++
++    The caller MUST hold AiConfigHistoryMonitor's exclusive operator lock
++    throughout this server's lifetime; the attachment isn't a substitute.
++    """
++
++    def __init__(
++        self, *, socket_path: Path, workspace_id: UUID, image_digest: str,
++        qualification_sha256: str, status: Callable[[], Mapping[str, object]],
++        mounts_sha256: str = "0" * 64,
++    ) -> None:
++        _identity(workspace_id, image_digest, qualification_sha256)
++        if not callable(status):
++            raise InvalidInputError("Operator status must be supplied by the host owner")
++        self.path = Path(socket_path)
++        self.workspace_id = workspace_id
++        self.image_digest = image_digest
++        self.qualification_sha256 = qualification_sha256
++        if not _DIGEST.fullmatch(mounts_sha256):
++            raise InvalidInputError("Operator mount fingerprint must be a SHA-256 digest")
++        self.status = status
++        self.mounts_sha256 = mounts_sha256
++        self.epoch = uuid4().hex
++        self._listener: socket.socket | None = None
++        self._inode: int | None = None
++        self._stopping = threading.Event()
++        self._thread: threading.Thread | None = None
++
++    def start(self) -> OperatorAttachmentServer:
++        if self._listener is not None or self._stopping.is_set():
++            raise InvalidInputError("Operator attachment cannot be started twice")
++        _socket_path(self.path, existing=False)
++        if self.path.is_symlink():
++            raise ScopeDeniedError("Operator socket cannot be a symbolic link")
++        if self.path.exists():
++            current = self.path.lstat()
++            if not stat.S_ISSOCK(current.st_mode) or current.st_uid != os.getuid():
++                raise ScopeDeniedError("Unexpected object at operator socket")
++            # Never remove a live operator endpoint. The owner holds the
++            # /etc/ai singleton history lock before it reaches this code.
++            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
++                probe.settimeout(0.15)
++                try:
++                    probe.connect(str(self.path))
++                except (ConnectionRefusedError, FileNotFoundError):
++                    if self.path.lstat().st_ino != current.st_ino:
++                        raise ScopeDeniedError("Operator socket changed during recovery")
++                    self.path.unlink()
++                else:
++                    raise ScopeDeniedError("Another operator is already listening")
++        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++        try:
++            listener.bind(str(self.path))
++            os.chmod(self.path, 0o600, follow_symlinks=False)
++            listener.listen(8)
++            listener.settimeout(0.2)
++            self._inode = self.path.lstat().st_ino
++            self._listener = listener
++            self._thread = threading.Thread(target=self._serve, daemon=True,
++                                            name="potbot-operator-attachment")
++            self._thread.start()
++            return self
++        except BaseException:
++            listener.close()
++            if self.path.is_socket():
++                self.path.unlink()
++            raise
++
++    def _serve(self) -> None:
++        assert self._listener is not None
++        while not self._stopping.is_set():
++            try:
++                peer, _ = self._listener.accept()
++            except socket.timeout:
++                continue
++            except OSError:
++                return
++            with peer:
++                peer.settimeout(0.4)
++                try:
++                    if _peer_uid(peer) != os.getuid():
++                        continue
++                    request = _recv_line(peer)
++                    if request != {
++                        "schema": _SCHEMA, "operation": "status",
++                        "workspace_id": str(self.workspace_id),
++                        "image_digest": self.image_digest,
++                        "qualification_sha256": self.qualification_sha256,
++                        "mounts_sha256": self.mounts_sha256,
++                    }:
++                        continue
++                    state = self.status()
++                    healthy = (state.get("running") is True
++                               and state.get("history_healthy") is True
++                               and state.get("workspace_id") == str(self.workspace_id)
++                               and state.get("image_digest") == self.image_digest)
++                    running = state.get("supervised_runs", 0)
++                    if type(running) is not int or not 0 <= running <= 100_000:
++                        healthy = False
++                        running = 0
++                    pending = state.get("pending_release_gates")
++                    if pending is not None and (type(pending) is not int
++                                               or not 0 <= pending <= 100_000):
++                        healthy = False
++                        pending = None
++                    _write_line(peer, {
++                        "schema": _SCHEMA, "workspace_id": str(self.workspace_id),
++                        "image_digest": self.image_digest,
++                        "qualification_sha256": self.qualification_sha256,
++                        "mounts_sha256": self.mounts_sha256,
++                        "epoch": self.epoch, "healthy": healthy,
++                        "history_healthy": state.get("history_healthy") is True,
++                        "supervised_runs": running,
++                        "pending_release_gates": pending,
++                    })
++                except (ValueError, KeyError, OSError, TimeoutError, RuntimeError):
++                    # A local peer never receives raw filesystem or monitor errors.
++                    continue
++
++    def close(self) -> None:
++        if self._listener is None:
++            return
++        self._stopping.set()
++        self._listener.close()
++        if self._thread is not None:
++            self._thread.join(timeout=1.5)
++        try:
++            if self.path.lstat().st_ino == self._inode:
++                self.path.unlink()
++        except FileNotFoundError:
++            pass
++        self._listener = None
++
++    def __enter__(self) -> OperatorAttachmentServer:
++        return self.start()
++
++    def __exit__(self, *_args: object) -> None:
++        self.close()
++
++
++class OperatorAttachmentClient:
++    """Pinned live-operator check, with an epoch fence across daemon restarts."""
++
++    def __init__(
++        self, *, socket_path: Path, workspace_id: UUID, image_digest: str,
++        qualification_sha256: str, timeout_seconds: float = 0.4,
++        mounts_sha256: str = "0" * 64,
++    ) -> None:
++        _identity(workspace_id, image_digest, qualification_sha256)
++        if (not isinstance(timeout_seconds, (int, float))
++                or not 0.05 <= timeout_seconds <= 2.0):
++            raise InvalidInputError("Operator attachment timeout is invalid")
++        self.path = Path(socket_path)
++        self.workspace_id = workspace_id
++        self.image_digest = image_digest
++        self.qualification_sha256 = qualification_sha256
++        if not _DIGEST.fullmatch(mounts_sha256):
++            raise InvalidInputError("Operator mount fingerprint must be a SHA-256 digest")
++        self.mounts_sha256 = mounts_sha256
++        self.timeout = float(timeout_seconds)
++        self._epoch: str | None = None
++        self._lock = threading.Lock()
++        self._cached_until = 0.0
++        self._cached: dict[str, Any] | None = None
++
++    def require_healthy(self) -> dict[str, Any]:
++        with self._lock:
++            if self._cached is not None and time.monotonic() < self._cached_until:
++                return dict(self._cached)
++            try:
++                _socket_path(self.path, existing=True)
++                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
++                    conn.settimeout(self.timeout)
++                    conn.connect(str(self.path))
++                    if _peer_uid(conn) != os.getuid():
++                        raise ScopeDeniedError("Operator peer is not the controller user")
++                    _write_line(conn, {
++                        "schema": _SCHEMA, "operation": "status",
++                        "workspace_id": str(self.workspace_id),
++                        "image_digest": self.image_digest,
++                        "qualification_sha256": self.qualification_sha256,
++                        "mounts_sha256": self.mounts_sha256,
++                    })
++                    response = _recv_line(conn)
++                if (set(response) != {
++                    "schema", "workspace_id", "image_digest", "qualification_sha256",
++                    "epoch", "healthy", "history_healthy", "supervised_runs",
++                    "mounts_sha256", "pending_release_gates",
++                } or response["schema"] != _SCHEMA
++                    or response["workspace_id"] != str(self.workspace_id)
++                    or response["image_digest"] != self.image_digest
++                    or response["qualification_sha256"] != self.qualification_sha256
++                    or response["mounts_sha256"] != self.mounts_sha256
++                    or not isinstance(response["epoch"], str)
++                    or not _EPOCH.fullmatch(response["epoch"])
++                    or response["healthy"] is not True
++                    or response["history_healthy"] is not True
++                    or type(response["supervised_runs"]) is not int
++                    or not 0 <= response["supervised_runs"] <= 100_000
++                    or not (response["pending_release_gates"] is None or
++                            type(response["pending_release_gates"]) is int and
++                            0 <= response["pending_release_gates"] <= 100_000)
++                    or self._epoch is not None and self._epoch != response["epoch"]):
++                    raise CapabilityUnavailableError("Operator identity or monitoring is unavailable")
++                self._epoch = response["epoch"]
++                self._cached = response
++                self._cached_until = time.monotonic() + 0.15
++                return dict(response)
++            except (OSError, ValueError, TimeoutError, KeyError, RecursionError):
++                self._cached = None
++                self._cached_until = 0
++                raise CapabilityUnavailableError("Operator attachment is unavailable") from None
++
++    def healthy(self) -> bool:
++        try:
++            self.require_healthy()
++            return True
++        except (CapabilityUnavailableError, ScopeDeniedError):
++            return False
++
++
++def runtime_attachment(runtime: Any) -> OperatorAttachmentClient | None:
++    """Use only operator-provisioned host environment; never guest-supplied env."""
++    path = os.environ.get("POTBOT_OPERATOR_SOCKET")
++    required = os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1"
++    if not path:
++        if required:
++            raise CapabilityUnavailableError("Managed workspace requires an operator socket")
++        return None
++    selected = Path(path)
++    home = runtime.home.resolve(strict=True)
++    rootfs = runtime.rootfs.resolve(strict=True)
++    if any(selected == mount or selected.is_relative_to(mount)
++           for mount in (home, rootfs)):
++        raise ScopeDeniedError("Operator endpoint must stay outside guest mounts")
++    if runtime.ai_config_dir is None or runtime.ai_history_dir is None:
++        raise CapabilityUnavailableError("Managed workspace needs configured AI mounts")
++    try:
++        workspace_id = UUID(os.environ["POTBOT_OPERATOR_WORKSPACE_ID"])
++    except (KeyError, ValueError) as exc:
++        raise CapabilityUnavailableError("Managed workspace identity is unavailable") from exc
++    return OperatorAttachmentClient(
++        socket_path=selected, workspace_id=workspace_id,
++        image_digest=runtime.image_digest,
++        qualification_sha256=runtime.qualification_sha256,
++        mounts_sha256=mount_fingerprint(runtime.ai_config_dir, runtime.ai_history_dir),
++    )
+diff --git a/src/potbot/tools/operator_cli.py b/src/potbot/tools/operator_cli.py
+--- a/src/potbot/tools/operator_cli.py
++++ b/src/potbot/tools/operator_cli.py
+@@ -15,3 +15,4 @@
+ import argparse
+ import json
++from contextlib import ExitStack
+ import re
+@@ -124,9 +125,28 @@
+ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
+-                 pulse: Callable[[dict[str, object]], None] | None = None) -> None:
++                 pulse: Callable[[dict[str, object]], None] | None = None,
++                 socket_path: Path | None = None) -> None:
+     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
+     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
++    from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
+ 
+     ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
+     with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
+-                             runtime=paths.runtime()) as operator:
++                             runtime=paths.runtime()) as operator, ExitStack() as resources:
++        # The history watcher owns the singleton lock BEFORE the socket appears.
++        # Stop offering new admissions BEFORE the watcher can be shut down.
++        if socket_path is not None:
++            endpoint = Path(socket_path)
++            for mount in (paths.rootfs, paths.home, paths.model_staging,
++                          paths.shared_models, paths.shared_tools,
++                          paths.ai_config_dir, paths.ai_history_dir):
++                physical = mount.resolve(strict=True)
++                if endpoint == physical or endpoint.is_relative_to(physical):
++                    raise ScopeDeniedError("Operator endpoint overlaps a guest mount")
++            resources.enter_context(OperatorAttachmentServer(
++                socket_path=socket_path, workspace_id=paths.workspace_id,
++                image_digest=paths.image_digest,
++                qualification_sha256=paths.qualification_sha256,
++                mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
++                status=operator.status,
++            ))
+         while True:
+@@ -152,2 +172,4 @@
+     parser.add_argument("--manifest", type=Path, required=True)
++    parser.add_argument("--socket-path", type=Path, default=None,
++                        help="host-private Linux operator health socket (never guest-mounted)")
+     args = parser.parse_args(argv)
+@@ -160,2 +182,2 @@
+-        run_operator(paths, stop=stopped)
++        run_operator(paths, stop=stopped, socket_path=args.socket_path)
+         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
+diff --git a/src/potbot/tools/shared_bash_sessions.py b/src/potbot/tools/shared_bash_sessions.py
+--- a/src/potbot/tools/shared_bash_sessions.py
++++ b/src/potbot/tools/shared_bash_sessions.py
+@@ -332,2 +332,4 @@
+                     ai_healthy=(self.backend.ai_monitor.is_healthy
+-                                if self.backend.ai_monitor is not None else None),
++                                if self.backend.ai_monitor is not None
++                                else self.backend.operator_attachment.healthy
++                                if self.backend.operator_attachment is not None else None),
+diff --git a/src/potbot/tools/shared_workspace_isolation.py b/src/potbot/tools/shared_workspace_isolation.py
+--- a/src/potbot/tools/shared_workspace_isolation.py
++++ b/src/potbot/tools/shared_workspace_isolation.py
+@@ -23,2 +23,3 @@
+ from potbot.tools.model_cache_routes import model_environment
++from potbot.tools.operator_attachment_s13 import runtime_attachment
+ from potbot.tools.shared_tool_mounts import ToolWriteGrant
+@@ -105,4 +106,7 @@
+         self.runtime = runtime
+         self.tool_write_grant = tool_write_grant
+         self.ai_monitor = ai_monitor
++        # In a managed native service, workers attach to the operator's live
++        # host-only socket; they MUST NOT instantiate another history watcher.
++        self.operator_attachment = runtime_attachment(runtime)
+         self.executable = executable or Path(shutil.which("bwrap") or "/unavailable/bwrap")
+@@ -110,3 +114,7 @@
+         self.prlimit = prlimit or Path(shutil.which("prlimit") or "/unavailable/prlimit")
+ 
++    def operator_healthy(self) -> bool:
++        attachment = self.operator_attachment
++        return attachment is None or attachment.healthy()
++
+     def prepare(
+@@ -125,3 +133,6 @@
+         if ipc_profile != "none" or read_only_roots or writable_roots:
+             raise ScopeDeniedError("shared workspace forbids extra writable/readable host mounts or IPC")
++        # Admission precedes executable inspection, bind mounts and dispatch.
++        if self.operator_attachment is not None:
++            self.operator_attachment.require_healthy()
+         if platform.system() != "Linux" or platform.machine() not in {"x86_64", "aarch64"}:
+@@ -186,3 +197,4 @@
+             or self.runtime.ai_history_dir is not None
+             or self.ai_monitor is not None
++            or self.operator_attachment is not None
+         )
+@@ -193,3 +205,4 @@
+             if (self.runtime.ai_config_dir is None or self.runtime.ai_history_dir is None
+-                    or not isinstance(self.ai_monitor, AiConfigHistoryMonitor)):
++                    or (not isinstance(self.ai_monitor, AiConfigHistoryMonitor)
++                        and self.operator_attachment is None)):
+                 raise CapabilityUnavailableError("AI configuration mounts require an active operator watcher")
+@@ -215,2 +228,7 @@
++            if self.ai_monitor is not None:
+-            self.ai_monitor.require_active(config_dir=config_ai, past_dir=history_ai)
++                self.ai_monitor.require_active(config_dir=config_ai, past_dir=history_ai)
++            elif self.operator_attachment is not None:
++                # This is a live, mount-bound remote operator assertion; the
++                # private socket itself is NEVER made visible inside the guest.
++                self.operator_attachment.require_healthy()
+         # Guest executable must be present inside immutable image; no host executable bind.
+diff --git a/src/potbot/tools/supervisor.py b/src/potbot/tools/supervisor.py
+--- a/src/potbot/tools/supervisor.py
++++ b/src/potbot/tools/supervisor.py
+@@ -171,3 +171,13 @@
+         started = time.monotonic()
+         redactor = redactor or CaptureRedactor()
++        # Poll for operator disappearance while a guest is running. A worker
++        # never treats an old positive handshake as authority after an epoch
++        # change or a monitoring fault.
++        health = getattr(self.backend, "operator_attachment", None)
++        if health is not None:
++            earlier_cancelled = cancelled
++            def cancelled() -> bool:
++                if not health.healthy():
++                    raise CapabilityUnavailableError("Operator disappeared during execution")
++                return earlier_cancelled() if earlier_cancelled is not None else False
+         if not getattr(self.backend, "guest_executable", False) and (
+diff --git a/tests/unit/test_operator_attachment_s13.py b/tests/unit/test_operator_attachment_s13.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_operator_attachment_s13.py
+@@ -0,0 +1,182 @@
++"""Offline Linux integration with real AF_UNIX/SO_PEERCRED, no fake wire transport."""
++from __future__ import annotations
++
++import os
++import socket
++import tempfile
++import threading
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++
++from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
++from potbot.tools.operator_attachment_s13 import (
++    OperatorAttachmentClient, OperatorAttachmentServer, runtime_attachment,
++)
++
++IMAGE = "a" * 64
++QUAL = "b" * 64
++
++
++@pytest.fixture
++def fixture():
++    with tempfile.TemporaryDirectory(prefix="s13-") as name:
++        path = Path(name)
++        path.chmod(0o700)
++        state = {"running": True, "history_healthy": True}
++        ws = uuid4()
++        def status():
++            return {**state, "workspace_id": str(ws), "image_digest": IMAGE,
++                    "supervised_runs": 2}
++        yield path / "operator.sock", ws, state, status
++
++
++def client(path, ws, image=IMAGE):
++    return OperatorAttachmentClient(socket_path=path, workspace_id=ws,
++                                    image_digest=image, qualification_sha256=QUAL)
++
++
++def server(path, ws, status):
++    return OperatorAttachmentServer(socket_path=path, workspace_id=ws,
++                                    image_digest=IMAGE, qualification_sha256=QUAL,
++                                    status=status)
++
++
++def test_real_socket_healthy_and_latched_epoch(fixture):
++    path, ws, state, status = fixture
++    with server(path, ws, status) as owner:
++        checked = client(path, ws)
++        response = checked.require_healthy()
++        assert response["epoch"] == owner.epoch
++        assert response["history_healthy"] is True
++        assert response["supervised_runs"] == 2
++        assert checked.healthy()
++        assert path.stat().st_mode & 0o077 == 0
++    assert not path.exists()
++
++
++def test_epoch_change_requires_worker_restart(fixture):
++    path, ws, state, status = fixture
++    consumer = client(path, ws)
++    with server(path, ws, status):
++        consumer.require_healthy()
++    with server(path, ws, status):
++        # More than the 150ms bounded positive cache.
++        import time
++        time.sleep(0.17)
++        with pytest.raises(CapabilityUnavailableError):
++            consumer.require_healthy()
++        assert client(path, ws).healthy()
++
++
++def test_fail_closed_when_monitor_faults(fixture):
++    path, ws, state, status = fixture
++    with server(path, ws, status):
++        consumer = client(path, ws)
++        assert consumer.healthy()
++        state["history_healthy"] = False
++        import time
++        time.sleep(0.17)
++        assert not consumer.healthy()
++        with pytest.raises(CapabilityUnavailableError):
++            consumer.require_healthy()
++
++
++def test_wrong_workspace_or_image_never_produces_healthy_reply(fixture):
++    path, ws, state, status = fixture
++    with server(path, ws, status):
++        for bad in [client(path, uuid4()), client(path, ws, image="c" * 64)]:
++            assert not bad.healthy()
++
++
++def test_private_directory_and_socket_required(fixture):
++    path, ws, state, status = fixture
++    path.parent.chmod(0o755)
++    with pytest.raises(ScopeDeniedError):
++        server(path, ws, status).start()
++    path.parent.chmod(0o700)
++    with server(path, ws, status):
++        path.chmod(0o666)
++        with pytest.raises(ScopeDeniedError):
++            client(path, ws).require_healthy()
++
++
++def test_preexisting_symlink_denied(fixture):
++    path, ws, state, status = fixture
++    path.symlink_to("/dev/null")
++    with pytest.raises(ScopeDeniedError):
++        server(path, ws, status).start()
++    with pytest.raises(ScopeDeniedError):
++        client(path, ws).require_healthy()
++
++
++def test_stale_socket_is_recovered_only_in_private_directory(fixture):
++    path, ws, state, status = fixture
++    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as stale:
++        stale.bind(str(path))
++    assert path.is_socket()
++    with server(path, ws, status):
++        assert client(path, ws).healthy()
++
++
++def test_live_operator_cannot_be_displaced(fixture):
++    path, ws, state, status = fixture
++    with server(path, ws, status):
++        with pytest.raises(ScopeDeniedError):
++            server(path, ws, status).start()
++        assert client(path, ws).healthy()
++
++
++def test_invalid_operator_status_fails_closed(fixture):
++    path, ws, state, status = fixture
++    with server(path, ws, lambda: {"running": True, "history_healthy": True,
++                                    "workspace_id": str(ws), "image_digest": "f"*64}):
++        assert not client(path, ws).healthy()
++
++
++def test_concurrent_clients_with_real_peer_credentials(fixture):
++    path, ws, state, status = fixture
++    results = []
++    with server(path, ws, status):
++        threads = [threading.Thread(target=lambda: results.append(client(path, ws).healthy()))
++                   for _ in range(8)]
++        for thread in threads: thread.start()
++        for thread in threads: thread.join()
++        assert results == [True] * 8
++
++
++def test_required_runtime_attachment_cannot_be_skipped(monkeypatch, tmp_path):
++    monkeypatch.setenv("POTBOT_OPERATOR_REQUIRED", "1")
++    monkeypatch.delenv("POTBOT_OPERATOR_SOCKET", raising=False)
++    runtime = type("Runtime", (), {"home":tmp_path / "home", "rootfs":tmp_path / "root"})()
++    with pytest.raises(CapabilityUnavailableError):
++        runtime_attachment(runtime)
++
++
++def test_runtime_socket_inside_guest_mount_is_rejected(monkeypatch, tmp_path):
++    home = tmp_path / "home"; rootfs = tmp_path / "root"
++    home.mkdir(); rootfs.mkdir()
++    monkeypatch.setenv("POTBOT_OPERATOR_SOCKET", str(home / "operator.sock"))
++    monkeypatch.setenv("POTBOT_OPERATOR_WORKSPACE_ID", str(uuid4()))
++    runtime = type("Runtime", (), {"home":home, "rootfs":rootfs,
++                    "image_digest":IMAGE,"qualification_sha256":QUAL})()
++    with pytest.raises(ScopeDeniedError):
++        runtime_attachment(runtime)
++
++
++def test_operator_mount_binding_cannot_be_substituted(fixture):
++    from potbot.tools.operator_attachment_s13 import mount_fingerprint
++    path, ws, state, status = fixture
++    config, history = path.parent / "config", path.parent / "history"
++    config.mkdir(); history.mkdir()
++    pinned = mount_fingerprint(config, history)
++    assert pinned != "0" * 64
++    with OperatorAttachmentServer(socket_path=path, workspace_id=ws,
++                                  image_digest=IMAGE, qualification_sha256=QUAL,
++                                  mounts_sha256=pinned, status=status):
++        trusted = OperatorAttachmentClient(socket_path=path, workspace_id=ws,
++                                           image_digest=IMAGE, qualification_sha256=QUAL,
++                                           mounts_sha256=pinned)
++        assert trusted.healthy()
++        assert not client(path, ws).healthy()
+diff --git a/tests/unit/test_ui_operator_s13.py b/tests/unit/test_ui_operator_s13.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_ui_operator_s13.py
+@@ -0,0 +1,67 @@
++"""Live local backend HTTP projection; no vault, no DB persistence in fixtures."""
++from __future__ import annotations
++
++import contextlib
++from uuid import uuid4
++
++from fastapi import FastAPI
++from fastapi.responses import JSONResponse
++from fastapi.testclient import TestClient
++
++from potbot.domain.auth import WorkspaceContext
++from potbot.domain.errors import ScopeDeniedError
++from potbot.api.ui_operator_s13 import register_operator_routes
++from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer
++
++IMAGE = "a" * 64
++QUAL = "b" * 64
++
++class FakeDB:
++    def __init__(self):
++        self.calls = []
++    @contextlib.contextmanager
++    def transaction(self, actor):
++        self.calls.append(actor)
++        yield None
++
++
++def test_operator_status_is_workspace_scoped_and_has_no_sensitive_fields(monkeypatch, tmp_path):
++    directory = tmp_path / "private"
++    directory.mkdir(mode=0o700)
++    directory.chmod(0o700)
++    sock = directory / "operator.sock"
++    ws, principal = uuid4(), uuid4()
++    monkeypatch.setenv("POTBOT_OPERATOR_SOCKET", str(sock))
++    monkeypatch.setenv("POTBOT_OPERATOR_WORKSPACE_ID", str(ws))
++    monkeypatch.setenv("POTBOT_OPERATOR_IMAGE_DIGEST", IMAGE)
++    monkeypatch.setenv("POTBOT_OPERATOR_QUALIFICATION_SHA256", QUAL)
++    monkeypatch.setenv("POTBOT_OPERATOR_MOUNTS_SHA256", "0" * 64)
++    audit = FakeDB()
++    app = FastAPI()
++    app.add_exception_handler(ScopeDeniedError,
++                              lambda req, err: JSONResponse({"error": "denied"}, status_code=403))
++    user = WorkspaceContext(ws, principal)
++    def authorize(header):
++        if header != "Bearer local-token":
++            raise ScopeDeniedError("unknown bearer")
++        return user
++    register_operator_routes(app, audit, authorize, ("http://localhost:3100",), ws)
++    with OperatorAttachmentServer(socket_path=sock, workspace_id=ws, image_digest=IMAGE,
++                                   qualification_sha256=QUAL,
++                                   status=lambda: {"running":True,"history_healthy":True,
++                                                   "workspace_id":str(ws),"image_digest":IMAGE,
++                                                   "supervised_runs":3,"pending_release_gates":1}):
++        with TestClient(app) as client:
++            headers={"Authorization":"Bearer local-token","Origin":"http://localhost:3100"}
++            res = client.get('/v1/ui/operator',headers=headers)
++            assert res.status_code == 200
++            assert res.json()["healthy"] is True
++            assert res.json()["pendingReleases"] == 1
++            assert "socket" not in res.text and "token" not in res.text
++            assert len(audit.calls) == 1
++            assert client.get('/v1/ui/operator').status_code == 403
++            assert client.get('/v1/ui/operator',headers={**headers,"Origin":"http://evil.test"}).status_code == 403
++            assert client.get('/v1/ui/operator?secret=x',headers=headers).status_code == 403
++    with TestClient(app) as client:
++        res = client.get('/v1/ui/operator',headers=headers)
++        assert res.status_code == 200 and res.json()["healthy"] is False

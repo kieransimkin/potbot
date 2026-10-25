@@ -18,6 +18,9 @@ export async function browserProxy(request: Request, sessionId: string): Promise
   const config = xpraAppScope(request, true);
   if (config instanceof Response) return config;
   if (!appSessionId(sessionId)) return safeError("Invalid browser session.", 400);
+  const reservation = request.headers.get("x-potbot-browser-lease");
+  if (reservation !== null && !/^[A-Za-z0-9_-]{32,128}$/.test(reservation))
+    return safeError("Invalid browser reservation.", 400);
   let command: unknown;
   try { command = await boundedJSON(request, 4096); }
   catch { return safeError("Malformed browser command.", 400); }
@@ -28,6 +31,7 @@ export async function browserProxy(request: Request, sessionId: string): Promise
     const response = await fetch(`${config.base}/v1/xpra/apps/${sessionId}/browser`, {
       method: "POST", redirect: "error", cache: "no-store", headers: {
         Authorization: `Bearer ${config.secret}`, "Content-Type": "application/json",
+        ...(reservation ? {"X-Potbot-Browser-Lease": reservation} : {}),
       }, body: JSON.stringify(command), signal: AbortSignal.timeout(23000),
     });
     if (response.status === 409 || response.status === 404) return safeError("Browser session rejected the operation.", response.status);

@@ -9,6 +9,7 @@ import { PANEL_TITLES } from "@/lib/layout";
 import { GraphWorkbench } from "./GraphWorkbench";
 import { useWorkspace } from "./WorkspaceContext";
 import { BrowserInspector } from "./BrowserInspector";
+import { BrowserEvidenceGallery } from "./BrowserEvidenceGallery";
 
 export function DockControls({ id }: { id: PanelId }) {
   const { dockPanel, floatPanel, graphFullscreen, setGraphFullscreen, closePanel } = useWorkspace();
@@ -193,6 +194,7 @@ export function BrowserPanel() {
       <span className="subtle">{xAvailable ? "CONNECTED" : "DISCONNECTED"}</span></div>
     <div className="empty-panel"><h2>Controlled browser</h2>
       <BrowserInspector />
+      <BrowserEvidenceGallery />
       {(appInventory?.choices ?? []).filter(choice => choice.kind === "browser").map(choice =>
         <button key={choice.kind} type="button" disabled={!xAvailable}
           onClick={() => launchApp(choice.kind)}>Launch sandbox {choice.title} ↗</button>)}

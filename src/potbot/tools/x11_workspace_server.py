@@ -263,6 +263,40 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         return JSONResponse({"workspaceId": str(server.workspace_id), "session": result},
                             status_code=201, headers={"Cache-Control": "private, no-store"})
 
+    @app.get("/v1/xpra/apps/{session_id}/browser/lease")
+    def browser_lease_status(session_id: str, authorization: str | None = Header(default=None)) -> JSONResponse:
+        authenticate(authorization)
+        if apps is None:
+            raise HTTPException(503, "browser reservations not configured")
+        try:
+            result = apps.browser_reservation(session_id)
+        except (ValueError, RuntimeError, DomainError, OSError):
+            raise HTTPException(503, "browser reservation unavailable") from None
+        return JSONResponse({"workspaceId": str(server.workspace_id), **result},
+                            headers={"Cache-Control": "private, no-store"})
+
+    @app.post("/v1/xpra/apps/{session_id}/browser/lease")
+    async def browser_lease_update(session_id: str, request: Request,
+                                   authorization: str | None = Header(default=None)) -> JSONResponse:
+        authenticate(authorization)
+        if apps is None:
+            raise HTTPException(503, "browser reservations not configured")
+        if int(request.headers.get("content-length", "0") or "0") > 400:
+            raise HTTPException(413, "reservation request exceeds limit")
+        raw = await request.body()
+        if len(raw) > 400:
+            raise HTTPException(413, "reservation request exceeds limit")
+        try:
+            body = json.loads(raw)
+            if (not isinstance(body, dict) or body.get("action") not in {"acquire", "renew", "release"}
+                    or set(body) != ({"action"} if body.get("action") == "acquire" else {"action", "token"})):
+                raise ValueError()
+            result = apps.browser_reservation(session_id, body["action"], body.get("token"))
+        except (ValueError, RuntimeError, DomainError, OSError):
+            raise HTTPException(409, "reservation denied or fenced") from None
+        return JSONResponse({"workspaceId": str(server.workspace_id), **result},
+                            headers={"Cache-Control": "private, no-store"})
+
     @app.post("/v1/xpra/apps/{session_id}/browser")
     async def browser_command(session_id: str, request: Request,
                               authorization: str | None = Header(default=None)) -> JSONResponse:
@@ -281,7 +315,9 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         except (ValueError, TypeError, UnicodeError):
             raise HTTPException(409, "unapproved browser operation") from None
         try:
-            result = apps.browser_command(session_id, data)
+            lease_token = request.headers.get("x-potbot-browser-lease")
+            result = (apps.browser_command(session_id, data, lease_token=lease_token)
+                      if lease_token is not None else apps.browser_command(session_id, data))
         except (ValueError, RuntimeError, DomainError, OSError):
             # The operation may have completed just before a disconnect.
             # Do not retry state-changing commands automatically.

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useWorkspace } from "./WorkspaceContext";
+import { useBrowserLease } from "./useBrowserLease";
 
 type BrowserResult = Record<string, unknown>;
 type BrowserSession = { id: string; title: string };
@@ -12,6 +13,7 @@ export function BrowserInspector() {
   const sessions = (appInventory?.sessions ?? []).filter(s => s.kind === "controlled-browser" && s.state === "running") as BrowserSession[];
   const [sessionId, setSessionId] = useState("");
   const selected = sessions.find(s => s.id === sessionId)?.id ?? sessions[0]?.id ?? "";
+  const reservation = useBrowserLease(selected, workspace.id);
   const [url, setUrl] = useState("about:blank");
   const [role, setRole] = useState("button");
   const [name, setName] = useState("");
@@ -24,15 +26,18 @@ export function BrowserInspector() {
 
   const send = useCallback(async (command: BrowserResult): Promise<BrowserResult> => {
     if (!selected) throw new Error("No controlled Chromium session");
+    if (reservation.mode === "blocked" || reservation.mode === "connecting")
+      throw new Error("Browser exclusive reservation is not ready");
     const response = await fetch(`/api/ui/xpra/apps/${selected}/browser`, {
-      method: "POST", headers: { "Content-Type": "application/json", "x-potbot-workspace": workspace.id },
+      method: "POST", headers: { "Content-Type": "application/json", "x-potbot-workspace": workspace.id,
+        ...(reservation.token ? {"x-potbot-browser-lease": reservation.token} : {}) },
       credentials: "same-origin", cache: "no-store", body: JSON.stringify(command),
     });
     if (!response.ok) throw new Error(`Browser action unavailable (${response.status})`);
     const payload = await response.json() as { result?: BrowserResult; workspaceId?: string };
     if (payload.workspaceId !== workspace.id || !payload.result) throw new Error("Browser reply scope mismatch");
     return payload.result;
-  }, [selected, workspace.id]);
+  }, [selected, workspace.id, reservation.token, reservation.mode]);
 
   const run = useCallback(async (command: BrowserResult) => {
     setBusy(true);
@@ -75,6 +80,7 @@ export function BrowserInspector() {
   const configured = (appInventory?.choices ?? []).some(s => s.kind === "controlled-browser");
   return <section className="browser-inspector" aria-label="Chromium browser inspector">
     <h3>Browser automation &amp; DevTools inspector</h3>
+    <p role="status">{reservation.status}</p>
     {!configured && <p>Controlled Chromium is not in the workspace's operator-approved app recipes.</p>}
     {configured && <div className="applications-launch-buttons">
       <button type="button" disabled={!xAvailable} onClick={() => launchApp("controlled-browser")}>＋ Controlled Chromium</button>

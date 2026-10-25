@@ -361,6 +361,7 @@ def create_app(
     reasoning_store: Any | None = None,
     reasoning_budget: Any | None = None,
     worker_telemetry_reader: Any | None = None,
+    browser_gallery: Any | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -420,6 +421,10 @@ def create_app(
     async def health() -> JSONResponse:
         # Liveness only; it deliberately makes no assertion about DB/worker health.
         return _response(success_response(uuid4(), {"status": "listening", "version": __version__}))
+
+    if browser_gallery is not None:
+        from potbot.api.browser_gallery import install_gallery_routes
+        install_gallery_routes(app, context, browser_gallery)
 
     @app.get("/v1/system/utilisation")
     async def system_utilisation(request: Request) -> JSONResponse:

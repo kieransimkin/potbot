@@ -96,6 +96,23 @@ def application(args: argparse.Namespace) -> FastAPI:
 
     audit_root = os.environ.get("POTBOT_OPERATOR_AUDIT_ROOT")
     monitor_reader = OperatorTelemetryReader(Path(audit_root)) if audit_root else None
+    gallery_fields = (
+        "browser_gallery_index", "browser_artifact_root", "browser_rootfs",
+        "browser_home", "browser_model_staging", "browser_shared_tools",
+    )
+    configured = tuple(getattr(args, field, None) for field in gallery_fields)
+    browser_gallery = None
+    if any(path is not None for path in configured):
+        from potbot.domain.errors import InvalidInputError
+        from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
+        from potbot.tools.browser_gallery import BrowserEvidenceGallery
+        if any(path is None for path in configured):
+            raise InvalidInputError("Browser gallery needs all six explicit operator paths")
+        index, artifact_root, rootfs, home, staging, tools = configured
+        browser_gallery = BrowserEvidenceGallery(
+            index, ArtifactStore(database, LocalArtifactBackend(artifact_root)),
+            forbidden_roots=(rootfs, home, staging, tools, artifact_root),
+        )
     app = create_app(
         task_service=TaskService(database),
         job_service=JobService(database),
@@ -109,6 +126,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         reasoning_store=state_store,
         reasoning_budget=budget_journal,
         worker_telemetry_reader=monitor_reader,
+        browser_gallery=browser_gallery,
         settings=settings,
     )
     from potbot.api.ui_resources import register_ui_routes
@@ -150,6 +168,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="bounded evidence-guided reasoning rounds (1-4)")
     parser.add_argument("--reasoning-root", type=Path, default=Path(".potbot/reasoning"),
                         help="trusted private run snapshot directory (single writer)")
+    parser.add_argument("--browser-gallery-index", type=Path,
+                        help="private derived SQLite browser index; requires all browser path flags")
+    parser.add_argument("--browser-artifact-root", type=Path,
+                        help="exact existing ArtifactStore local backend root")
+    parser.add_argument("--browser-rootfs", type=Path, help="qualified sandbox rootfs")
+    parser.add_argument("--browser-home", type=Path, help="workspace persistent home")
+    parser.add_argument("--browser-model-staging", type=Path, help="workspace model staging root")
+    parser.add_argument("--browser-shared-tools", type=Path, help="shared tool root")
     parser.add_argument("--log-content", action="store_true",
                         help="opt in to redacted prompt/response logging (sensitive)")
     args = parser.parse_args(argv)

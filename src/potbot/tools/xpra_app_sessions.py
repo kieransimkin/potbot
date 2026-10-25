@@ -175,6 +175,7 @@ class XpraApplicationSupervisor:
                  backend: XpraSandboxLaunchBackend, ledger: Any,
                  popen: Callable[..., subprocess.Popen[bytes]] = subprocess.Popen,
                  ai_monitor: Any = None,
+                 browser_leases: Any = None,
                  max_apps: int = 4, max_age_seconds: int = 3600) -> None:
         if (not isinstance(workspace_id, UUID) or not isinstance(principal_id, UUID) or
                 workspace_id != backend.server.workspace_id or not 1 <= max_apps <= 12):
@@ -185,6 +186,13 @@ class XpraApplicationSupervisor:
         self.recipes = {r.kind: r for r in recipes}
         self.backend, self.ledger, self.popen = backend, ledger, popen
         self.ai_monitor = ai_monitor
+        if browser_leases is not None:
+            from potbot.tools.browser_session_leases import BrowserSessionCoordinator
+            if (not isinstance(browser_leases, BrowserSessionCoordinator)
+                    or browser_leases.workspace_id != workspace_id
+                    or browser_leases.principal_id != principal_id):
+                raise ScopeDeniedError("browser reservations differ from operator scope")
+        self.browser_leases = browser_leases
         self.max_apps, self.max_age_seconds = max_apps, max_age_seconds
         self._lock = threading.RLock()
         self._apps: dict[str, _App] = {}
@@ -332,7 +340,40 @@ class XpraApplicationSupervisor:
                         try: os.close(fd)
                         except OSError: pass
 
-    def browser_command(self, identifier: str, command: object) -> dict[str, Any]:
+    def browser_reservation(self, identifier: str, action: str = "status",
+                            token: str | None = None) -> dict[str, Any]:
+        """Operator UI reservation boundary. Agent reservations stay on the host."""
+        with self._lock:
+            app = self._get(identifier)
+            if (app.recipe.kind != "controlled-browser" or app.process.poll() is not None
+                    or app.indeterminate):
+                raise CapabilityUnavailableError("controlled browser session unavailable")
+            if self.browser_leases is None:
+                if action in {"status", "acquire"}:
+                    return {"legacy": True, "reservation": {"sessionId": identifier,
+                            "reserved": False, "mode": "legacy"}}
+                raise ScopeDeniedError("legacy browser does not have a reservation token")
+            if action == "status":
+                return {"reservation": self.browser_leases.projection(identifier)}
+            if action == "acquire":
+                lease = self.browser_leases.reserve(
+                    identifier, owner_kind="operator", owner_id=self.principal_id)
+            elif action == "renew" and token is not None:
+                lease = self.browser_leases.renew(
+                    identifier, token, owner_kind="operator", owner_id=self.principal_id)
+            elif action == "release" and token is not None:
+                self.browser_leases.release(
+                    identifier, token, owner_kind="operator", owner_id=self.principal_id)
+                return {"reservation": self.browser_leases.projection(identifier)}
+            else:
+                raise ScopeDeniedError("browser reservation operation is unsupported")
+            if lease.owner_kind != "operator" or lease.owner_id != self.principal_id:
+                raise ScopeDeniedError("operator cannot take an agent-owned reservation")
+            return {"reservation": self.browser_leases.projection(identifier),
+                    "token": lease.token}
+
+    def browser_command(self, identifier: str, command: object,
+                        *, lease_token: str | None = None) -> dict[str, Any]:
         """Read/control only the Chromium belonging to an admitted app session."""
         with self._lock:
             app = self._get(identifier)
@@ -342,13 +383,32 @@ class XpraApplicationSupervisor:
                 raise ScopeDeniedError("browser operation outside admitted live session")
             channel = app.browser_control
         try:
-            return channel.call(command)
+            if self.browser_leases is None:
+                return channel.call(command)  # legacy operator-only profile
+            if lease_token is None:
+                raise ScopeDeniedError("browser requires its current exclusive reservation")
+            with self.browser_leases.operation(identifier, lease_token):
+                return channel.call(command)
         except StateMismatchError:
             with self._lock:
                 app.indeterminate = True
+                if self.browser_leases is not None:
+                    self.browser_leases.fence(identifier)
                 self._terminate(app)
                 self._settle()
             raise
+
+    def fence_browser(self, identifier: str) -> None:
+        """Host-only; force terminate a possibly effected browser command."""
+        with self._lock:
+            app = self._get(identifier)
+            if app.recipe.kind != "controlled-browser":
+                raise ScopeDeniedError("only browser sessions may be fenced")
+            app.indeterminate = True
+            if self.browser_leases is not None:
+                self.browser_leases.fence(identifier)
+            self._terminate(app)
+            self._settle()
 
     def detach(self, identifier: str) -> dict[str, Any]:
         with self._lock:
@@ -367,6 +427,8 @@ class XpraApplicationSupervisor:
             app = self._get(identifier)
             self._terminate(app)
             self._settle()
+            if self.browser_leases is not None and app.recipe.kind == "controlled-browser":
+                self.browser_leases.retired(identifier, process_stopped=app.process.poll() is not None)
             return app.view().document()
 
     def _get(self, identifier: str) -> _App:
@@ -409,7 +471,9 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         return result
     try:
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
-        if not isinstance(data, dict) or set(data) != {"workspaceId", "principalId", "runtime", "ledger", "recipes"}:
+        allowed = {"workspaceId", "principalId", "runtime", "ledger", "recipes"}
+        if (not isinstance(data, dict) or set(data) not in (allowed, allowed | {"browserLeases"})
+                or ("browserLeases" in data and type(data["browserLeases"]) is not bool)):
             raise ValueError()
         if UUID(data["workspaceId"]) != server.workspace_id:
             raise ScopeDeniedError("application policy belongs to another workspace")
@@ -449,8 +513,12 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
     try:
         backend = SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=monitor)
         xbackend = XpraSandboxLaunchBackend(server=server, backend=backend, ledger=ledger)
+        from potbot.tools.browser_session_leases import BrowserSessionCoordinator
+        leases = (BrowserSessionCoordinator(server.workspace_id, principal)
+                  if data.get("browserLeases") is True else None)
         return XpraApplicationSupervisor(workspace_id=server.workspace_id, principal_id=principal,
                                          recipes=recipes, backend=xbackend, ledger=ledger,
+                                         browser_leases=leases,
                                          ai_monitor=monitor)
     except BaseException:
         if monitor is not None:

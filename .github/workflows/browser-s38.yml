@@ -1,0 +1,69 @@
+name: S38 browser reservations, evidence gallery and CONNECT policy
+
+on:
+  pull_request:
+    paths:
+      - 'src/potbot/tools/browser_session_leases.py'
+      - 'src/potbot/tools/browser_gallery.py'
+      - 'src/potbot/tools/browser_connect_gateway.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'src/potbot/controller/browser_cogs.py'
+      - 'src/potbot/api/browser_gallery.py'
+      - 'src/potbot/api/server.py'
+      - 'frontend/**'
+      - 'tests/unit/test_browser_s38.py'
+      - '.github/workflows/browser-s38.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/tools/browser_session_leases.py'
+      - 'src/potbot/tools/browser_gallery.py'
+      - 'src/potbot/tools/browser_connect_gateway.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'src/potbot/controller/browser_cogs.py'
+      - 'src/potbot/api/browser_gallery.py'
+      - 'src/potbot/api/server.py'
+      - 'frontend/**'
+      - 'tests/unit/test_browser_s38.py'
+      - '.github/workflows/browser-s38.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Locked Python dependencies
+        run: uv sync --locked --extra web --dev
+      - name: Browser gallery, leases, and prior S37 hardening
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_browser_s38.py
+          tests/unit/test_browser_cogs_s37.py
+          tests/unit/test_xpra_browser_control.py
+          tests/unit/test_xpra_browser_worker.py
+          tests/unit/test_xpra_application_sessions.py
+          tests/integration/test_xpra_native_bridge.py
+      - name: Compile browser backend
+        run: uv run --locked python -m compileall -q src/potbot
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frontend tests and build
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build

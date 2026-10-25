@@ -47,6 +47,14 @@ REQUIRED = {
 ALLOWED_ROLES = frozenset({"button", "link", "textbox", "checkbox", "radio", "combobox", "option", "menuitem", "tab", "switch", "searchbox"})
 
 
+def browser_operation_may_mutate(command: object) -> bool:
+    """Execution-failure outcomes for mutations must be fenced, not retried."""
+    return isinstance(command, dict) and (command.get("op") in {
+        "navigate", "input.pointer", "input.keyboard", "role.click",
+        "role.fill", "inspect.start", "inspect.stop",
+    } or (command.get("op") == "cdp" and command.get("method") in CDP_INPUT))
+
+
 def _number(value: Any, upper: int = 4096) -> bool:
     return type(value) in (int, float) and 0 <= value <= upper
 
@@ -368,6 +376,7 @@ async def serve(engine: str, stealth: bool) -> None:
             if len(line) > 4096:
                 return
             ident: Any = None
+            command: dict[str, Any] | None = None
             try:
                 request = json.loads(line)
                 if not isinstance(request, dict) or set(request) != {"id", "command"} or type(request["id"]) is not int or not 0 <= request["id"] <= 2**31:
@@ -378,10 +387,13 @@ async def serve(engine: str, stealth: bool) -> None:
                 response = {"id": ident, "ok": True, "result": value}
             except Exception:
                 # No raw Playwright exceptions, URLs with secrets or filesystem paths.
-                response = {"id": ident, "ok": False, "error": "browser command was rejected or failed"}
+                response = {"id": ident, "ok": False, "error": "browser command was rejected or failed",
+                            "indeterminate": browser_operation_may_mutate(command)}
             encoded = json.dumps(response, separators=(",", ":"), ensure_ascii=True)
             if len(encoded) > 1_500_000:
-                encoded = json.dumps({"id": ident, "ok": False, "error": "browser response exceeded size limit"})
+                encoded = json.dumps({"id": ident, "ok": False,
+                                      "error": "browser response exceeded size limit",
+                                      "indeterminate": browser_operation_may_mutate(command)})
             sys.stdout.write(encoded + "\n")
             sys.stdout.flush()
     finally:

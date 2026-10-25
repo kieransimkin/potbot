@@ -14,7 +14,7 @@ import time
 from typing import Any, cast
 
 from potbot.domain.errors import InvalidInputError, StateMismatchError
-from potbot.tools.xpra_browser_worker import validate_command
+from potbot.tools.xpra_browser_worker import browser_operation_may_mutate, validate_command
 
 MAX_REQUEST = 4096
 MAX_REPLY = 1_500_000
@@ -55,6 +55,10 @@ class BrowserControlChannel:
                         if not isinstance(data, dict) or data.get("id") != seq or type(data.get("ok")) is not bool:
                             raise ValueError("unexpected browser worker response")
                         if not data["ok"]:
+                            # Older rootfs workers may not report an
+                            # indeterminate flag. Mutation is STILL uncertain.
+                            if browser_operation_may_mutate(approved) or data.get("indeterminate") is True:
+                                raise TimeoutError("browser action outcome is indeterminate")
                             raise InvalidInputError("browser command was rejected or failed")
                         if not isinstance(data.get("result"), dict):
                             raise ValueError("invalid browser result")

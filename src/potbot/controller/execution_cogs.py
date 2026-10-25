@@ -144,6 +144,7 @@ class ExecutionCogRuntime:
         receipts: Any = None,
         artifact_ranges: Any = None,
         artifact_uploads: Any = None,
+        browser_service: Any = None,
         sandbox_executor: SandboxedCogExecutor | None = None,
         sandbox_agent_id: UUID | None = None,
     ) -> None:
@@ -165,6 +166,8 @@ class ExecutionCogRuntime:
                            or not isinstance(sandbox_agent_id, UUID)):
             raise ScopeDeniedError("Cog worker requires a qualified sandbox executor and registered agent")
         self.sandbox_executor, self.sandbox_agent_id = sandbox_executor, sandbox_agent_id
+        if browser_service is not None and (artifact_ranges is not None or artifact_uploads is not None):
+            raise ScopeDeniedError("Browser and artifact profiles need distinct sealed catalogues")
         if artifact_uploads is not None and artifact_ranges is None:
             raise ScopeDeniedError("Upload profile requires its matching range service")
         if artifact_ranges is not None:
@@ -201,6 +204,16 @@ class ExecutionCogRuntime:
                 self.registry = BoundCogRegistry.artifact_uploads()
                 ember_bundle = artifact_upload_ember_bundle
                 self._direct_operations.update(upload_operations(artifact_uploads, policy))
+        elif browser_service is not None:
+            from potbot.cogs.browser import browser_ember_bundle, installed_operations as browser_operations
+            from potbot.controller.browser_cogs import BrowserControlService
+            if (not isinstance(browser_service, BrowserControlService)
+                    or browser_service.actor != actor or browser_service.policy != policy
+                    or browser_service.artifacts is not artifacts):
+                raise ScopeDeniedError("browser service differs from the pinned controller scope")
+            self.registry = BoundCogRegistry.browser()
+            ember_bundle = browser_ember_bundle
+            self._direct_operations = browser_operations(browser_service, policy)
         else:
             self.registry = BoundCogRegistry.provenance()
             ember_bundle = execution_ember_bundle

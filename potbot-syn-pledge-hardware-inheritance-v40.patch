@@ -1,0 +1,930 @@
+diff --git a/docs/implementation/39-syn-agent-inheritance-and-independence.md b/docs/implementation/39-syn-agent-inheritance-and-independence.md
+index b96b328..e665d0e 100644
+--- a/docs/implementation/39-syn-agent-inheritance-and-independence.md
++++ b/docs/implementation/39-syn-agent-inheritance-and-independence.md
+@@ -1,6 +1,6 @@
+-# SYN agent-mode provisioning — inheritance and independence (v1 design contract)
++# SYN agent-mode provisioning — inheritance and independence (historical v1 contract)
+ 
+-**Status:** New owner-specified requirements plus a public calculation/verifier library; **not a running SYN node or an activated enrollment API**. Supersedes the earlier provisional `m/6969/420'` root path (the first index **is hardened**). This document extends the SYN-ownership specification in Phase 38; it does not authorize Potbot to derive, store, unwrap, transmit, or invent private keys.
++**Status:** Historical reference. **Superseded for new enrollment by [the hardware-identifier v2 contract](40-syn-agent-hardware-inheritance.md).** Do not implement the temporary-key-hash inheritance formula below for newly provisioned agents. New owner-specified requirements plus a public calculation/verifier library; **not a running SYN node or an activated enrollment API**. Supersedes the earlier provisional `m/6969/420'` root path (the first index **is hardened**). This document extends the SYN-ownership specification in Phase 38; it does not authorize Potbot to derive, store, unwrap, transmit, or invent private keys.
+ 
+ ## 1. Installation identities and custody
+ 
+diff --git a/docs/implementation/40-syn-agent-hardware-inheritance.md b/docs/implementation/40-syn-agent-hardware-inheritance.md
+new file mode 100644
+index 0000000..4f4e45c
+--- /dev/null
++++ b/docs/implementation/40-syn-agent-hardware-inheritance.md
+@@ -0,0 +1,65 @@
++# SYN agent pledge v2 — CSPRNG temporary identity, hardware-based inheritance
++
++**Status:** updated owner specification and *public-only* protocol contract. This supersedes [v1](39-syn-agent-inheritance-and-independence.md) for new enrollment. It **does not** implement a running SYN node, claim hardware attestation, make key material available to Potbot, or complete P2P pledging. Historical v1 signed transcripts must retain their original interpretation and never be silently reinterpreted as v2.
++
++## Identity custody and key generation
++
++SYN is the sole authority for key generation, identity, secure signing, OS-protected keystore, operator acceptance, and key adoption. The independently created operator SYN derives its **root address** from `m/6969'/420'` and its distinct, stable **base address** from `m/6969'/420'/0'/0/0`. The installation is identified by `SHA-256(raw 32-byte base public key)`; the operator root private key never leaves SYN.
++
++Every newly provisioned agent starts a separate **agent-mode SYN installation** and generates a fresh **temporary Ed25519 signing keypair using genuine OS cryptographically secure random entropy** (`getrandom`/OS CSPRNG or an equivalently qualified hardware RNG), with private key protected by the operating system's keystore. It must not derive temporary key entropy from MAC addresses, machine IDs, hardware serials, timestamps, hostnames, process IDs or their hashes. Identical hardware IDs on different machines must not produce identical temporary keys; regenerating the temporary key must not change inheritance for the same hardware identifier and operator byte.
++
++The agent independently reads its **hardware unique identifier** from SYN's qualified host integration. Its *canonical raw bytes*, rather than a textual formatting or temporary-key hash, are the new inheritance input. A six-byte MAC address is representable, but MACs may be randomised, duplicated or spoofed. SYN must define trusted collection, stability, permitted sources, multiple-adapter selection, replacement policy and device attestation before using hardware identity as authentication. The public Potbot contract validates 6–256 bytes only: it does **not** establish unique physical-device ownership. Missing/unqualified hardware ID **blocks** pledging until an authorized policy is specified; do not fall back to a temporary key hash.
++
++## V2 signed offer and operator verification
++
++1. Agent-mode SYN discovers an authenticated operator pulse with target operator base-public-key SHA-256 and fresh 32-byte challenge.
++2. SYN constructs a `synny://type/syn-agent-pledge-offer-v2` containing:
++   - `hardware_unique_id`: **the exact hardware ID bytes encoded as lowercase hex** (not hashed, and not ASCII bytes of a MAC string);
++   - `temporary_public_key_hash`: SHA-256 of the agent's 32-byte Ed25519 temporary *public* key, used **only to verify that the public key accompanying the offer matches the signing key**;
++   - `timestamp_unix_seconds`, `target_master_public_key_hash`, and `pulse_challenge`.
++3. The agent signs `b"syn.agent.pledge.offer.v2\x00" + canonical_json(offer)`, with sorted keys, ASCII and compact separators, using its fresh CSPRNG-generated temporary private key. The outer envelope includes the full temporary raw 32-byte public key and 64-byte Ed25519 signature, encoded as lowercase hex.
++4. The operator compares target master and current authenticated pulse; validates freshness, Ed25519 signature and advertised public-key hash; verifies policy/hardware-attestation requirements and atomically reserves a replay token. **A valid signature proves control of the temporary signing key, not authenticity of the hardware ID.**
++
++The hardware ID is sensitive linkable device metadata. It is sent **only in the encrypted, authenticated, operator-directed pledge request**, never in public pulse broadcasts, broad gossip, general telemetry, audit output, or model prompts. Signed requests do not automatically provide confidentiality. Apply explicit retention limits and authorization at the operator; even a SHA-256 digest of a stable MAC can permit linkage or dictionary attacks.
++
++## V2 inheritance: exact calculation
++
++On authorized acceptance, the operator chooses one octet `operator_byte` between 0 and 255 and reduces **the raw hardware identifier**, not the public-key hash:
++
++```text
++hardware_id       = exact bytes in the verified v2 signed pledge
++operator_byte     = one chosen unsigned octet
++inheritance_bytes = SHA256(hardware_id || operator_byte)[:3]
++inheritance       = uint24_big_endian(inheritance_bytes)   // 0 ... 16,777,215
++```
++
++No string formatting, UTF-8 of hex, size-prefix, additional salt, modulo reduction or change in hashing algorithm is implicit. A separate protocol version is required to change this formula. SHA-256 truncation has uniform 24-bit outputs under normal hash assumptions, but the small space is not globally collision-resistant. The operator must atomically reserve inheritance per operator installation; after collision it may try another of its 256 operator bytes. An exhausted or unqualified enrollment **does not reuse another agent's inheritance**. Identical hardware ID and operator byte intentionally produce identical inheritance regardless of the temporary key.
++
++For a *synthetic 32-byte hardware identifier* `000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f`, the SHA-256 prefix is `1b170d` for byte `00`, `562dac` for `a5`, and `bdb741` for `ff`. These were also the old v1 public-hash vectors because the test inputs were the same **bytes**, not because a public-key hash remains an input.
++
++## Eight agent choices / independence
++
++Once inheritance `I` is reserved, operator SYN derives exactly eight Ed25519-BIP32 V2 candidate keypairs beneath the **operator root**:
++
++```text
++m/6969'/420'/I'/1/0
++m/6969'/420'/I'/2/0
++m/6969'/420'/I'/3/0
++m/6969'/420'/I'/4/0
++m/6969'/420'/I'/5/0
++m/6969'/420'/I'/6/0
++m/6969'/420'/I'/7/0
++m/6969'/420'/I'/8/0
++```
++
++For each key, SYN takes the first three bytes of SHA-256 of the raw 32-byte public verification key. The eight abbreviations must be distinct. The agent chooses one *index* from 1–8, its **independence**; full public-key identities remain authoritative. Candidate packets use `synny://type/syn-agent-identity-candidates-v2` and bind their operator-byte and inheritance to `pledge_offer_sha256 = SHA256(the domain-prefixed v2 signed-offer preimage)`. They **do not repeat either the hardware ID or temporary public-key hash**. Selection packets use `synny://type/syn-agent-independence-selection-v2` and bind the selected short hash to the signed candidates and temporary signature.
++
++SYN still needs independent candidate key derivation/custody, operator signatures, replay/uniqueness ledger, adoption proof, revocation and safe delegation or secure selected-key delivery. The operator's root key, other candidate private keys, chain codes and entropy must never be sent to the agent. The selected key's private custody and any non-hardened public/child derivation safety need a dedicated security review.
++
++## Code changes and release policy
++
++- `src/potbot/domain/syn_agent_pledge.py` now validates the v2 signed offer and calculates inheritance from raw `hardware_unique_id` bytes. It **does not** provision keys or register devices.
++- `vocab/syn-agent-pledge.schema.json` is now the v2 public schema; immutable historical v1 schema remains at `vocab/syn-agent-pledge-v1.schema.json`. The v2 verifier rejects v1 offers to avoid ambiguous signature/identity interpretation.
++- `tests/unit/test_syn_agent_pledge.py` covers hardware-ID bounds, key-hash separation, signed hardware claim tampering, deterministic vectors, 8 choices, v1 rejection and v2 JSON Schema shapes.
++
++Deployment of a real SYN installer, encrypted P2P transport, OS keystore and hardware attestation remains **blocked on SYN-owned runtime/API availability**. Potbot must not silently substitute its file vault, derive the temporary key from hardware bytes, or mark a v2 pledge accepted merely because the public schema or signature checks pass.
+diff --git a/src/potbot/domain/syn_agent_pledge.py b/src/potbot/domain/syn_agent_pledge.py
+index f308fc9..374f752 100644
+--- a/src/potbot/domain/syn_agent_pledge.py
++++ b/src/potbot/domain/syn_agent_pledge.py
+@@ -21,11 +21,13 @@ from potbot.domain.errors import (
+ 
+ BASE_ADDRESS_PATH = "m/6969'/420'/0'/0/0"
+ ROOT_ADDRESS_PATH = "m/6969'/420'"
+-PLEDGE_OFFER_TYPE = "synny://type/syn-agent-pledge-offer-v1"
+-CANDIDATE_TYPE = "synny://type/syn-agent-identity-candidates-v1"
+-SELECTION_TYPE = "synny://type/syn-agent-independence-selection-v1"
+-OFFER_SIGNATURE_DOMAIN = b"syn.agent.pledge.offer.v1\x00"
++PLEDGE_OFFER_TYPE = "synny://type/syn-agent-pledge-offer-v2"
++CANDIDATE_TYPE = "synny://type/syn-agent-identity-candidates-v2"
++SELECTION_TYPE = "synny://type/syn-agent-independence-selection-v2"
++OFFER_SIGNATURE_DOMAIN = b"syn.agent.pledge.offer.v2\x00"
+ INHERITANCE_MAX = (1 << 24) - 1
++MIN_HARDWARE_ID_BYTES = 6
++MAX_HARDWARE_ID_BYTES = 256
+ INDEPENDENCE_CHOICES = tuple(range(1, 9))
+ 
+ 
+@@ -45,6 +47,31 @@ def _hex_bytes(value: object, length: int, field: str) -> bytes:
+     return bytes.fromhex(value)
+ 
+ 
++def _hardware_id(value: object) -> bytes:
++    """Exact hardware identifier bytes provided by SYN, not entropy or a key hash.
++
++    SYN must independently establish device provenance/attestation. This public
++    validator can check representation and size only, not device authenticity.
++    """
++    if (
++        type(value) is not bytes
++        or not MIN_HARDWARE_ID_BYTES <= len(value) <= MAX_HARDWARE_ID_BYTES
++    ):
++        raise InvalidInputError("hardware unique ID must be 6..256 raw bytes")
++    return value
++
++
++def _hex_hardware_id(value: object) -> bytes:
++    if (
++        not isinstance(value, str)
++        or not 2 * MIN_HARDWARE_ID_BYTES <= len(value) <= 2 * MAX_HARDWARE_ID_BYTES
++        or len(value) % 2 != 0
++        or any(c not in "0123456789abcdef" for c in value)
++    ):
++        raise InvalidInputError("hardware unique ID must be canonical lowercase hex")
++    return _hardware_id(bytes.fromhex(value))
++
++
+ def public_key_hash(raw_public_key: bytes) -> bytes:
+     """SHA-256 of exactly the raw 32-byte Ed25519 public key, never an xpub."""
+     return hashlib.sha256(_fixed_bytes(raw_public_key, 32, "Ed25519 public key")).digest()
+@@ -55,17 +82,20 @@ def shorten_public_key_hash(full_public_key_hash: bytes) -> bytes:
+     return _fixed_bytes(full_public_key_hash, 32, "public key hash")[:3]
+ 
+ 
+-def calculate_inheritance(temporary_public_key_hash: bytes, operator_byte: int) -> int:
+-    """Big-endian SHA-256(32-byte temporary key hash || operator octet)[:3].
++def calculate_inheritance(hardware_unique_id: bytes, operator_byte: int) -> int:
++    """Big-endian SHA-256(raw hardware ID bytes || operator octet)[:3].
+ 
+-    SHA-256 truncation is uniform in the usual cryptographic hash model; it
+-    avoids the bias of reducing a larger integer modulo a non-power-of-two.
+-    The value MUST be collision-reserved by SYN in durable operator state.
++    The hardware ID MUST be the exact bytes in the agent's signed v2 pledge
++    offer. The temporary public-key hash authenticates the signing key only;
++    it is NEVER an input to inheritance. The 24-bit result requires SYN-side
++    collision reservation and does not establish physical-device authenticity.
+     """
+-    digest = _fixed_bytes(temporary_public_key_hash, 32, "temporary public key hash")
++    device_id = _hardware_id(hardware_unique_id)
+     if type(operator_byte) is not int or not 0 <= operator_byte <= 255:
+         raise InvalidInputError("operator choice must be one unsigned byte")
+-    return int.from_bytes(hashlib.sha256(digest + bytes((operator_byte,))).digest()[:3], "big")
++    return int.from_bytes(
++        hashlib.sha256(device_id + bytes((operator_byte,))).digest()[:3], "big"
++    )
+ 
+ 
+ def inheritance_hex(inheritance: int) -> str:
+@@ -99,11 +129,13 @@ class PledgeOffer:
+     target_master_public_key_hash: bytes
+     timestamp_unix_seconds: int
+     pulse_challenge: bytes
++    hardware_unique_id: bytes
+ 
+     def __post_init__(self) -> None:
+         _fixed_bytes(self.temporary_public_key_hash, 32, "temporary public key hash")
+         _fixed_bytes(self.target_master_public_key_hash, 32, "master public key hash")
+         _fixed_bytes(self.pulse_challenge, 32, "pulse challenge")
++        _hardware_id(self.hardware_unique_id)
+         if (
+             type(self.timestamp_unix_seconds) is not int
+             or not 1 <= self.timestamp_unix_seconds < 2**63
+@@ -112,9 +144,10 @@ class PledgeOffer:
+ 
+     def to_dict(self) -> dict[str, str | int]:
+         return {
+-            "schema_version": 1,
++            "schema_version": 2,
+             "type_ref": PLEDGE_OFFER_TYPE,
+             "temporary_public_key_hash": self.temporary_public_key_hash.hex(),
++            "hardware_unique_id": self.hardware_unique_id.hex(),
+             "timestamp_unix_seconds": self.timestamp_unix_seconds,
+             "target_master_public_key_hash": self.target_master_public_key_hash.hex(),
+             "pulse_challenge": self.pulse_challenge.hex(),
+@@ -132,16 +165,18 @@ class PledgeOffer:
+         required = {
+             "schema_version", "type_ref", "temporary_public_key_hash",
+             "timestamp_unix_seconds", "target_master_public_key_hash", "pulse_challenge",
++            "hardware_unique_id",
+         }
+         if not isinstance(value, dict) or set(value) != required:
+             raise InvalidInputError("pledge offer fields differ from the versioned schema")
+-        if type(value["schema_version"]) is not int or value["schema_version"] != 1 or value["type_ref"] != PLEDGE_OFFER_TYPE:
++        if type(value["schema_version"]) is not int or value["schema_version"] != 2 or value["type_ref"] != PLEDGE_OFFER_TYPE:
+             raise InvalidInputError("pledge offer uses an unknown SYN type/version")
+         return cls(
+             _hex_bytes(value["temporary_public_key_hash"], 32, "temporary public key hash"),
+             _hex_bytes(value["target_master_public_key_hash"], 32, "master public key hash"),
+             value["timestamp_unix_seconds"],
+             _hex_bytes(value["pulse_challenge"], 32, "pulse challenge"),
++            _hex_hardware_id(value["hardware_unique_id"]),
+         )
+ 
+ 
+@@ -172,7 +207,8 @@ class SignedPledgeOffer:
+         """Validate the public offer; durable replay claiming belongs to SYN.
+ 
+         A successful verification does not accept the servant, prove possession
+-        of hardware, reserve inheritance, or authorize key release.
++        of hardware, reserve inheritance, or authorize key release. The signed
++        hardware ID is a claimed identifier, NOT independently verified proof.
+         """
+         if self.offer.target_master_public_key_hash != _fixed_bytes(
+             expected_master_hash, 32, "expected master hash"
+@@ -204,21 +240,26 @@ class SignedPledgeOffer:
+ 
+ @dataclass(frozen=True, slots=True)
+ class IdentityCandidates:
+-    """Eight *public* abbreviated hashes, not private keys or derivation proofs."""
++    """Eight public candidate labels bound to one version-2 signed pledge.
+ 
+-    temporary_public_key_hash: bytes
+-    master_public_key_hash: bytes
++    The canonical candidate wire format carries only the signed-offer digest,
++    NOT the reusable hardware ID or the temporary signing key's hash. The
++    operator authenticates the pledge and reserves inheritance before sending
++    any signed candidate envelope; this dataclass grants neither authority.
++    """
++
++    offer: PledgeOffer
+     operator_byte: int
+     inheritance: int
+     short_public_key_hashes: tuple[bytes, ...]
+ 
+     def __post_init__(self) -> None:
+-        _fixed_bytes(self.temporary_public_key_hash, 32, "temporary public key hash")
+-        _fixed_bytes(self.master_public_key_hash, 32, "master public key hash")
++        if not isinstance(self.offer, PledgeOffer):
++            raise InvalidInputError("identity candidates require the signed pledge fields")
+         if self.inheritance != calculate_inheritance(
+-            self.temporary_public_key_hash, self.operator_byte
++            self.offer.hardware_unique_id, self.operator_byte
+         ):
+-            raise StateMismatchError("inheritance does not match chosen operator byte")
++            raise StateMismatchError("inheritance does not match signed hardware ID and byte")
+         inheritance_hex(self.inheritance)
+         if (
+             not isinstance(self.short_public_key_hashes, tuple)
+@@ -232,19 +273,24 @@ class IdentityCandidates:
+ 
+     @classmethod
+     def from_public_hashes(
+-        cls, *, temporary_public_key_hash: bytes, master_public_key_hash: bytes,
+-        operator_byte: int, full_candidate_hashes: tuple[bytes, ...],
++        cls, *, offer: PledgeOffer, operator_byte: int,
++        full_candidate_hashes: tuple[bytes, ...],
+     ) -> IdentityCandidates:
++        if not isinstance(offer, PledgeOffer):
++            raise InvalidInputError("candidate inheritance requires the actual signed offer")
+         if not isinstance(full_candidate_hashes, tuple) or len(full_candidate_hashes) != 8:
+             raise InvalidInputError("SYN must supply eight actual derived candidate public hashes")
+         return cls(
+-            temporary_public_key_hash,
+-            master_public_key_hash,
+-            operator_byte,
+-            calculate_inheritance(temporary_public_key_hash, operator_byte),
++            offer, operator_byte,
++            calculate_inheritance(offer.hardware_unique_id, operator_byte),
+             tuple(shorten_public_key_hash(h) for h in full_candidate_hashes),
+         )
+ 
++    @property
++    def pledge_offer_digest(self) -> bytes:
++        """Bounded public commitment to the signed v2 transcript, not a device ID."""
++        return hashlib.sha256(self.offer.signed_bytes()).digest()
++
+     def choose(self, independence: int) -> tuple[bytes, str]:
+         """Choice index and public short hash; SYN must confirm full key/custody."""
+         return (
+@@ -254,10 +300,10 @@ class IdentityCandidates:
+ 
+     def to_dict(self) -> dict[str, Any]:
+         return {
+-            "schema_version": 1,
++            "schema_version": 2,
+             "type_ref": CANDIDATE_TYPE,
+-            "temporary_public_key_hash": self.temporary_public_key_hash.hex(),
+-            "target_master_public_key_hash": self.master_public_key_hash.hex(),
++            "pledge_offer_sha256": self.pledge_offer_digest.hex(),
++            "target_master_public_key_hash": self.offer.target_master_public_key_hash.hex(),
+             "operator_byte": self.operator_byte,
+             "inheritance": self.inheritance,
+             "inheritance_hex": inheritance_hex(self.inheritance),
+diff --git a/tests/unit/test_syn_agent_pledge.py b/tests/unit/test_syn_agent_pledge.py
+index a2bad88..fada084 100644
+--- a/tests/unit/test_syn_agent_pledge.py
++++ b/tests/unit/test_syn_agent_pledge.py
+@@ -3,7 +3,9 @@
+ from __future__ import annotations
+ 
+ import hashlib
++import json
+ from dataclasses import replace
++from pathlib import Path
+ 
+ import pytest
+ 
+@@ -12,6 +14,7 @@ from potbot.domain.syn_agent_pledge import (
+     BASE_ADDRESS_PATH,
+     CANDIDATE_TYPE,
+     INHERITANCE_MAX,
++    MAX_HARDWARE_ID_BYTES,
+     ROOT_ADDRESS_PATH,
+     IdentityCandidates,
+     PledgeOffer,
+@@ -25,6 +28,15 @@ from potbot.domain.syn_agent_pledge import (
+ )
+ 
+ 
++def _hardware_id() -> bytes:
++    # A deterministic test-only 6-byte device identifier (e.g. a MAC address).
++    return bytes.fromhex("021122334455")
++
++
++def _offer() -> PledgeOffer:
++    return PledgeOffer(_temporary_hash(), _master_hash(), 1792920000, b"\x55" * 32, _hardware_id())
++
++
+ def _temporary_hash() -> bytes:
+     return hashlib.sha256(b"fixed test-only SYN agent ephemeral key fingerprint").digest()
+ 
+@@ -35,8 +47,7 @@ def _master_hash() -> bytes:
+ 
+ def _candidates(operator_byte: int = 0xA5) -> IdentityCandidates:
+     return IdentityCandidates.from_public_hashes(
+-        temporary_public_key_hash=_temporary_hash(),
+-        master_public_key_hash=_master_hash(),
++        offer=_offer(),
+         operator_byte=operator_byte,
+         full_candidate_hashes=tuple(hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)),
+     )
+@@ -53,15 +64,17 @@ def test_root_and_base_paths_are_distinct_and_hardened_as_specified() -> None:
+ 
+ 
+ def test_inheritance_is_24_bit_big_endian_sha256_truncation() -> None:
+-    fingerprint = _temporary_hash()
++    identifier = _hardware_id()
+     salt = 0xA5
+-    expected = hashlib.sha256(fingerprint + b"\xa5").digest()[:3]
+-    value = calculate_inheritance(fingerprint, salt)
++    expected = hashlib.sha256(identifier + b"\xa5").digest()[:3]
++    value = calculate_inheritance(identifier, salt)
++    # The temporary public-key hash MUST NOT contribute to inheritance.
++    assert value != int.from_bytes(hashlib.sha256(_temporary_hash() + b"\xa5").digest()[:3], "big")
+     assert value == int.from_bytes(expected, "big")
+     assert inheritance_hex(value) == expected.hex()
+     assert 0 <= value <= 16_777_215
+-    assert len({calculate_inheritance(fingerprint, choice) for choice in range(256)}) >= 250
+-    # Protocol vectors used independently by native SYN implementations.
++    assert len({calculate_inheritance(identifier, choice) for choice in range(256)}) >= 250
++    # Protocol vectors for synthetic raw hardware identifiers (NOT public keys).
+     assert calculate_inheritance(bytes(range(32)), 0) == 1_775_373
+     assert calculate_inheritance(bytes(range(32)), 0xA5) == 5_647_788
+     assert calculate_inheritance(bytes(range(32)), 255) == 12_433_217
+@@ -70,7 +83,7 @@ def test_inheritance_is_24_bit_big_endian_sha256_truncation() -> None:
+ @pytest.mark.parametrize("bad", [-1, 256, True, 0.1, "12", b"\xff", None])
+ def test_invalid_operator_octets_are_rejected(bad: object) -> None:
+     with pytest.raises(InvalidInputError):
+-        calculate_inheritance(_temporary_hash(), bad)  # type: ignore[arg-type]
++        calculate_inheritance(_hardware_id(), bad)  # type: ignore[arg-type]
+ 
+ 
+ @pytest.mark.parametrize("bad", [-1, 16_777_216, True, 0.5, "2"])
+@@ -105,6 +118,10 @@ def test_eight_offered_public_hashes_bind_to_exact_paths_and_choice() -> None:
+     assert report["operator_byte"] == 0xA5
+     assert report["inheritance_hex"] == inheritance_hex(candidates.inheritance)
+     assert len(report["short_public_key_hashes"]) == 8
++    assert report["schema_version"] == 2
++    assert report["pledge_offer_sha256"] == hashlib.sha256(_offer().signed_bytes()).hexdigest()
++    assert "temporary_public_key_hash" not in report
++    assert "hardware_unique_id" not in report  # Not rebroadcast with the candidate announcement.
+     assert len(set(report["short_public_key_hashes"])) == 8
+     for independence in range(1, 9):
+         chosen_hash, chosen_path = candidates.choose(independence)
+@@ -122,24 +139,33 @@ def test_duplicate_short_candidates_and_unproven_inheritance_fail() -> None:
+         replace(candidates, short_public_key_hashes=(b"\x00" * 3,) * 7)
+     with pytest.raises(InvalidInputError, match="eight"):
+         IdentityCandidates.from_public_hashes(
+-            temporary_public_key_hash=_temporary_hash(), master_public_key_hash=_master_hash(),
+-            operator_byte=1, full_candidate_hashes=(),
++            offer=_offer(), operator_byte=1, full_candidate_hashes=(),
+         )
+ 
+ 
+ def test_offer_roundtrips_canonical_signed_fields_and_rejects_unknown_fields() -> None:
+-    offer = PledgeOffer(_temporary_hash(), _master_hash(), 1792920000, b"\x55" * 32)
++    offer = _offer()
+     raw = offer.to_dict()
+     assert PledgeOffer.from_dict(raw) == offer
+     assert offer.signed_bytes() == PledgeOffer.from_dict(raw).signed_bytes()
+     assert b"target_master_public_key_hash" in offer.signed_bytes()
+     assert b"pulse_challenge" in offer.signed_bytes()
++    assert b"hardware_unique_id" in offer.signed_bytes()
++    assert raw["hardware_unique_id"] == "021122334455"
++    assert raw["schema_version"] == 2
++    assert b"syn.agent.pledge.offer.v2\x00" in offer.signed_bytes()
+     with pytest.raises(InvalidInputError):
+         PledgeOffer.from_dict({**raw, "extra": "not signed"})
+     with pytest.raises(InvalidInputError):
+         PledgeOffer.from_dict({**raw, "timestamp_unix_seconds": True})
+     with pytest.raises(InvalidInputError):
+         PledgeOffer.from_dict({**raw, "schema_version": True})
++    with pytest.raises(InvalidInputError):
++        PledgeOffer.from_dict({**raw, "schema_version": 1})
++    with pytest.raises(InvalidInputError):
++        PledgeOffer.from_dict({**raw, "hardware_unique_id": "not a hex device ID"})
++    with pytest.raises(InvalidInputError):
++        PledgeOffer.from_dict({**raw, "hardware_unique_id": "001122"})
+     with pytest.raises(InvalidInputError):
+         PledgeOffer.from_dict({**raw, "temporary_public_key_hash": "A" * 64})
+ 
+@@ -155,7 +181,7 @@ def test_signature_verification_binds_ephemeral_key_master_timestamp_and_pulse()
+     raw_public = key.public_key().public_bytes(
+         encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw,
+     )
+-    offer = PledgeOffer(public_key_hash(raw_public), _master_hash(), 1792920000, b"\x55" * 32)
++    offer = PledgeOffer(public_key_hash(raw_public), _master_hash(), 1792920000, b"\x55" * 32, _hardware_id())
+     signed = SignedPledgeOffer(offer, raw_public, key.sign(offer.signed_bytes()))
+     envelope = signed.to_dict()
+     assert envelope["offer"]["temporary_public_key_hash"] == hashlib.sha256(raw_public).hexdigest()
+@@ -178,6 +204,11 @@ def test_signature_verification_binds_ephemeral_key_master_timestamp_and_pulse()
+         )
+     with pytest.raises(StateMismatchError, match="temporary"):
+         replace(signed, temporary_public_key=b"\x01" * 32)
++    # Hardware metadata is part of the Ed25519-authenticated transcript.
++    tampered = replace(signed, offer=replace(offer, hardware_unique_id=b"\xaa" * 6))
++    with pytest.raises(ScopeDeniedError, match="signature"):
++        tampered.verify(expected_master_hash=_master_hash(), expected_pulse_challenge=b"\x55" * 32,
++                        now_unix_seconds=1792920005)
+ 
+ 
+ def test_public_verification_never_grants_pledge_acceptance_or_key_custody() -> None:
+@@ -186,3 +217,90 @@ def test_public_verification_never_grants_pledge_acceptance_or_key_custody() ->
+     assert not hasattr(Signed, "derive_private_key")
+     assert not hasattr(IdentityCandidates, "reserve")
+     assert not hasattr(IdentityCandidates, "export_private_key")
++
++
++def test_hardware_id_is_source_of_inheritance_independent_of_ephemeral_key() -> None:
++    first, second = _hardware_id(), b"\x02\x11\x22\x33\x44\x56"
++    byte = 0xA5
++    assert calculate_inheritance(first, byte) != calculate_inheritance(second, byte)
++    one = _offer()
++    other = replace(one, temporary_public_key_hash=hashlib.sha256(b"new CSPRNG key").digest())
++    assert calculate_inheritance(one.hardware_unique_id, byte) == calculate_inheritance(
++        other.hardware_unique_id, byte
++    )
++    assert IdentityCandidates.from_public_hashes(
++        offer=one, operator_byte=byte,
++        full_candidate_hashes=tuple(hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)),
++    ).inheritance == IdentityCandidates.from_public_hashes(
++        offer=other, operator_byte=byte,
++        full_candidate_hashes=tuple(hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)),
++    ).inheritance
++    for bad in (b"", b"\x01" * 5, b"\x02" * (MAX_HARDWARE_ID_BYTES + 1), "021122334455"):
++        with pytest.raises(InvalidInputError):
++            calculate_inheritance(bad, byte)  # type: ignore[arg-type]
++
++
++def test_exact_device_identifier_is_signed_but_not_echoed_in_candidate_message() -> None:
++    offer = _offer()
++    published = _candidates().to_dict()
++    assert offer.hardware_unique_id.hex() in str(offer.to_dict())
++    assert offer.hardware_unique_id.hex() not in str(published)
++    assert offer.temporary_public_key_hash.hex() not in str(published)
++    assert _candidates().inheritance == calculate_inheritance(offer.hardware_unique_id, 0xA5)
++
++
++def test_versioned_public_wire_schema_and_historical_v1_rejection() -> None:
++    validator = pytest.importorskip("jsonschema")
++    root = Path(__file__).resolve().parents[2]
++    schema = json.loads((root / "vocab/syn-agent-pledge.schema.json").read_text())
++    old_schema = json.loads((root / "vocab/syn-agent-pledge-v1.schema.json").read_text())
++    validator.Draft202012Validator.check_schema(schema)
++    assert schema["$id"].endswith("/v2")
++    assert old_schema["$id"].endswith("/v1")
++    offer = _offer()
++    packet = {"offer": offer.to_dict(), "temporary_public_key": "a" * 64,
++              "signature": "b" * 128}
++    validator.validate(packet, schema)
++    packet["offer"]["hardware_unique_id"] = "01"
++    assert not validator.Draft202012Validator(schema).is_valid(packet)
++    packet["offer"] = offer.to_dict()
++    packet["offer"]["schema_version"] = 1
++    assert not validator.Draft202012Validator(schema).is_valid(packet)
++    announcement = {"candidates": _candidates().to_dict(), "operator_public_key": "a" * 64,
++                    "signature": "b" * 128}
++    validator.validate(announcement, schema)
++    assert "temporary_public_key_hash" not in announcement["candidates"]
++    selection = {
++        "selection": {
++            "schema_version": 2, "type_ref": "synny://type/syn-agent-independence-selection-v2",
++            "target_master_public_key_hash": _master_hash().hex(), "inheritance": _candidates().inheritance,
++            "independence": 1, "chosen_short_public_key_hash": _candidates().short_public_key_hashes[0].hex(),
++            "candidate_offer_digest": hashlib.sha256(b"signed operator candidates").hexdigest(),
++        },
++        "temporary_public_key": "a" * 64, "signature": "b" * 128,
++    }
++    validator.validate(selection, schema)
++
++
++def test_fresh_random_temporary_keys_do_not_change_hardware_inheritance() -> None:
++    cryptography = pytest.importorskip("cryptography")
++    del cryptography
++    from cryptography.hazmat.primitives import serialization
++    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
++
++    # SYN is responsible for production CSPRNG generation. This checks only
++    # that a pair of OS-random test keys does not affect the inheritance math.
++    hashes = []
++    for _ in range(2):
++        key = Ed25519PrivateKey.generate()
++        raw = key.public_key().public_bytes(
++            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
++        )
++        hashes.append(public_key_hash(raw))
++    assert hashes[0] != hashes[1]
++    pledge_a = replace(_offer(), temporary_public_key_hash=hashes[0])
++    pledge_b = replace(_offer(), temporary_public_key_hash=hashes[1])
++    assert calculate_inheritance(pledge_a.hardware_unique_id, 17) == calculate_inheritance(
++        pledge_b.hardware_unique_id, 17
++    )
++    assert pledge_a.signed_bytes() != pledge_b.signed_bytes()
+diff --git a/vocab/syn-agent-pledge-v1.schema.json b/vocab/syn-agent-pledge-v1.schema.json
+new file mode 100644
+index 0000000..9f99fdb
+--- /dev/null
++++ b/vocab/syn-agent-pledge-v1.schema.json
+@@ -0,0 +1,115 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "synny://schema/syn-agent-pledge/v1",
++  "title": "SYN agent-mode pledge and candidate identity public protocol v1",
++  "description": "Public wire shapes only. SYN exclusively owns keys, inheritance reservations and acceptance authority. Signed envelopes must be authenticated and replay-fenced by SYN.",
++  "oneOf": [
++    {"$ref": "#/$defs/signedOffer"},
++    {"$ref": "#/$defs/signedCandidates"},
++    {"$ref": "#/$defs/signedSelection"}
++  ],
++  "$defs": {
++    "hash32": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}$"
++    },
++    "hash3": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{6}$"
++    },
++    "signature": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{128}$"
++    },
++    "offer": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schema_version", "type_ref", "temporary_public_key_hash",
++        "timestamp_unix_seconds", "target_master_public_key_hash", "pulse_challenge"
++      ],
++      "properties": {
++        "schema_version": {"const": 1},
++        "type_ref": {"const": "synny://type/syn-agent-pledge-offer-v1"},
++        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
++        "timestamp_unix_seconds": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
++        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
++        "pulse_challenge": {"$ref": "#/$defs/hash32"}
++      }
++    },
++    "signedOffer": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["offer", "temporary_public_key", "signature"],
++      "properties": {
++        "offer": {"$ref": "#/$defs/offer"},
++        "temporary_public_key": {"$ref": "#/$defs/hash32"},
++        "signature": {"$ref": "#/$defs/signature"}
++      }
++    },
++    "candidates": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schema_version", "type_ref", "temporary_public_key_hash",
++        "target_master_public_key_hash", "operator_byte", "inheritance",
++        "inheritance_hex", "short_public_key_hashes"
++      ],
++      "properties": {
++        "schema_version": {"const": 1},
++        "type_ref": {"const": "synny://type/syn-agent-identity-candidates-v1"},
++        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
++        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
++        "operator_byte": {"type": "integer", "minimum": 0, "maximum": 255},
++        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
++        "inheritance_hex": {"$ref": "#/$defs/hash3"},
++        "short_public_key_hashes": {
++          "type": "array",
++          "minItems": 8,
++          "maxItems": 8,
++          "uniqueItems": true,
++          "items": {"$ref": "#/$defs/hash3"}
++        }
++      }
++    },
++    "signedCandidates": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["candidates", "operator_public_key", "signature"],
++      "properties": {
++        "candidates": {"$ref": "#/$defs/candidates"},
++        "operator_public_key": {"$ref": "#/$defs/hash32"},
++        "signature": {"$ref": "#/$defs/signature"}
++      }
++    },
++    "selection": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schema_version", "type_ref", "temporary_public_key_hash",
++        "target_master_public_key_hash", "inheritance", "independence",
++        "chosen_short_public_key_hash", "candidate_offer_digest"
++      ],
++      "properties": {
++        "schema_version": {"const": 1},
++        "type_ref": {"const": "synny://type/syn-agent-independence-selection-v1"},
++        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
++        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
++        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
++        "independence": {"type": "integer", "minimum": 1, "maximum": 8},
++        "chosen_short_public_key_hash": {"$ref": "#/$defs/hash3"},
++        "candidate_offer_digest": {"$ref": "#/$defs/hash32"}
++      }
++    },
++    "signedSelection": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["selection", "temporary_public_key", "signature"],
++      "properties": {
++        "selection": {"$ref": "#/$defs/selection"},
++        "temporary_public_key": {"$ref": "#/$defs/hash32"},
++        "signature": {"$ref": "#/$defs/signature"}
++      }
++    }
++  }
++}
+diff --git a/vocab/syn-agent-pledge.schema.json b/vocab/syn-agent-pledge.schema.json
+index 9f99fdb..a17b059 100644
+--- a/vocab/syn-agent-pledge.schema.json
++++ b/vocab/syn-agent-pledge.schema.json
+@@ -1,12 +1,18 @@
+ {
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+-  "$id": "synny://schema/syn-agent-pledge/v1",
+-  "title": "SYN agent-mode pledge and candidate identity public protocol v1",
+-  "description": "Public wire shapes only. SYN exclusively owns keys, inheritance reservations and acceptance authority. Signed envelopes must be authenticated and replay-fenced by SYN.",
++  "$id": "synny://schema/syn-agent-pledge/v2",
++  "title": "SYN agent-mode hardware-bound inheritance and pledge protocol v2",
++  "description": "Version 2: temporary Ed25519 key is CSPRNG-generated and used only for signature verification. The signed raw hardware_unique_id is the SHA-256 inheritance input; it is sensitive and must travel only in authenticated encrypted operator-directed channels. SYN owns custody/attestation and replay fencing.",
+   "oneOf": [
+-    {"$ref": "#/$defs/signedOffer"},
+-    {"$ref": "#/$defs/signedCandidates"},
+-    {"$ref": "#/$defs/signedSelection"}
++    {
++      "$ref": "#/$defs/signedOffer"
++    },
++    {
++      "$ref": "#/$defs/signedCandidates"
++    },
++    {
++      "$ref": "#/$defs/signedSelection"
++    }
+   ],
+   "$defs": {
+     "hash32": {
+@@ -25,91 +31,196 @@
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+-        "schema_version", "type_ref", "temporary_public_key_hash",
+-        "timestamp_unix_seconds", "target_master_public_key_hash", "pulse_challenge"
++        "schema_version",
++        "type_ref",
++        "temporary_public_key_hash",
++        "timestamp_unix_seconds",
++        "target_master_public_key_hash",
++        "pulse_challenge",
++        "hardware_unique_id"
+       ],
+       "properties": {
+-        "schema_version": {"const": 1},
+-        "type_ref": {"const": "synny://type/syn-agent-pledge-offer-v1"},
+-        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
+-        "timestamp_unix_seconds": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+-        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
+-        "pulse_challenge": {"$ref": "#/$defs/hash32"}
++        "schema_version": {
++          "const": 2
++        },
++        "type_ref": {
++          "const": "synny://type/syn-agent-pledge-offer-v2"
++        },
++        "temporary_public_key_hash": {
++          "$ref": "#/$defs/hash32"
++        },
++        "timestamp_unix_seconds": {
++          "type": "integer",
++          "minimum": 1,
++          "maximum": 9223372036854775807
++        },
++        "target_master_public_key_hash": {
++          "$ref": "#/$defs/hash32"
++        },
++        "pulse_challenge": {
++          "$ref": "#/$defs/hash32"
++        },
++        "hardware_unique_id": {
++          "$ref": "#/$defs/hardwareId",
++          "description": "Raw bytes as canonical lowercase hex, never a temporary key hash. This is sensitive device metadata."
++        }
+       }
+     },
+     "signedOffer": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["offer", "temporary_public_key", "signature"],
++      "required": [
++        "offer",
++        "temporary_public_key",
++        "signature"
++      ],
+       "properties": {
+-        "offer": {"$ref": "#/$defs/offer"},
+-        "temporary_public_key": {"$ref": "#/$defs/hash32"},
+-        "signature": {"$ref": "#/$defs/signature"}
++        "offer": {
++          "$ref": "#/$defs/offer"
++        },
++        "temporary_public_key": {
++          "$ref": "#/$defs/hash32"
++        },
++        "signature": {
++          "$ref": "#/$defs/signature"
++        }
+       }
+     },
+     "candidates": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+-        "schema_version", "type_ref", "temporary_public_key_hash",
+-        "target_master_public_key_hash", "operator_byte", "inheritance",
+-        "inheritance_hex", "short_public_key_hashes"
++        "schema_version",
++        "type_ref",
++        "pledge_offer_sha256",
++        "target_master_public_key_hash",
++        "operator_byte",
++        "inheritance",
++        "inheritance_hex",
++        "short_public_key_hashes"
+       ],
+       "properties": {
+-        "schema_version": {"const": 1},
+-        "type_ref": {"const": "synny://type/syn-agent-identity-candidates-v1"},
+-        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
+-        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
+-        "operator_byte": {"type": "integer", "minimum": 0, "maximum": 255},
+-        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
+-        "inheritance_hex": {"$ref": "#/$defs/hash3"},
++        "schema_version": {
++          "const": 2
++        },
++        "type_ref": {
++          "const": "synny://type/syn-agent-identity-candidates-v2"
++        },
++        "target_master_public_key_hash": {
++          "$ref": "#/$defs/hash32"
++        },
++        "operator_byte": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 255
++        },
++        "inheritance": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 16777215
++        },
++        "inheritance_hex": {
++          "$ref": "#/$defs/hash3"
++        },
+         "short_public_key_hashes": {
+           "type": "array",
+           "minItems": 8,
+           "maxItems": 8,
+           "uniqueItems": true,
+-          "items": {"$ref": "#/$defs/hash3"}
++          "items": {
++            "$ref": "#/$defs/hash3"
++          }
++        },
++        "pledge_offer_sha256": {
++          "$ref": "#/$defs/hash32"
+         }
+       }
+     },
+     "signedCandidates": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["candidates", "operator_public_key", "signature"],
++      "required": [
++        "candidates",
++        "operator_public_key",
++        "signature"
++      ],
+       "properties": {
+-        "candidates": {"$ref": "#/$defs/candidates"},
+-        "operator_public_key": {"$ref": "#/$defs/hash32"},
+-        "signature": {"$ref": "#/$defs/signature"}
++        "candidates": {
++          "$ref": "#/$defs/candidates"
++        },
++        "operator_public_key": {
++          "$ref": "#/$defs/hash32"
++        },
++        "signature": {
++          "$ref": "#/$defs/signature"
++        }
+       }
+     },
+     "selection": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+-        "schema_version", "type_ref", "temporary_public_key_hash",
+-        "target_master_public_key_hash", "inheritance", "independence",
+-        "chosen_short_public_key_hash", "candidate_offer_digest"
++        "schema_version",
++        "type_ref",
++        "target_master_public_key_hash",
++        "inheritance",
++        "independence",
++        "chosen_short_public_key_hash",
++        "candidate_offer_digest"
+       ],
+       "properties": {
+-        "schema_version": {"const": 1},
+-        "type_ref": {"const": "synny://type/syn-agent-independence-selection-v1"},
+-        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
+-        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
+-        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
+-        "independence": {"type": "integer", "minimum": 1, "maximum": 8},
+-        "chosen_short_public_key_hash": {"$ref": "#/$defs/hash3"},
+-        "candidate_offer_digest": {"$ref": "#/$defs/hash32"}
++        "schema_version": {
++          "const": 2
++        },
++        "type_ref": {
++          "const": "synny://type/syn-agent-independence-selection-v2"
++        },
++        "target_master_public_key_hash": {
++          "$ref": "#/$defs/hash32"
++        },
++        "inheritance": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 16777215
++        },
++        "independence": {
++          "type": "integer",
++          "minimum": 1,
++          "maximum": 8
++        },
++        "chosen_short_public_key_hash": {
++          "$ref": "#/$defs/hash3"
++        },
++        "candidate_offer_digest": {
++          "$ref": "#/$defs/hash32"
++        }
+       }
+     },
+     "signedSelection": {
+       "type": "object",
+       "additionalProperties": false,
+-      "required": ["selection", "temporary_public_key", "signature"],
++      "required": [
++        "selection",
++        "temporary_public_key",
++        "signature"
++      ],
+       "properties": {
+-        "selection": {"$ref": "#/$defs/selection"},
+-        "temporary_public_key": {"$ref": "#/$defs/hash32"},
+-        "signature": {"$ref": "#/$defs/signature"}
++        "selection": {
++          "$ref": "#/$defs/selection"
++        },
++        "temporary_public_key": {
++          "$ref": "#/$defs/hash32"
++        },
++        "signature": {
++          "$ref": "#/$defs/signature"
++        }
+       }
++    },
++    "hardwareId": {
++      "type": "string",
++      "pattern": "^(?:[0-9a-f]{2}){6,256}$",
++      "minLength": 12,
++      "maxLength": 512
+     }
+   }
+ }
