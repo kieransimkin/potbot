@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { ChatSessionSummary } from "@/lib/chat-sessions";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import type { GraphView, Timeline } from "@/lib/graph-workbench";
@@ -13,6 +14,12 @@ type WorkspaceContextValue = {
   entries: ChatEntry[];
   isLive: boolean;
   chatBusy: boolean;
+  chatSessions: ChatSessionSummary[];
+  activeChatId: string | null;
+  chatHistoryStatus: string;
+  selectChatSession: (id: string) => void;
+  newChatSession: () => void;
+  reconcileChatSession: () => void;
   graph: GraphProjection | null;
   graphState: string;
   graphTimeline: Timeline | null;

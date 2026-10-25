@@ -347,3 +347,13 @@ body.potbot-reduced-motion *, body.potbot-reduced-motion *::before, body.potbot-
 .settings-panel select { color: var(--text); background: var(--surface); border: 1px solid var(--line);
   border-radius: 6px; padding: 5px; max-width: 170px; }
 .settings-panel progress { width: 100%; accent-color: #4cbf95; }
+
+/* Workspace-owned durable chat sessions; compact to keep the chat as the scene. */
+.conversation-manager { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .55rem; }
+.conversation-manager label { font-size: .73rem; font-weight: 600; color: var(--text-secondary, #9db6cc); }
+.conversation-manager select { min-width: 10rem; max-width: min(44vw, 24rem); flex: 1 1 12rem;
+  background: #1b2a3c; color: #e0e9f4; border: 1px solid #4f647c; border-radius: 8px; padding: .35rem .45rem; }
+.conversation-manager button { border-radius: 8px; border: 1px solid #4f647c; background: #294361;
+  color: #eff8ff; padding: .36rem .65rem; }
+.conversation-manager button:disabled { opacity: .5; }
+.conversation-manager .subtle { flex-basis: 100%; font-size: .68rem; }

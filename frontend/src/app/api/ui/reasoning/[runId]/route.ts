@@ -1,5 +1,5 @@
 import { RUN_ID, projectReasoningState, summarizeEventPage } from "../../../../../lib/live-schema.ts";
-import { potbotConfig, upstream, upstreamFailure } from "../../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../../lib/server/potbot.ts";
 import { requireOperator, safeError } from "../../../../../lib/server/security.ts";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ async function smallJSON(response: Response): Promise<unknown> {
 export async function GET(request: Request, { params }: { params: Promise<{ runId: string }> }): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Potbot backend is not configured.", 503);
   const { runId } = await params;
   if (!RUN_ID.test(runId)) return safeError("Invalid reasoning run identifier.", 400);

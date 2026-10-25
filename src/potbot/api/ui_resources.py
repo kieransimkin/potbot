@@ -239,6 +239,9 @@ def register_ui_routes(app: FastAPI, database: Database, authenticate: Any,
                        allowed_origins: tuple[str, ...]) -> None:
     """Install backend routes without broadening the existing bearer-token scope."""
     store = UiResourceStore(database)
+    from potbot.api.ui_chats import register_chat_routes
+
+    register_chat_routes(app, database, authenticate, allowed_origins)
 
     def actor(request: Request) -> WorkspaceContext:
         origin = request.headers.get("origin")

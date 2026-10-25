@@ -6,6 +6,8 @@ import { DockviewReact } from "dockview-react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { bootWorkspaces } from "@/lib/boot";
 import { readChatStream } from "@/lib/chat-stream";
+import { conversationEntries, projectSession, projectSessionList } from "@/lib/chat-sessions";
+import type { ChatSessionSummary } from "@/lib/chat-sessions";
 import { DEFAULT_GRAPH_VIEW, mergeGraphTimeline, sanitizedGraphView } from "@/lib/graph-workbench";
 import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
 import { RUN_ID } from "@/lib/live-schema";
@@ -137,6 +139,10 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [password, setPassword] = useState("");
   const [selected, setSelected] = useState(0);
   const [messages, setMessages] = useState<Record<string, ChatEntry[]>>({});
+  const [chatSessions, setChatSessions] = useState<Record<string, ChatSessionSummary[]>>({});
+  const [activeChatIds, setActiveChatIds] = useState<Record<string, string>>({});
+  const [chatHistoryStatus, setChatHistoryStatus] = useState<Record<string, string>>({});
+  const chatLoadGenerations = useRef<Record<string, number>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [runIds, setRunIds] = useState<Record<string, string>>({});
   const [graphs, setGraphs] = useState<Record<string, GraphProjection>>({});
@@ -178,6 +184,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [graphFullscreen, setGraphFullscreen] = useState(false);
   const apiRef = useRef<DockviewApi | null>(null);
   const workspace = workspaces[selected];
+  const scopedHeaders = (id: string) => ({ "X-Potbot-Workspace": id });
 
   const loadLive = useCallback(async () => {
     try {
@@ -361,8 +368,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       if (!alive) return;
       try {
         const response = await fetch("/api/ui/xpra/ticket", { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" }, body: "{}", cache: "no-store" });
+          headers: { "Content-Type": "application/json", ...scopedHeaders(workspaceId) }, body: "{}", cache: "no-store" });
         if (response.status === 401) { setGateway("login"); return; }
+        if (response.status === 404) { setXAvailable(false); return; } // No Xpra relay belongs to this workspace.
         if (!response.ok) throw new Error("Xpra relay unavailable");
         const document = await response.json() as { workspaceId?: string; wsUrl?: string;
           transport?: string; expiresInSeconds?: number };
@@ -516,13 +524,114 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     api?.addFloatingGroup(panel, floatingDefaults(id));
   }, []);
 
+  const selectChatSession = useCallback((sessionId: string) => {
+    if (demo || gateway !== "ready" || !workspace || busy[workspace.id]) return;
+    const workspaceId = workspace.id;
+    if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(sessionId)) return;
+    const generation = (chatLoadGenerations.current[workspaceId] ?? 0) + 1;
+    chatLoadGenerations.current[workspaceId] = generation;
+    setActiveChatIds(prev => ({ ...prev, [workspaceId]: sessionId }));
+    setMessages(prev => ({ ...prev, [workspaceId]: [] }));
+    setRunIds(prev => ({ ...prev, [workspaceId]: "" }));
+    setChatHistoryStatus(prev => ({ ...prev, [workspaceId]: "Loading saved conversation…" }));
+    try { localStorage.setItem(`potbot:ui:active-chat:v1:${workspaceId}`, sessionId); } catch {}
+    void (async () => {
+      try {
+        const response = await fetch(`/api/ui/sessions/${sessionId}`, {
+          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(workspaceId),
+        });
+        if (!response.ok) throw new Error("Session unavailable");
+        const raw = await response.json() as { workspaceId?: string };
+        const details = raw.workspaceId === workspaceId ? projectSession(raw) : null;
+        if (!details || chatLoadGenerations.current[workspaceId] !== generation) return;
+        setMessages(prev => ({ ...prev, [workspaceId]: conversationEntries(details) }));
+        const last = [...details.turns].reverse().find(turn => turn.runId);
+        setRunIds(prev => ({ ...prev, [workspaceId]: last?.runId ?? "" }));
+        setChatHistoryStatus(prev => ({ ...prev, [workspaceId]: "Saved conversation loaded" }));
+      } catch { if (chatLoadGenerations.current[workspaceId] === generation)
+        setChatHistoryStatus(prev => ({ ...prev, [workspaceId]: "Unable to load saved conversation" })); }
+    })();
+  }, [demo, gateway, workspace?.id, busy]);
+
+  const newChatSession = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace || busy[workspace.id]) return;
+    const workspaceId = workspace.id, id = crypto.randomUUID();
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/sessions", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json", ...scopedHeaders(workspaceId) },
+          body: JSON.stringify({ workspaceId, id, title: "New conversation" }),
+        });
+        if (!response.ok) throw new Error("New chat unavailable");
+        setChatSessions(prev => ({ ...prev, [workspaceId]: [{ id, title: "New conversation", revision: 0,
+          updatedAt: new Date().toISOString() }, ...(prev[workspaceId] ?? [])].slice(0, 50) }));
+        selectChatSession(id);
+      } catch { setChatHistoryStatus(prev => ({ ...prev, [workspaceId]: "Unable to create a chat session" })); }
+    })();
+  }, [demo, gateway, workspace?.id, busy, selectChatSession]);
+
+  useEffect(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const workspaceId = workspace.id;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/sessions", {
+          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(workspaceId),
+        });
+        if (!response.ok) throw new Error("Chat list unavailable");
+        const raw = await response.json() as { workspaceId?: string };
+        const sessions = raw.workspaceId === workspaceId ? projectSessionList(raw) : null;
+        if (!sessions || cancelled) throw new Error("Invalid chat list");
+        setChatSessions(prev => ({ ...prev, [workspaceId]: sessions }));
+        let selected = "";
+        try { selected = localStorage.getItem(`potbot:ui:active-chat:v1:${workspaceId}`) || ""; } catch {}
+        const chosen = sessions.some(s => s.id === selected) ? selected : sessions[0]?.id;
+        if (chosen) selectChatSession(chosen);
+        else {
+          setMessages(prev => ({ ...prev, [workspaceId]: [] }));
+          setChatHistoryStatus(prev => ({ ...prev, [workspaceId]: "No previous conversations" }));
+        }
+      } catch { if (!cancelled)
+        setChatHistoryStatus(prev => ({ ...prev, [workspaceId]: "Chat history unavailable" })); }
+    })();
+    return () => { cancelled = true; };
+  }, [demo, gateway, workspace?.id]);
+
+  const reconcileChatSession = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace || busy[workspace.id]) return;
+    const workspaceId = workspace.id, chatId = activeChatIds[workspaceId];
+    if (!chatId || !window.confirm("Mark this abandoned request indeterminate? It will not be retried.")) return;
+    const generation = (chatLoadGenerations.current[workspaceId] ?? 0);
+    void (async () => {
+      try {
+        const result = await fetch(`/api/ui/sessions/${chatId}`, {
+          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(workspaceId),
+        });
+        const raw = result.ok ? await result.json() as {workspaceId?: string} : null;
+        const details = raw?.workspaceId === workspaceId ? projectSession(raw) : null;
+        const pending = details?.turns.at(-1);
+        if (!pending || pending.state !== "pending") throw new Error("No pending turn");
+        const response = await fetch(`/api/ui/sessions/${chatId}/reconcile`, {
+          method: "POST", credentials: "same-origin", headers: {
+            "Content-Type": "application/json", ...scopedHeaders(workspaceId),
+          }, body: JSON.stringify({ workspaceId, turnId: pending.id, confirm: true }),
+        });
+        if (!response.ok) throw new Error("Turn is still active or unavailable");
+        if (chatLoadGenerations.current[workspaceId] === generation) selectChatSession(chatId);
+      } catch { setChatHistoryStatus(prev => ({ ...prev, [workspaceId]:
+        "Cannot reconcile this turn yet; it may still be running or needs operator investigation." })); }
+    })();
+  }, [demo, gateway, workspace?.id, busy, activeChatIds, selectChatSession]);
+
   const sendMessage = useCallback((text: string) => {
     if (!workspace) return;
     const workspaceId = workspace.id;
     if (requests.current.has(workspaceId)) return; // One live stream per workspace.
+    // Invalidate a delayed history load before optimistic user messages appear.
+    chatLoadGenerations.current[workspaceId] = (chatLoadGenerations.current[workspaceId] ?? 0) + 1;
     const userId = crypto.randomUUID(), assistantId = crypto.randomUUID();
-    const previous = (messages[workspaceId] ?? []).filter(item => item.role !== "status" && item.text.trim());
-    const recent = [...previous, { id: userId, role: "user" as const, text }].slice(-24);
     setMessages(state => ({ ...state, [workspaceId]: [
       ...(state[workspaceId] ?? []), { id: userId, role: "user", text },
       ...(demo ? [{ id: assistantId, role: "status" as const,
@@ -547,9 +656,23 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     ] }));
     void (async () => {
       try {
-        const response = await fetch("/api/ui/chat", { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" }, signal: controller.signal,
-          body: JSON.stringify({ workspaceId, messages: recent.map(item => ({ role: item.role, content: item.text })) }),
+        let sessionId = activeChatIds[workspaceId];
+        if (!sessionId) {
+          sessionId = crypto.randomUUID();
+          const title = text.slice(0, 100);
+          const created = await fetch("/api/ui/sessions", { method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json", ...scopedHeaders(workspaceId) }, signal: controller.signal,
+            body: JSON.stringify({ workspaceId, id: sessionId, title }),
+          });
+          if (!created.ok) throw new Error("Chat session creation failed");
+          setActiveChatIds(old => ({ ...old, [workspaceId]: sessionId! }));
+          try { localStorage.setItem(`potbot:ui:active-chat:v1:${workspaceId}`, sessionId); } catch {}
+          setChatSessions(old => ({ ...old, [workspaceId]: [{ id: sessionId!, title, revision: 0,
+            updatedAt: new Date().toISOString() }, ...(old[workspaceId] ?? [])] }));
+        }
+        const response = await fetch(`/api/ui/sessions/${sessionId}/send`, { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json", ...scopedHeaders(workspaceId) }, signal: controller.signal,
+          body: JSON.stringify({ workspaceId, requestId: userId, text }),
         });
         if (response.status === 401) {
           setGateway("login"); setWorkspaces([]);
@@ -571,13 +694,23 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
           else { flush(); status(event.message); }
         });
         if (!finished) return; // The parser already recorded uncertainty.
+        // [DONE] arrives only after the BFF has persisted the assistant response.
+        const saved = await fetch(`/api/ui/sessions/${sessionId}`, {
+          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(workspaceId),
+          signal: controller.signal,
+        });
+        if (saved.ok) {
+          const raw = await saved.json() as { workspaceId?: string };
+          const history = raw.workspaceId === workspaceId ? projectSession(raw) : null;
+          if (history) setMessages(old => ({ ...old, [workspaceId]: conversationEntries(history) }));
+        }
       } catch { flush(); status("Potbot connection failed; the inference outcome may be uncertain."); }
       finally {
         flush(); requests.current.delete(workspaceId);
         setBusy(state => ({ ...state, [workspaceId]: false }));
       }
     })();
-  }, [workspace, messages, demo]);
+  }, [workspace, activeChatIds, demo]);
 
   const runId = workspace ? runIds[workspace.id] : null;
   useEffect(() => {
@@ -591,7 +724,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       try {
         const after = cursors.current[runId] ?? 0;
         const response = await fetch(`/api/ui/reasoning/${runId}?after=${after}`, {
-          signal: controller.signal, cache: "no-store",
+          signal: controller.signal, cache: "no-store", headers: scopedHeaders(workspaceId),
         });
         if (response.status === 401) {
           setGateway("login"); setWorkspaces([]); return;
@@ -640,7 +773,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void (async () => {
       try {
         const response = await fetch(`/api/ui/activity?after=${after}`, {
-          credentials: "same-origin", cache: "no-store",
+          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(id),
         });
         if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
         if (!response.ok) throw new Error("Activity backend unavailable");
@@ -672,7 +805,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     const generation = sessionGeneration.current;
     void (async () => {
       try {
-        const response = await fetch("/api/ui/models", { credentials: "same-origin", cache: "no-store" });
+        const response = await fetch("/api/ui/models", { credentials: "same-origin", cache: "no-store", headers: scopedHeaders(id) });
         if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
         if (!response.ok) throw new Error("Model catalogue unavailable");
         const data = await response.json() as { workspaceId?: string; models?: ModelListing[]; advisory?: boolean; installTelemetry?: boolean };
@@ -696,7 +829,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     const generation = sessionGeneration.current;
     void (async () => {
       try {
-        const response = await fetch("/api/ui/preferences", { cache: "no-store", credentials: "same-origin" });
+        const response = await fetch("/api/ui/preferences", { cache: "no-store", credentials: "same-origin", headers: scopedHeaders(id) });
         if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
         if (!response.ok) throw new Error("Workspace preferences endpoint unavailable");
         const data = projectPreferences(await response.json(), id);
@@ -729,7 +862,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void (async () => {
       try {
         const response = await fetch("/api/ui/preferences", { method: "PUT", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision, settings }) });
+          headers: { "Content-Type": "application/json", ...scopedHeaders(id) }, body: JSON.stringify({ revision, settings }) });
         if (!response.ok) throw new Error("Preferences revision conflict or service unavailable");
         const next = projectPreferences(await response.json(), id);
         if (!next) throw new Error("Invalid saved preferences");
@@ -757,7 +890,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     const generation = sessionGeneration.current;
     void (async () => {
       try {
-        const response = await fetch("/api/ui/downloads", { cache: "no-store", credentials: "same-origin" });
+        const response = await fetch("/api/ui/downloads", { cache: "no-store", credentials: "same-origin", headers: scopedHeaders(id) });
         if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
         if (!response.ok) throw new Error("Transfer service unavailable");
         const data = projectTransfers(await response.json(), id);
@@ -779,7 +912,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void (async () => {
       try {
         const response = await fetch("/api/ui/downloads", { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...scopedHeaders(id) },
           body: JSON.stringify({ requestId: crypto.randomUUID(), artifact, confirm: true }) });
         if (!response.ok) throw new Error("Transfer approval was rejected");
         if (sessionGeneration.current === generation) {
@@ -799,7 +932,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void (async () => {
       try {
         const response = await fetch(`/api/ui/downloads/${transferId}/cancel`, {
-          method: "POST", credentials: "same-origin" });
+          method: "POST", credentials: "same-origin", headers: scopedHeaders(id) });
         if (!response.ok) throw new Error("Cannot cancel transfer");
         if (sessionGeneration.current === generation) refreshTransfers();
       } catch { if (sessionGeneration.current === generation)
@@ -826,6 +959,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void fetch("/api/ui/auth/logout", { method: "POST", credentials: "same-origin" }).then(response => {
       if (!response.ok) throw new Error("Logout not acknowledged");
       setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
+      setChatSessions({}); setActiveChatIds({}); setChatHistoryStatus({}); chatLoadGenerations.current = {};
       setGraphHealth({}); setGraphTimelines({}); setGraphViews({}); setCompactPrefs({});
       setActivityFeeds({}); setActivityStatuses({}); setModelLists({}); setModelStatuses({});
       setRemotePrefs({}); setPreferenceStatuses({}); setTransferFeeds({}); setTransferStatuses({});
@@ -840,6 +974,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
 
   const session = useMemo(() => workspace ? ({ workspace, demo, isLive: !demo,
     entries: messages[workspace.id] ?? [], chatBusy: !!busy[workspace.id],
+    chatSessions: chatSessions[workspace.id] ?? [], activeChatId: activeChatIds[workspace.id] ?? null,
+    chatHistoryStatus: chatHistoryStatus[workspace.id] ?? "Loading chat history",
+    selectChatSession, newChatSession, reconcileChatSession,
     graph: demo ? null : graphs[workspace.id] ?? null,
     graphState: demo ? "synthetic preview" : graphHealth[workspace.id] || "No active reasoning run",
     graphTimeline: demo ? null : graphTimelines[workspace.id] ?? null,
@@ -868,7 +1005,8 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     openXWindow, closeXWindow,
     logout, sendMessage, openPanel, closePanel, dockPanel,
     floatPanel, graphFullscreen, setGraphFullscreen }) : null,
-    [workspace, demo, messages, busy, graphs, graphHealth, graphTimelines, graphViews,
+    [workspace, demo, messages, busy, chatSessions, activeChatIds, chatHistoryStatus,
+      selectChatSession, newChatSession, reconcileChatSession, graphs, graphHealth, graphTimelines, graphViews,
       activityFeeds, activityStatuses, modelLists, modelStatuses, refreshActivity, refreshModels,
       remotePrefs, preferenceStatuses, transferFeeds, transferStatuses, refreshPreferences, updateUserPreferences,
       refreshTransfers, queueTransfer, cancelTransfer,

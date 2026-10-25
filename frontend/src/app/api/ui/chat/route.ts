@@ -1,5 +1,5 @@
 import { validChatInput } from "../../../../lib/live-schema.ts";
-import { potbotConfig, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
 import { boundedJSON, requireOperator, safeError, validOrigin } from "../../../../lib/server/security.ts";
 
 export const runtime = "nodejs";
@@ -7,7 +7,7 @@ export async function POST(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
   if (!validOrigin(request, operator)) return safeError("Untrusted request origin.", 403);
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Potbot backend is unavailable.", 503);
   if (Number(request.headers.get("content-length") || "0") > 64_000) return safeError("Conversation is too large.", 413);
   let raw: unknown;

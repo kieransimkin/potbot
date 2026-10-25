@@ -302,3 +302,17 @@ forwarded to the browser. A job status is not a download status:
 This intentionally leaves the missing API work visible in the UI. Backend
 contracts proposed in `docs/ui/frontend-backend-contract.md` identify the next
 server-side milestone without conflating planned endpoints with implemented ones.
+
+## UI-10: multiple workspace connections and saved conversations
+
+The operator shell can now connect to up to 12 individually authenticated
+Potbot workspace services using the server-only `POTBOT_UI_WORKSPACES_JSON`.
+The selected workspace orb switches the backend credential and independent
+PostgreSQL-backed chat history. The chat header offers a conversation picker,
+New Conversation and explicit pending-turn reconciliation. Backend migration 27
+must be applied before enabling these routes. This is **not** a way to access
+another workspace using a bearer token from a different workspace.
+
+See [the UI-10 implementation and security contract](../docs/ui/ui10-durable-workspace-chat.md)
+for configuration, endpoint details, persistence/recovery limits and the next
+backend milestones. Single-workspace environment variables remain supported.

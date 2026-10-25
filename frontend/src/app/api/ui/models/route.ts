@@ -1,5 +1,5 @@
 import { projectModels } from "../../../../lib/activity.ts";
-import { potbotConfig, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
 import { requireOperator, safeError } from "../../../../lib/server/security.ts";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
   if (new URL(request.url).search) return safeError("Unexpected model query.", 400);
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Potbot backend not configured.", 503);
   try {
     const upstreamResponse = await upstream(config, "/v1/models");

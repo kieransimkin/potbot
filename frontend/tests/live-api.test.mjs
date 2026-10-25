@@ -34,9 +34,9 @@ test('authenticated UI routes enforce origin, scope and redact backend metadata'
   });
   await t.test('Bootstrap never exposes token and uses only explicitly configured workspace',async()=>{
     globalThis.fetch=async(input,init)=>{
-      assert.equal(new URL(input).pathname,'/v1/models');
+      assert.equal(new URL(input).pathname,'/v1/ui/workspace');
       assert.equal(init.headers.Authorization,'Bearer '+vars.POTBOT_UI_BACKEND_TOKEN);
-      return Response.json({object:'list',data:[]});
+      return Response.json({workspace:{id:workspaceId,name:'Potbot'},available:true});
     };
     const response=await bootstrap(request('/api/ui/bootstrap',{headers:{cookie}}));
     assert.equal(response.status,200);
@@ -44,7 +44,7 @@ test('authenticated UI routes enforce origin, scope and redact backend metadata'
     assert.equal(data.workspaces.length,1);
     assert.equal(data.workspaces[0].id,workspaceId);
     assert.equal(JSON.stringify(data).includes('private-workspace-token'),false);
-    assert.equal(data.features.durableChatSessions,false);
+    assert.equal(data.features.durableChatSessions,true);
   });
   await t.test('Chat rejects cross-workspace injection before reaching backend',async()=>{
     globalThis.fetch=()=>{throw new Error('no network should occur');};

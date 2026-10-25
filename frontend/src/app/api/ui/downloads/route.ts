@@ -1,5 +1,5 @@
 import { projectTransfers, validateArtifact } from "../../../../lib/ui-resources.ts";
-import { potbotConfig, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
 import { boundedJSON, requireOperator, safeError, validOrigin } from "../../../../lib/server/security.ts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ async function jsonBounded(response: Response): Promise<unknown> {
 export async function GET(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Workspace backend not configured.", 503);
   if (new URL(request.url).search) return safeError("Unexpected download query.", 400);
   try {
@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
   if (!validOrigin(request, operator)) return safeError("Untrusted request origin.", 403);
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Workspace backend not configured.", 503);
   let raw: unknown;
   try { raw = await boundedJSON(request, 4096); } catch { return safeError("Invalid model artifact request.", 400); }
@@ -48,7 +48,7 @@ export async function POST(request: Request): Promise<Response> {
     const document = await jsonBounded(response);
     if (!document || typeof document !== "object" || Array.isArray(document))
       return safeError("Invalid transfer admission.", 502);
-    const body = document;
+    const body = document as Record<string, unknown>;
     if (typeof body.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id) ||
         !["queued", "downloading", "verifying", "installed", "failed", "cancelled", "indeterminate"].includes(String(body.state)))
       return safeError("Invalid model transfer admission.", 502);

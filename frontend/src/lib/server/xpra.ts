@@ -1,9 +1,12 @@
 /** Next.js server-only gate to the local Xpra WebSocket relay. */
-import { potbotConfig } from "./potbot.ts";
+import { workspaceConnections } from "./potbot.ts";
 
 export type XpraBridgeConfig = { base: string; secret: string; publicWs: string; workspaceId: string };
 export function xpraBridgeConfig(env: NodeJS.ProcessEnv = process.env): XpraBridgeConfig | null {
-  const potbot = potbotConfig(env);
+  const configs = workspaceConnections(env);
+  const requested = env.POTBOT_UI_XPRA_WORKSPACE_ID;
+  const potbot = requested ? configs.find(c => c.workspaceId === requested) :
+    configs.length === 1 ? configs[0] : undefined;
   const address = env.POTBOT_UI_XPRA_BRIDGE_URL;
   const secret = env.POTBOT_UI_XPRA_BRIDGE_TOKEN;
   const publicWs = env.POTBOT_UI_XPRA_PUBLIC_WS_URL;

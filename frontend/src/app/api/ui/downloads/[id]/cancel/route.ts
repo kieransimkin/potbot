@@ -1,11 +1,11 @@
-import { potbotConfig, upstream, upstreamFailure } from "../../../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../../../lib/server/potbot.ts";
 import { requireOperator, safeError, validOrigin } from "../../../../../../lib/server/security.ts";
 export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
   if (!validOrigin(request, operator)) return safeError("Untrusted request origin.", 403);
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Workspace backend not configured.", 503);
   const { id } = await context.params;
   if (!/^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(id)) return safeError("Invalid transfer ID.", 400);

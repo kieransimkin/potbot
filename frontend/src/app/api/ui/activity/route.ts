@@ -1,5 +1,5 @@
 import { activityView, projectJobEvents, projectJobs } from "../../../../lib/activity.ts";
-import { potbotConfig, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
 import { requireOperator, safeError } from "../../../../lib/server/security.ts";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ async function limitedJSON(response: Response): Promise<unknown> {
 export async function GET(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Potbot backend not configured.", 503);
   const url = new URL(request.url);
   if ([...url.searchParams.keys()].some(k => k !== "after")) return safeError("Unrecognized activity query.", 400);

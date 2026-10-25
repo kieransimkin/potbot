@@ -25,7 +25,8 @@ export function DockControls({ id }: { id: PanelId }) {
 }
 
 export function ChatPanel() {
-  const { workspace, demo, entries, sendMessage, openPanel, chatBusy } = useWorkspace();
+  const { workspace, demo, entries, sendMessage, openPanel, chatBusy,
+    chatSessions, activeChatId, chatHistoryStatus, selectChatSession, newChatSession, reconcileChatSession } = useWorkspace();
   const [draft, setDraft] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
   useEffect(() => anchor.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [entries.length]);
@@ -40,13 +41,26 @@ export function ChatPanel() {
       <span className="eyebrow">ACTIVE WORKSPACE</span>
       <h1>{workspace.name}</h1>
       <p>{workspace.summary}</p>
+      {!demo && <div className="conversation-manager">
+        <label htmlFor="chat-session-picker">Conversation</label>
+        <select id="chat-session-picker" value={activeChatId ?? ""}
+          disabled={chatBusy} onChange={event => selectChatSession(event.target.value)}>
+          {!activeChatId && <option value="">New conversation</option>}
+          {chatSessions.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
+        </select>
+        <button type="button" disabled={chatBusy} onClick={newChatSession}>New</button>
+        {entries.some(item => item.role === "status" && item.text.includes("pending")) &&
+          <button type="button" disabled={chatBusy} onClick={reconcileChatSession}
+            title="Acknowledge an abandoned request after the backend's six-minute safety window">Review pending</button>}
+        <span role="status" className="subtle">{chatHistoryStatus}</span>
+      </div>}
     </div>
     <div className="chat-stream" role="log" aria-label="Conversation messages" aria-live="polite">
       {entries.length === 0 && <div className="chat-welcome">
         <span className="welcome-symbol">✳</span>
         <h2>What are we working on?</h2>
         <p>Reasoning, tools, browser sessions and terminals will share this workspace.</p>
-        <span className="subtle">{demo ? "Preview mode · no inference is connected" : "Live inference · chat history is not persisted by the backend yet"}</span>
+        <span className="subtle">{demo ? "Preview mode · no inference is connected" : "Live inference · completed turns are saved in this workspace"}</span>
       </div>}
       {entries.map(item => <div key={item.id} className={`chat-message ${item.role}`}>
         <span className="message-label">{item.role === "user" ? "You" : item.role === "assistant" ? "Potbot" : "Connection status"}</span>
@@ -68,7 +82,7 @@ export function ChatPanel() {
           aria-label="Message Potbot" placeholder="Message Potbot, or steer the current reasoning…" rows={2} maxLength={16000} />
         <button className="send-button" type="submit" disabled={!draft.trim() || chatBusy} aria-label="Send message">{chatBusy ? "…" : "↑"}</button>
       </div>
-      <span className="composer-disclaimer">{demo ? "DEMO • messages stay in this browser session" : chatBusy ? "POTBOT RESPONDING • requests may continue if connection drops" : "LIVE • workspace-scoped inference; conversation exists only in this tab"}</span>
+      <span className="composer-disclaimer">{demo ? "DEMO • messages stay in this browser session" : chatBusy ? "POTBOT RESPONDING • requests may continue if connection drops" : "LIVE • workspace-scoped chat history is saved; interrupted turns need review"}</span>
     </form>
   </section>;
 }

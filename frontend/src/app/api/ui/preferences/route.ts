@@ -1,5 +1,5 @@
 import { projectPreferences, validateSettings } from "../../../../lib/ui-resources.ts";
-import { potbotConfig, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
+import { potbotConfigForRequest, upstream, upstreamFailure } from "../../../../lib/server/potbot.ts";
 import { boundedJSON, requireOperator, safeError, validOrigin } from "../../../../lib/server/security.ts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ async function jsonBounded(response: Response): Promise<unknown> {
 export async function GET(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Workspace backend not configured.", 503);
   if (new URL(request.url).search) return safeError("Unexpected preferences query.", 400);
   try {
@@ -29,7 +29,7 @@ export async function PUT(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
   if (!validOrigin(request, operator)) return safeError("Untrusted request origin.", 403);
-  const config = potbotConfig();
+  const config = potbotConfigForRequest(request);
   if (!config) return safeError("Workspace backend not configured.", 503);
   let raw: unknown;
   try { raw = await boundedJSON(request, 4096); } catch { return safeError("Invalid preferences payload.", 400); }

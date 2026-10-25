@@ -278,3 +278,17 @@ multi-workspace chat sessions; principal-level workspace discovery; safe
 sandboxed PTY/browser creation and reattachment through Xpra; model runtime
 qualification after verified download. Real PostgreSQL, Hugging Face and Xpra
 browser tests must run on the appropriately provisioned Linux host.
+
+## UI-10 — real workspace connections and durable chat (October 2026)
+
+- Explicit multi-workspace backend connections and identity-checked orbital
+  switching implemented, with separate scoped tokens in the Next.js server.
+  This is operator configuration, not automatic workspace enumeration.
+- Migration 27 and durable session/turn APIs implemented; the BFF reserves the
+  turn before provider dispatch and requires a recorded completion before
+  returning SSE `[DONE]`. Reconciliation of abandoned turns is explicit.
+- Server routes for activity, models, preferences, transfers, reasoning and
+  chat select the exact configured workspace. Xpra remains workspace-specific.
+- Still needed: controller-owned detached chat execution, paginated/deleteable
+  history, native backend workspace discovery, per-workspace Xpra bridges,
+  authenticated browser/terminal **creation**, and full live-host E2E/CI.
