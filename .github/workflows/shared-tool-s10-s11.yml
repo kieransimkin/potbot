@@ -1,0 +1,58 @@
+name: S10 S11 shared tools offline contracts
+on:
+  push:
+    paths:
+      - 'src/potbot/tools/tool_stage_s10.py'
+      - 'src/potbot/tools/tool_approval_worker_s11.py'
+      - 'src/potbot/api/ui_tool_upgrades.py'
+      - 'src/potbot/persistence/tool_upgrade_approval_schema.py'
+      - 'src/potbot/persistence/schema.py'
+      - 'src/potbot/api/server_cli.py'
+      - 'scripts/tool_pipeline_s10.py'
+      - 'scripts/tool_approval_s11.py'
+      - 'tests/unit/test_tool_stage_s10.py'
+      - 'tests/unit/test_ui_tool_upgrades_s11.py'
+      - 'tests/unit/test_tool_upgrade_approval_store_s11.py'
+      - 'tests/unit/test_tool_approval_worker_s11.py'
+      - 'frontend/src/lib/tool-upgrades.ts'
+      - 'frontend/src/app/api/ui/tools/**'
+      - 'frontend/src/app/setup/tools/**'
+      - 'frontend/tests/tool-upgrades*.test.mjs'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install source-locked Python environment
+        run: uv sync --locked --extra web --dev
+      - name: Offline S10 and S11 unit acceptance
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_tool_stage_s10.py
+          tests/unit/test_ui_tool_upgrades_s11.py
+          tests/unit/test_tool_upgrade_approval_store_s11.py
+          tests/unit/test_tool_approval_worker_s11.py
+      - name: Check syntax and source style
+        run: uv run --locked ruff check src/potbot/tools/tool_stage_s10.py src/potbot/tools/tool_approval_worker_s11.py src/potbot/api/ui_tool_upgrades.py src/potbot/persistence/tool_upgrade_approval_schema.py scripts/tool_pipeline_s10.py scripts/tool_approval_s11.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Node public and route contracts
+        working-directory: frontend
+        run: node --experimental-strip-types --test tests/tool-upgrades.test.mjs tests/tool-upgrades-routes.test.mjs
+      - name: Full frontend typecheck and build
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build

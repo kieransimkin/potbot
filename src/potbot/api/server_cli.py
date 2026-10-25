@@ -123,6 +123,13 @@ def application(args: argparse.Namespace) -> FastAPI:
             app, database, authenticate, settings.allowed_origins, credentials,
             changed=directory.invalidate_provider,
         )
+        from potbot.api.ui_api_setup import ApiSetupCredentials
+        from potbot.api.ui_tool_upgrades import register_tool_upgrade_routes
+
+        register_tool_upgrade_routes(
+            app, database, authenticate, settings.allowed_origins,
+            ApiSetupCredentials(credentials).authorize_setup,
+        )
     return app
 
 
