@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="270" viewBox="0 0 1000 270" role="img" aria-labelledby="title desc">
+  <title id="title">S14 operator-owned Xpra flow</title>
+  <desc id="desc">Generated explanatory diagram. A live S13 operator is checked by the S14 fence before an Xpra display and browser sessions are admitted. Owner loss shuts down the owned sessions; this is intended behavior, not a live test result.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#83c7f7"/></marker></defs>
+  <rect width="1000" height="270" fill="#0b1525"/>
+  <style>text{font-family:system-ui,sans-serif;fill:#ecf5ff}.head{font-size:22px;font-weight:700}.label{font-size:20px;font-weight:600}.note{font-size:15px;fill:#b8cce0}.box{fill:#18314e;stroke:#67a6d9;stroke-width:2;rx:12}.line{stroke:#83c7f7;stroke-width:3;fill:none;marker-end:url(#arrow)}.stop{stroke:#f1a68c;stroke-width:3;fill:none;marker-end:url(#arrow)}</style>
+  <text class="head" x="30" y="40">One operator epoch owns the Xpra bridge</text>
+  <rect class="box" x="30" y="80" width="245" height="100"/><text class="label" x="54" y="119">S13 operator</text><text class="note" x="54" y="148">Host-only identity and health</text>
+  <path class="line" d="M280 130H360"/>
+  <rect class="box" x="365" y="80" width="245" height="100"/><text class="label" x="389" y="119">S14 fence</text><text class="note" x="389" y="148">Checks current epoch</text>
+  <path class="line" d="M615 130H695"/>
+  <rect class="box" x="700" y="80" width="270" height="100"/><text class="label" x="724" y="119">Xpra + browser</text><text class="note" x="724" y="148">Admitted while owner is healthy</text>
+  <path class="stop" d="M490 185V230H820V185"/>
+  <text class="note" x="544" y="251">Owner loss: fence, reap and require a fresh service</text>
+</svg>

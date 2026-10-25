@@ -233,6 +233,8 @@ class XpraApplicationSupervisor:
         self.recipes = {r.kind: r for r in recipes}
         self.backend, self.ledger, self.popen = backend, ledger, popen
         self.ai_monitor = ai_monitor
+        self.operator_attachment = getattr(getattr(backend, "backend", None),
+                                           "operator_attachment", None)
         if browser_leases is not None:
             from potbot.tools.browser_session_leases import BrowserSessionCoordinator
             if (not isinstance(browser_leases, BrowserSessionCoordinator)
@@ -304,10 +306,12 @@ class XpraApplicationSupervisor:
                 except (OSError, RuntimeError):
                     lost_display = True
                 lost_watcher = self.ai_monitor is not None and not self.ai_monitor.is_healthy()
-                if guard.fenced or expired or lost_display or lost_watcher:
+                lost_operator = (self.operator_attachment is not None
+                                 and not self.operator_attachment.healthy())
+                if guard.fenced or expired or lost_display or lost_watcher or lost_operator:
                     for app in self._apps.values():
                         self._terminate(app)
-                        if guard.fenced or lost_display or lost_watcher:
+                        if guard.fenced or lost_display or lost_watcher or lost_operator:
                             app.indeterminate = True
                 self._settle()
 
@@ -322,6 +326,8 @@ class XpraApplicationSupervisor:
     def start(self, kind: str) -> dict[str, Any]:
         if not isinstance(kind, str) or kind not in self.recipes:
             raise ScopeDeniedError("application kind is not on the operator allowlist")
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
         with self._lock:
             self._settle()
             if sum(a.process.poll() is None for a in self._apps.values()) >= self.max_apps:
@@ -393,6 +399,8 @@ class XpraApplicationSupervisor:
     def browser_reservation(self, identifier: str, action: str = "status",
                             token: str | None = None) -> dict[str, Any]:
         """Operator UI reservation boundary. Agent reservations stay on the host."""
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
         with self._lock:
             app = self._get(identifier)
             if (app.recipe.kind != "controlled-browser" or app.process.poll() is not None
@@ -425,6 +433,8 @@ class XpraApplicationSupervisor:
     def browser_command(self, identifier: str, command: object,
                         *, lease_token: str | None = None) -> dict[str, Any]:
         """Read/control only the Chromium belonging to an admitted app session."""
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
         with self._lock:
             app = self._get(identifier)
             if (app.recipe.kind != "controlled-browser" or app.process.poll() is not None
@@ -485,6 +495,20 @@ class XpraApplicationSupervisor:
         if not isinstance(identifier, str) or not _ID.fullmatch(identifier) or identifier not in self._apps:
             raise ScopeDeniedError("application does not belong to this workspace")
         return self._apps[identifier]
+
+    def fence_owner(self) -> None:
+        """Owner loss invalidates outstanding app/browser effects, even if reaped."""
+        self._stop.set()
+        with self._lock:
+            for app in self._apps.values():
+                if app.id in self._group_ids:
+                    app.indeterminate = True
+                if self.browser_leases is not None and app.recipe.kind == "controlled-browser":
+                    self.browser_leases.fence(app.id)
+                self._terminate(app)
+            self._settle()
+        if threading.current_thread() is not self._watcher:
+            self._watcher.join(timeout=2)
 
     def shutdown(self) -> None:
         self._stop.set()
@@ -574,14 +598,13 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
                 raise ValueError("invalid browser CONNECT policy")
     except (ValueError, TypeError, KeyError, OSError, json.JSONDecodeError) as exc:
         raise InvalidInputError("invalid operator application policy") from exc
-    # Modern rootfs images require the same active, integrity-checked /etc/ai
-    # monitor as other workspace executors. If another operator owns its
-    # singleton watcher, this second operator cannot launch processes.
-    monitor = None
-    if ai_config is not None:
-        from potbot.tools.ai_config_history import AiConfigHistoryMonitor
-        monitor = AiConfigHistoryMonitor(config_dir=ai_config, past_dir=ai_past)
-        monitor.start()
+    # Attach to S13's existing mount-bound owner. This process must not open
+    # a second singleton /etc/ai watcher.
+    backend = SharedWorkspaceBubblewrapBackend(runtime)
+    if ai_config is not None or (runtime.rootfs / "etc/ai").is_dir():
+        if ai_config is None or ai_past is None or backend.operator_attachment is None:
+            raise CapabilityUnavailableError("managed Xpra needs the live workspace operator")
+        backend.operator_attachment.require_healthy()
     gateway = None
     if egress_spec is not None:
         from potbot.tools.browser_connect_gateway import BrowserConnectGateway, ConnectPolicy
@@ -591,14 +614,8 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
                 token=secrets.token_urlsafe(32))
             gateway.start()
         except BaseException:
-            if monitor is not None:
-                monitor.stop()
-            log_operator = locals().get("log_operator")
-            if log_operator is not None:
-                log_operator.close()
             raise
     try:
-        backend = SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=monitor)
         xbackend = XpraSandboxLaunchBackend(server=server, backend=backend, ledger=ledger,
                                             browser_gateway=gateway)
         from potbot.tools.browser_session_leases import BrowserSessionCoordinator
@@ -607,10 +624,8 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         return XpraApplicationSupervisor(workspace_id=server.workspace_id, principal_id=principal,
                                          recipes=recipes, backend=xbackend, ledger=ledger,
                                          browser_leases=leases,
-                                         ai_monitor=monitor)
+                                         ai_monitor=None)
     except BaseException:
         if gateway is not None:
             gateway.stop()
-        if monitor is not None:
-            monitor.stop()
         raise

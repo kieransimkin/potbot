@@ -1,0 +1,25 @@
+name: S14 operator-fenced Xpra
+on:
+  push:
+    paths:
+      - 'src/potbot/tools/xpra_operator_fence_s14.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'scripts/qualify_operator_xpra_s14.py'
+      - 'tests/unit/test_xpra_operator_fence_s14.py'
+      - 'tests/unit/test_xpra_owner_recovery_s14.py'
+      - 'tests/unit/test_xpra_host_acceptance_s14.py'
+      - '.github/workflows/operator-xpra-s14.yml'
+  pull_request:
+  workflow_dispatch:
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev --extra web
+      - run: uv run --locked --dev python -m pytest -q tests/unit/test_xpra_operator_fence_s14.py tests/unit/test_xpra_host_acceptance_s14.py tests/unit/test_xpra_owner_recovery_s14.py tests/unit/test_xpra_application_sessions.py tests/unit/test_operator_attachment_s13.py
+      - run: uv run --locked --dev python -m compileall -q src/potbot/tools/xpra_operator_fence_s14.py scripts/qualify_operator_xpra_s14.py

@@ -164,7 +164,17 @@ class OperatorAttachmentServer:
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             listener.bind(str(self.path))
-            os.chmod(self.path, 0o600, follow_symlinks=False)
+            # Linux does not expose no-follow chmod for Unix socket paths.
+            # The owner-only parent prevents other UIDs from replacing this
+            # entry; same-UID processes are outside this transport's boundary.
+            bound = self.path.lstat()
+            if not stat.S_ISSOCK(bound.st_mode) or bound.st_uid != os.getuid():
+                raise ScopeDeniedError("Operator socket changed during bind")
+            os.chmod(self.path, 0o600)
+            private = self.path.lstat()
+            if (private.st_ino != bound.st_ino or not stat.S_ISSOCK(private.st_mode)
+                    or private.st_uid != os.getuid() or stat.S_IMODE(private.st_mode) != 0o600):
+                raise ScopeDeniedError("Operator socket permission check failed")
             listener.listen(8)
             listener.settimeout(0.2)
             self._inode = self.path.lstat().st_ino

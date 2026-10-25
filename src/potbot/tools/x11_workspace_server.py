@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 
 from potbot.tools.xpra_seamless import XpraSeamlessSession
+from potbot.tools.xpra_operator_fence_s14 import XpraOperatorFence
 
 
 class XpraBridgeError(RuntimeError):
@@ -204,7 +205,8 @@ class WorkspaceXServer:
 
 
 def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
-               apps: object | None = None) -> FastAPI:
+               apps: object | None = None,
+               operator_fence: XpraOperatorFence | None = None) -> FastAPI:
     """Private HTTP admission and one-use WebSocket relay to Xpra over AF_UNIX."""
     if not isinstance(token, str) or len(token) < 32 or "\n" in token:
         raise ValueError("Xpra bridge needs a private service bearer")
@@ -216,6 +218,8 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
     def authenticate(authorization: str | None) -> None:
         if authorization is None or not hmac.compare_digest(authorization, "Bearer " + token):
             raise HTTPException(401, "Xpra service authentication required")
+        if operator_fence is not None and not operator_fence.healthy():
+            raise HTTPException(503, "workspace operator is unavailable")
 
     @app.get("/v1/xpra/status")
     def status(authorization: str | None = Header(default=None)) -> dict[str, object]:
@@ -349,9 +353,13 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
 
     @app.websocket("/v1/xpra/ws")
     async def websocket_bridge(ws: WebSocket) -> None:
-        if ws.headers.get("origin") != allowed_origin or not server.consume_ticket(
-            ws.query_params.get("ticket", "")
-        ):
+        if ws.headers.get("origin") != allowed_origin:
+            await ws.close(code=4403)
+            return
+        if operator_fence is not None and not operator_fence.healthy():
+            await ws.close(code=1013)
+            return
+        if not server.consume_ticket(ws.query_params.get("ticket", "")):
             await ws.close(code=4403)
             return
         try:
@@ -380,6 +388,15 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
                 await ws.send_bytes(packet)
         try:
             tasks = [asyncio.create_task(browser_to_xpra()), asyncio.create_task(xpra_to_browser())]
+            if operator_fence is not None:
+                async def watch_owner() -> None:
+                    # An established WebSocket is not an indefinite Xpra grant.
+                    # On operator loss or epoch change, stop forwarding immediately.
+                    while True:
+                        await asyncio.sleep(0.25)
+                        if not await asyncio.to_thread(operator_fence.healthy):
+                            return
+                tasks.append(asyncio.create_task(watch_owner()))
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
@@ -417,16 +434,29 @@ def main(argv: list[str] | None = None) -> int:
                               xpra_executable=args.xpra_binary, readonly_mode=readonly)
     import uvicorn
     apps = None
+    operator_fence = None
     try:
-        server.start()
+        # Qualify the pinned runtime and owner before opening the display.
         if args.apps_policy is not None:
             from potbot.tools.xpra_app_sessions import load_operator_application_policy
             apps = load_operator_application_policy(args.apps_policy, server)
-        app = create_app(server, token, args.browser_origin, apps)
+            attachment = apps.backend.backend.operator_attachment
+            if attachment is not None:
+                operator_fence = XpraOperatorFence(
+                    attachment=attachment, display=server, applications=apps,
+                ).start()
+        elif os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1":
+            raise XpraBridgeError("managed Xpra requires a pinned applications policy")
+        server.start()
+        if operator_fence is not None:
+            operator_fence.require_healthy()
+        app = create_app(server, token, args.browser_origin, apps, operator_fence)
         print(json.dumps({"workspaceId": str(server.workspace_id), "display": server.display,
                           "transport": "xpra-native-binary", "screenShared": False}), flush=True)
         uvicorn.run(app, host="127.0.0.1", port=args.port, access_log=False)
     finally:
+        if operator_fence is not None:
+            operator_fence.close()
         if apps is not None:
             apps.shutdown()
         server.stop()
