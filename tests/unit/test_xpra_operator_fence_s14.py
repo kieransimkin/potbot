@@ -1,4 +1,5 @@
 """S14 owner fence exercises real threads but no Xpra/system processes."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -39,7 +40,9 @@ def types_fixture(monkeypatch):
 
         def require_healthy(self):
             self.calls += 1
-            if not self.online or (self.previous_epoch is not None and self.epoch != self.previous_epoch):
+            if not self.online or (
+                self.previous_epoch is not None and self.epoch != self.previous_epoch
+            ):
                 raise errors.CapabilityUnavailableError("unhealthy")
             self.previous_epoch = self.epoch
             return {"healthy": True, "epoch": self.epoch}
@@ -79,15 +82,20 @@ def test_launch_requires_matching_pinned_workspace(types_fixture):
         module.XpraOperatorFence(attachment=object(), display=Display(uuid4()))
     ws = uuid4()
     with pytest.raises(errors.InvalidInputError):
-        module.XpraOperatorFence(attachment=Client(ws), display=Display(ws), check_interval_seconds=0)
+        module.XpraOperatorFence(
+            attachment=Client(ws), display=Display(ws), check_interval_seconds=0
+        )
 
 
 def test_healthy_session_keeps_display(types_fixture):
     module, _, Client = types_fixture
     ws = uuid4()
-    client = Client(ws); display = Display(ws); apps = Apps()
-    with module.XpraOperatorFence(attachment=client, display=display, applications=apps,
-                                   check_interval_seconds=0.05) as fencer:
+    client = Client(ws)
+    display = Display(ws)
+    apps = Apps()
+    with module.XpraOperatorFence(
+        attachment=client, display=display, applications=apps, check_interval_seconds=0.05
+    ) as fencer:
         assert fencer.require_healthy()["epoch"] == "a"
         time.sleep(0.07)
         assert not fencer.fenced
@@ -97,9 +105,12 @@ def test_healthy_session_keeps_display(types_fixture):
 def test_owner_failure_stops_apps_and_display_once(types_fixture):
     module, errors, Client = types_fixture
     ws = uuid4()
-    client = Client(ws); display = Display(ws); apps = Apps()
-    fencer = module.XpraOperatorFence(attachment=client, display=display, applications=apps,
-                                       check_interval_seconds=0.05).start()
+    client = Client(ws)
+    display = Display(ws)
+    apps = Apps()
+    fencer = module.XpraOperatorFence(
+        attachment=client, display=display, applications=apps, check_interval_seconds=0.05
+    ).start()
     client.online = False
     for _ in range(40):
         if fencer.fenced:
@@ -116,7 +127,9 @@ def test_owner_failure_stops_apps_and_display_once(types_fixture):
 
 def test_restart_epoch_is_not_automatically_adopted(types_fixture):
     module, errors, Client = types_fixture
-    ws = uuid4(); client = Client(ws); display = Display(ws)
+    ws = uuid4()
+    client = Client(ws)
+    display = Display(ws)
     fencer = module.XpraOperatorFence(attachment=client, display=display)
     fencer.require_healthy()
     client.epoch = "b"
@@ -127,24 +140,35 @@ def test_restart_epoch_is_not_automatically_adopted(types_fixture):
 
 def test_shutdown_error_does_not_reopen_admission(types_fixture):
     module, errors, Client = types_fixture
-    ws = uuid4(); client = Client(ws); display = Display(ws)
+    ws = uuid4()
+    client = Client(ws)
+    display = Display(ws)
 
     class FailingApps:
-        def fence_owner(self): raise RuntimeError("unexpected failure")
+        def fence_owner(self):
+            raise RuntimeError("unexpected failure")
 
-    fencer = module.XpraOperatorFence(attachment=client, display=display, applications=FailingApps())
+    fencer = module.XpraOperatorFence(
+        attachment=client, display=display, applications=FailingApps()
+    )
     client.online = False
-    with pytest.raises(errors.CapabilityUnavailableError): fencer.require_healthy()
+    with pytest.raises(errors.CapabilityUnavailableError):
+        fencer.require_healthy()
     assert fencer.fenced
     assert display.calls == 1
 
 
 def test_concurrent_health_requests_only_teardown_once(types_fixture):
     module, _, Client = types_fixture
-    ws=uuid4(); client=Client(ws); display=Display(ws); apps=Apps()
-    fencer=module.XpraOperatorFence(attachment=client, display=display, applications=apps)
-    client.online=False
-    threads=[threading.Thread(target=fencer.healthy) for _ in range(16)]
-    for t in threads:t.start()
-    for t in threads:t.join()
+    ws = uuid4()
+    client = Client(ws)
+    display = Display(ws)
+    apps = Apps()
+    fencer = module.XpraOperatorFence(attachment=client, display=display, applications=apps)
+    client.online = False
+    threads = [threading.Thread(target=fencer.healthy) for _ in range(16)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
     assert fencer.fenced and apps.calls == display.calls == 1

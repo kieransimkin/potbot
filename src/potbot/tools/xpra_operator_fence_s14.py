@@ -29,12 +29,19 @@ class XpraOperatorFence:
     """
 
     def __init__(
-        self, *, attachment: OperatorAttachmentClient, display: WorkspaceXServer,
-        applications: Any = None, check_interval_seconds: float = 0.2,
+        self,
+        *,
+        attachment: OperatorAttachmentClient,
+        display: WorkspaceXServer,
+        applications: Any = None,
+        check_interval_seconds: float = 0.2,
     ) -> None:
         if not isinstance(attachment, OperatorAttachmentClient):
             raise ScopeDeniedError("Xpra operator fencing requires a host-issued client")
-        if not isinstance(display.workspace_id, UUID) or attachment.workspace_id != display.workspace_id:
+        if (
+            not isinstance(display.workspace_id, UUID)
+            or attachment.workspace_id != display.workspace_id
+        ):
             raise ScopeDeniedError("Xpra display is outside the attached operator workspace")
         if not 0.05 <= check_interval_seconds <= 2.0:
             raise InvalidInputError("Xpra monitoring interval is unsupported")
@@ -77,8 +84,9 @@ class XpraOperatorFence:
                 raise CapabilityUnavailableError("Xpra owner fence cannot be restarted")
             self.require_healthy()
             self._started = True
-            self._thread = threading.Thread(target=self._watch, daemon=True,
-                                            name="potbot-xpra-owner-watch")
+            self._thread = threading.Thread(
+                target=self._watch, daemon=True, name="potbot-xpra-owner-watch"
+            )
             self._thread.start()
         return self
 

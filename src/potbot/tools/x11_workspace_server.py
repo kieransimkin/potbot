@@ -21,12 +21,12 @@ from pathlib import Path
 from uuid import UUID
 
 import websockets
-from fastapi import FastAPI, Header, HTTPException, WebSocket, Request
+from fastapi import FastAPI, Header, HTTPException, Request, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 
-from potbot.tools.xpra_seamless import XpraSeamlessSession
 from potbot.tools.xpra_operator_fence_s14 import XpraOperatorFence
+from potbot.tools.xpra_seamless import XpraSeamlessSession
 
 
 class XpraBridgeError(RuntimeError):
@@ -36,9 +36,15 @@ class XpraBridgeError(RuntimeError):
 class WorkspaceXServer:
     """Own display allocation, Xpra process and one-time browser stream tickets."""
 
-    def __init__(self, workspace_id: UUID, sandbox_root: Path, *,
-                 display: int | None = None, xpra_executable: str = "xpra",
-                 readonly_mode: bool = False) -> None:
+    def __init__(
+        self,
+        workspace_id: UUID,
+        sandbox_root: Path,
+        *,
+        display: int | None = None,
+        xpra_executable: str = "xpra",
+        readonly_mode: bool = False,
+    ) -> None:
         if not isinstance(workspace_id, UUID):
             raise ValueError("workspace ID must be a UUID")
         selected = Path(sandbox_root)
@@ -82,7 +88,7 @@ class WorkspaceXServer:
         root.mkdir(mode=0o700, exist_ok=True)
         if root.stat().st_uid != os.getuid():
             raise XpraBridgeError("display lock owner mismatch")
-        for number in ([self.display_number] if self.display_number else range(410, 950)):
+        for number in [self.display_number] if self.display_number else range(410, 950):
             assert number is not None
             fd = os.open(root / f"X{number}.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
             try:
@@ -104,7 +110,9 @@ class WorkspaceXServer:
             raise XpraBridgeError("workspace runtime is symlinked")
         runtime.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.chmod(runtime, 0o700)
-        self._runtime_lock = os.open(runtime / "runtime.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        self._runtime_lock = os.open(
+            runtime / "runtime.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
+        )
         try:
             fcntl.flock(self._runtime_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -116,26 +124,48 @@ class WorkspaceXServer:
             if self.session_file.exists():
                 raise XpraBridgeError("stale workspace Xpra session requires reconciliation")
             self.auth_file.unlink(missing_ok=True)
-            result = subprocess.run([
-                "xauth", "-f", str(self.auth_file), "add", self.display,
-                "MIT-MAGIC-COOKIE-1", secrets.token_hex(16),
-            ], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, timeout=5, check=False)
+            result = subprocess.run(
+                [
+                    "xauth",
+                    "-f",
+                    str(self.auth_file),
+                    "add",
+                    self.display,
+                    "MIT-MAGIC-COOKIE-1",
+                    secrets.token_hex(16),
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+                check=False,
+            )
             if result.returncode != 0:
                 raise XpraBridgeError("cannot provision workspace Xauthority")
             os.chmod(self.auth_file, 0o600)
             self._owned_auth = True
-            self._xpra = XpraSeamlessSession(self.sandbox_root, self.display,
-                                              self.auth_file, binary=self.xpra_executable,
-                                              readonly_mode=self.readonly_mode)
+            self._xpra = XpraSeamlessSession(
+                self.sandbox_root,
+                self.display,
+                self.auth_file,
+                binary=self.xpra_executable,
+                readonly_mode=self.readonly_mode,
+            )
             self._xpra.start()
-            payload = json.dumps({
-                "schema_version": 3, "workspace_id": str(self.workspace_id),
-                "display": self.display, "socket_path": str(self.socket_path),
-                "xauthority": str(self.auth_file),
-                "transport": "xpra-native-binary", "frame_transport": "xpra-html5",
-            })
-            fd = os.open(self.session_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            payload = json.dumps(
+                {
+                    "schema_version": 3,
+                    "workspace_id": str(self.workspace_id),
+                    "display": self.display,
+                    "socket_path": str(self.socket_path),
+                    "xauthority": str(self.auth_file),
+                    "transport": "xpra-native-binary",
+                    "frame_transport": "xpra-html5",
+                }
+            )
+            fd = os.open(
+                self.session_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+            )
             self._owned_session = True
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write(payload + "\n")
@@ -148,17 +178,32 @@ class WorkspaceXServer:
     def environment(self) -> dict[str, str]:
         if self._xpra is None or not self._xpra.running or not self.socket_path.is_socket():
             raise XpraBridgeError("workspace Xpra server is not running")
-        return {"DISPLAY": self.display, "XAUTHORITY": str(self.auth_file),
-                "POTBOT_X11_SOCKET": str(self.socket_path)}
+        return {
+            "DISPLAY": self.display,
+            "XAUTHORITY": str(self.auth_file),
+            "POTBOT_X11_SOCKET": str(self.socket_path),
+        }
 
     def sandbox_mount_plan(self) -> dict[str, object]:
         self.environment()
-        return {"workspace_id": str(self.workspace_id), "mounts": [
-            {"source": str(self.socket_path), "target": str(self.socket_path), "readonly": False},
-            {"source": str(self.auth_file), "target": "/run/potbot/Xauthority", "readonly": True},
-        ], "environment": {"DISPLAY": self.display, "XAUTHORITY": "/run/potbot/Xauthority"},
+        return {
+            "workspace_id": str(self.workspace_id),
+            "mounts": [
+                {
+                    "source": str(self.socket_path),
+                    "target": str(self.socket_path),
+                    "readonly": False,
+                },
+                {
+                    "source": str(self.auth_file),
+                    "target": "/run/potbot/Xauthority",
+                    "readonly": True,
+                },
+            ],
+            "environment": {"DISPLAY": self.display, "XAUTHORITY": "/run/potbot/Xauthority"},
             "isolation_profile_required": "x11-workspace-private-unix-v1",
-            "automatically_admitted": False}
+            "automatically_admitted": False,
+        }
 
     @property
     def xpra_protocol_socket(self) -> Path:
@@ -204,16 +249,21 @@ class WorkspaceXServer:
                 setattr(self, name, None)
 
 
-def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
-               apps: object | None = None,
-               operator_fence: XpraOperatorFence | None = None) -> FastAPI:
+def create_app(
+    server: WorkspaceXServer,
+    token: str,
+    allowed_origin: str,
+    apps: object | None = None,
+    operator_fence: XpraOperatorFence | None = None,
+) -> FastAPI:
     """Private HTTP admission and one-use WebSocket relay to Xpra over AF_UNIX."""
     if not isinstance(token, str) or len(token) < 32 or "\n" in token:
         raise ValueError("Xpra bridge needs a private service bearer")
     if not allowed_origin.startswith(("http://127.0.0.1:", "http://localhost:", "https://")):
         raise ValueError("Xpra browser origin must be explicitly trusted")
-    app = FastAPI(title="Potbot Xpra Workspace Relay", docs_url=None, redoc_url=None,
-                  openapi_url=None)
+    app = FastAPI(
+        title="Potbot Xpra Workspace Relay", docs_url=None, redoc_url=None, openapi_url=None
+    )
 
     def authenticate(authorization: str | None) -> None:
         if authorization is None or not hmac.compare_digest(authorization, "Bearer " + token):
@@ -225,33 +275,53 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
     def status(authorization: str | None = Header(default=None)) -> dict[str, object]:
         authenticate(authorization)
         server.environment()
-        return {"workspaceId": str(server.workspace_id), "available": True,
-                "transport": "xpra-native-binary", "windowPresentation": "dockview",
-                "xpraReadOnly": server.readonly_mode}
+        return {
+            "workspaceId": str(server.workspace_id),
+            "available": True,
+            "transport": "xpra-native-binary",
+            "windowPresentation": "dockview",
+            "xpraReadOnly": server.readonly_mode,
+        }
 
     @app.post("/v1/xpra/tickets")
     def tickets(authorization: str | None = Header(default=None)) -> JSONResponse:
         authenticate(authorization)
-        return JSONResponse({"workspaceId": str(server.workspace_id), "ticket": server.ticket(),
-                             "expiresInSeconds": 30},
-                            headers={"Cache-Control": "private, no-store"})
+        return JSONResponse(
+            {
+                "workspaceId": str(server.workspace_id),
+                "ticket": server.ticket(),
+                "expiresInSeconds": 30,
+            },
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.get("/v1/xpra/apps")
     def list_apps(authorization: str | None = Header(default=None)) -> JSONResponse:
         authenticate(authorization)
         if apps is None:
-            data = {"workspaceId": str(server.workspace_id), "configured": False,
-                    "choices": [], "sessions": [], "xpraReadOnly": server.readonly_mode}
+            data = {
+                "workspaceId": str(server.workspace_id),
+                "configured": False,
+                "choices": [],
+                "sessions": [],
+                "xpraReadOnly": server.readonly_mode,
+            }
         else:
-            data = {"workspaceId": str(server.workspace_id), "configured": True,
-                    "choices": apps.choices(), "sessions": apps.list_sessions(),
-                    "xpraReadOnly": server.readonly_mode}
+            data = {
+                "workspaceId": str(server.workspace_id),
+                "configured": True,
+                "choices": apps.choices(),
+                "sessions": apps.list_sessions(),
+                "xpraReadOnly": server.readonly_mode,
+            }
         return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
 
     from potbot.domain.errors import DomainError
 
     @app.post("/v1/xpra/apps")
-    async def launch_app(request: Request, authorization: str | None = Header(default=None)) -> JSONResponse:
+    async def launch_app(
+        request: Request, authorization: str | None = Header(default=None)
+    ) -> JSONResponse:
         authenticate(authorization)
         if apps is None:
             raise HTTPException(503, "qualified application launcher not configured")
@@ -271,11 +341,16 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         except (ValueError, RuntimeError, DomainError, OSError):
             # Never expose sandbox roots, Xauthority, command paths or leases.
             raise HTTPException(409, "application admission rejected") from None
-        return JSONResponse({"workspaceId": str(server.workspace_id), "session": result},
-                            status_code=201, headers={"Cache-Control": "private, no-store"})
+        return JSONResponse(
+            {"workspaceId": str(server.workspace_id), "session": result},
+            status_code=201,
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.get("/v1/xpra/apps/{session_id}/browser/lease")
-    def browser_lease_status(session_id: str, authorization: str | None = Header(default=None)) -> JSONResponse:
+    def browser_lease_status(
+        session_id: str, authorization: str | None = Header(default=None)
+    ) -> JSONResponse:
         authenticate(authorization)
         if apps is None:
             raise HTTPException(503, "browser reservations not configured")
@@ -283,12 +358,15 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
             result = apps.browser_reservation(session_id)
         except (ValueError, RuntimeError, DomainError, OSError):
             raise HTTPException(503, "browser reservation unavailable") from None
-        return JSONResponse({"workspaceId": str(server.workspace_id), **result},
-                            headers={"Cache-Control": "private, no-store"})
+        return JSONResponse(
+            {"workspaceId": str(server.workspace_id), **result},
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.post("/v1/xpra/apps/{session_id}/browser/lease")
-    async def browser_lease_update(session_id: str, request: Request,
-                                   authorization: str | None = Header(default=None)) -> JSONResponse:
+    async def browser_lease_update(
+        session_id: str, request: Request, authorization: str | None = Header(default=None)
+    ) -> JSONResponse:
         authenticate(authorization)
         if apps is None:
             raise HTTPException(503, "browser reservations not configured")
@@ -299,18 +377,25 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
             raise HTTPException(413, "reservation request exceeds limit")
         try:
             body = json.loads(raw)
-            if (not isinstance(body, dict) or body.get("action") not in {"acquire", "renew", "release"}
-                    or set(body) != ({"action"} if body.get("action") == "acquire" else {"action", "token"})):
+            if (
+                not isinstance(body, dict)
+                or body.get("action") not in {"acquire", "renew", "release"}
+                or set(body)
+                != ({"action"} if body.get("action") == "acquire" else {"action", "token"})
+            ):
                 raise ValueError()
             result = apps.browser_reservation(session_id, body["action"], body.get("token"))
         except (ValueError, RuntimeError, DomainError, OSError):
             raise HTTPException(409, "reservation denied or fenced") from None
-        return JSONResponse({"workspaceId": str(server.workspace_id), **result},
-                            headers={"Cache-Control": "private, no-store"})
+        return JSONResponse(
+            {"workspaceId": str(server.workspace_id), **result},
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.post("/v1/xpra/apps/{session_id}/browser")
-    async def browser_command(session_id: str, request: Request,
-                              authorization: str | None = Header(default=None)) -> JSONResponse:
+    async def browser_command(
+        session_id: str, request: Request, authorization: str | None = Header(default=None)
+    ) -> JSONResponse:
         authenticate(authorization)
         if apps is None:
             raise HTTPException(503, "qualified browser launcher not configured")
@@ -322,23 +407,30 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         try:
             data = json.loads(body)
             from potbot.tools.xpra_browser_worker import validate_command
+
             validate_command(data)
         except (ValueError, TypeError, UnicodeError):
             raise HTTPException(409, "unapproved browser operation") from None
         try:
             lease_token = request.headers.get("x-potbot-browser-lease")
-            result = (apps.browser_command(session_id, data, lease_token=lease_token)
-                      if lease_token is not None else apps.browser_command(session_id, data))
+            result = (
+                apps.browser_command(session_id, data, lease_token=lease_token)
+                if lease_token is not None
+                else apps.browser_command(session_id, data)
+            )
         except (ValueError, RuntimeError, DomainError, OSError):
             # The operation may have completed just before a disconnect.
             # Do not retry state-changing commands automatically.
             raise HTTPException(409, "browser command rejected or indeterminate") from None
-        return JSONResponse({"workspaceId": str(server.workspace_id), "result": result},
-                            headers={"Cache-Control": "private, no-store"})
+        return JSONResponse(
+            {"workspaceId": str(server.workspace_id), "result": result},
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.post("/v1/xpra/apps/{session_id}/{operation}")
-    def app_operation(session_id: str, operation: str,
-                      authorization: str | None = Header(default=None)) -> JSONResponse:
+    def app_operation(
+        session_id: str, operation: str, authorization: str | None = Header(default=None)
+    ) -> JSONResponse:
         authenticate(authorization)
         if apps is None:
             raise HTTPException(503, "qualified application launcher not configured")
@@ -348,8 +440,10 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
             result = getattr(apps, operation)(session_id)
         except (ValueError, RuntimeError, DomainError, OSError):
             raise HTTPException(404, "application session unavailable") from None
-        return JSONResponse({"workspaceId": str(server.workspace_id), "session": result},
-                            headers={"Cache-Control": "private, no-store"})
+        return JSONResponse(
+            {"workspaceId": str(server.workspace_id), "session": result},
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.websocket("/v1/xpra/ws")
     async def websocket_bridge(ws: WebSocket) -> None:
@@ -365,13 +459,18 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         try:
             unix_socket = str(server.xpra_protocol_socket)
             upstream = await websockets.unix_connect(
-                unix_socket, uri="ws://localhost/", open_timeout=5,
-                max_size=8 * 1024 * 1024, max_queue=4, compression=None,
+                unix_socket,
+                uri="ws://localhost/",
+                open_timeout=5,
+                max_size=8 * 1024 * 1024,
+                max_queue=4,
+                compression=None,
             )
         except (OSError, RuntimeError, TimeoutError):
             await ws.close(code=1011)
             return
         await ws.accept()
+
         async def browser_to_xpra() -> None:
             while True:
                 incoming = await ws.receive()
@@ -381,14 +480,17 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
                 if not isinstance(blob, bytes) or len(blob) > 8 * 1024 * 1024:
                     break
                 await upstream.send(blob)
+
         async def xpra_to_browser() -> None:
             async for packet in upstream:
                 if not isinstance(packet, bytes) or len(packet) > 8 * 1024 * 1024:
                     break
                 await ws.send_bytes(packet)
+
         try:
             tasks = [asyncio.create_task(browser_to_xpra()), asyncio.create_task(xpra_to_browser())]
             if operator_fence is not None:
+
                 async def watch_owner() -> None:
                     # An established WebSocket is not an indefinite Xpra grant.
                     # On operator loss or epoch change, stop forwarding immediately.
@@ -396,6 +498,7 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
                         await asyncio.sleep(0.25)
                         if not await asyncio.to_thread(operator_fence.healthy):
                             return
+
                 tasks.append(asyncio.create_task(watch_owner()))
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
@@ -411,6 +514,7 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
                 await ws.close()
             except RuntimeError:
                 pass
+
     return app
 
 
@@ -422,28 +526,42 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--xpra-binary", default="xpra")
     parser.add_argument("--browser-origin", required=True)
-    parser.add_argument("--apps-policy", type=Path, default=None,
-                        help="private operator-owned app recipes and pinned runtime; disabled by default")
+    parser.add_argument(
+        "--apps-policy",
+        type=Path,
+        default=None,
+        help="private operator-owned app recipes and pinned runtime; disabled by default",
+    )
     args = parser.parse_args(argv)
     token = os.environ.get("POTBOT_XPRA_BRIDGE_TOKEN", "")
     readonly = False
     if args.apps_policy is not None:
         from potbot.tools.browser_operator_policy import server_readonly_required
+
         readonly = server_readonly_required(args.apps_policy)
-    server = WorkspaceXServer(args.workspace_id, args.sandbox_root, display=args.display,
-                              xpra_executable=args.xpra_binary, readonly_mode=readonly)
+    server = WorkspaceXServer(
+        args.workspace_id,
+        args.sandbox_root,
+        display=args.display,
+        xpra_executable=args.xpra_binary,
+        readonly_mode=readonly,
+    )
     import uvicorn
+
     apps = None
     operator_fence = None
     try:
         # Qualify the pinned runtime and owner before opening the display.
         if args.apps_policy is not None:
             from potbot.tools.xpra_app_sessions import load_operator_application_policy
+
             apps = load_operator_application_policy(args.apps_policy, server)
             attachment = apps.backend.backend.operator_attachment
             if attachment is not None:
                 operator_fence = XpraOperatorFence(
-                    attachment=attachment, display=server, applications=apps,
+                    attachment=attachment,
+                    display=server,
+                    applications=apps,
                 ).start()
         elif os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1":
             raise XpraBridgeError("managed Xpra requires a pinned applications policy")
@@ -451,8 +569,17 @@ def main(argv: list[str] | None = None) -> int:
         if operator_fence is not None:
             operator_fence.require_healthy()
         app = create_app(server, token, args.browser_origin, apps, operator_fence)
-        print(json.dumps({"workspaceId": str(server.workspace_id), "display": server.display,
-                          "transport": "xpra-native-binary", "screenShared": False}), flush=True)
+        print(
+            json.dumps(
+                {
+                    "workspaceId": str(server.workspace_id),
+                    "display": server.display,
+                    "transport": "xpra-native-binary",
+                    "screenShared": False,
+                }
+            ),
+            flush=True,
+        )
         uvicorn.run(app, host="127.0.0.1", port=args.port, access_log=False)
     finally:
         if operator_fence is not None:

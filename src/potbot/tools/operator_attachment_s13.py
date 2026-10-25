@@ -47,8 +47,9 @@ def mount_fingerprint(config: Path, history: Path) -> str:
     for candidate in (config, history):
         if candidate.is_symlink() or not candidate.is_dir():
             raise CapabilityUnavailableError("Operator AI mount source is unavailable")
-    payload = json.dumps([str(config.resolve(strict=True)), str(history.resolve(strict=True))],
-                         separators=(",", ":")).encode()
+    payload = json.dumps(
+        [str(config.resolve(strict=True)), str(history.resolve(strict=True))], separators=(",", ":")
+    ).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -67,7 +68,7 @@ def _socket_path(path: Path, *, existing: bool) -> Path:
     if not selected.is_absolute() or len(os.fsencode(selected)) > 200:
         raise ScopeDeniedError("Operator socket must have an absolute bounded path")
     parent = selected.parent
-    if (parent.is_symlink() or not parent.is_dir() or parent.resolve(strict=True) != parent):
+    if parent.is_symlink() or not parent.is_dir() or parent.resolve(strict=True) != parent:
         raise ScopeDeniedError("Operator socket directory must not be redirected")
     details = parent.stat(follow_symlinks=False)
     if details.st_uid != os.getuid() or details.st_mode & 0o077:
@@ -77,8 +78,7 @@ def _socket_path(path: Path, *, existing: bool) -> Path:
             entry = selected.lstat()
         except FileNotFoundError as exc:
             raise CapabilityUnavailableError("Operator socket is not available") from exc
-        if (not stat.S_ISSOCK(entry.st_mode) or entry.st_uid != os.getuid()
-                or entry.st_mode & 0o077):
+        if not stat.S_ISSOCK(entry.st_mode) or entry.st_uid != os.getuid() or entry.st_mode & 0o077:
             raise ScopeDeniedError("Operator socket must be a private Unix socket")
     return selected
 
@@ -118,8 +118,13 @@ class OperatorAttachmentServer:
     """
 
     def __init__(
-        self, *, socket_path: Path, workspace_id: UUID, image_digest: str,
-        qualification_sha256: str, status: Callable[[], Mapping[str, object]],
+        self,
+        *,
+        socket_path: Path,
+        workspace_id: UUID,
+        image_digest: str,
+        qualification_sha256: str,
+        status: Callable[[], Mapping[str, object]],
         mounts_sha256: str = "0" * 64,
     ) -> None:
         _identity(workspace_id, image_digest, qualification_sha256)
@@ -157,7 +162,7 @@ class OperatorAttachmentServer:
                     probe.connect(str(self.path))
                 except (ConnectionRefusedError, FileNotFoundError):
                     if self.path.lstat().st_ino != current.st_ino:
-                        raise ScopeDeniedError("Operator socket changed during recovery")
+                        raise ScopeDeniedError("Operator socket changed during recovery") from None
                     self.path.unlink()
                 else:
                     raise ScopeDeniedError("Another operator is already listening")
@@ -172,15 +177,20 @@ class OperatorAttachmentServer:
                 raise ScopeDeniedError("Operator socket changed during bind")
             os.chmod(self.path, 0o600)
             private = self.path.lstat()
-            if (private.st_ino != bound.st_ino or not stat.S_ISSOCK(private.st_mode)
-                    or private.st_uid != os.getuid() or stat.S_IMODE(private.st_mode) != 0o600):
+            if (
+                private.st_ino != bound.st_ino
+                or not stat.S_ISSOCK(private.st_mode)
+                or private.st_uid != os.getuid()
+                or stat.S_IMODE(private.st_mode) != 0o600
+            ):
                 raise ScopeDeniedError("Operator socket permission check failed")
             listener.listen(8)
             listener.settimeout(0.2)
             self._inode = self.path.lstat().st_ino
             self._listener = listener
-            self._thread = threading.Thread(target=self._serve, daemon=True,
-                                            name="potbot-operator-attachment")
+            self._thread = threading.Thread(
+                target=self._serve, daemon=True, name="potbot-operator-attachment"
+            )
             self._thread.start()
             return self
         except BaseException:
@@ -194,7 +204,7 @@ class OperatorAttachmentServer:
         while not self._stopping.is_set():
             try:
                 peer, _ = self._listener.accept()
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 return
@@ -205,7 +215,8 @@ class OperatorAttachmentServer:
                         continue
                     request = _recv_line(peer)
                     if request != {
-                        "schema": _SCHEMA, "operation": "status",
+                        "schema": _SCHEMA,
+                        "operation": "status",
                         "workspace_id": str(self.workspace_id),
                         "image_digest": self.image_digest,
                         "qualification_sha256": self.qualification_sha256,
@@ -213,29 +224,37 @@ class OperatorAttachmentServer:
                     }:
                         continue
                     state = self.status()
-                    healthy = (state.get("running") is True
-                               and state.get("history_healthy") is True
-                               and state.get("workspace_id") == str(self.workspace_id)
-                               and state.get("image_digest") == self.image_digest)
+                    healthy = (
+                        state.get("running") is True
+                        and state.get("history_healthy") is True
+                        and state.get("workspace_id") == str(self.workspace_id)
+                        and state.get("image_digest") == self.image_digest
+                    )
                     running = state.get("supervised_runs", 0)
                     if type(running) is not int or not 0 <= running <= 100_000:
                         healthy = False
                         running = 0
                     pending = state.get("pending_release_gates")
-                    if pending is not None and (type(pending) is not int
-                                               or not 0 <= pending <= 100_000):
+                    if pending is not None and (
+                        type(pending) is not int or not 0 <= pending <= 100_000
+                    ):
                         healthy = False
                         pending = None
-                    _write_line(peer, {
-                        "schema": _SCHEMA, "workspace_id": str(self.workspace_id),
-                        "image_digest": self.image_digest,
-                        "qualification_sha256": self.qualification_sha256,
-                        "mounts_sha256": self.mounts_sha256,
-                        "epoch": self.epoch, "healthy": healthy,
-                        "history_healthy": state.get("history_healthy") is True,
-                        "supervised_runs": running,
-                        "pending_release_gates": pending,
-                    })
+                    _write_line(
+                        peer,
+                        {
+                            "schema": _SCHEMA,
+                            "workspace_id": str(self.workspace_id),
+                            "image_digest": self.image_digest,
+                            "qualification_sha256": self.qualification_sha256,
+                            "mounts_sha256": self.mounts_sha256,
+                            "epoch": self.epoch,
+                            "healthy": healthy,
+                            "history_healthy": state.get("history_healthy") is True,
+                            "supervised_runs": running,
+                            "pending_release_gates": pending,
+                        },
+                    )
                 except (ValueError, KeyError, OSError, TimeoutError, RuntimeError):
                     # A local peer never receives raw filesystem or monitor errors.
                     continue
@@ -265,13 +284,17 @@ class OperatorAttachmentClient:
     """Pinned live-operator check, with an epoch fence across daemon restarts."""
 
     def __init__(
-        self, *, socket_path: Path, workspace_id: UUID, image_digest: str,
-        qualification_sha256: str, timeout_seconds: float = 0.4,
+        self,
+        *,
+        socket_path: Path,
+        workspace_id: UUID,
+        image_digest: str,
+        qualification_sha256: str,
+        timeout_seconds: float = 0.4,
         mounts_sha256: str = "0" * 64,
     ) -> None:
         _identity(workspace_id, image_digest, qualification_sha256)
-        if (not isinstance(timeout_seconds, (int, float))
-                or not 0.05 <= timeout_seconds <= 2.0):
+        if not isinstance(timeout_seconds, (int, float)) or not 0.05 <= timeout_seconds <= 2.0:
             raise InvalidInputError("Operator attachment timeout is invalid")
         self.path = Path(socket_path)
         self.workspace_id = workspace_id
@@ -297,19 +320,33 @@ class OperatorAttachmentClient:
                     conn.connect(str(self.path))
                     if _peer_uid(conn) != os.getuid():
                         raise ScopeDeniedError("Operator peer is not the controller user")
-                    _write_line(conn, {
-                        "schema": _SCHEMA, "operation": "status",
-                        "workspace_id": str(self.workspace_id),
-                        "image_digest": self.image_digest,
-                        "qualification_sha256": self.qualification_sha256,
-                        "mounts_sha256": self.mounts_sha256,
-                    })
+                    _write_line(
+                        conn,
+                        {
+                            "schema": _SCHEMA,
+                            "operation": "status",
+                            "workspace_id": str(self.workspace_id),
+                            "image_digest": self.image_digest,
+                            "qualification_sha256": self.qualification_sha256,
+                            "mounts_sha256": self.mounts_sha256,
+                        },
+                    )
                     response = _recv_line(conn)
-                if (set(response) != {
-                    "schema", "workspace_id", "image_digest", "qualification_sha256",
-                    "epoch", "healthy", "history_healthy", "supervised_runs",
-                    "mounts_sha256", "pending_release_gates",
-                } or response["schema"] != _SCHEMA
+                if (
+                    set(response)
+                    != {
+                        "schema",
+                        "workspace_id",
+                        "image_digest",
+                        "qualification_sha256",
+                        "epoch",
+                        "healthy",
+                        "history_healthy",
+                        "supervised_runs",
+                        "mounts_sha256",
+                        "pending_release_gates",
+                    }
+                    or response["schema"] != _SCHEMA
                     or response["workspace_id"] != str(self.workspace_id)
                     or response["image_digest"] != self.image_digest
                     or response["qualification_sha256"] != self.qualification_sha256
@@ -320,11 +357,17 @@ class OperatorAttachmentClient:
                     or response["history_healthy"] is not True
                     or type(response["supervised_runs"]) is not int
                     or not 0 <= response["supervised_runs"] <= 100_000
-                    or not (response["pending_release_gates"] is None or
-                            type(response["pending_release_gates"]) is int and
-                            0 <= response["pending_release_gates"] <= 100_000)
-                    or self._epoch is not None and self._epoch != response["epoch"]):
-                    raise CapabilityUnavailableError("Operator identity or monitoring is unavailable")
+                    or not (
+                        response["pending_release_gates"] is None
+                        or type(response["pending_release_gates"]) is int
+                        and 0 <= response["pending_release_gates"] <= 100_000
+                    )
+                    or self._epoch is not None
+                    and self._epoch != response["epoch"]
+                ):
+                    raise CapabilityUnavailableError(
+                        "Operator identity or monitoring is unavailable"
+                    )
                 self._epoch = response["epoch"]
                 self._cached = response
                 self._cached_until = time.monotonic() + 0.15
@@ -353,8 +396,7 @@ def runtime_attachment(runtime: Any) -> OperatorAttachmentClient | None:
     selected = Path(path)
     home = runtime.home.resolve(strict=True)
     rootfs = runtime.rootfs.resolve(strict=True)
-    if any(selected == mount or selected.is_relative_to(mount)
-           for mount in (home, rootfs)):
+    if any(selected == mount or selected.is_relative_to(mount) for mount in (home, rootfs)):
         raise ScopeDeniedError("Operator endpoint must stay outside guest mounts")
     if runtime.ai_config_dir is None or runtime.ai_history_dir is None:
         raise CapabilityUnavailableError("Managed workspace needs configured AI mounts")
@@ -363,7 +405,8 @@ def runtime_attachment(runtime: Any) -> OperatorAttachmentClient | None:
     except (KeyError, ValueError) as exc:
         raise CapabilityUnavailableError("Managed workspace identity is unavailable") from exc
     return OperatorAttachmentClient(
-        socket_path=selected, workspace_id=workspace_id,
+        socket_path=selected,
+        workspace_id=workspace_id,
         image_digest=runtime.image_digest,
         qualification_sha256=runtime.qualification_sha256,
         mounts_sha256=mount_fingerprint(runtime.ai_config_dir, runtime.ai_history_dir),

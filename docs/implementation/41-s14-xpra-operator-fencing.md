@@ -101,6 +101,24 @@ output.
 
 ## Limitations / next qualification
 
+### 25 October 2026 Linux test checkpoint
+
+On Ubuntu WSL2 with Python 3.12, 31 focused S14, application-session and S13
+attachment tests passed after replacing an unsupported `os.chmod(...,
+follow_symlinks=False)` call on a Unix socket. The corrected code checks the
+bound socket inode, type and owner before and after owner-only `chmod`; the
+parent is already verified as private. This preserves the documented boundary
+that same-UID hostile processes are outside this transport's isolation claim.
+
+Another 50 S39 browser unit tests passed. Six process-fake native Xpra tests
+cannot start on this WSLg host: `/tmp/.X11-unix` is read-only and the fake
+process exits with `OSError: [Errno 30] Read-only file system` while binding
+its display socket. That is a host setup limit, not a passing Xpra result.
+Xpra and Chromium binaries, a running S13 owner, a pinned disposable workspace
+and a writable private X11 socket host are still needed for the real two-phase
+acceptance above. Do not move or remove WSLg's existing X socket to make a
+test pass.
+
 - Offline unit tests cover owner-epoch failure and a real loopback acceptance
   HTTP fixture. **They are not proof of kernel isolation or real Xpra behavior.**
 - Xpra application processes currently use their existing host launch path,
