@@ -170,6 +170,14 @@ Run `scripts/qualify_shared_workspace.py` with `--shared-tools` on the actual
 Linux/WSL2 qualified host before enabling shared shell access. CI rootfs image
 publication does not imply successful sandbox qualification.
 
+The live sandbox qualification now requires proof that **every** positive and
+negative shell test was actually dispatched, the process was reaped, and the
+supervisor returned an isolation identity. It also compares the host and guest
+kernel network namespace identities; merely observing an outbound connection
+failure is not proof of a network sandbox. Run the smoke only with a signed,
+verified, extracted system image and disjoint controller-owned mounts. A passed
+smoke does not replace the remaining host/WSL2 adversarial qualifications.
+
 ## Agent Bash banner — skeleton v4
 
 Each newly provisioned agent home receives a copy of the upstream Kieran Simkin

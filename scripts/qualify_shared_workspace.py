@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import platform
+import shlex
 import sys
 from pathlib import Path
 
@@ -32,11 +33,21 @@ def _case(supervisor: ProcessSupervisor, *, home: Path, command: str,
         max_output_bytes=8192, max_file_bytes=4 * 1024**2,
     )
     result = supervisor.run(request)
-    passed = (result.outcome == "completed" and result.exit_code == 0
-              if must_succeed else result.outcome == "nonzero_exit")
+    # A failed command is not evidence of read-only or network isolation if
+    # Bubblewrap failed to dispatch it, the process was left running, or the
+    # operator has no isolation identity to bind to the receipt.
+    trustworthy_run = (result.dispatched and result.processes_stopped
+                       and bool(result.isolation_identity))
+    if must_succeed:
+        passed = (trustworthy_run and result.outcome == "completed"
+                  and result.exit_code == 0)
+    else:
+        passed = (trustworthy_run and result.outcome == "nonzero_exit"
+                  and result.exit_code not in (None, 0))
     return {
         "passed": passed, "outcome": result.outcome, "exit_code": result.exit_code,
         "dispatched": result.dispatched,
+        "processes_stopped": result.processes_stopped,
         "isolation_identity": result.isolation_identity,
         "stdout_sha256": hashlib.sha256(result.stdout).hexdigest(),
         "stderr_sha256": hashlib.sha256(result.stderr).hexdigest(),
@@ -47,7 +58,19 @@ def qualify(runtime: SharedWorkspaceRuntime) -> dict[str, object]:
     home = runtime.home.resolve(strict=True)
     supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(runtime))
     marker = "potbot-qualification-" + os.urandom(8).hex()
+    # An outbound TCP failure is NOT proof of network isolation: an
+    # unconfined process can fail to connect for unrelated reasons. Compare
+    # the live kernel namespace IDs of controller and sandbox explicitly.
+    host_net_ns = os.readlink("/proc/self/ns/net")
+    if not host_net_ns.startswith("net:[") or not host_net_ns.endswith("]"):
+        raise RuntimeError("host network namespace identity is unavailable")
     tests = {
+        "network_namespace_isolated": _case(
+            supervisor, home=home,
+            command='test "$(readlink /proc/self/ns/net)" != '
+                    + shlex.quote(host_net_ns),
+            must_succeed=True,
+        ),
         "bash_starts_at_home": _case(
             supervisor, home=home, command='test "$PWD" = /home && test "$HOME" = /home',
             must_succeed=True,

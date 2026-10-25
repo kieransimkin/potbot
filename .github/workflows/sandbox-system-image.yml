@@ -28,6 +28,7 @@ on:
       - src/potbot/tools/github_concurrency.py
       - tests/unit/test_workspace_concurrency.py
       - tests/unit/test_shared_workspace_isolation.py
+      - tests/unit/test_workspace_qualification_smoke.py
       - tests/unit/test_sandbox_image_manifest.py
       - .github/workflows/sandbox-system-image.yml
   pull_request:
@@ -57,6 +58,7 @@ on:
       - src/potbot/tools/github_concurrency.py
       - tests/unit/test_workspace_concurrency.py
       - tests/unit/test_shared_workspace_isolation.py
+      - tests/unit/test_workspace_qualification_smoke.py
       - tests/unit/test_sandbox_image_manifest.py
       - .github/workflows/sandbox-system-image.yml
   workflow_dispatch:
@@ -81,16 +83,21 @@ jobs:
         run: |
           uv run --locked python scripts/check_model_cache_policy.py --image-contract sandbox/image/Dockerfile
       - name: Verify named agent homes, original MOTD sources and shared tool admission
+        shell: bash
         run: |
+          set -euo pipefail
           uv sync --locked --dev
           uv run --locked python -m pytest -q \
             tests/unit/test_agent_skeleton.py \
             tests/unit/test_concurrent_resources_s2.py \
             tests/unit/test_shared_execution_s2.py \
             tests/unit/test_shared_model_library.py \
-            tests/unit/test_model_cache_routes.py
+            tests/unit/test_model_cache_routes.py \
             tests/unit/test_shared_tool_store.py \
-            tests/unit/test_shared_tool_install_gate.py
+            tests/unit/test_shared_tool_install_gate.py \
+            tests/unit/test_shared_workspace_isolation.py \
+            tests/unit/test_workspace_concurrency.py \
+            tests/unit/test_workspace_qualification_smoke.py
 
   build-rootfs:
     needs: validate
