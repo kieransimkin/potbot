@@ -5,6 +5,8 @@ on:
     paths:
       - 'src/potbot/tools/xpra_seamless.py'
       - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/xpra_browser_*.py'
+      - 'tests/unit/test_xpra_browser_control.py'
       - 'src/potbot/tools/isolation.py'
       - 'src/potbot/tools/x11_workspace_server.py'
       - 'frontend/**'
@@ -59,6 +61,7 @@ jobs:
           tests/integration/test_xpra_native_bridge.py
           tests/integration/test_xpra_vendor_contract.py
           tests/unit/test_xpra_application_sessions.py
+          tests/unit/test_xpra_browser_control.py
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

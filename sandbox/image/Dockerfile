@@ -8,6 +8,7 @@ LABEL org.opencontainers.image.title="Potbot minimal Linux sandbox rootfs" \
       org.opencontainers.image.revision="${SOURCE_COMMIT}"
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         bash ca-certificates coreutils findutils grep sed git gzip tar util-linux \
+        python3 python3-venv chromium fonts-liberation \
         figlet fortune-mod fortunes-min lolcat \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /etc/ai /etc/ai-past /etc/skel/.cache /etc/skel/.ollama \
@@ -36,5 +37,11 @@ ENV HOME=/home PATH=/usr/bin:/bin LANG=C.UTF-8 TMPDIR=/home/.tmp \
     SENTENCE_TRANSFORMERS_HOME=/var/ai/cache/sentence-transformers \
     TFHUB_CACHE_DIR=/var/ai/cache/tensorflow-hub KERAS_HOME=/var/ai/cache/keras \
     WHISPER_CACHE=/var/ai/cache/whisper INSIGHTFACE_HOME=/var/ai/cache/insightface
+# Xpra-controlled browser is part of the separately qualified immutable image.
+# A copied Python executable keeps the guest path inside the rootfs admission.
+RUN python3 -m venv --copies /opt/potbot/browser \
+    && /opt/potbot/browser/bin/pip install --no-cache-dir \
+         playwright==1.64.1 patchright==1.64.2 playwright-stealth==2.0.3
+COPY src/potbot/tools/xpra_browser_worker.py /opt/potbot/browser_worker.py
 WORKDIR /home
 CMD ["/bin/bash"]

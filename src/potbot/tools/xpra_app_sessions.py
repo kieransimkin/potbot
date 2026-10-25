@@ -154,6 +154,7 @@ class _App:
         self.started_at = int(time.time())
         self.detached = False
         self.indeterminate = False
+        self.browser_control: Any = None
 
     def view(self) -> AppView:
         exit_code = self.process.poll()
@@ -212,6 +213,8 @@ class XpraApplicationSupervisor:
     def _terminate(self, app: _App) -> None:
         proc = app.process
         if proc.poll() is not None:
+            if app.browser_control is not None:
+                app.browser_control.close()
             return
         try:
             os.killpg(proc.pid, signal.SIGTERM)
@@ -228,6 +231,8 @@ class XpraApplicationSupervisor:
                 proc.wait(timeout=1.5)
             except subprocess.TimeoutExpired:
                 app.indeterminate = True
+        if app.browser_control is not None:
+            app.browser_control.close()
 
     def _watch(self) -> None:
         while not self._stop.wait(0.25):
@@ -283,8 +288,11 @@ class XpraApplicationSupervisor:
             process = None
             try:
                 launch = self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
-                process = self.popen(launch.argv, stdin=subprocess.DEVNULL,
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                controlled_browser = kind == "controlled-browser"
+                process = self.popen(launch.argv,
+                                     stdin=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
+                                     stdout=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL,
                                      cwd="/", env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
                                      close_fds=True, pass_fds=launch.pass_fds,
                                      start_new_session=True)
@@ -294,6 +302,9 @@ class XpraApplicationSupervisor:
                 if process.poll() is not None:
                     raise CapabilityUnavailableError("sandbox application exited during admission")
                 app = _App(uuid4().hex, self.recipes[kind], process, launch.identity)
+                if controlled_browser:
+                    from potbot.tools.xpra_browser_control import BrowserControlChannel
+                    app.browser_control = BrowserControlChannel(process)
                 self._apps[app.id] = app
                 self._group_ids.add(app.id)
                 # Bounded operator state; live applications are never pruned.
@@ -320,6 +331,24 @@ class XpraApplicationSupervisor:
                     if fd >= 0:
                         try: os.close(fd)
                         except OSError: pass
+
+    def browser_command(self, identifier: str, command: object) -> dict[str, Any]:
+        """Read/control only the Chromium belonging to an admitted app session."""
+        with self._lock:
+            app = self._get(identifier)
+            if (app.recipe.kind != "controlled-browser" or app.process.poll() is not None
+                    or app.indeterminate or self._guard is None or self._guard.fenced
+                    or app.browser_control is None):
+                raise ScopeDeniedError("browser operation outside admitted live session")
+            channel = app.browser_control
+        try:
+            return channel.call(command)
+        except StateMismatchError:
+            with self._lock:
+                app.indeterminate = True
+                self._terminate(app)
+                self._settle()
+            raise
 
     def detach(self, identifier: str) -> dict[str, Any]:
         with self._lock:

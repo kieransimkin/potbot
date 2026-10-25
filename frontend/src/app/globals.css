@@ -365,3 +365,14 @@ body.potbot-reduced-motion *, body.potbot-reduced-motion *::before, body.potbot-
 .applications-launch-buttons button { max-width: 100%; }
 .applications-launcher .applications-item { align-items: center; }
 .applications-launcher .applications-item button { flex-shrink: 0; }
+
+/* Operator-only native Chromium DevTools/ARIA inspector. */
+.browser-inspector { width:min(100%,850px); padding:12px; margin:10px auto;
+  text-align:left; border:1px solid var(--border, #455268); border-radius:10px; }
+.browser-inspector-controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px;
+  align-items:center; margin:12px 0; }
+.browser-inspector-controls button { min-height:32px; }
+.browser-inspector-controls input, .browser-inspector-controls select { min-width:0; width:100%; }
+.browser-inspector-preview { max-width:100%; height:auto; object-fit:contain; border-radius:6px; }
+.browser-inspector-result { white-space:pre-wrap; overflow-wrap:anywhere; max-height:350px;
+  overflow:auto; font-size:12px; text-align:left; }

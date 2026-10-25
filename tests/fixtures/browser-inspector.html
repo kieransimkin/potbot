@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Potbot browser inspection fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 36px; background: #f4f6fb; }
+    main { max-width: 720px; padding: 22px; background: white; }
+    button.primary { border: 1px solid #3578d4; background: #3578d4; color: white; padding: 12px; }
+    button.primary:focus-visible { outline: 4px solid #ffbc1a; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Accessible browser inspection</h1>
+  <p>Use the inspector picker, then compare DOM, styles, event listeners and accessibility.</p>
+  <label for="message">Message</label>
+  <input id="message" name="message" aria-describedby="help" placeholder="Say hello" />
+  <p id="help">Try Tab to focus each control.</p>
+  <button class="primary" id="save" aria-label="Save message">Save</button>
+  <p id="result" role="status" aria-live="polite">No action yet</p>
+</main>
+<script>
+  document.getElementById('save').addEventListener('click', () => {
+    const message = document.getElementById('message').value;
+    document.getElementById('result').textContent = `Saved ${message.length} characters`;
+  });
+</script>
+</body>
+</html>

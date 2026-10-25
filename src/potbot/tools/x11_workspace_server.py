@@ -263,6 +263,32 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         return JSONResponse({"workspaceId": str(server.workspace_id), "session": result},
                             status_code=201, headers={"Cache-Control": "private, no-store"})
 
+    @app.post("/v1/xpra/apps/{session_id}/browser")
+    async def browser_command(session_id: str, request: Request,
+                              authorization: str | None = Header(default=None)) -> JSONResponse:
+        authenticate(authorization)
+        if apps is None:
+            raise HTTPException(503, "qualified browser launcher not configured")
+        if int(request.headers.get("content-length", "0") or "0") > 4096:
+            raise HTTPException(413, "browser request too large")
+        body = await request.body()
+        if len(body) > 4096:
+            raise HTTPException(413, "browser request too large")
+        try:
+            data = json.loads(body)
+            from potbot.tools.xpra_browser_worker import validate_command
+            validate_command(data)
+        except (ValueError, TypeError, UnicodeError):
+            raise HTTPException(409, "unapproved browser operation") from None
+        try:
+            result = apps.browser_command(session_id, data)
+        except (ValueError, RuntimeError, DomainError, OSError):
+            # The operation may have completed just before a disconnect.
+            # Do not retry state-changing commands automatically.
+            raise HTTPException(409, "browser command rejected or indeterminate") from None
+        return JSONResponse({"workspaceId": str(server.workspace_id), "result": result},
+                            headers={"Cache-Control": "private, no-store"})
+
     @app.post("/v1/xpra/apps/{session_id}/{operation}")
     def app_operation(session_id: str, operation: str,
                       authorization: str | None = Header(default=None)) -> JSONResponse:

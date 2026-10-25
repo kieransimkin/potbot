@@ -8,6 +8,7 @@ import type { ArtifactManifest } from "@/lib/ui-resources";
 import { PANEL_TITLES } from "@/lib/layout";
 import { GraphWorkbench } from "./GraphWorkbench";
 import { useWorkspace } from "./WorkspaceContext";
+import { BrowserInspector } from "./BrowserInspector";
 
 export function DockControls({ id }: { id: PanelId }) {
   const { dockPanel, floatPanel, graphFullscreen, setGraphFullscreen, closePanel } = useWorkspace();
@@ -191,6 +192,7 @@ export function BrowserPanel() {
     <div className="browser-address"><span>◎</span><span>Workspace Xpra application viewer</span>
       <span className="subtle">{xAvailable ? "CONNECTED" : "DISCONNECTED"}</span></div>
     <div className="empty-panel"><h2>Controlled browser</h2>
+      <BrowserInspector />
       {(appInventory?.choices ?? []).filter(choice => choice.kind === "browser").map(choice =>
         <button key={choice.kind} type="button" disabled={!xAvailable}
           onClick={() => launchApp(choice.kind)}>Launch sandbox {choice.title} ↗</button>)}

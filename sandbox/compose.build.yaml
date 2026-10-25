@@ -4,8 +4,8 @@ services:
     image: ${POTBOT_SANDBOX_IMAGE:?Set an immutable build output tag}
     platform: ${POTBOT_SANDBOX_PLATFORM:?Choose linux/amd64 or linux/arm64}
     build:
-      context: .
-      dockerfile: image/Dockerfile
+      context: ..
+      dockerfile: sandbox/image/Dockerfile
       args:
         BASE_IMAGE: ${POTBOT_SANDBOX_BASE:?Supply a digest-pinned Debian base image}
         SOURCE_COMMIT: ${POTBOT_SOURCE_COMMIT:?Supply an exact source commit}
