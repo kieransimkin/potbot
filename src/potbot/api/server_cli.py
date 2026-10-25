@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -91,6 +92,10 @@ def application(args: argparse.Namespace) -> FastAPI:
                                          log=events, reasoning_investigator=investigator)
     events.emit("server.ready", host=args.host, port=args.port,
                 content_logging=args.log_content, compatibility_api=True)
+    from potbot.tools.worker_telemetry import OperatorTelemetryReader
+
+    audit_root = os.environ.get("POTBOT_OPERATOR_AUDIT_ROOT")
+    monitor_reader = OperatorTelemetryReader(Path(audit_root)) if audit_root else None
     app = create_app(
         task_service=TaskService(database),
         job_service=JobService(database),
@@ -103,6 +108,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         openai_compat=compatibility,
         reasoning_store=state_store,
         reasoning_budget=budget_journal,
+        worker_telemetry_reader=monitor_reader,
         settings=settings,
     )
     from potbot.api.ui_resources import register_ui_routes

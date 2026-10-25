@@ -14,10 +14,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+from uuid import UUID
 
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
+from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
 from potbot.tools.isolation import BubblewrapBackend
 from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor
+from potbot.tools.worker_telemetry import WorkerMonitorConfig, WorkerMonitorSession
 
 Outcome = Literal[
     "completed", "nonzero_exit", "timeout", "cancelled", "infrastructure_error", "inconclusive"
@@ -45,8 +47,18 @@ class ProcessRequest:
     ipc_profile: Literal["none", "private-loopback-v1"] = "none"
     guest_uid: int | None = None
     guest_gid: int | None = None
+    # Trusted launch identity; no model-supplied paths or PIDs are accepted.
+    telemetry_workspace_id: UUID | None = None
+    telemetry_agent_id: UUID | None = None
 
     def __post_init__(self) -> None:
+        if (self.telemetry_workspace_id is None) != (self.telemetry_agent_id is None) or (
+            self.telemetry_workspace_id is not None and (
+                not isinstance(self.telemetry_workspace_id, UUID)
+                or not isinstance(self.telemetry_agent_id, UUID)
+            )
+        ):
+            raise InvalidInputError("worker audit needs paired trusted workspace and agent UUIDs")
         if (self.guest_uid is None) != (self.guest_gid is None):
             raise InvalidInputError("guest UID/GID must be selected together")
         if self.guest_uid is not None and (
@@ -137,8 +149,10 @@ def _kill_group(process: subprocess.Popen[bytes], force: bool = False) -> None:
 
 
 class ProcessSupervisor:
-    def __init__(self, backend: BubblewrapBackend | None = None) -> None:
+    def __init__(self, backend: BubblewrapBackend | None = None, *,
+                 monitor_config: WorkerMonitorConfig | None = None) -> None:
         self.backend = backend or BubblewrapBackend()
+        self.monitor_config = monitor_config
 
     def run(
         self,
@@ -168,11 +182,11 @@ class ProcessSupervisor:
         status_read, status_write = os.pipe()
         launch = None
         process: subprocess.Popen[bytes] | None = None
+        telemetry: WorkerMonitorSession | None = None
         try:
+            from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
             launch_options: dict[str, int] = {}
             if request.guest_uid is not None:
-                from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
-
                 if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
                     raise CapabilityUnavailableError("agent UID requires the qualified shared sandbox")
                 if request.guest_gid is None:
@@ -201,8 +215,19 @@ class ProcessSupervisor:
                 "PYTHONDONTWRITEBYTECODE": "1",
                 **request.environment,
             }
+            if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+                if request.telemetry_workspace_id is None or request.telemetry_agent_id is None:
+                    raise CapabilityUnavailableError("unidentified sandbox worker cannot run unmonitored")
+                config = self.monitor_config or WorkerMonitorConfig.from_environment()
+                home, audit = self.backend.runtime.home.resolve(), config.audit_root
+                if (audit == home or audit.is_relative_to(home) or home.is_relative_to(audit)
+                        or config.strace.is_relative_to(home)
+                        or config.cgroup_root.is_relative_to(home)):
+                    raise CapabilityUnavailableError("operator monitoring assets may not overlap sandbox home")
+                telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
+                                                 request.telemetry_agent_id, launch.identity)
             process = subprocess.Popen(
-                launch.argv,
+                telemetry.command(launch.argv) if telemetry is not None else launch.argv,
                 cwd="/",
                 env=environment,
                 stdin=subprocess.PIPE,
@@ -211,8 +236,18 @@ class ProcessSupervisor:
                 start_new_session=True,
                 close_fds=True,
                 pass_fds=launch.pass_fds,
+                preexec_fn=telemetry.enter_cgroup if telemetry is not None else None,
             )
-        except (CapabilityUnavailableError, OSError):
+            if telemetry is not None:
+                telemetry.start(process.pid)
+        except (CapabilityUnavailableError, OSError, ScopeDeniedError, RuntimeError):
+            if process is not None:
+                _kill_group(process, force=True)
+                try: process.wait(timeout=2)
+                except subprocess.TimeoutExpired: pass
+            observed_stopped = process is None or process.poll() is not None
+            if telemetry is not None:
+                observed_stopped = telemetry.finish(confirmed_stopped=observed_stopped) and observed_stopped
             return ProcessResult(
                 "infrastructure_error",
                 None,
@@ -224,7 +259,7 @@ class ProcessSupervisor:
                 False,
                 None,
                 "capability_unavailable",
-                processes_stopped=True,
+                processes_stopped=observed_stopped,
             )
         finally:
             os.close(status_write)
@@ -287,7 +322,7 @@ class ProcessSupervisor:
                         outcome = "timeout"
                     elif cancel_seen.is_set():
                         outcome = "cancelled"
-                    elif poll_failed.is_set():
+                    elif poll_failed.is_set() or (telemetry is not None and not telemetry.healthy):
                         outcome = "inconclusive"
                     if outcome is not None:
                         terminated_at = now
@@ -384,6 +419,12 @@ class ProcessSupervisor:
             captures = {"stdout": b"", "stderr": b"capture publication policy failed"}
             outcome = "inconclusive"
             error_code = "tool_failure"
+        if telemetry is not None and not telemetry.finish(confirmed_stopped=processes_stopped):
+            # Never publish a successful execution receipt or release the lease
+            # when cgroup termination or audit remains unconfirmed.
+            outcome = "inconclusive"
+            error_code = "audit_incomplete"
+            processes_stopped = False
         return ProcessResult(
             outcome,
             return_code,

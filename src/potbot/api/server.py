@@ -360,6 +360,7 @@ def create_app(
     openai_compat: OpenAICompatibility | None = None,
     reasoning_store: Any | None = None,
     reasoning_budget: Any | None = None,
+    worker_telemetry_reader: Any | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
@@ -419,6 +420,15 @@ def create_app(
     async def health() -> JSONResponse:
         # Liveness only; it deliberately makes no assertion about DB/worker health.
         return _response(success_response(uuid4(), {"status": "listening", "version": __version__}))
+
+    @app.get("/v1/system/utilisation")
+    async def system_utilisation(request: Request) -> JSONResponse:
+        actor = context(request)
+        _queries(request, set())
+        if worker_telemetry_reader is None:
+            raise CapabilityUnavailableError("operator worker telemetry is not configured")
+        projection = await _call(worker_telemetry_reader.snapshot, actor.workspace_id)
+        return _response(success_response(uuid4(), projection))
 
     @app.get("/v1/queue")
     async def queue(request: Request) -> JSONResponse:

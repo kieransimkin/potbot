@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { nextWorkspace, orbPosition } from "@/lib/orbit";
 import type { Workspace } from "@/lib/model";
+import { ResourcePulseCore } from "./ResourcePulseCore";
 
+export function WorkspaceOrbit
 export function WorkspaceOrbit({ workspaces, selected, onSelect }: {
   workspaces: Workspace[]; selected: number; onSelect: (value: number) => void;
 }) {
@@ -37,6 +39,7 @@ export function WorkspaceOrbit({ workspaces, selected, onSelect }: {
       <span aria-hidden="true">◌</span> Workspaces <span aria-hidden="true">⌄</span>
     </button>
     <nav id="workspace-orbit" className="orbit-track" aria-label="Switch workspace">
+      <ResourcePulseCore />
       {workspaces.map((workspace, index) => {
         const p = orbPosition(index, selected, workspaces.length, revealed);
         const active = index === selected;

@@ -24,7 +24,9 @@ from typing import Any
 
 from potbot.domain.errors import CapabilityUnavailableError, IndeterminateExecutionError
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
+from potbot.tools.worker_telemetry import WorkerMonitorConfig, WorkerMonitorSession
 
+_MAX_STATUS_BYTES
 _MAX_STATUS_BYTES = 65_536
 _SHUTDOWN_GRACE_S = 0.5
 
@@ -52,6 +54,7 @@ class IsolatedInteractiveProcess:
         isolation_identity: str,
         status_fd: int,
         cancelled: Callable[[], bool] | None = None,
+        monitor_session: WorkerMonitorSession | None = None,
     ) -> None:
         import hashlib
 
@@ -62,6 +65,8 @@ class IsolatedInteractiveProcess:
         self._status_fd = status_fd
         self._started_at = time.monotonic()
         self._closed = False
+        self._monitor_session = monitor_session
+        self._audit_ok: bool | None = None
         self._forced = False
         self._stderr_bytes = 0
         self._status_hash: str | None = None
@@ -206,6 +211,11 @@ class IsolatedInteractiveProcess:
                     except (TimeoutError, asyncio.CancelledError):
                         task.cancel()
                         await asyncio.gather(task, return_exceptions=True)
+                if self._monitor_session is not None:
+                    self._audit_ok = await asyncio.to_thread(
+                        self._monitor_session.finish,
+                        confirmed_stopped=self.process.returncode is not None,
+                    )
         return InteractiveExit(
             return_code=self.process.returncode,
             isolation_identity=self.isolation_identity,
@@ -213,7 +223,7 @@ class IsolatedInteractiveProcess:
             stderr_truncated=self._stderr_truncated,
             status_sha256=self._status_hash,
             forced_termination=self._forced,
-            processes_stopped=self.process.returncode is not None,
+            processes_stopped=self.process.returncode is not None and self._audit_ok is not False,
         )
 
     async def __aenter__(self) -> IsolatedInteractiveProcess:
@@ -231,12 +241,21 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
     ) -> IsolatedInteractiveProcess:
         if not isinstance(request, ProcessRequest):
             raise CapabilityUnavailableError("Interactive execution requires ProcessRequest")
-        if not os.path.isfile(request.argv[0]) or not os.access(request.argv[0], os.X_OK):
+        if not getattr(self.backend, "guest_executable", False) and (
+            not os.path.isfile(request.argv[0]) or not os.access(request.argv[0], os.X_OK)
+        ):
             raise CapabilityUnavailableError("Pinned interactive executable is unavailable")
         status_read, status_write = os.pipe()
         launch: Any = None
         process: asyncio.subprocess.Process | None = None
+        telemetry: WorkerMonitorSession | None = None
         try:
+            from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+            launch_options: dict[str, int] = {}
+            if request.guest_uid is not None:
+                if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+                    raise CapabilityUnavailableError("agent UID needs qualified shared sandbox")
+                launch_options = {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -250,6 +269,7 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
                 ipc_profile=request.ipc_profile,
+                **launch_options,
             )
             # Do not inherit environment or CWD from the model/controller host.
             environment = {
@@ -259,8 +279,20 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 "PYTHONDONTWRITEBYTECODE": "1",
                 **request.environment,
             }
+            from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+            if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+                if request.telemetry_workspace_id is None or request.telemetry_agent_id is None:
+                    raise CapabilityUnavailableError("unidentified interactive Cog cannot run unmonitored")
+                config = self.monitor_config or WorkerMonitorConfig.from_environment()
+                home, audit = self.backend.runtime.home.resolve(), config.audit_root
+                if (audit == home or audit.is_relative_to(home) or home.is_relative_to(audit)
+                        or config.strace.is_relative_to(home)
+                        or config.cgroup_root.is_relative_to(home)):
+                    raise CapabilityUnavailableError("operator monitoring assets overlap sandbox home")
+                telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
+                                                 request.telemetry_agent_id, launch.identity)
             process = await asyncio.create_subprocess_exec(
-                *launch.argv,
+                *(telemetry.command(launch.argv) if telemetry is not None else launch.argv),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -268,8 +300,16 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 env=environment,
                 start_new_session=True,
                 pass_fds=launch.pass_fds,
+                preexec_fn=telemetry.enter_cgroup if telemetry is not None else None,
                 limit=min(request.max_output_bytes + 2, 2 * 1024 * 1024 + 2),
             )
+            if telemetry is not None:
+                try: telemetry.start(process.pid)
+                except BaseException:
+                    process.kill()
+                    await process.wait()
+                    telemetry.finish(confirmed_stopped=True)
+                    raise
         finally:
             # Closing the seccomp/status write descriptors in the parent is vital:
             # otherwise Bubblewrap's status pipe never reaches EOF.
@@ -281,6 +321,12 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
             if process is None:
                 os.close(status_read)
         assert launch is not None and process is not None
+        def cancellation_or_audit_fault() -> bool:
+            return (cancelled is not None and cancelled()) or (
+                telemetry is not None and not telemetry.healthy
+            )
         return IsolatedInteractiveProcess(
-            request, process, launch.identity, status_read, cancelled=cancelled
+            request, process, launch.identity, status_read,
+            cancelled=cancellation_or_audit_fault if telemetry is not None or cancelled else None,
+            monitor_session=telemetry,
         )

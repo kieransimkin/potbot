@@ -1,0 +1,30 @@
+/* Central holographic monitoring sprite; inexpensive CSS compositor animations. */
+.sprite { position: absolute; z-index: 22; top: 2px; left: -36px; width: 72px; height: 72px;
+  isolation: isolate; pointer-events: none; display: grid; place-items: center;
+  --monitor-load: 0; --monitor-fast: 0; }
+.outerGlow { position: absolute; inset: -9px; border-radius: 50%;
+  background: radial-gradient(circle, #31eaf525 27%, #43d3f24d 43%, transparent 70%);
+  filter: brightness(calc(.35 + var(--monitor-load) * 3.6)); opacity: calc(.28 + var(--monitor-load) * .72);
+  animation: pulse 1s ease-in-out infinite; }
+.offline { opacity: .18; animation: none; }
+.rings { width: 72px; height: 72px; filter: drop-shadow(0 0 5px #23c8ee98);
+  background: radial-gradient(circle at 35% 30%, #3b8cab79, #061324ee 74%);
+  border-radius: 50%; }
+.value { position: absolute; color: #dcffff; font: 700 10px/1 monospace; top: 33px;
+  text-shadow: 0 0 6px #8aeaff; }
+.flash { position: absolute; inset: -7px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, transparent 35%, #ffc57c 62%, transparent 72%);
+  opacity: 0; animation: spike .55s ease-out both; }
+.bottleneck { position: absolute; right: 9px; top: 10px; color: #ffbc7b;
+  font: 900 10px monospace; text-shadow: 0 0 7px #fe7441; }
+.agents { position: absolute; top: 78px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 3px; justify-content: center; min-width: 66px; max-width: 150px;
+  pointer-events: auto; }
+.agent { width: 12px; height: 3px; flex: 0 0 12px; border-radius: 4px; overflow: hidden;
+  background: #29475a; box-shadow: 0 0 2px #3b94ad; }
+.agentFill { height: 100%; display: block; border-radius: inherit;
+  background: linear-gradient(90deg,#30e3fb,#71dcb9 55%,#f5b15b 80%,#ff6557);
+  box-shadow: 0 0 4px #6fefff; }
+@keyframes pulse { 0%,100% { transform: scale(.95); } 50% { transform: scale(1.075); } }
+@keyframes spike { 0% { opacity: .82; transform: scale(.7); } 100% { opacity: 0; transform: scale(1.5); } }
+@media (prefers-reduced-motion: reduce) { .outerGlow, .flash { animation: none !important; } }

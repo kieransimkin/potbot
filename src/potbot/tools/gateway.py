@@ -429,6 +429,8 @@ class ToolGateway:
                 stdin=stdin,
                 memory_bytes=definition.memory_bytes or 4 * 1024**3,
                 cpu_seconds=definition.cpu_seconds or 60,
+                telemetry_workspace_id=context.workspace_id if self.shared_runtime else None,
+                telemetry_agent_id=context.principal_id if self.shared_runtime else None,
             )
             result = self.supervisor.run(
                 request,
