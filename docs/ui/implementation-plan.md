@@ -68,3 +68,38 @@
 - Backend chat owns `src/potbot/**`, migrations, session/terminal/browser APIs.
 - The UI/backend contract is versioned collaboratively and reviewed before
   either track changes the event shapes.
+
+## UI-3 implementation increment — frontend-only live bridge
+
+Completed locally, pending CI/browser acceptance:
+
+- Server-only signed HttpOnly operator-session cookie, same-origin login/logout,
+  bounded requests, explicit loopback backend URL, and configured workspace
+  scope. This is **not** yet a production-grade multi-user login service.
+- Browser-to-Next-to-Potbot streaming chat bridge using the backend's existing
+  OpenAI completion SSE contract and `X-Potbot-Run-Id`. Chat history is
+  explicitly ephemeral; no auto-retry after uncertain inference.
+- Reasoning checkpoint read plus paginated event polling, whitelisted node/edge
+  projection and monotonic event cursor detection. Polling throttles for
+  minimized or terminal graphs, preserving WebGL resources on no-op updates.
+- Accessible inspectable node list and simplified non-WebGL fallback.
+- Node-only mocked route and stream/parser tests, independent of npm packages.
+
+Next before UI-4:
+
+1. Connect Python backend's multi-workspace discovery and independently
+   authorized chat-session persistence. Replace configured-workspace fallback
+   only when the backend authenticates principal/workspace membership.
+2. Add typed graph projection and push/replay API (SSE or WebSocket) instead of
+   repeated state+event polling. Include sequence/epoch resync and evidence
+   provenance without exporting hidden reasoning.
+3. Run real Next.js dependency build and Playwright tests on Windows/Linux,
+   including login/logout, live chat streaming, connection loss, graph events,
+   browser navigation, focus, and high-DPI WebGL performance. Current execution
+   environment cannot install npm packages, so build status is unverified.
+4. Implement and independently security-audit workspace PTY, browser sessions,
+   persistent settings, downloads and model-install event APIs on backend track;
+   connect their frontend windows only as each resource becomes available.
+5. Add identity-provider integration, CSRF/origin audits, shared distributed
+   login rate limits, reverse-proxy TLS, hardening and account/session revocation
+   before deploying UI outside a trusted operator environment.

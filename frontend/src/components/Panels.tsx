@@ -28,13 +28,13 @@ export function DockControls({ id }: { id: PanelId }) {
 }
 
 export function ChatPanel() {
-  const { workspace, demo, entries, sendMessage, openPanel } = useWorkspace();
+  const { workspace, demo, entries, sendMessage, openPanel, chatBusy } = useWorkspace();
   const [draft, setDraft] = useState("");
   const anchor = useRef<HTMLDivElement>(null);
   useEffect(() => anchor.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [entries.length]);
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!draft.trim()) return;
+    if (!draft.trim() || chatBusy) return;
     sendMessage(draft.trim());
     setDraft("");
   }
@@ -49,7 +49,7 @@ export function ChatPanel() {
         <span className="welcome-symbol">✳</span>
         <h2>What are we working on?</h2>
         <p>Reasoning, tools, browser sessions and terminals will share this workspace.</p>
-        <span className="subtle">{demo ? "Preview mode · no inference is connected" : "Backend session API pending"}</span>
+        <span className="subtle">{demo ? "Preview mode · no inference is connected" : "Live inference · chat history is not persisted by the backend yet"}</span>
       </div>}
       {entries.map(item => <div key={item.id} className={`chat-message ${item.role}`}>
         <span className="message-label">{item.role === "user" ? "You" : item.role === "assistant" ? "Potbot" : "Connection status"}</span>
@@ -69,15 +69,15 @@ export function ChatPanel() {
         <textarea value={draft} onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }}
           aria-label="Message Potbot" placeholder="Message Potbot, or steer the current reasoning…" rows={2} maxLength={16000} />
-        <button className="send-button" type="submit" disabled={!draft.trim()} aria-label="Send message">↑</button>
+        <button className="send-button" type="submit" disabled={!draft.trim() || chatBusy} aria-label="Send message">{chatBusy ? "…" : "↑"}</button>
       </div>
-      <span className="composer-disclaimer">{demo ? "DEMO • messages stay in this browser session" : "No authenticated chat session has been configured"}</span>
+      <span className="composer-disclaimer">{demo ? "DEMO • messages stay in this browser session" : chatBusy ? "POTBOT RESPONDING • requests may continue if connection drops" : "LIVE • workspace-scoped inference; conversation exists only in this tab"}</span>
     </form>
   </section>;
 }
 
 export function MenuPanel() {
-  const { workspace, openPanel } = useWorkspace();
+  const { workspace, openPanel, isLive, logout } = useWorkspace();
   const sections: { heading: string; items: [PanelId, string][] }[] = [
     { heading: "WORKSPACE", items: [["graph", "Thought graph"], ["terminal", "Bash console"], ["browser", "Controlled browser"]] },
     { heading: "USER PREFERENCES", items: [["preferences", "General preferences"], ["downloads", "Downloads and transfers"], ["installations", "Model installations"]] },
@@ -91,30 +91,42 @@ export function MenuPanel() {
         <span>{label}</span><span aria-hidden="true">↗</span>
       </button>)}
     </div>)}
+    {isLive && <button className="menu-item" onClick={logout}><span>Sign out of operator workspace</span><span aria-hidden="true">⇥</span></button>}
     <p className="muted-note">Drag the titlebar to float this menu; dock it along any edge. The menu cannot maximize.</p>
     <DockControls id="menu" />
   </section>;
 }
 
 export function GraphPanel() {
-  const { demo, graphFullscreen, setGraphFullscreen } = useWorkspace();
+  const { demo, graph, graphState, runId, graphFullscreen, setGraphFullscreen } = useWorkspace();
   const [selected, setSelected] = useState<GraphNode | null>(null);
+  const [showNodes, setShowNodes] = useState(false);
+  const available = demo ? DEMO_GRAPH : graph;
   return <motion.section layoutId="potbot-graph-window" className="graph-pane">
     <div className="graph-content">
       {graphFullscreen ? <div className="graph-fallback">Graph is open in fullscreen.</div> : demo ? <GraphScene graph={DEMO_GRAPH} onInspect={setSelected} />
-        : <div className="graph-unavailable"><strong>No active reasoning graph</strong><p>The backend graph projection and replay API is planned for UI-3.</p></div>}
+        : graph ? <GraphScene graph={graph} onInspect={setSelected} />
+        : <div className="graph-unavailable"><strong>No active reasoning graph</strong><p>Start a Potbot inference to inspect its checkpoint projection.</p><small>{graphState}</small></div>}
       {demo && <span className="graph-demo-marker">SYNTHETIC GRAPH · DEMO</span>}
+      {showNodes && available && <aside className="graph-node-list" aria-label="Reasoning node explorer">
+        <strong>Recorded reasoning nodes</strong>
+        <button type="button" onClick={() => setShowNodes(false)} aria-label="Close node list">×</button>
+        <ul>{available.nodes.slice(0, 120).map(node => <li key={node.id}>
+          <button type="button" onClick={() => setSelected(node)}>{node.label} <small>{node.state}</small></button>
+        </li>)}</ul>
+      </aside>}
       {selected && <div className="graph-selection" role="status"><strong>{selected.label}</strong><small>{selected.kind} · {selected.state}</small>
         <button type="button" onClick={() => setSelected(null)} aria-label="Clear selected node">×</button></div>}
     </div>
-    <div className="graph-footer"><span>{demo ? "Drag to orbit · Scroll to zoom · Select a node" : "Waiting for backend graph projection"}</span>
+    <div className="graph-footer"><span>{demo ? "Drag to orbit · Scroll to zoom · Select a node" : `Run ${runId?.slice(0, 10) ?? "not started"} · ${graphState}`}</span>
+      {available && <button type="button" onClick={() => setShowNodes(v => !v)} aria-expanded={showNodes} aria-label="Browse reasoning nodes">Nodes</button>}
       <DockControls id="graph" /></div>
     <button className="accessible-fullscreen" onClick={() => setGraphFullscreen(true)} aria-label="Maximize reasoning graph">⛶</button>
   </motion.section>;
 }
 
 export function FullscreenGraph() {
-  const { demo, setGraphFullscreen, closePanel } = useWorkspace();
+  const { demo, graph, graphState, setGraphFullscreen, closePanel } = useWorkspace();
   const [selected, setSelected] = useState<GraphNode | null>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -129,7 +141,8 @@ export function FullscreenGraph() {
       <button onClick={() => { setGraphFullscreen(false); closePanel("graph"); }}>Minimize to orb ⊗</button>
     </div>
     {demo ? <GraphScene graph={DEMO_GRAPH} onInspect={setSelected} />
-      : <div className="graph-unavailable">No graph has been loaded from Potbot.</div>}
+      : graph ? <GraphScene graph={graph} onInspect={setSelected} />
+      : <div className="graph-unavailable">No graph is available yet. {graphState}</div>}
     {selected && <div className="fullscreen-inspect"><b>{selected.label}</b><p>{selected.kind} · {selected.state}</p></div>}
   </div>;
 }
@@ -166,7 +179,7 @@ export function PreferencesPanel() {
     <div className="settings-row"><div><strong>Current workspace</strong><small>{workspace.name}</small></div><span className="status-chip">ACTIVE</span></div>
     <label className="settings-row"><div><strong>Compact information density</strong><small>Saved locally for this workspace</small></div>
       <input type="checkbox" checked={compact} onChange={event => setCompact(event.target.checked)} /></label>
-    <p className="muted-note">Account-level settings and model-provider preferences require the authenticated backend preferences API.</p>
+    <p className="muted-note">Account-level settings and model-provider preferences require the backend preferences API. This UI connects with an operator-scoped service token and currently supports one authorized live workspace.</p>
     <DockControls id="preferences" />
   </section>;
 }

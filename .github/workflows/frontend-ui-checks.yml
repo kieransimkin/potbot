@@ -1,0 +1,34 @@
+name: Potbot Next.js UI
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - 'docs/ui/**'
+      - '.github/workflows/frontend-ui-checks.yml'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline interaction/API-contract tests
+        working-directory: frontend
+        run: npm test
+      - name: Install frontend dependencies (lockfile still pending)
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Production build
+        working-directory: frontend
+        run: npm run build

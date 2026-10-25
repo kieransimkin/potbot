@@ -100,5 +100,11 @@ export default function GraphScene({ graph, onInspect }: { graph: GraphProjectio
       renderer.dispose(); renderer.domElement.remove();
     };
   }, [graph]);
-  return failed ? <div className="graph-fallback" role="status">WebGL unavailable. Use the node list below to inspect the graph.</div> : <div ref={container} className="graph-render-surface" aria-label="Interactive three-dimensional reasoning graph" />;
+  return failed ? <div className="graph-fallback graph-fallback-list" role="region" aria-label="Accessible reasoning graph nodes">
+    <strong>WebGL unavailable — node list</strong>
+    <ul>{graph.nodes.slice(0, 120).map(node => <li key={node.id}><button type="button" onClick={() => onInspect(node)}>
+      {node.label} <small>{node.state}</small>
+    </button></li>)}</ul>
+    {graph.nodes.length > 120 && <p>Showing first 120 of {graph.nodes.length} nodes.</p>}
+  </div> : <div ref={container} className="graph-render-surface" aria-label="Interactive three-dimensional reasoning graph" />;
 }

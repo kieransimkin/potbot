@@ -83,3 +83,67 @@ connecting to a real backend, implement user authentication, workspace-scoped
 sessions, CSRF protection for mutations, and a server-side credential boundary
 before enabling remote requests. Do not expose Potbot's service API token using
 `NEXT_PUBLIC_` environment variables.
+
+## UI-3 — live operator bridge, streaming chat and reasoning checkpoint graph
+
+UI-3 adds server-only, single-operator authentication and a limited bridge to
+**existing** Potbot API endpoints. Live mode deliberately exposes **one**
+configured workspace. The current backend does not yet have authenticated
+multi-workspace discovery or durable chat sessions. Demo workspaces remain
+available exclusively at `/?demo=1` on a development build.
+
+1. Copy `.env.example` to `.env.local` and replace **every** placeholder with
+   actual, private operator values. `POTBOT_UI_PASSWORD` is the local UI login;
+   `POTBOT_UI_COOKIE_SECRET` should be independently random (32+ characters).
+2. `POTBOT_UI_PUBLIC_ORIGIN` must match exactly how you open Next.js (for
+   example `http://127.0.0.1:3100`). A non-loopback public origin requires
+   HTTPS. Cookie sessions last eight hours, are HttpOnly and SameSite=Strict.
+3. `POTBOT_UI_BACKEND_URL` is restricted to an explicit HTTP **loopback** `/`
+   origin (for example `http://127.0.0.1:8000`); forward a remote backend via a
+   trusted tunnel or reverse proxy instead of weakening the server's URL policy.
+4. `POTBOT_UI_BACKEND_TOKEN` must be a **workspace-scoped** backend credential;
+   `POTBOT_UI_WORKSPACE_ID` must be its actual workspace. The existing backend
+   does not provide an identity-introspection endpoint, so configuration must
+   be checked by the operator. Never put this token into `NEXT_PUBLIC_*`.
+5. Start Potbot's service and then `npm install && npm run dev` in `frontend/`.
+   Open `/`, authenticate with the operator password, and submit a message.
+
+The browser calls authenticated same-origin Next.js `/api/ui/*` routes, never
+Potbot directly. Next forwards the normal OpenAI-compatible chat stream and
+safe run ID, then polls the existing `/v1/reasoning/{run_id}` snapshot and
+paginated events. The graph is a **sanitized projection** containing only node
+labels, kinds, state, edges and revision; raw results, prompt hashes and claim
+tokens are not forwarded. Sequence gaps reset the cursor and replay from the
+current checkpoint. Polling is throttled while the graph is minimized or
+when the run is terminal. The default graph is still 3D WebGL with an accessible
+node-list fallback.
+
+Chat context is maintained in this **browser tab only**; refreshing the page
+or signing out clears it. This is not a persisted chat-session service. A lost
+connection after dispatch has an **uncertain** outcome and is **never**
+automatically resubmitted. The existing steering endpoint is not automatically
+used for new chat messages, since the UI currently lacks a durable session and
+explicit steering-intent workflow.
+
+### Security and deployment boundaries
+
+This is a **single-operator** bridge, not multi-user authentication. It rejects
+cross-origin mutations, validates the cookie HMAC and lifetime, enforces a
+small in-process login-attempt limit, constrains request sizes and workspace
+IDs, disables upstream redirects, and never returns server secrets to the
+browser. Deploy behind TLS and an **external rate limiter**; the in-process
+limiter is not sufficient for multi-process or Internet-facing authentication.
+Do not expose this developer-facing bridge publicly until an account-aware,
+workspace-authorized identity provider and end-to-end security review are added.
+
+### Tests
+
+```bash
+npm test                          # offline, built-in Node 22 tests
+npm run typecheck                 # requires npm dependencies installed
+npm run build                     # requires npm dependencies installed
+```
+
+A mocked integration suite covers login, origin enforcement, credential
+isolation, workspace bounds, chat streaming, safe graph projection and cursor
+handling. A real Potbot service is needed for end-to-end browser acceptance.

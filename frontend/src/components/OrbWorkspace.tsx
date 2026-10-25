@@ -5,8 +5,10 @@ import type { DockviewApi, DockviewReadyEvent } from "dockview-react";
 import { DockviewReact } from "dockview-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { bootWorkspaces } from "@/lib/boot";
+import { readChatStream } from "@/lib/chat-stream";
+import { RUN_ID } from "@/lib/live-schema";
 import { decodeSavedLayout, layoutStorageKey, PANEL_TITLES, shouldMinimizePanel } from "@/lib/layout";
-import type { ChatEntry, DockEdge, PanelId, Workspace } from "@/lib/model";
+import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 import { WorkspaceOrbit } from "./WorkspaceOrbit";
 import { WorkspaceProvider } from "./WorkspaceContext";
 import { BrowserPanel, ChatPanel, DownloadsPanel, FullscreenGraph, GraphPanel, InstallationsPanel, MenuPanel, PreferencesPanel, TerminalPanel } from "./Panels";
@@ -111,23 +113,67 @@ function useDockApi() {
   return ref;
 }
 
+type LoginState = "checking" | "login" | "disconnected" | "ready";
+
 export function OrbWorkspace({ demo }: { demo: boolean }) {
-  const { workspaces, source } = useMemo(() => bootWorkspaces(demo), [demo]);
+  const initial = useMemo(() => bootWorkspaces(demo), [demo]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(initial.workspaces);
+  const [gateway, setGateway] = useState<LoginState>(demo ? "ready" : "checking");
+  const [notice, setNotice] = useState("");
+  const [password, setPassword] = useState("");
   const [selected, setSelected] = useState(0);
   const [messages, setMessages] = useState<Record<string, ChatEntry[]>>({});
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [runIds, setRunIds] = useState<Record<string, string>>({});
+  const [graphs, setGraphs] = useState<Record<string, GraphProjection>>({});
+  const [graphHealth, setGraphHealth] = useState<Record<string, string>>({});
+  const cursors = useRef<Record<string, number>>({});
+  const requests = useRef<Map<string, AbortController>>(new Map());
   const [graphMinimized, setGraphMinimized] = useState(false);
   const [graphFullscreen, setGraphFullscreen] = useState(false);
   const apiRef = useRef<DockviewApi | null>(null);
   const workspace = workspaces[selected];
 
+  const loadLive = useCallback(async () => {
+    try {
+      const response = await fetch("/api/ui/bootstrap", { cache: "no-store", credentials: "same-origin" });
+      if (response.status === 401) { setGateway("login"); return; }
+      if (!response.ok) throw new Error("Potbot backend is unavailable or not configured.");
+      const data: unknown = await response.json();
+      const doc = data as { workspaces?: Workspace[] };
+      if (!Array.isArray(doc.workspaces) || !doc.workspaces.length) throw new Error("No authorized workspace was returned.");
+      // Backend-for-frontend returns only a scoped and whitelisted workspace.
+      setWorkspaces(doc.workspaces);
+      setSelected(0);
+      setNotice("");
+      setGateway("ready");
+    } catch { setGateway("disconnected"); setNotice("Cannot connect to the authorized Potbot workspace. Check backend configuration and service health."); }
+  }, []);
+
   useEffect(() => {
-    if (!demo) return;
+    if (demo) return;
+    let active = true;
+    void fetch("/api/ui/auth/status", { cache: "no-store" }).then(r => r.json()).then((data: { configured?: boolean; authenticated?: boolean }) => {
+      if (!active) return;
+      if (!data.configured) { setGateway("disconnected"); setNotice("Operator authentication is not configured on this Next.js server."); }
+      else if (!data.authenticated) setGateway("login");
+      else void loadLive();
+    }).catch(() => { if (active) { setGateway("disconnected"); setNotice("Operator authentication service is unavailable."); } });
+    return () => { active = false; };
+  }, [demo, loadLive]);
+
+  useEffect(() => () => {
+    for (const controller of requests.current.values()) controller.abort();
+    requests.current.clear();
+  }, []);
+
+  useEffect(() => {
     try {
       const last = localStorage.getItem("potbot:ui:selected-workspace:v1");
       const index = workspaces.findIndex(item => item.id === last);
       if (index >= 0) setSelected(index);
     } catch { /* Storage is optional. */ }
-  }, [demo, workspaces]);
+  }, [workspaces]);
 
   const selectWorkspace = useCallback((index: number) => {
     if (index < 0 || index >= workspaces.length) return;
@@ -164,26 +210,153 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     if (!panel || id === "chat") return;
     api?.addFloatingGroup(panel, floatingDefaults(id));
   }, []);
+
   const sendMessage = useCallback((text: string) => {
-    if (!workspace || !demo) return;
-    const id = crypto.randomUUID();
-    setMessages(previous => ({ ...previous, [workspace.id]: [
-      ...(previous[workspace.id] ?? []),
-      { id, role: "user", text },
-      { id: crypto.randomUUID(), role: "status", text: "UI preview only — this message was not sent to the Potbot backend." },
+    if (!workspace) return;
+    const workspaceId = workspace.id;
+    if (requests.current.has(workspaceId)) return; // One live stream per workspace.
+    const userId = crypto.randomUUID(), assistantId = crypto.randomUUID();
+    const previous = (messages[workspaceId] ?? []).filter(item => item.role !== "status" && item.text.trim());
+    const recent = [...previous, { id: userId, role: "user" as const, text }].slice(-24);
+    setMessages(state => ({ ...state, [workspaceId]: [
+      ...(state[workspaceId] ?? []), { id: userId, role: "user", text },
+      ...(demo ? [{ id: assistantId, role: "status" as const,
+        text: "UI preview only — this message was not sent to Potbot." }] :
+        [{ id: assistantId, role: "assistant" as const, text: "" }]),
     ] }));
-  }, [workspace, demo]);
-  const session = useMemo(() => workspace ? ({ workspace, demo,
-    entries: messages[workspace.id] ?? [], sendMessage, openPanel, closePanel, dockPanel,
+    if (demo) return;
+    const controller = new AbortController();
+    requests.current.set(workspaceId, controller);
+    setBusy(state => ({ ...state, [workspaceId]: true }));
+    let pending = "", frame = 0, finished = false;
+    const flush = () => {
+      if (frame) { cancelAnimationFrame(frame); frame = 0; }
+      const delta = pending;
+      pending = "";
+      if (delta) setMessages(state => ({ ...state, [workspaceId]: (state[workspaceId] ?? []).map(item =>
+        item.id === assistantId ? { ...item, text: item.text + delta } : item), }));
+    };
+    const status = (message: string) => setMessages(state => ({ ...state, [workspaceId]: [
+      ...(state[workspaceId] ?? []).filter(item => item.id !== assistantId || item.text),
+      { id: crypto.randomUUID(), role: "status", text: message },
+    ] }));
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/chat", { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, signal: controller.signal,
+          body: JSON.stringify({ workspaceId, messages: recent.map(item => ({ role: item.role, content: item.text })) }),
+        });
+        if (response.status === 401) {
+          setGateway("login"); setWorkspaces([]);
+          throw new Error("Operator session expired");
+        }
+        if (!response.ok || !response.body) throw new Error("Potbot did not accept this request.");
+        const runId = response.headers.get("X-Potbot-Run-Id");
+        if (runId && RUN_ID.test(runId)) {
+          cursors.current[runId] = 0;
+          setRunIds(state => ({ ...state, [workspaceId]: runId }));
+          setGraphHealth(state => ({ ...state, [workspaceId]: "loading" }));
+        }
+        await readChatStream(response.body, event => {
+          if (event.type === "delta") {
+            pending += event.text;
+            if (!frame) frame = requestAnimationFrame(flush);
+          } else if (event.type === "complete") { flush(); finished = true; }
+          else { flush(); status(event.message); }
+        });
+        if (!finished) return; // The parser already recorded uncertainty.
+      } catch { flush(); status("Potbot connection failed; the inference outcome may be uncertain."); }
+      finally {
+        flush(); requests.current.delete(workspaceId);
+        setBusy(state => ({ ...state, [workspaceId]: false }));
+      }
+    })();
+  }, [workspace, messages, demo]);
+
+  const runId = workspace ? runIds[workspace.id] : null;
+  useEffect(() => {
+    if (demo || !workspace || !runId || gateway !== "ready") return;
+    const workspaceId = workspace.id;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
+    const poll = async () => {
+      if (!alive || document.hidden) { timer = setTimeout(poll, 4000); return; }
+      try {
+        const after = cursors.current[runId] ?? 0;
+        const response = await fetch(`/api/ui/reasoning/${runId}?after=${after}`, {
+          signal: controller.signal, cache: "no-store",
+        });
+        if (response.status === 401) {
+          setGateway("login"); setWorkspaces([]); return;
+        }
+        if (!response.ok) throw new Error("Reasoning projection unavailable");
+        const document = await response.json() as {
+          graph?: GraphProjection; cursor?: number; gap?: boolean; more?: boolean; status?: string;
+        };
+        if (!alive || !document.graph || !Number.isSafeInteger(document.cursor)) throw new Error("Incomplete graph event page");
+        if (document.gap) cursors.current[runId] = 0;
+        else cursors.current[runId] = document.cursor!;
+        setGraphs(prev => {
+          const existing = prev[workspaceId];
+          // Avoid reconstructing a Three.js renderer on every no-op poll.
+          if (existing && JSON.stringify(existing) === JSON.stringify(document.graph)) return prev;
+          return { ...prev, [workspaceId]: document.graph! };
+        });
+        setGraphHealth(prev => ({ ...prev, [workspaceId]: document.gap ? "replaying events" : document.status || "ready" }));
+        timer = setTimeout(poll, document.gap || document.more ? 300 :
+          graphMinimized || ["completed", "failed", "indeterminate", "cancelled"].includes(document.status || "") ? 15000 : 3000);
+      } catch {
+        if (!alive) return;
+        setGraphHealth(prev => ({ ...prev, [workspaceId]: "unavailable — retrying" }));
+        timer = setTimeout(poll, 5000);
+      }
+    };
+    void poll();
+    return () => { alive = false; controller.abort(); clearTimeout(timer); };
+  }, [demo, gateway, runId, workspace, graphMinimized]);
+
+  const logout = useCallback(() => {
+    for (const controller of requests.current.values()) controller.abort();
+    requests.current.clear();
+    void fetch("/api/ui/auth/logout", { method: "POST", credentials: "same-origin" }).then(response => {
+      if (!response.ok) throw new Error("Logout not acknowledged");
+      setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
+      setPassword(""); setSelected(0); apiRef.current = null;
+    }).catch(() => setNotice("Logout failed; your existing operator session may still be active."));
+  }, []);
+
+  const session = useMemo(() => workspace ? ({ workspace, demo, isLive: !demo,
+    entries: messages[workspace.id] ?? [], chatBusy: !!busy[workspace.id],
+    graph: demo ? null : graphs[workspace.id] ?? null,
+    graphState: demo ? "synthetic preview" : graphHealth[workspace.id] || "No active reasoning run",
+    runId: runIds[workspace.id] ?? null,
+    logout, sendMessage, openPanel, closePanel, dockPanel,
     floatPanel, graphFullscreen, setGraphFullscreen }) : null,
-    [workspace, demo, messages, sendMessage, openPanel, closePanel, dockPanel, floatPanel, graphFullscreen]);
+    [workspace, demo, messages, busy, graphs, graphHealth, runIds, logout, sendMessage,
+      openPanel, closePanel, dockPanel, floatPanel, graphFullscreen]);
 
   if (!workspace || !session) return <main className="setup-screen">
     <span className="setup-icon">✳</span><h1>Potbot Orb Workspace</h1>
-    <p>The UI shell is ready. Workspace discovery and authenticated sessions still need the backend endpoints from the integration contract.</p>
-    <span className="status-chip">{source === "unconfigured" ? "BACKEND NOT CONNECTED" : "NO WORKSPACES"}</span>
+    {demo ? <p>No demonstration workspaces are available.</p> : gateway === "checking" ?
+      <p>Checking the operator session and authorized workspace…</p> : gateway === "login" ?
+      <form className="operator-login" onSubmit={async event => {
+        event.preventDefault(); setNotice("");
+        try {
+          const response = await fetch("/api/ui/auth/login", { method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+          if (!response.ok) throw new Error("Invalid credentials or rate limit");
+          setPassword(""); setGateway("checking"); await loadLive();
+        } catch { setNotice("Unable to log in. Check your operator credentials or try again later."); }
+      }}><label htmlFor="operator-password">Operator password</label>
+        <input id="operator-password" type="password" required value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+        <button type="submit">Unlock workspace</button>
+      </form> : <><p>{notice || "Potbot workspace connection has not been established."}</p>
+        <button className="demo-button" onClick={() => { setGateway("checking"); void loadLive(); }}>Retry connection</button></>}
+    {gateway === "login" && notice && <p role="alert">{notice}</p>}
+    <span className="status-chip">{demo ? "DEMO MODE" : gateway === "login" ? "OPERATOR LOGIN" : gateway.toUpperCase()}</span>
     {process.env.NODE_ENV !== "production" && <a className="demo-button" href="/?demo=1">Open interactive demo →</a>}
-    <small>No synthetic workspace is shown as a real backend resource.</small>
+    <small>Live mode never substitutes synthetic workspaces when the backend is unavailable.</small>
   </main>;
 
   return <WorkspaceProvider value={session}>
@@ -197,7 +370,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
           aria-label="Restore reasoning graph" title="Restore thought graph">◇</motion.button>}
         <button onClick={() => openPanel("preferences")} className="utility-small" aria-label="Preferences" title="Preferences">⚙</button>
       </div>
-      <div className="scene-presence"><span className="presence-light" />{demo ? "INTERACTIVE PREVIEW" : "LIVE"}</div>
+      <div className="scene-presence"><span className="presence-light" />{demo ? "INTERACTIVE PREVIEW" : "SCOPED LIVE CONNECTION"}</div>
       <DockApiContext.Provider value={apiRef}>
         <div className="dock-root" key={workspace.id}>
           <DockedScene workspace={workspace} onGraphMinimized={setGraphMinimized} />

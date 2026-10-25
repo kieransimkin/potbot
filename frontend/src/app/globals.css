@@ -174,3 +174,17 @@ a { color: #9cdef8; }
   /* The orbit must still be revealable on touch-only devices. */
   .orbit-reveal { display: block; top: 64px; left: -8px; font-size: .62rem; padding: 4px 7px; }
 }
+/* UI-3: operator access and live source states; never mimic a simulated connection. */
+.operator-login { display: flex; width: min(360px, 90vw); flex-direction: column; gap: 12px; padding: 23px; background: #172536; border: 1px solid #426077; border-radius: 14px; text-align: left; }
+.operator-login label { color: #bcd4e5; font-size: .85rem; }
+.operator-login input { border-radius: 8px; background: #0e1c2b; border: 1px solid #55788e; color: #eaf5ff; padding: 12px; font-size: 1rem; }
+.operator-login button { cursor: pointer; border: none; border-radius: 8px; background: #91d9ec; color: #092033; font-weight: 650; padding: 11px; }
+.operator-login button:focus-visible, .menu-item:focus-visible { outline: 2px solid #8ac5ed; outline-offset: 2px; }
+.graph-unavailable small { color: #bed0dc; margin-top: 10px; }
+.graph-fallback-list { align-items: stretch; justify-content: start; overflow-y: auto; }
+.graph-fallback-list ul, .graph-node-list ul { list-style: none; padding: 0; margin: 10px 0; overflow-y: auto; }
+.graph-fallback-list li button, .graph-node-list li button { display: flex; gap: 8px; width: 100%; justify-content: space-between; text-align: left; background: #1e3041; color: #dceef7; border: 1px solid #344f62; border-radius: 6px; padding: 8px; margin: 4px 0; }
+.graph-fallback-list small, .graph-node-list small { color: #87abc0; }
+.graph-node-list { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(320px, 85%); max-height: calc(100% - 25px); display: flex; flex-direction: column; padding: 12px; border: 1px solid #668ca0; background: #111f2df0; border-radius: 9px; color: #d6eafa; font-size: .75rem; }
+.graph-node-list > button { position: absolute; right: 10px; top: 7px; background: none; color: #d1eaf7; border: none; font-size: 1.2rem; }
+.graph-footer > button { background: #243f52; border: 1px solid #4b6a7e; color: #d9edf8; border-radius: 7px; font-size: .7rem; padding: 5px 8px; margin-left: 8px; }

@@ -1,12 +1,18 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { ChatEntry, DockEdge, PanelId, Workspace } from "@/lib/model";
+import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 
 type WorkspaceContextValue = {
   workspace: Workspace;
   demo: boolean;
   entries: ChatEntry[];
+  isLive: boolean;
+  chatBusy: boolean;
+  graph: GraphProjection | null;
+  graphState: string;
+  runId: string | null;
+  logout: () => void;
   sendMessage: (text: string) => void;
   openPanel: (panel: PanelId) => void;
   closePanel: (panel: PanelId) => void;

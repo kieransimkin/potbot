@@ -69,3 +69,47 @@ layout persistence, and closable panes for future resources. **It does not
 send real prompts, execute tools, load workspaces, provide PTY input, control
 browser sessions or show fake model-install progress.** Those are backend and
 UI-3 through UI-6 deliverables.
+
+## UI-3 bridge available in frontend (`main` backend unchanged)
+
+The frontend now implements these **Next.js-only** routes, which are not a
+new Potbot Python API and are not published directly on the Python server:
+
+| Next.js route | Function |
+| --- | --- |
+| `GET /api/ui/auth/status` | Whether operator authentication is configured and active |
+| `POST /api/ui/auth/login`, `/logout` | Same-origin login/logout; HttpOnly signed session cookie |
+| `GET /api/ui/bootstrap` | Probe backend `/v1/models` and expose the **single configured** workspace |
+| `POST /api/ui/chat` | Workspace-scoped streaming adapter to `/v1/chat/completions` |
+| `GET /api/ui/reasoning/{run_id}?after=N` | Read safe checkpoint graph and cursor events from existing reasoning API |
+
+The Next.js server is the **only** holder of its Potbot bearer token. It has no
+separate directory of users, no multi-tenant authorization and no durable
+message history. Real workspace discovery must eventually replace the
+explicitly configured one-workspace fallback, rather than assuming this
+frontend has authorized access to arbitrary IDs. New routes are client-facing,
+not a replacement for Potbot backend-workspace ACLs.
+
+### Existing upstream compatibility
+
+- `POST /v1/chat/completions` responds with `text/event-stream`, OpenAI chat
+  delta frames and `X-Potbot-Run-Id`, and can indicate an in-stream provider
+  failure. UI-3 parses partial SSE frames and treats missing `[DONE]` as
+  indeterminate, not success.
+- `GET /v1/reasoning/{run_id}` returns a checkpoint including a `snapshot`
+  object with `nodes` and `revision` when the reasoning store is configured.
+  The Next.js bridge projects only public node labels, parent links, roles and
+  states. It does not return private intermediate provider content.
+- `GET /v1/reasoning/{run_id}/events?after=N&limit=200` provides monotonic
+  event sequences. UI-3 **polls** those endpoints while a backend WebSocket
+  graph-projection stream is still missing; it detects gaps and resets cursor.
+
+### Remaining backend obligations (not represented as already implemented)
+
+Authenticated multi-workspace discovery and switching, durable chat histories,
+`/v1/reasoning/{run_id}/graph` as an authoritative typed projection, push graph
+events with replay and gap detection, explicit typed steering actions, safe
+workspace PTY, controlled browser sessions, download/model-install telemetry,
+account preference persistence, distributed rate limiting and user access
+management all remain open. No fake progress or browser/terminal controls are
+exposed by the UI before those server facilities exist.
