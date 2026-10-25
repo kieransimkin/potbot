@@ -215,3 +215,48 @@ IME/multi-key layouts, audited remote TLS deployments, and the persistent
 multi-user workspace identity contract. UI preferences, model installations,
 progress bars, downloads, PTYs and browsing sessions remain backend-dependent:
 these views should never fabricate active jobs, bytes or install success.
+
+## UI-8 — Workspace activity and Xpra closeout
+
+**Implemented in the frontend increment:**
+
+- Read-only, operator-authenticated `/api/ui/activity` with normalized real
+  `/v1/jobs` and `/v1/jobs/events` status, progress stages and ordered cursors.
+  Sensitive event payloads, job inputs, lease tokens and result bodies stay on
+  the backend. No automatic replay follows an indeterminate job.
+- A dockable activity window with search, active/finished filters, status,
+  recent job event types and explicit cursor-gap warnings.
+- Read-only `/api/ui/models` with the actual model catalogue and advisory
+  qualification flags. A listed/qualified *profile* isn't proof that weights
+  are installed or fit available VRAM.
+- The downloads and installation panes no longer just point to future plans:
+  they link to real activity/catalogue information while explicitly marking
+  unsupported transfer/install telemetry and side-effecting controls absent.
+- Terminal/browser panels can reopen existing Xpra application windows.
+- Xpra self-hosted XBill+xterm acceptance strengthened to require actual
+  nonuniform decoded game pixels rather than merely a created canvas.
+
+**Still required from the backend/qualified host:**
+
+1. `/v1/workspaces` and durable scoped chat session discovery. Current live
+   UI serves one explicitly configured workspace identity.
+2. `GET /v1/transfers`, cursor-based events and authorized transfer actions
+   exposing source identity, bytes written, verified bytes, rate, resumability,
+   content hash, failure and cancellation. Existing CLI downloader callback is
+   NOT already exposed as an HTTP progress stream.
+3. Workspace model installation lifecycle: pinned artifact, quantization,
+   exact file size/checksum, measured RAM/VRAM, readiness, install job ID and
+   its scoped event cursor. Advisory `/v1/models` is not that contract.
+4. Authorized PTY and browser **launch/reattach** APIs. Xpra handles desktop
+   window rendering/input for already-running apps but cannot grant launch
+   permissions to untrusted chat clients.
+5. Run the opt-in real-Xpra, Bubblewrap, XBill, xterm and Chromium acceptance
+   workflow on a preprovisioned self-hosted runner. The normal CI contracts
+   do not prove that real Xpra rendering passed.
+6. Preserve user appearance settings in a scoped backend user-preferences
+   endpoint with revision/etag conflict handling for cross-device sync; today's
+   controls save local workspace preferences only.
+
+The latest frontend CI issue following UI-6 was the Xpra-control union type and
+import narrowing; the UI-7 changes included here address that, but a fresh
+CI run is required for acceptance.

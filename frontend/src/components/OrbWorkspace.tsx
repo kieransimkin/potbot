@@ -11,6 +11,7 @@ import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
 import { RUN_ID } from "@/lib/live-schema";
 import { validXpraWindow, xpraFrameURL, validXpraControl, windowPanelId, XWINDOW_ID } from "@/lib/xpra-contract";
 import { deliverXpraFrame } from "@/lib/xpra-frames";
+import type { ActivityPage, ModelListing } from "@/lib/activity";
 import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import { decodeSavedLayout, layoutStorageKey, PANEL_TITLES, shouldMinimizePanel } from "@/lib/layout";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
@@ -18,12 +19,13 @@ import { WorkspaceOrbit } from "./WorkspaceOrbit";
 import { WorkspaceProvider } from "./WorkspaceContext";
 import { XpraWindowPanel } from "./XpraWindowPanel";
 import { XpraApplicationsPanel } from "./XpraApplicationsPanel";
+import { ActivityPanel } from "./ActivityPanel";
 import { BrowserPanel, ChatPanel, DownloadsPanel, FullscreenGraph, GraphPanel, InstallationsPanel, MenuPanel, PreferencesPanel, TerminalPanel } from "./Panels";
 
 const COMPONENTS = {
   chat: ChatPanel, graph: GraphPanel, menu: MenuPanel, terminal: TerminalPanel,
   browser: BrowserPanel, preferences: PreferencesPanel, downloads: DownloadsPanel,
-  installations: InstallationsPanel, applications: XpraApplicationsPanel, xwindow: XpraWindowPanel,
+  installations: InstallationsPanel, applications: XpraApplicationsPanel, activity: ActivityPanel, xwindow: XpraWindowPanel,
 };
 
 function floatingDefaults(panel: PanelId) {
@@ -136,6 +138,14 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [runIds, setRunIds] = useState<Record<string, string>>({});
   const [graphs, setGraphs] = useState<Record<string, GraphProjection>>({});
+  const [activityFeeds, setActivityFeeds] = useState<Record<string, ActivityPage>>({});
+  const [activityStatuses, setActivityStatuses] = useState<Record<string, string>>({});
+  const [modelLists, setModelLists] = useState<Record<string, ModelListing[]>>({});
+  const [modelStatuses, setModelStatuses] = useState<Record<string, string>>({});
+  const activityCursors = useRef<Record<string, number>>({});
+  const activityInFlight = useRef(new Set<string>());
+  const modelInFlight = useRef(new Set<string>());
+  const sessionGeneration = useRef(0);
   const [xWindowsByWorkspace, setXWindowsByWorkspace] = useState<Record<string, XWindowInfo[]>>({});
   const [xErrorsByWorkspace, setXErrorsByWorkspace] = useState<Record<string, Record<string, string>>>({});
   const [xMinimizedByWorkspace, setXMinimizedByWorkspace] = useState<Record<string, string[]>>({});
@@ -593,13 +603,85 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     return () => { alive = false; controller.abort(); clearTimeout(timer); };
   }, [demo, gateway, runId, workspace, graphMinimized]);
 
+  // Read-only, workspace-scoped activity feed. No raw job inputs or outcomes.
+  const refreshActivity = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    if (activityInFlight.current.has(id)) return;
+    activityInFlight.current.add(id);
+    const generation = sessionGeneration.current;
+    const after = activityCursors.current[id] ?? 0;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/ui/activity?after=${after}`, {
+          credentials: "same-origin", cache: "no-store",
+        });
+        if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
+        if (!response.ok) throw new Error("Activity backend unavailable");
+        const data = await response.json() as ActivityPage & { workspaceId?: string };
+        if (data.workspaceId !== id || !Array.isArray(data.jobs) || !Array.isArray(data.events) ||
+            !Number.isSafeInteger(data.cursor) || data.cursor < after ||
+            data.transferTelemetry !== false || data.installTelemetry !== false) throw new Error("Malformed activity response");
+        if (sessionGeneration.current !== generation) return;
+        activityCursors.current[id] = data.cursor;
+        setActivityFeeds(previous => {
+          const old = previous[id];
+          const events = [...(old?.events ?? []), ...data.events].filter((entry, index, all) =>
+            all.findIndex(other => other.sequence === entry.sequence) === index).slice(-100);
+          return { ...previous, [id]: { ...data, events, gap: data.gap || (old?.gap ?? false) } };
+        });
+        setActivityStatuses(old => ({ ...old, [id]: data.gap ? "Event history incomplete; current jobs verified." : "Live job feed connected" }));
+      } catch {
+        if (sessionGeneration.current === generation)
+          setActivityStatuses(old => ({ ...old, [id]: "Activity temporarily unavailable — retrying" }));
+      } finally { activityInFlight.current.delete(id); }
+    })();
+  }, [demo, gateway, workspace?.id]);
+
+  const refreshModels = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    if (modelInFlight.current.has(id)) return;
+    modelInFlight.current.add(id);
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/models", { credentials: "same-origin", cache: "no-store" });
+        if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
+        if (!response.ok) throw new Error("Model catalogue unavailable");
+        const data = await response.json() as { workspaceId?: string; models?: ModelListing[]; advisory?: boolean; installTelemetry?: boolean };
+        if (data.workspaceId !== id || !Array.isArray(data.models) || data.advisory !== true ||
+            data.installTelemetry !== false) throw new Error("Model catalogue scope mismatch");
+        if (sessionGeneration.current !== generation) return;
+        setModelLists(old => ({ ...old, [id]: data.models ?? [] }));
+        setModelStatuses(old => ({ ...old, [id]: "Live advisory catalogue · installation state not reported" }));
+      } catch {
+        if (sessionGeneration.current === generation)
+          setModelStatuses(old => ({ ...old, [id]: "Catalogue temporarily unavailable — retry manually" }));
+      } finally { modelInFlight.current.delete(id); }
+    })();
+  }, [demo, gateway, workspace?.id]);
+
+  useEffect(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    void refreshActivity();
+    void refreshModels();
+    const interval = window.setInterval(() => { if (!document.hidden) refreshActivity(); }, 8000);
+    const visible = () => { if (!document.hidden) refreshActivity(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
+  }, [demo, gateway, workspace?.id, refreshActivity, refreshModels]);
+
   const logout = useCallback(() => {
+    sessionGeneration.current++;
     for (const controller of requests.current.values()) controller.abort();
     requests.current.clear();
     void fetch("/api/ui/auth/logout", { method: "POST", credentials: "same-origin" }).then(response => {
       if (!response.ok) throw new Error("Logout not acknowledged");
       setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
       setGraphHealth({}); setGraphTimelines({}); setGraphViews({}); setCompactPrefs({});
+      setActivityFeeds({}); setActivityStatuses({}); setModelLists({}); setModelStatuses({});
+      activityCursors.current = {};
       setXAvailable(false); setXWindowsByWorkspace({}); setXTransportByWorkspace({});
       setXErrorsByWorkspace({}); setXMinimizedByWorkspace({}); setXReconnectByWorkspace({});
       setXpraIframeSrc(null); xpraChannel.current = "";
@@ -617,6 +699,12 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     compact: compactPrefs[workspace.id] === true,
     setCompactPreference, updateGraphView,
     runId: runIds[workspace.id] ?? null,
+    activity: activityFeeds[workspace.id] ?? null,
+    activityStatus: demo ? "Preview mode · no jobs" : activityStatuses[workspace.id] || "Awaiting job activity",
+    refreshActivity,
+    models: modelLists[workspace.id] ?? [],
+    modelStatus: demo ? "Preview mode · no catalogue" : modelStatuses[workspace.id] || "Awaiting model catalogue",
+    refreshModels,
     xAvailable, xTransport: xTransportByWorkspace[workspace.id] ?? null,
     xWindows: xWindowsByWorkspace[workspace.id] ?? [],
     xWindowErrors: xErrorsByWorkspace[workspace.id] ?? {},
@@ -627,6 +715,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     logout, sendMessage, openPanel, closePanel, dockPanel,
     floatPanel, graphFullscreen, setGraphFullscreen }) : null,
     [workspace, demo, messages, busy, graphs, graphHealth, graphTimelines, graphViews,
+      activityFeeds, activityStatuses, modelLists, modelStatuses, refreshActivity, refreshModels,
       compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
       dockPanel, floatPanel, graphFullscreen, xAvailable, xTransportByWorkspace,
       xWindowsByWorkspace, xErrorsByWorkspace, xMinimizedByWorkspace,
@@ -672,6 +761,8 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
         {!demo && (xWindowsByWorkspace[workspace.id] ?? []).slice(0, 3).map(win =>
           <button key={win.id} className="utility-small" onClick={() => openXWindow(win.id)}
             title={`Open Xpra application: ${win.title}`} aria-label={`Open Xpra window ${win.title}`}>▣</button>)}
+        {!demo && <button onClick={() => openPanel("activity")} className="utility-small"
+          aria-label="Open workspace job activity" title="Job activity">≋</button>}
         <button onClick={() => openPanel("preferences")} className="utility-small" aria-label="Preferences" title="Preferences">⚙</button>
       </div>
       <div className="scene-presence"><span className="presence-light" />{demo ? "INTERACTIVE PREVIEW" : "SCOPED LIVE CONNECTION"}</div>

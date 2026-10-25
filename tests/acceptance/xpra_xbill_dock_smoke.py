@@ -166,11 +166,27 @@ def main() -> int:
                 panel.wait_for(timeout=45000)
                 canvas = panel.locator(".xpra-app-canvas")
                 canvas.wait_for()
-                # Must have an actual decoded Xpra window, not a placeholder.
+                # Verify a genuinely painted, nonuniform application surface,
+                # not merely a canvas with the default 640x480 dimensions.
                 page.wait_for_function("""() => {
-                  const c = document.querySelector('.xwindow-panel .xpra-app-canvas');
-                  return Boolean(c && c.width > 200 && c.height > 120);
-                }""", timeout=15000)
+                  const panel = [...document.querySelectorAll('.xwindow-panel')].find(
+                    p => p.textContent?.includes('XBill'));
+                  const canvas = panel?.querySelector('.xpra-app-canvas');
+                  if (!canvas || canvas.width < 200 || canvas.height < 120) return false;
+                  const ctx = canvas.getContext('2d');
+                  if (!ctx) return false;
+                  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                  // Subsample the screen; the XBill game contains distinct
+                  // foreground/background colours when actually decoded.
+                  const colours = new Set();
+                  for (let y = 0; y < canvas.height; y += 17) {
+                    for (let x = 0; x < canvas.width; x += 19) {
+                      const i = (y * canvas.width + x) * 4;
+                      colours.add(`${data[i]}:${data[i + 1]}:${data[i + 2]}`);
+                    }
+                  }
+                  return colours.size >= 3;
+                }""", timeout=30000)
                 canvas.click(position={"x": 40, "y": 40})
                 canvas.press("ArrowRight")
                 other = page.locator(".xwindow-panel").filter(has_text="Potbot Xterm")

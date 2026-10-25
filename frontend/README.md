@@ -275,3 +275,30 @@ The opt-in Linux acceptance workflow adds a second application (`xterm`) next
 to XBill, verifies both become separate Dockview windows, sends input to each,
 then minimizes/restores xterm while its sandbox process continues to run.
 This requires a provisioned Linux Xpra host and is not simulated as passing.
+
+## UI-8 — Real workspace activity and model catalogue
+
+The **Workspace activity** window and preferences pages now read actual
+workspace-scoped Potbot API data through authenticated, server-side Next.js
+routes. Neither a fake progress bar nor raw job inputs/provider metadata are
+forwarded to the browser. A job status is not a download status:
+
+- `GET /api/ui/activity?after=N` reads the workspace's `/v1/jobs` and
+  `/v1/jobs/events`, returning up to 50 job summaries and 100 sequence-ordered
+  event types; payloads, prompts, lease tokens and service keys are discarded.
+- `GET /api/ui/models` reads `/v1/models` and projects only advisory model
+  identities, roles and qualification/configuration flags. **This is not an
+  installed-model inventory.**
+- Activity has a dockable window, search, state filter, manual refresh and
+  8-second live polling while the tab is visible. Panels remain workspace-scoped.
+- The Downloads pane continues to identify transfer telemetry as unavailable:
+  the backend has a CLI downloader with `DownloadProgress`, but no authorized
+  transfer-status HTTP API. The Model Installations pane displays real catalogue
+  entries, but never invents install completion or current disk consumption.
+- Terminal and Browser panes can open Xpra application windows that the
+  workspace has **already launched**; backend PTY/browser launch and session
+  reattachment are separate pending capabilities.
+
+This intentionally leaves the missing API work visible in the UI. Backend
+contracts proposed in `docs/ui/frontend-backend-contract.md` identify the next
+server-side milestone without conflating planned endpoints with implemented ones.

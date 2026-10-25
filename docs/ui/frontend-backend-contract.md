@@ -127,3 +127,17 @@ cross-workspace run enumeration. The event timeline uses sequence numbers
 without fabricating times. Backend migration to a typed, push-based graph
 stream must preserve strict workspace checks, continuity epochs, bounded
 replay, and an explicit gap/resnapshot handshake.
+
+## UI-8 routes backed by *existing* read-only Potbot services
+
+These operator-authenticated Next.js projections are implemented and no
+workspace selection is inferred from user-controlled query strings:
+
+| Next.js endpoint | Backend source | Scope and output |
+| --- | --- | --- |
+| `GET /api/ui/activity?after=N` | `GET /v1/jobs?limit=50` and `GET /v1/jobs/events?after=N&limit=100` | Authenticated workspace only; whitelisted job state, stage, safe counts, timestamps and sequence-ordered event **types**. No job input, results, credentials, event data or cross-workspace query. |
+| `GET /api/ui/models` | `GET /v1/models` | Identity, role, response protocol and explicit qualified/configured booleans. No assertion of installed weights or download progress. |
+
+The backend's `model.generate` job cannot be presented as a file download.
+Future transfer and installation routes require new backend implementation;
+frontend UI placeholders cannot authorize installs or invent progress events.

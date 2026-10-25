@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import type { GraphView, Timeline } from "@/lib/graph-workbench";
+import type { ActivityPage, ModelListing } from "@/lib/activity";
 
 type WorkspaceContextValue = {
   workspace: Workspace;
@@ -19,6 +20,12 @@ type WorkspaceContextValue = {
   graphView: GraphView;
   updateGraphView: (next: Partial<GraphView>) => void;
   runId: string | null;
+  activity: ActivityPage | null;
+  activityStatus: string;
+  refreshActivity: () => void;
+  models: ModelListing[];
+  modelStatus: string;
+  refreshModels: () => void;
   xAvailable: boolean;
   xTransport: XWindowTransport | null;
   xWindows: XWindowInfo[];

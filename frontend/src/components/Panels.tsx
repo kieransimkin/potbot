@@ -75,7 +75,7 @@ export function MenuPanel() {
   const { workspace, openPanel, isLive, logout, xWindows, openXWindow,
     xAvailable, xTransport } = useWorkspace();
   const sections: { heading: string; items: [PanelId, string][] }[] = [
-    { heading: "WORKSPACE", items: [["graph", "Thought graph"], ["terminal", "Bash console"], ["browser", "Controlled browser"], ["applications", "Xpra applications"]] },
+    { heading: "WORKSPACE", items: [["graph", "Thought graph"], ["terminal", "Bash console"], ["browser", "Controlled browser"], ["applications", "Xpra applications"], ["activity", "Job activity"]] },
     { heading: "USER PREFERENCES", items: [["preferences", "General preferences"], ["downloads", "Downloads and transfers"], ["installations", "Model installations"]] },
   ];
   return <section className="menu-pane panel-scroll">
@@ -143,23 +143,42 @@ export function FullscreenGraph() {
 }
 
 export function TerminalPanel() {
+  const { xAvailable, xWindows, openXWindow, openPanel } = useWorkspace();
+  const shells = xWindows.filter(item => /\b(?:xterm|terminal|bash|shell)\b/i.test(item.title)).slice(0, 20);
   return <motion.div layoutId="potbot-terminal-emergence" className="placeholder-panel terminal-placeholder">
-    <div className="terminal-welcome"><code>$ potbot console</code><p>Workspace Bash session not connected.</p>
-      <small>UI-4 will connect this dockable frame to an authenticated workspace PTY. Closing the frame won't terminate the server session.</small></div>
+    <div className="terminal-welcome">
+      <code>$ potbot console</code>
+      {xAvailable && shells.length ? <>
+        <p>Workspace Xpra shell windows</p>
+        {shells.map(item => <button type="button" key={item.id}
+          onClick={() => openXWindow(item.id)}>Open {item.title} ↗</button>)}
+      </> : <p>No workspace Bash session is connected.</p>}
+      <small>A real terminal can already appear as an Xpra application window when launched by the workspace executor. Creating/reattaching a PTY from the composer requires an authenticated backend terminal-session API.</small>
+      <button type="button" onClick={() => openPanel("applications")}>Open Xpra application manager ↗</button>
+    </div>
     <DockControls id="terminal" />
   </motion.div>;
 }
 
 export function BrowserPanel() {
+  const { xWindows, xAvailable, openXWindow, openPanel } = useWorkspace();
   return <div className="placeholder-panel panel-scroll">
-    <div className="browser-address"><span>◎</span><span>No controlled session</span><span className="subtle">DISCONNECTED</span></div>
-    <div className="empty-panel"><h2>Controlled browser</h2><p>UI-5 will connect a browser viewport stream here. Third-party sites cannot reliably be embedded in an iframe.</p></div>
-    <DockControls id="browser" />
+    <div className="browser-address"><span>◎</span><span>Workspace Xpra application viewer</span>
+      <span className="subtle">{xAvailable ? "CONNECTED" : "DISCONNECTED"}</span></div>
+    <div className="empty-panel"><h2>Controlled browser</h2>
+      <p>Browsers launched by the authorized workspace executor appear as individual Xpra windows, with keyboard, pointer, focus and docking routed through Xpra—not an insecure third-party iframe.</p>
+      {xWindows.length > 0 ? <div className="applications-list" aria-label="Available Xpra windows">
+        {xWindows.slice(0, 20).map(item => <button type="button" key={item.id}
+          onClick={() => openXWindow(item.id)}>Open {item.title} ↗</button>)}
+      </div> : <p>No Xpra application windows are currently reported.</p>}
+      <button type="button" onClick={() => openPanel("applications")}>Manage all Xpra windows ↗</button>
+      <small>Starting a browser automatically, choosing URLs and preserving a browser session require the backend browser-launch contract. Existing Xpra applications can be controlled immediately.</small>
+    </div><DockControls id="browser" />
   </div>;
 }
 
 export function PreferencesPanel() {
-  const { workspace, compact, setCompactPreference, graphView, updateGraphView, openPanel, demo } = useWorkspace();
+  const { workspace, compact, setCompactPreference, graphView, updateGraphView, openPanel, demo, activityStatus, modelStatus } = useWorkspace();
   return <section className="settings-panel panel-scroll">
     <span className="eyebrow">USER PREFERENCES</span><h2>Workspace appearance</h2>
     <div className="settings-row"><div><strong>Current workspace</strong><small>{workspace.name}</small></div><span className="status-chip">ACTIVE</span></div>
@@ -174,6 +193,11 @@ export function PreferencesPanel() {
       <small>Reports on-demand CPU render timing and estimated buffer size, not GPU FPS.</small></div>
       <input type="checkbox" checked={graphView.showDiagnostics}
         onChange={event => updateGraphView({ showDiagnostics: event.target.checked })} /></label>
+    <h2>Backend connections</h2>
+    <div className="settings-row"><div><strong>Workspace jobs</strong><small>{activityStatus}</small></div>
+      <button type="button" onClick={() => openPanel("activity")}>Activity ↗</button></div>
+    <div className="settings-row"><div><strong>Model catalogue</strong><small>{modelStatus}</small></div>
+      <button type="button" onClick={() => openPanel("installations")}>Models ↗</button></div>
     <h2>Activity windows</h2>
     <button type="button" className="menu-item" onClick={() => openPanel("downloads")}>Downloads and transfers <span>↗</span></button>
     <button type="button" className="menu-item" onClick={() => openPanel("installations")}>Model installations <span>↗</span></button>
@@ -185,15 +209,36 @@ export function PreferencesPanel() {
 }
 
 export function DownloadsPanel() {
-  return <section className="settings-panel panel-scroll"><span className="eyebrow">USER PREFERENCES / TRANSFERS</span><h2>Downloads</h2>
-    <div className="empty-panel"><p>No download progress feed is connected.</p><small>UI backend services must expose transfer IDs, bytes received, verified bytes, rate, retry state and cancellation rights.</small></div>
+  const { activityStatus, openPanel } = useWorkspace();
+  return <section className="settings-panel panel-scroll">
+    <span className="eyebrow">USER PREFERENCES / TRANSFERS</span><h2>Downloads</h2>
+    <div className="empty-panel">
+      <p>No authenticated file-transfer progress API is connected.</p>
+      <small>Potbot currently reports job execution progress but does not report model file bytes, verified bytes, resume offsets, speed or installation checksums over HTTP.</small>
+      <p className="muted-note">Job service: {activityStatus}</p>
+      <button type="button" onClick={() => openPanel("activity")}>Open real job activity ↗</button>
+    </div>
     <DockControls id="downloads" />
   </section>;
 }
 
 export function InstallationsPanel() {
-  return <section className="settings-panel panel-scroll"><span className="eyebrow">USER PREFERENCES / MODELS</span><h2>Model installations</h2>
-    <div className="empty-panel"><p>Installation service not connected.</p><small>Future backend reports quantization choice, disk/VRAM estimates, installation stages, checksums and model readiness.</small></div>
+  const { demo, models, modelStatus, refreshModels, openPanel } = useWorkspace();
+  return <section className="settings-panel panel-scroll" aria-label="Model catalogue and installations">
+    <span className="eyebrow">USER PREFERENCES / MODELS</span><h2>Model catalogue</h2>
+    <p role="status">{modelStatus}</p>
+    <button type="button" disabled={demo} onClick={() => refreshModels()}>Refresh catalogue</button>
+    <div className="activity-unavailable"><strong>Installation progress unavailable</strong>
+      <p>The backend lists advisory model profiles. It does not currently expose an authenticated installation/transfer event stream. Listed models are not necessarily installed or available to run.</p>
+      <button type="button" onClick={() => openPanel("activity")}>Workspace job activity ↗</button>
+    </div>
+    <ul className="activity-jobs" aria-label="Available model catalogue profiles">
+      {models.map(model => <li className="activity-job" key={model.id}>
+        <strong>{model.id}</strong><small>{model.role} · {model.responseProtocol || "Protocol unspecified"}</small>
+        <span className="subtle">{model.qualified ? "Qualified profile reported" : "Not qualified"} · {model.configured ? "Deployment configured" : "No deployment configured"}</span>
+      </li>)}
+    </ul>
+    {models.length === 0 && <p className="muted-note">No model profiles reported by this workspace yet.</p>}
     <DockControls id="installations" />
   </section>;
 }
