@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/syn-agent-operator-enrollment/v1",
+  "title": "SYN operator-pulse and adopted-candidate public protocol",
+  "description": "Public wire shapes only; private key custody, P2P encryption, hardware attestation and adoption authority belong to SYN. Versioned v2 pledge offers remain defined in syn-agent-pledge.schema.json.",
+  "oneOf": [
+    {"$ref": "#/$defs/signedPulse"},
+    {"$ref": "#/$defs/signedCandidates"},
+    {"$ref": "#/$defs/signedSelection"}
+  ],
+  "$defs": {
+    "hash32": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "hash3": {"type": "string", "pattern": "^[0-9a-f]{6}$"},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+    "pulse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "type_ref", "network_id", "master_public_key_hash",
+        "challenge", "issued_at", "expires_at"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-operator-pulse-v1"},
+        "network_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$"},
+        "master_public_key_hash": {"$ref": "#/$defs/hash32"},
+        "challenge": {"$ref": "#/$defs/hash32"},
+        "issued_at": {"type": "integer", "minimum": 1},
+        "expires_at": {"type": "integer", "minimum": 1}
+      }
+    },
+    "signedPulse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pulse", "operator_public_key", "signature"],
+      "properties": {
+        "pulse": {"$ref": "#/$defs/pulse"},
+        "operator_public_key": {"$ref": "#/$defs/hash32"},
+        "signature": {"$ref": "#/$defs/signature"}
+      }
+    },
+    "candidates": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "schema_version", "type_ref", "pledge_offer_sha256", "target_master_public_key_hash",
+        "operator_byte", "inheritance", "inheritance_hex", "short_public_key_hashes"
+      ],
+      "properties": {
+        "schema_version": {"const": 2},
+        "type_ref": {"const": "synny://type/syn-agent-identity-candidates-v2"},
+        "pledge_offer_sha256": {"$ref": "#/$defs/hash32"},
+        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
+        "operator_byte": {"type": "integer", "minimum": 0, "maximum": 255},
+        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
+        "inheritance_hex": {"$ref": "#/$defs/hash3"},
+        "short_public_key_hashes": {
+          "type": "array", "minItems": 8, "maxItems": 8, "uniqueItems": true,
+          "items": {"$ref": "#/$defs/hash3"}
+        }
+      }
+    },
+    "signedCandidates": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidates", "operator_public_key", "signature"],
+      "properties": {
+        "candidates": {"$ref": "#/$defs/candidates"},
+        "operator_public_key": {"$ref": "#/$defs/hash32"},
+        "signature": {"$ref": "#/$defs/signature"}
+      }
+    },
+    "selection": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "schema_version", "type_ref", "target_master_public_key_hash", "inheritance",
+        "independence", "chosen_short_public_key_hash", "candidate_offer_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": 2},
+        "type_ref": {"const": "synny://type/syn-agent-independence-selection-v2"},
+        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
+        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
+        "independence": {"type": "integer", "minimum": 1, "maximum": 8},
+        "chosen_short_public_key_hash": {"$ref": "#/$defs/hash3"},
+        "candidate_offer_digest": {"$ref": "#/$defs/hash32"}
+      }
+    },
+    "signedSelection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["selection", "temporary_public_key", "signature"],
+      "properties": {
+        "selection": {"$ref": "#/$defs/selection"},
+        "temporary_public_key": {"$ref": "#/$defs/hash32"},
+        "signature": {"$ref": "#/$defs/signature"}
+      }
+    }
+  }
+}

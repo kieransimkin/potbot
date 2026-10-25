@@ -1,0 +1,55 @@
+name: SYN agent enrollment public contracts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/potbot/domain/syn_enrollment_protocol.py
+      - src/potbot/tools/syn_enrollment_ledger.py
+      - src/potbot/domain/syn_agent_pledge.py
+      - tests/unit/test_syn_enrollment_ledger.py
+      - tests/unit/test_syn_agent_pledge.py
+      - vocab/syn-agent-operator-enrollment.schema.json
+      - vocab/syn-agent-pledge.schema.json
+      - docs/implementation/41-syn-operator-enrollment-ledger.md
+      - .github/workflows/syn-agent-enrollment.yml
+  pull_request:
+    paths:
+      - src/potbot/domain/syn_enrollment_protocol.py
+      - src/potbot/tools/syn_enrollment_ledger.py
+      - src/potbot/domain/syn_agent_pledge.py
+      - tests/unit/test_syn_enrollment_ledger.py
+      - tests/unit/test_syn_agent_pledge.py
+      - vocab/syn-agent-operator-enrollment.schema.json
+      - vocab/syn-agent-pledge.schema.json
+      - docs/implementation/41-syn-operator-enrollment-ledger.md
+      - .github/workflows/syn-agent-enrollment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-syn-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install only locked development dependencies
+        run: uv sync --locked --dev --extra security
+      - name: Verify public handshake, durable anti-replay and source syntax
+        run: |
+          uv run --locked python -m compileall -q \
+            src/potbot/domain/syn_enrollment_protocol.py \
+            src/potbot/tools/syn_enrollment_ledger.py \
+            tests/unit/test_syn_enrollment_ledger.py
+          uv run --locked python -m pytest -q \
+            tests/unit/test_syn_agent_pledge.py \
+            tests/unit/test_syn_enrollment_ledger.py
+      - name: Verify signed-message JSON Schema
+        run: |
+          uv run --locked python -c 'import json; from pathlib import Path; from jsonschema import Draft202012Validator; Draft202012Validator.check_schema(json.loads(Path("vocab/syn-agent-operator-enrollment.schema.json").read_text()))'
