@@ -12,11 +12,13 @@ import hashlib
 import os
 import platform
 import shutil
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
 from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
 from potbot.domain.serialization import content_hash
+from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.isolation import BubblewrapBackend, IsolationLaunch, _seccomp_fd
 from potbot.tools.model_cache_routes import model_environment
 from potbot.tools.shared_tool_mounts import ToolWriteGrant
@@ -78,6 +80,8 @@ class SharedWorkspaceRuntime:
     shared_models: Path | None = None
     shared_tools: Path | None = None
     tool_entrypoints: tuple[tuple[str, str], ...] = ()
+    ai_config_dir: Path | None = None
+    ai_history_dir: Path | None = None
 
     def __post_init__(self) -> None:
         import re
@@ -96,9 +100,11 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
 
     def __init__(self, runtime: SharedWorkspaceRuntime, *,
                  executable: Path | None = None, prlimit: Path | None = None,
-                 tool_write_grant: ToolWriteGrant | None = None) -> None:
+                 tool_write_grant: ToolWriteGrant | None = None,
+                 ai_monitor: AiConfigHistoryMonitor | None = None) -> None:
         self.runtime = runtime
         self.tool_write_grant = tool_write_grant
+        self.ai_monitor = ai_monitor
         self.executable = executable or Path(shutil.which("bwrap") or "/unavailable/bwrap")
         self.prlimit = prlimit or Path(shutil.which("prlimit") or "/unavailable/prlimit")
 
@@ -171,6 +177,42 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         if any(a == b or a.is_relative_to(b) or b.is_relative_to(a)
                for index, a in enumerate(sources) for b in sources[index + 1:]):
             raise ScopeDeniedError("sandbox home, image, staging and global model store must be disjoint")
+        # Modern images advertise both /etc/ai mounts. Missing sources or a
+        # healthy operator watcher are an execution failure, not a silent
+        # unmonitored fallback. Older images retain their legacy mount layout.
+        ai_enabled = (
+            any((rootfs / item).exists() or (rootfs / item).is_symlink()
+                for item in ("etc/ai", "etc/ai-past"))
+            or self.runtime.ai_config_dir is not None
+            or self.runtime.ai_history_dir is not None
+            or self.ai_monitor is not None
+        )
+        config_ai: Path | None = None
+        history_ai: Path | None = None
+        if ai_enabled:
+            for item in ("etc/ai", "etc/ai-past"):
+                target = rootfs / item
+                if not target.is_dir() or target.is_symlink():
+                    raise CapabilityUnavailableError("system rootfs lacks safe /etc/ai mount targets")
+            if (self.runtime.ai_config_dir is None or self.runtime.ai_history_dir is None
+                    or not isinstance(self.ai_monitor, AiConfigHistoryMonitor)):
+                raise CapabilityUnavailableError("AI configuration mounts require an active operator watcher")
+            if self.runtime.ai_config_dir.is_symlink() or self.runtime.ai_history_dir.is_symlink():
+                raise ScopeDeniedError("AI config mounts may not be symlinks")
+            try:
+                config_ai = self.runtime.ai_config_dir.resolve(strict=True)
+                history_ai = self.runtime.ai_history_dir.resolve(strict=True)
+            except OSError as exc:
+                raise CapabilityUnavailableError("AI config/history sources are missing") from exc
+            if not config_ai.is_dir() or not history_ai.is_dir():
+                raise CapabilityUnavailableError("AI config/history sources must be directories")
+            extended = (*sources, config_ai, history_ai)
+            if any(a == b or a.is_relative_to(b) or b.is_relative_to(a)
+                   for index, a in enumerate(extended) for b in extended[index + 1:]):
+                raise ScopeDeniedError("AI config and history storage must be disjoint from sandbox assets")
+            if not config_ai.stat().st_mode & stat.S_IWGRP:
+                raise ScopeDeniedError("/etc/ai backing store must be workspace-group writable")
+            self.ai_monitor.require_active(config_dir=config_ai, past_dir=history_ai)
         # Guest executable must be present inside immutable image; no host executable bind.
         if not argv or not argv[0].startswith("/"):
             raise InvalidInputError("guest command must use an absolute path")
@@ -254,11 +296,15 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     "/usr/local/tools/" + self.tool_write_grant.slug)
                    if tool_write_source is not None else () ),
                 "--ro-bind", str(library), "/opt/potbot/models",
+                *(("--bind", str(config_ai), "/etc/ai",
+                   "--ro-bind", str(history_ai), "/etc/ai-past") if ai_enabled else ()),
                 "--proc", "/proc", "--dev", "/dev",
                 "--clearenv", "--setenv", "HOME", guest_home,
                 "--setenv", "PATH", "/usr/bin:/bin", "--setenv", "TMPDIR", "/home/.tmp",
                 "--setenv", "LANG", "C.UTF-8", "--setenv", "TERM", "xterm-256color",
                 "--setenv", "SHELL", "/bin/bash",
+                *(("--setenv", "POTBOT_AI_CONFIG", "/etc/ai",
+                   "--setenv", "POTBOT_AI_HISTORY", "/etc/ai-past") if ai_enabled else ()),
                 *[arg for key, value in guest_env.items()
                   for arg in ("--setenv", key, value)],
                 "--chdir", guest_cwd,
@@ -271,6 +317,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 "network": "private-denied", "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-ro/models-ro/proc/dev",
                 "model_staging": str(staging), "shared_models": str(library),
                 "shared_tools": str(tools),
+                "ai_mount_policy": "rw-config/ro-history/journaled-v1" if ai_enabled else "legacy-none",
+                "ai_config": str(config_ai) if ai_enabled else None,
+                "ai_history": str(history_ai) if ai_enabled else None,
                 "writable_tool": self.tool_write_grant.slug if tool_write_source else None,
                 "tool_write_lease": (
                     self.tool_write_grant.guard.lease.lease_id if tool_write_source else None

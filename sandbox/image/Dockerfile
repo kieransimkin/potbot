@@ -10,8 +10,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
         bash ca-certificates coreutils findutils grep sed git gzip tar util-linux \
         figlet fortune-mod fortunes-min lolcat \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /etc/skel/.cache /etc/skel/.ollama \
-    && chmod 2775 /usr/local/tools \
+    && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /etc/ai /etc/ai-past /etc/skel/.cache /etc/skel/.ollama \
+    && chmod 2775 /usr/local/tools /etc/ai \
     && ln -s /usr/local/tools /etc/skel/Tools \
     && ln -s /var/ai/cache/huggingface /etc/skel/.cache/huggingface \
     && ln -s /var/ai/cache/torch /etc/skel/.cache/torch \

@@ -16,6 +16,7 @@ import shlex
 import sys
 from pathlib import Path
 
+from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
@@ -54,9 +55,10 @@ def _case(supervisor: ProcessSupervisor, *, home: Path, command: str,
     }
 
 
-def qualify(runtime: SharedWorkspaceRuntime) -> dict[str, object]:
+def qualify(runtime: SharedWorkspaceRuntime,
+            ai_monitor: AiConfigHistoryMonitor | None = None) -> dict[str, object]:
     home = runtime.home.resolve(strict=True)
-    supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(runtime))
+    supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=ai_monitor))
     marker = "potbot-qualification-" + os.urandom(8).hex()
     # An outbound TCP failure is NOT proof of network isolation: an
     # unconfined process can fail to connect for unrelated reasons. Compare
@@ -117,6 +119,28 @@ def qualify(runtime: SharedWorkspaceRuntime) -> dict[str, object]:
             must_succeed=False,
         ),
     }
+    if runtime.ai_config_dir is not None and runtime.ai_history_dir is not None:
+        if ai_monitor is None:
+            raise RuntimeError("AI mounts require an operator history watcher")
+        tests["etc_ai_writable"] = _case(
+            supervisor, home=home,
+            command=f'touch /etc/ai/{marker} && test -e /etc/ai/{marker}',
+            must_succeed=True,
+        )
+        tests["etc_ai_past_readonly"] = _case(
+            supervisor, home=home,
+            command=f'touch /etc/ai-past/{marker}', must_succeed=False,
+        )
+        # The operator records both file creation and later removal. The marker
+        # must be present in a durable inverse record even if its inotify event
+        # has already been consumed by the monitor's background thread.
+        ai_monitor.poll_once()
+        history_files = sorted(runtime.ai_history_dir.glob("*.reverse.json"))
+        recorded = any(marker in path.read_text(encoding="utf-8")
+                       for path in history_files[-32:])
+        tests["etc_ai_reverse_recorded"] = {"passed": recorded, "records": len(history_files)}
+        (runtime.ai_config_dir / marker).unlink(missing_ok=True)
+        ai_monitor.poll_once()
     (home / ".tmp" / marker).unlink(missing_ok=True)
     (runtime.model_staging / marker).unlink(missing_ok=True)
     passed = all(item["passed"] for item in tests.values())
@@ -139,16 +163,25 @@ def main() -> int:
     parser.add_argument("--model-staging", type=Path, required=True)
     parser.add_argument("--shared-models", type=Path, required=True)
     parser.add_argument("--shared-tools", type=Path, required=True)
+    parser.add_argument("--ai-config", type=Path)
+    parser.add_argument("--ai-past", type=Path)
     parser.add_argument("--image-digest", required=True)
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
+    if (args.ai_config is None) != (args.ai_past is None):
+        parser.error("--ai-config and --ai-past must be supplied together")
     runtime = SharedWorkspaceRuntime(
         args.image_digest, args.rootfs, args.home, "0" * 64,
         model_staging=args.model_staging, shared_models=args.shared_models,
-        shared_tools=args.shared_tools
+        shared_tools=args.shared_tools, ai_config_dir=args.ai_config,
+        ai_history_dir=args.ai_past,
     )
     try:
-        report = qualify(runtime)
+        if args.ai_config is not None:
+            with AiConfigHistoryMonitor(config_dir=args.ai_config, past_dir=args.ai_past) as monitor:
+                report = qualify(runtime, ai_monitor=monitor)
+        else:
+            report = qualify(runtime)
     except Exception as exc:
         print("sandbox qualification could not execute: " + type(exc).__name__, file=sys.stderr)
         return 2

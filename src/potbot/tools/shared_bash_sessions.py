@@ -69,6 +69,7 @@ class _BashSession:
         guard: WorkspaceLeaseGuard, max_age_seconds: int,
         guest_home: str = "/home", simulated_uid: int | None = None,
         simulated_gid: int | None = None,
+        ai_healthy: Callable[[], bool] | None = None,
     ) -> None:
         self.id = session_id
         self.workspace_id = workspace_id
@@ -83,6 +84,7 @@ class _BashSession:
         self.guest_home = guest_home
         self.simulated_uid = simulated_uid
         self.simulated_gid = simulated_gid
+        self._ai_healthy = ai_healthy
         self.detached = False
         self.closed = False
         self._lock = threading.RLock()
@@ -117,7 +119,8 @@ class _BashSession:
             if self.process.poll() is not None:
                 self.terminate()
                 return
-            if self.guard.fenced or time.monotonic() >= self.deadline:
+            if (self.guard.fenced or time.monotonic() >= self.deadline
+                    or (self._ai_healthy is not None and not self._ai_healthy())):
                 self.terminate(force=True)
                 return
 
@@ -326,6 +329,8 @@ class SharedBashSessionSupervisor:
                     guest_home=guest_home,
                     simulated_uid=agent_home.uid if agent_home else None,
                     simulated_gid=agent_home.gid if agent_home else None,
+                    ai_healthy=(self.backend.ai_monitor.is_healthy
+                                if self.backend.ai_monitor is not None else None),
                 )
                 self._sessions[session_id] = session
                 return session.view()

@@ -36,6 +36,7 @@ from potbot.tools.repository import (
     assert_lease,
     workspace_fingerprint,
 )
+from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor, SecretReferenceProvider
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.shared_workspace_isolation import (
@@ -70,23 +71,33 @@ class ToolGateway:
         workspace_sandbox: WorkspaceSandbox | None = None,
         shared_runtime: SharedWorkspaceRuntime | None = None,
         shared_leases: WorkspaceLeaseLedger | None = None,
+        ai_monitor: AiConfigHistoryMonitor | None = None,
     ) -> None:
         self.database, self.artifacts, self.candidates = database, artifacts, candidates
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts
         if (shared_runtime is None) != (shared_leases is None):
             raise InvalidInputError("shared tool admission requires both runtime and lease broker")
+        if shared_runtime is None and ai_monitor is not None:
+            raise InvalidInputError("AI config watcher requires a shared workspace runtime")
         if shared_runtime is not None and (workspace_sandbox is not None or read_only_roots):
             raise ScopeDeniedError("shared /home mode forbids legacy support mounts")
         if shared_runtime is not None:
             if supervisor is None:
-                supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(shared_runtime))
+                supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(
+                    shared_runtime, ai_monitor=ai_monitor,
+                ))
             if not isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend):
                 raise ScopeDeniedError("shared /home cannot use an unqualified legacy supervisor")
             if supervisor.backend.runtime != shared_runtime:
                 raise StateMismatchError("supervisor sandbox and workspace image differ")
+            if ai_monitor is not None and supervisor.backend.ai_monitor is not ai_monitor:
+                raise StateMismatchError("operator watcher differs from admitted supervisor")
         self.shared_runtime = shared_runtime
         self.shared_leases = shared_leases
         self.supervisor = supervisor or ProcessSupervisor()
+        self.ai_monitor = (
+            self.supervisor.backend.ai_monitor if shared_runtime is not None else None
+        )
         self.secrets = secrets or SecretReferenceProvider({})
         self.read_only_roots = read_only_roots
         self.workspace_sandbox = workspace_sandbox
@@ -423,7 +434,7 @@ class ToolGateway:
                 request,
                 cancelled=lambda: self._cancelled(context, run, lease) or (
                     access_guard.fenced if access_guard is not None else False
-                ),
+                ) or (self.ai_monitor is not None and not self.ai_monitor.is_healthy()),
                 redactor=material.redactor,
             )
             if not result.processes_stopped:
