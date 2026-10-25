@@ -82,6 +82,7 @@ test('authenticated UI routes enforce origin, scope and redact backend metadata'
     const view=await response.json();
     assert.equal(view.cursor,5);
     assert.equal(view.graph.revision,7);
+    assert.deepEqual(view.events,[{sequence:5,type:'node.claimed'}]);
     assert.ok(!JSON.stringify(view).includes('HIDDEN'));
     const bad=await reasoning(request('/api/ui/reasoning/../../oops',{headers:{cookie}}),{params:Promise.resolve({runId:'../invalid'})});
     assert.equal(bad.status,400);

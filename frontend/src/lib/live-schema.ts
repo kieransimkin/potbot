@@ -55,7 +55,7 @@ export function summarizeEventPage(raw: unknown, after: number): EventPage | nul
   for (const item of record.data.slice(0, 200)) {
     const value = asRecord(item);
     if (!value || !Number.isSafeInteger(value.sequence) || (value.sequence as number) <= 0 ||
-      typeof value.type !== "string") return null;
+      typeof value.type !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$/.test(value.type)) return null;
     const sequence = value.sequence as number;
     if (sequence !== cursor + 1) gap = true;
     if (sequence <= cursor) return null;

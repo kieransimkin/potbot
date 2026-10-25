@@ -103,3 +103,37 @@ Next before UI-4:
 5. Add identity-provider integration, CSRF/origin audits, shared distributed
    login rate limits, reverse-proxy TLS, hardening and account/session revocation
    before deploying UI outside a trusted operator environment.
+
+## UI-4 delivered — graph search, event timeline and viewport diagnostics
+
+- Shared graph workbench for floating and fullscreen views, including
+  search, type/state filters, selected-node inspector and optional accessible
+  paged list. Text searches retain ancestors for visual context but do not
+  treat those ancestors as independent search matches.
+- Workspace-scoped view preferences remain active after closing panels.
+  Accessible list mode unmounts WebGL; perf diagnostics report CPU-side
+  measurements and explicit estimates rather than inferred FPS/VRAM.
+- `GET /api/ui/reasoning/{runId}` now returns the already-validated, bounded
+  `events` collection with **sequence/type only**. The UI stores up to 240
+  recent events in memory per workspace/run. Cursor gaps do not create a
+  silent success condition; the view reports incomplete source history.
+- CI includes a CPU-only query benchmark; previous unsupported Dockview
+  `tabAnimation` prop removed. Backend sources and credentials remain untouched.
+
+### Follow-on UI work (do not conflate missing backend progress with success)
+
+1. Add real PTY state/resize/reattach controls to the composer-launched terminal
+   only after the backend supplies authenticated workspace PTY sessions.
+2. Add streamed browser viewport/control when the backend publishes its
+   browser-session and origin/permission contracts; no arbitrary iframe.
+3. Wire activity panels to scoped backend downloads and model install job
+   events with bytes, verified bytes, speed, checksum state, failures,
+   pause/resume/cancel rights and reconnect cursors. Keep placeholders until
+   those APIs actually exist.
+4. Adopt durable multi-workspace discovery, user preferences, chat/session
+   storage, and typed reasoning graph SSE/WebSocket events after backend
+   endpoints are accepted. The current connection remains one configured
+   authorized workspace plus explicit synthetic demo mode.
+5. Run cross-browser Playwright tests for graph selection, redraw diagnostics,
+   dock ↔ float, fullscreen focus trap, preference persistence, reduced
+   motion, touch navigation and a large graph under actual browser GPUs.

@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ runI
     if (!page) return safeError("Invalid reasoning event sequence.", 502);
     const run = state && typeof state === "object" && "state" in state && typeof state.state === "string" ? state.state : "unknown";
     return Response.json({ runId, graph, cursor: page.cursor, gap: page.gap,
-      more: page.more, latestTypes: page.events.slice(-5).map(e => e.type), status: run,
+      more: page.more, events: page.events, latestTypes: page.events.slice(-5).map(e => e.type), status: run,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch { return safeError("Reasoning snapshot or events are not available.", 503); }
 }

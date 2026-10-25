@@ -6,6 +6,8 @@ import { DockviewReact } from "dockview-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { bootWorkspaces } from "@/lib/boot";
 import { readChatStream } from "@/lib/chat-stream";
+import { DEFAULT_GRAPH_VIEW, mergeGraphTimeline, sanitizedGraphView } from "@/lib/graph-workbench";
+import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
 import { RUN_ID } from "@/lib/live-schema";
 import { decodeSavedLayout, layoutStorageKey, PANEL_TITLES, shouldMinimizePanel } from "@/lib/layout";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
@@ -102,7 +104,7 @@ function DockedScene({ workspace, onGraphMinimized }: {
   return <DockviewReact className="dockview-theme-dark potbot-dockview" onReady={onReady}
     components={COMPONENTS} floatingGroupBounds="boundedWithinViewport"
     floatingGroupDragHandle="titlebar"
-    tabAnimation="smooth" keyboardNavigation />;
+    keyboardNavigation />;
 }
 
 // Shared across panel commands and this workspace's Dockview instance.
@@ -127,6 +129,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [runIds, setRunIds] = useState<Record<string, string>>({});
   const [graphs, setGraphs] = useState<Record<string, GraphProjection>>({});
   const [graphHealth, setGraphHealth] = useState<Record<string, string>>({});
+  const [graphTimelines, setGraphTimelines] = useState<Record<string, Timeline>>({});
+  const [graphViews, setGraphViews] = useState<Record<string, GraphView>>({});
+  const [compactPrefs, setCompactPrefs] = useState<Record<string, boolean>>({});
   const cursors = useRef<Record<string, number>>({});
   const requests = useRef<Map<string, AbortController>>(new Map());
   const [graphMinimized, setGraphMinimized] = useState(false);
@@ -174,6 +179,47 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       if (index >= 0) setSelected(index);
     } catch { /* Storage is optional. */ }
   }, [workspaces]);
+
+  // View preferences are local UI state only; never sent to the reasoning backend.
+  useEffect(() => {
+    if (!workspace) return;
+    const id = workspace.id;
+    try {
+      const stored = localStorage.getItem(`potbot:ui:graph-view:v1:${id}`);
+      setGraphViews(state => state[id] ? state : { ...state,
+        [id]: sanitizedGraphView(stored ? JSON.parse(stored) : DEFAULT_GRAPH_VIEW) });
+    } catch { setGraphViews(state => state[id] ? state : { ...state, [id]: { ...DEFAULT_GRAPH_VIEW } }); }
+  }, [workspace]);
+  useEffect(() => {
+    if (!workspace || !graphViews[workspace.id]) return;
+    try { localStorage.setItem(`potbot:ui:graph-view:v1:${workspace.id}`,
+      JSON.stringify(graphViews[workspace.id])); } catch { /* Storage is optional. */ }
+  }, [workspace, graphViews]);
+  useEffect(() => {
+    if (!workspace) return;
+    const id = workspace.id;
+    try {
+      const compact = localStorage.getItem(`potbot:ui:pref:compact:${id}`) === "1";
+      setCompactPrefs(state => id in state ? state : { ...state, [id]: compact });
+    } catch { setCompactPrefs(state => id in state ? state : { ...state, [id]: false }); }
+  }, [workspace]);
+  useEffect(() => {
+    if (!workspace) return;
+    document.body.classList.toggle("potbot-compact", compactPrefs[workspace.id] === true);
+    return () => document.body.classList.remove("potbot-compact");
+  }, [workspace, compactPrefs]);
+  const setCompactPreference = useCallback((enabled: boolean) => {
+    if (!workspace) return;
+    setCompactPrefs(state => ({ ...state, [workspace.id]: enabled }));
+    try { localStorage.setItem(`potbot:ui:pref:compact:${workspace.id}`, enabled ? "1" : "0"); } catch {}
+  }, [workspace]);
+
+  const updateGraphView = useCallback((patch: Partial<GraphView>) => {
+    if (!workspace) return;
+    setGraphViews(state => ({ ...state, [workspace.id]: sanitizedGraphView({
+      ...(state[workspace.id] ?? DEFAULT_GRAPH_VIEW), ...patch,
+    }) }));
+  }, [workspace]);
 
   const selectWorkspace = useCallback((index: number) => {
     if (index < 0 || index >= workspaces.length) return;
@@ -256,6 +302,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
           cursors.current[runId] = 0;
           setRunIds(state => ({ ...state, [workspaceId]: runId }));
           setGraphHealth(state => ({ ...state, [workspaceId]: "loading" }));
+          setGraphTimelines(state => { const copy = { ...state }; delete copy[workspaceId]; return copy; });
         }
         await readChatStream(response.body, event => {
           if (event.type === "delta") {
@@ -293,17 +340,24 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
         if (!response.ok) throw new Error("Reasoning projection unavailable");
         const document = await response.json() as {
           graph?: GraphProjection; cursor?: number; gap?: boolean; more?: boolean; status?: string;
+          events?: GraphEvent[];
         };
         if (!alive || !document.graph || !Number.isSafeInteger(document.cursor)) throw new Error("Incomplete graph event page");
-        if (document.gap) cursors.current[runId] = 0;
-        else cursors.current[runId] = document.cursor!;
+        // Snapshot is already refreshed. A retention gap must not cause an
+        // infinite after=0 replay loop; keep the last available cursor.
+        cursors.current[runId] = document.cursor!;
+        const events = document.events;
+        if (Array.isArray(events)) setGraphTimelines(state => {
+          const merged = mergeGraphTimeline(state[workspaceId] ?? null, runId, events, document.gap);
+          return merged ? { ...state, [workspaceId]: merged } : state;
+        });
         setGraphs(prev => {
           const existing = prev[workspaceId];
           // Avoid reconstructing a Three.js renderer on every no-op poll.
           if (existing && JSON.stringify(existing) === JSON.stringify(document.graph)) return prev;
           return { ...prev, [workspaceId]: document.graph! };
         });
-        setGraphHealth(prev => ({ ...prev, [workspaceId]: document.gap ? "replaying events" : document.status || "ready" }));
+        setGraphHealth(prev => ({ ...prev, [workspaceId]: document.gap ? "source event history incomplete" : document.status || "ready" }));
         timer = setTimeout(poll, document.gap || document.more ? 300 :
           graphMinimized || ["completed", "failed", "indeterminate", "cancelled"].includes(document.status || "") ? 15000 : 3000);
       } catch {
@@ -322,6 +376,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void fetch("/api/ui/auth/logout", { method: "POST", credentials: "same-origin" }).then(response => {
       if (!response.ok) throw new Error("Logout not acknowledged");
       setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
+      setGraphHealth({}); setGraphTimelines({}); setGraphViews({}); setCompactPrefs({});
       setPassword(""); setSelected(0); apiRef.current = null;
     }).catch(() => setNotice("Logout failed; your existing operator session may still be active."));
   }, []);
@@ -330,11 +385,16 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     entries: messages[workspace.id] ?? [], chatBusy: !!busy[workspace.id],
     graph: demo ? null : graphs[workspace.id] ?? null,
     graphState: demo ? "synthetic preview" : graphHealth[workspace.id] || "No active reasoning run",
+    graphTimeline: demo ? null : graphTimelines[workspace.id] ?? null,
+    graphView: graphViews[workspace.id] ?? { ...DEFAULT_GRAPH_VIEW },
+    compact: compactPrefs[workspace.id] === true,
+    setCompactPreference, updateGraphView,
     runId: runIds[workspace.id] ?? null,
     logout, sendMessage, openPanel, closePanel, dockPanel,
     floatPanel, graphFullscreen, setGraphFullscreen }) : null,
-    [workspace, demo, messages, busy, graphs, graphHealth, runIds, logout, sendMessage,
-      openPanel, closePanel, dockPanel, floatPanel, graphFullscreen]);
+    [workspace, demo, messages, busy, graphs, graphHealth, graphTimelines, graphViews,
+      compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
+      dockPanel, floatPanel, graphFullscreen]);
 
   if (!workspace || !session) return <main className="setup-screen">
     <span className="setup-icon">✳</span><h1>Potbot Orb Workspace</h1>

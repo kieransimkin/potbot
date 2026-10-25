@@ -147,3 +147,50 @@ npm run build                     # requires npm dependencies installed
 A mocked integration suite covers login, origin enforcement, credential
 isolation, workspace bounds, chat streaming, safe graph projection and cursor
 handling. A real Potbot service is needed for end-to-end browser acceptance.
+
+## UI-4 — graph workbench, event timeline, rendering telemetry
+
+The floating and fullscreen graph now share a searchable inspector. Filter
+nodes by recorded state or kind, search by public node label or identifier,
+see ancestor context retained for search hits, and select any node using a
+keyboard-accessible, paginated list. A **List** toggle unmounts the WebGL canvas
+without losing selection or filters. Graph search, view mode and the diagnostics
+preference are stored locally per workspace; account-level sync still requires
+an authorized backend preferences service.
+
+The live event timeline displays the actual sequence and type fields returned
+by `/v1/reasoning/{run_id}/events`. The Next.js BFF **never forwards raw event
+payloads**, task secrets or claim tokens. Its 240-entry bounded history detects
+cursor gaps, reports incomplete source history and resumes from the most recent
+available cursor rather than looping through missing events. Potbot currently
+does not supply event timestamps here, so the UI does not fabricate them.
+
+**Perf** opens a diagnostic overlay showing instanced-node and line counts,
+scene-build wall time, synchronous render CPU time, capped pixel ratio, draw
+count and rough graph-buffer estimate. These figures are **not GPU timings,
+frame rate or measured peak VRAM**. The Three.js canvas draws on demand and
+selection changes reuse the existing scene, changing instance attributes and
+camera position rather than rebuilding the geometry. WebGL context loss falls
+back to an accessible node list. `npm run benchmark:graph` provides a separate
+CPU-only 1,500-node query and timeline diagnostic.
+
+The Preferences window now keeps the local compact setting active even after
+the window is closed, offers accessible graph list mode and graph diagnostics,
+and links directly to the dockable Downloads and Model Installations windows.
+Those two windows still explicitly report **backend telemetry unavailable**.
+No made-up transfer progress or installation status is displayed.
+
+### Validation
+
+```bash
+npm test
+npm run benchmark:graph
+npm install --no-audit --no-fund
+npm run typecheck
+npm run build
+```
+
+The UI-4 patch also removes the `tabAnimation` Dockview prop, which was rejected
+by the pinned `dockview-react` TypeScript contract in the preceding CI run.
+The full dependency typecheck, Next production build, and a real-browser WebGL
+benchmark still require npm installation in the target/CI environment.

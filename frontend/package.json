@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3100",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "benchmark:graph": "node --experimental-strip-types tests/bench-workbench.mjs"
   },
   "dependencies": {
     "dockview-react": "8.6.1",

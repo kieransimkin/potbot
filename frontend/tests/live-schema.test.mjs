@@ -21,6 +21,7 @@ test('cursor pagination detects gaps and refuses non-monotonic sequences', () =>
     {cursor:7,events:[{sequence:6,type:'node.open'},{sequence:7,type:'node.close'}],gap:false,more:false});
   assert.equal(summarizeEventPage({object:'list',data:[{sequence:8,type:'x'}]},5).gap,true);
   assert.equal(summarizeEventPage({object:'list',data:[{sequence:5,type:'x'}]},5),null);
+  assert.equal(summarizeEventPage({object:'list',data:[{sequence:6,type:'<raw-secret>'}]},5),null);
 });
 
 test('chat message validation enforces workspace identity, roles and budgets', () => {

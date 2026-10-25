@@ -113,3 +113,17 @@ workspace PTY, controlled browser sessions, download/model-install telemetry,
 account preference persistence, distributed rate limiting and user access
 management all remain open. No fake progress or browser/terminal controls are
 exposed by the UI before those server facilities exist.
+
+## UI-4 reasoning event projection (implemented on frontend bridge)
+
+The existing Potbot backend event page `/v1/reasoning/{run_id}/events`
+returns a list of `{sequence, type, data}`. The authenticated Next.js bridge
+at `/api/ui/reasoning/{runId}?after=N` now returns `events` as a bounded list of
+`{sequence:number, type:string}` alongside the current sanitized graph,
+`cursor`, `gap`, `more`, `status`, and `latestTypes`. It **never** forwards
+raw event `data`, prompt/result bodies, claim tokens or private billing details.
+All values are scoped by the configured backend bearer token, with no
+cross-workspace run enumeration. The event timeline uses sequence numbers
+without fabricating times. Backend migration to a typed, push-based graph
+stream must preserve strict workspace checks, continuity epochs, bounded
+replay, and an explicit gap/resnapshot handshake.

@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
+import type { GraphView, Timeline } from "@/lib/graph-workbench";
 
 type WorkspaceContextValue = {
   workspace: Workspace;
@@ -11,6 +12,11 @@ type WorkspaceContextValue = {
   chatBusy: boolean;
   graph: GraphProjection | null;
   graphState: string;
+  graphTimeline: Timeline | null;
+  compact: boolean;
+  setCompactPreference: (enabled: boolean) => void;
+  graphView: GraphView;
+  updateGraphView: (next: Partial<GraphView>) => void;
   runId: string | null;
   logout: () => void;
   sendMessage: (text: string) => void;
