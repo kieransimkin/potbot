@@ -43,8 +43,17 @@ class ProcessRequest:
     max_file_bytes: int = 128 * 1024**2
     max_open_files: int = 256
     ipc_profile: Literal["none", "private-loopback-v1"] = "none"
+    guest_uid: int | None = None
+    guest_gid: int | None = None
 
     def __post_init__(self) -> None:
+        if (self.guest_uid is None) != (self.guest_gid is None):
+            raise InvalidInputError("guest UID/GID must be selected together")
+        if self.guest_uid is not None and (
+            type(self.guest_uid) is not int or not 420 <= self.guest_uid <= 65533
+            or self.guest_gid != 69
+        ):
+            raise InvalidInputError("guest identities must use agent UID >=420 and group 69")
         if self.ipc_profile not in {"none", "private-loopback-v1"}:
             raise InvalidInputError("Process IPC profile is not supported")
         if (
@@ -140,7 +149,9 @@ class ProcessSupervisor:
     ) -> ProcessResult:
         started = time.monotonic()
         redactor = redactor or CaptureRedactor()
-        if not Path(request.argv[0]).is_file() or not os.access(request.argv[0], os.X_OK):
+        if not getattr(self.backend, "guest_executable", False) and (
+            not Path(request.argv[0]).is_file() or not os.access(request.argv[0], os.X_OK)
+        ):
             return ProcessResult(
                 "infrastructure_error",
                 None,
@@ -158,6 +169,16 @@ class ProcessSupervisor:
         launch = None
         process: subprocess.Popen[bytes] | None = None
         try:
+            launch_options: dict[str, int] = {}
+            if request.guest_uid is not None:
+                from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
+                if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+                    raise CapabilityUnavailableError("agent UID requires the qualified shared sandbox")
+                if request.guest_gid is None:
+                    raise InvalidInputError("guest group was not assigned")
+                launch_options = {"guest_uid": request.guest_uid,
+                                  "guest_gid": request.guest_gid}
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -171,6 +192,7 @@ class ProcessSupervisor:
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
                 ipc_profile=request.ipc_profile,
+                **launch_options,
             )
             environment = {
                 "PATH": "/usr/bin:/bin",

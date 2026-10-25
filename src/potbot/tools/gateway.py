@@ -38,6 +38,17 @@ from potbot.tools.repository import (
 )
 from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor, SecretReferenceProvider
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
+from potbot.tools.shared_workspace_isolation import (
+    SharedWorkspaceBubblewrapBackend,
+    SharedWorkspaceRuntime,
+)
+from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
+from potbot.tools.workspace_supervision import (
+    WorkspaceExecutorIdentity,
+    WorkspaceLeaseGuard,
+    admission_digest,
+    assert_shared_execution_allowed,
+)
 
 if TYPE_CHECKING:
     from potbot.workspace_sandbox import WorkspaceSandbox
@@ -57,9 +68,24 @@ class ToolGateway:
         secrets: SecretReferenceProvider | None = None,
         read_only_roots: tuple[Path, ...] = (),
         workspace_sandbox: WorkspaceSandbox | None = None,
+        shared_runtime: SharedWorkspaceRuntime | None = None,
+        shared_leases: WorkspaceLeaseLedger | None = None,
     ) -> None:
         self.database, self.artifacts, self.candidates = database, artifacts, candidates
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts
+        if (shared_runtime is None) != (shared_leases is None):
+            raise InvalidInputError("shared tool admission requires both runtime and lease broker")
+        if shared_runtime is not None and (workspace_sandbox is not None or read_only_roots):
+            raise ScopeDeniedError("shared /home mode forbids legacy support mounts")
+        if shared_runtime is not None:
+            if supervisor is None:
+                supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(shared_runtime))
+            if not isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend):
+                raise ScopeDeniedError("shared /home cannot use an unqualified legacy supervisor")
+            if supervisor.backend.runtime != shared_runtime:
+                raise StateMismatchError("supervisor sandbox and workspace image differ")
+        self.shared_runtime = shared_runtime
+        self.shared_leases = shared_leases
         self.supervisor = supervisor or ProcessSupervisor()
         self.secrets = secrets or SecretReferenceProvider({})
         self.read_only_roots = read_only_roots
@@ -312,15 +338,48 @@ class ToolGateway:
             permitted_references=frozenset(self.capabilities.allowed_secret_refs),
             permitted_environment=frozenset(name for name, _ in definition.secret_refs),
         )
-        run, definition, proposal, candidate = self._admit(
-            context, action_id, lease, reservation_id
-        )
+        # The shared /home mount is writable by arbitrary executables. Even a
+        # declared read-only tool could write anywhere there, so ALL shared-root
+        # commands take an exclusive workspace lease until genuinely read-only
+        # OS mounts / a mediated filesystem broker are qualified.
+        access_guard: WorkspaceLeaseGuard | None = None
+        if self.shared_runtime is not None:
+            assert self.shared_leases is not None
+            candidate_path = prior["candidate"]["path"] if "candidate" in prior else None
+            if candidate_path is None:
+                # Resolve the authoritative candidate through the existing
+                # repository lease rather than untrusted model-provided paths.
+                candidate_path = self.candidates.check_lease(context, lease)["path"]
+            assert_shared_execution_allowed(
+                runtime=self.shared_runtime, ledger=self.shared_leases,
+                workspace_id=context.workspace_id, candidate_path=str(candidate_path),
+            )
+            access_guard = WorkspaceLeaseGuard.exclusive_home(
+                self.shared_leases,
+                WorkspaceExecutorIdentity(context.workspace_id, context.principal_id,
+                                          self.shared_runtime.image_digest),
+                operation="tool.execute", idempotency_key=f"tool-{action_id.hex}",
+            )
+            access_guard.start()
+        try:
+            run, definition, proposal, candidate = self._admit(
+                context, action_id, lease, reservation_id
+            )
+        except BaseException:
+            # No process was dispatched; admission transaction rolled back.
+            if access_guard is not None:
+                access_guard.finish(evidence_sha256=admission_digest("not-dispatched"))
+            raise
         try:
             root = Path(candidate["path"])
             sandbox_environment: dict[str, str] = {}
             writable_roots: tuple[Path, ...] = ()
             read_only_roots = self.read_only_roots
             sandbox_root = root
+            if self.shared_runtime is not None:
+                # Same mounted /home for all chats and tools. No other writable
+                # mounts can be added and no host CWD is trusted by the guest.
+                sandbox_root = self.shared_runtime.home
             if self.workspace_sandbox is not None:
                 sandbox = self.workspace_sandbox
                 sandbox.confine(root, area="candidates", must_exist=True)
@@ -362,7 +421,9 @@ class ToolGateway:
             )
             result = self.supervisor.run(
                 request,
-                cancelled=lambda: self._cancelled(context, run, lease),
+                cancelled=lambda: self._cancelled(context, run, lease) or (
+                    access_guard.fenced if access_guard is not None else False
+                ),
                 redactor=material.redactor,
             )
             if not result.processes_stopped:
@@ -393,6 +454,10 @@ class ToolGateway:
                 "retryable": result.retryable,
                 "processes_stopped": result.processes_stopped,
             }
+            if access_guard is not None:
+                access_guard.ensure_live()
+                receipt["workspace_access_lease_id"] = access_guard.lease.lease_id  # type: ignore[union-attr]
+                receipt["workspace_image_digest"] = self.shared_runtime.image_digest  # type: ignore[union-attr]
             if stdin_id is not None:
                 receipt["stdin_artifact_id"] = stdin_id
                 receipt["stdin_digest"] = hashlib.sha256(stdin).hexdigest()
@@ -400,11 +465,23 @@ class ToolGateway:
             self.receipts.write(context.workspace_id, run["id"], receipt)
             if after_receipt is not None:
                 after_receipt()
+            if access_guard is not None:
+                access_guard.ensure_live()
             self._complete(context, run, lease, receipt)
+            if access_guard is not None:
+                access_guard.finish(evidence_sha256=content_hash(receipt))
             return self.store.inspect(context, action_id)
         except BaseException:
             # A committed dispatch intent is never treated as proof of no side effects.
             self._uncertain(context, run, lease)
+            if access_guard is not None:
+                try:
+                    access_guard.finish(
+                        evidence_sha256=admission_digest("dispatched-outcome-unconfirmed"),
+                        uncertain=True,
+                    )
+                except DomainError:
+                    access_guard.abandon()  # Expiry retains an indeterminate write conflict.
             raise
 
     def _uncertain(self, context: WorkspaceContext, run: dict[str, Any], lease: Lease) -> None:

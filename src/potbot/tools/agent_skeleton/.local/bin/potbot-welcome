@@ -1,0 +1,64 @@
+#!/bin/bash
+# Personalizable interactive Bash greeting, based on the pinned Kieran Simkin
+# update-motd.d-scripts. Cosmetic only: no command evaluation, network or installs.
+set -u
+if [ "${POTBOT_WELCOME:-1}" = 0 ] || [ ! -t 1 ]; then
+    exit 0
+fi
+
+config="$HOME/.config/potbot"
+agent_dir="${HOME##*/}"
+title="Workspace"
+# A 64-character hex directory is the anonymous agent identity. Once the
+# controller renames it, the chosen directory name becomes the banner default.
+if [[ "$agent_dir" =~ ^[[:xdigit:]]{64}$ ]]; then
+    if [ -f "$config/workspace-name" ] && [ ! -L "$config/workspace-name" ]; then
+        IFS= read -r title < "$config/workspace-name" || :
+    fi
+else
+    title="${agent_dir//[-_]/ }"
+    # A named agent may override its banner without modifying the host registry.
+    if [ -f "$config/banner.title" ] && [ ! -L "$config/banner.title" ]; then
+        IFS= read -r title < "$config/banner.title" || :
+    fi
+fi
+# A guest can edit these cosmetic files. Never evaluate shell fragments or
+# forward terminal control characters to figlet.
+title="${title:0:48}"
+if [[ ! "$title" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]*$ ]]; then
+    title="Workspace"
+fi
+
+font="standard"
+if [ -f "$config/banner.font" ] && [ ! -L "$config/banner.font" ]; then
+    IFS= read -r preferred < "$config/banner.font" || :
+    case "$preferred" in
+        standard|slant|small|big|shadow|banner) font="$preferred" ;;
+    esac
+fi
+color="rainbow"
+if [ -f "$config/banner.color" ] && [ ! -L "$config/banner.color" ]; then
+    IFS= read -r preferred < "$config/banner.color" || :
+    case "$preferred" in
+        plain|rainbow) color="$preferred" ;;
+    esac
+fi
+
+motd="$HOME/.local/share/potbot/motd.d"
+if command -v figlet >/dev/null 2>&1; then
+    # Use the upstream 10-figbanner's figlet/lolcat treatment with a dynamic
+    # title. The original source remains copied intact in motd.d for provenance.
+    if [ "$color" = rainbow ] && [ -x /usr/games/lolcat ]; then
+        figlet -c -f "$font" "$title" | /usr/games/lolcat -f || :
+    else
+        figlet -c -f "$font" "$title" || :
+    fi
+fi
+if [ -x /usr/games/lolcat ]; then
+    if [ -x /usr/games/fortune ] && [ -f "$motd/20-fortune" ]; then
+        bash "$motd/20-fortune" || :
+    fi
+    if [ -f "$motd/99-insult" ]; then
+        bash "$motd/99-insult" || :
+    fi
+fi

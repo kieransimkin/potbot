@@ -1,0 +1,362 @@
+diff --git a/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md b/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
+index 53c353a..c42c460 100644
+--- a/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
++++ b/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
+@@ -169,3 +169,24 @@ PYTHONPATH=src python -m pytest -q \
+ Run `scripts/qualify_shared_workspace.py` with `--shared-tools` on the actual
+ Linux/WSL2 qualified host before enabling shared shell access. CI rootfs image
+ publication does not imply successful sandbox qualification.
++
++## Agent Bash banner — skeleton v4
++
++Each newly provisioned agent home receives a copy of the upstream Kieran Simkin
++MOTD scripts and a host-provisioned `.config/potbot/workspace-name`. For an
++unnamed agent (home directory is its 64-character SHA-256 ID), the interactive
++FIGlet greeting displays the workspace name, not the anonymous ID. When the
++agent obtains a name and its home is renamed by `AgentHomeRegistry`, its default
++FIGlet title becomes that name without changing custom scripts or re-copying
++the skeleton. A named agent can customize `banner.title`, `banner.font`
++(`standard`, `slant`, `small`, `big`, `shadow`, `banner`) and `banner.color`
++(`rainbow`, `plain`). Noninteractive shells remain silent, and the renderer does
++not evaluate guest-supplied shell expressions. The shipped, byte-pinned
++`10-figbanner` original is preserved as a reference; `potbot-welcome` implements
++the dynamic FIGlet/lolcat variation. Existing v1–v3 customized homes are not
++automatically overwritten: their owners require a reviewed opt-in migration.
++
++The provisioner normalizes workspace display names to a bounded ASCII FIGlet
++label, so international symbols and long workspace names cannot block home
++creation. The original workspace identity remains authoritative in the host
++registry; this label is cosmetic only.
+diff --git a/src/potbot/tools/agent_homes.py b/src/potbot/tools/agent_homes.py
+index f53107b..48fd221 100644
+--- a/src/potbot/tools/agent_homes.py
++++ b/src/potbot/tools/agent_homes.py
+@@ -88,6 +88,7 @@ class AgentHomeRegistry:
+         if not re.fullmatch(r"[a-z][a-z0-9_-]{0,30}", group):
+             raise InvalidInputError("workspace name must produce a bounded group identifier")
+         self.group_name = group
++        self.workspace_name = workspace_name
+         with ledger._connect() as db:
+             db.execute("""CREATE TABLE IF NOT EXISTS agent_workspace_groups (
+                 workspace_id TEXT PRIMARY KEY, group_name TEXT NOT NULL, gid INTEGER NOT NULL
+@@ -206,7 +207,7 @@ class AgentHomeRegistry:
+                 agent_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
+                                    os.O_CLOEXEC, dir_fd=fd)
+                 try:
+-                    install_agent_skeleton(agent_fd)
++                    install_agent_skeleton(agent_fd, workspace_name=self.workspace_name)
+                 finally:
+                     os.close(agent_fd)
+                 db.execute(
+diff --git a/src/potbot/tools/agent_skeleton.py b/src/potbot/tools/agent_skeleton.py
+index e5a97d8..658d68e 100644
+--- a/src/potbot/tools/agent_skeleton.py
++++ b/src/potbot/tools/agent_skeleton.py
+@@ -10,14 +10,16 @@ from __future__ import annotations
+ import hashlib
+ import json
+ import os
++import re
+ import stat
++import unicodedata
+ from pathlib import Path
+ from typing import Final
+ 
+ from potbot.domain.errors import InvalidInputError, StateMismatchError
+ from potbot.tools.model_cache_routes import MODEL_HOME_ALIASES
+ 
+-SKELETON_VERSION: Final = "potbot-agent-home/v3"
++SKELETON_VERSION: Final = "potbot-agent-home/v4"
+ SKELETON_SOURCE: Final = "kieransimkin/update-motd.d-scripts"
+ SKELETON_SOURCE_COMMIT: Final = "2485c90143dae3dd336769e7ab68ebcca781fa8a"
+ 
+@@ -26,8 +28,10 @@ SKELETON_SOURCE_COMMIT: Final = "2485c90143dae3dd336769e7ab68ebcca781fa8a"
+ _FILES: Final[dict[str, tuple[int, str]]] = {
+     ".bashrc": (0o644, "60b95c0c1b22384d956022e21b5ee6debe536c59c8a0b6bdd9fe28e1b1dc4d8f"),
+     ".profile": (0o644, "c6132e093cd3b61a8c688025e394cb2f48f4bc4e724477eeabbe73f2f8ad18e2"),
+-    ".config/potbot/README": (0o644, "5784849a4ffbea68adaefab93f3f09ad64144381cc895a5a942637ae33331301"),
+-    ".local/bin/potbot-welcome": (0o755, "246ca00f45d1df099fb263ff540c00f4357b07fed8dabab38e2b2b8ef006b370"),
++    ".config/potbot/banner.color": (0o644, "b0578f4319d0d3b8e6dab5b958c43e321680771caf9cf29e5e5755fe442327f0"),
++    ".config/potbot/banner.font": (0o644, "161bd156bb16ca3083a08787e3a1aec94ae8418afb99b662a3c3c6c47811f324"),
++    ".config/potbot/README": (0o644, "0ef58f64bb9af8623a7e826a518b3e42e591e3825e72b704e92d125efefe6ce9"),
++    ".local/bin/potbot-welcome": (0o755, "0076d6ecce9e70a1540d4af04db77e0f9f3cc6d1c4e3c3f24d4ba4326b9bc19d"),
+     ".local/share/potbot/motd.d/10-figbanner": (
+         0o755, "7e29fd58722f58439126ef78eae6a5e91d0e5938e0ff2e5d6f20c27691803d2a",
+     ),
+@@ -51,6 +55,7 @@ def skeleton_digest() -> str:
+         "model_aliases": sorted(MODEL_HOME_ALIASES.items()),
+         "workdirs": [".tmp", "projects"],
+         "shared_tool_alias": ("Tools", "/usr/local/tools"),
++        "dynamic_workspace_banner": "workspace-name/v1",
+     }
+     return hashlib.sha256(json.dumps(descriptor, sort_keys=True).encode()).hexdigest()
+ 
+@@ -134,7 +139,18 @@ def _create_model_alias(root_fd: int, name: str, target: str) -> None:
+         os.close(fd)
+ 
+ 
+-def install_agent_skeleton(agent_dir_fd: int) -> str:
++def workspace_banner_label(workspace_name: str) -> str:
++    """Derive an ASCII FIGlet label; presentation never blocks valid workspace names."""
++    if not isinstance(workspace_name, str) or not workspace_name.strip():
++        raise InvalidInputError("workspace name is required for agent skeleton")
++    decomposed = unicodedata.normalize("NFKD", workspace_name)
++    basic = decomposed.encode("ascii", "ignore").decode("ascii")
++    cleaned = re.sub(r"[^A-Za-z0-9 ._-]+", " ", basic)
++    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ._-")
++    return (cleaned[:48].rstrip(" ._-") or "Workspace")
++
++
++def install_agent_skeleton(agent_dir_fd: int, *, workspace_name: str) -> str:
+     """Populate a freshly created, empty agent directory; never overwrite files.
+ 
+     Called under an exclusive workspace home lease by AgentHomeRegistry. A
+@@ -143,6 +159,7 @@ def install_agent_skeleton(agent_dir_fd: int) -> str:
+     """
+     if type(agent_dir_fd) is not int or agent_dir_fd < 0:
+         raise InvalidInputError("agent skeleton requires a trusted directory descriptor")
++    banner_label = workspace_banner_label(workspace_name)
+     files = _read_templates()  # Preflight *before* the first write.
+     directories = {part for name in (*files, *MODEL_HOME_ALIASES) for part in _parents(name)}
+     for name in sorted(directories | {".tmp", "projects"},
+@@ -150,6 +167,8 @@ def install_agent_skeleton(agent_dir_fd: int) -> str:
+         _make_directory(agent_dir_fd, name)
+     for name, contents in files.items():
+         _create_file(agent_dir_fd, name, contents, _FILES[name][0])
++    _create_file(agent_dir_fd, ".config/potbot/workspace-name",
++                 (banner_label + "\n").encode("utf-8"), 0o644)
+     for alias, target in sorted(MODEL_HOME_ALIASES.items()):
+         _create_model_alias(agent_dir_fd, alias, target)
+     _create_model_alias(agent_dir_fd, "Tools", "/usr/local/tools")
+@@ -161,6 +180,8 @@ def install_agent_skeleton(agent_dir_fd: int) -> str:
+         "original_scripts": ["10-figbanner", "20-fortune", "99-insult"],
+         "model_cache_aliases": MODEL_HOME_ALIASES,
+         "shared_tool_alias": "/usr/local/tools",
++        "workspace_display_name": banner_label,
++        "banner_default": "workspace-until-named;agent-name-when-named",
+     }
+     _create_file(agent_dir_fd, ".config/potbot/skeleton.json",
+                  (json.dumps(receipt, sort_keys=True, indent=2) + "\n").encode(), 0o644)
+diff --git a/src/potbot/tools/agent_skeleton/.config/potbot/README b/src/potbot/tools/agent_skeleton/.config/potbot/README
+index 6b080db..0e7ea67 100644
+--- a/src/potbot/tools/agent_skeleton/.config/potbot/README
++++ b/src/potbot/tools/agent_skeleton/.config/potbot/README
+@@ -1,2 +1,15 @@
+ This folder contains agent-owned preferences, not host authorization data.
+ A symbolic name and shell customization cannot change workspace credentials.
++
++Interactive Figlet banner:
++* Before the agent is named, Potbot displays the provisioned workspace name.
++* After renaming the agent home, the new agent name becomes the default banner.
++* A named agent may create banner.title (one short plain-text line) for its own title.
++* banner.font accepts: standard, slant, small, big, shadow, banner.
++* banner.color accepts: rainbow or plain.
++* POTBOT_WELCOME=0 hides the greeting; non-interactive scripts are always quiet.
++* workspace-name is an initial workspace label, not an authorization record.
++
++Scripts are copied from a pinned version of Kieran Simkin's MOTD repository.
++The original 10-figbanner is preserved for provenance; potbot-welcome renders
++its Figlet/lolcat effect using the current dynamic title instead.
+diff --git a/src/potbot/tools/agent_skeleton/.config/potbot/banner.color b/src/potbot/tools/agent_skeleton/.config/potbot/banner.color
+new file mode 100644
+index 0000000..527d8e1
+--- /dev/null
++++ b/src/potbot/tools/agent_skeleton/.config/potbot/banner.color
+@@ -0,0 +1 @@
++rainbow
+diff --git a/src/potbot/tools/agent_skeleton/.config/potbot/banner.font b/src/potbot/tools/agent_skeleton/.config/potbot/banner.font
+new file mode 100644
+index 0000000..a6a7b9c
+--- /dev/null
++++ b/src/potbot/tools/agent_skeleton/.config/potbot/banner.font
+@@ -0,0 +1 @@
++standard
+diff --git a/src/potbot/tools/agent_skeleton/.local/bin/potbot-welcome b/src/potbot/tools/agent_skeleton/.local/bin/potbot-welcome
+index e861add..edfc651 100644
+--- a/src/potbot/tools/agent_skeleton/.local/bin/potbot-welcome
++++ b/src/potbot/tools/agent_skeleton/.local/bin/potbot-welcome
+@@ -1,20 +1,64 @@
+ #!/bin/bash
+-# Adapted from Kieran Simkin's update-motd.d-scripts, pinned revision
+-# 2485c90143dae3dd336769e7ab68ebcca781fa8a.
+-# This is a cosmetic interactive login hook; never authorize actions here.
++# Personalizable interactive Bash greeting, based on the pinned Kieran Simkin
++# update-motd.d-scripts. Cosmetic only: no command evaluation, network or installs.
+ set -u
+-motd="$HOME/.local/share/potbot/motd.d"
+ if [ "${POTBOT_WELCOME:-1}" = 0 ] || [ ! -t 1 ]; then
+     exit 0
+ fi
+-# All original scripts expect lolcat; the first expects figlet and the
+-# second fortune. Missing optional utilities are skipped, not downloaded.
+-if [ -x /usr/games/lolcat ]; then
+-    if command -v figlet >/dev/null 2>&1; then
+-        bash "$motd/10-figbanner" || :
++
++config="$HOME/.config/potbot"
++agent_dir="${HOME##*/}"
++title="Workspace"
++# A 64-character hex directory is the anonymous agent identity. Once the
++# controller renames it, the chosen directory name becomes the banner default.
++if [[ "$agent_dir" =~ ^[[:xdigit:]]{64}$ ]]; then
++    if [ -f "$config/workspace-name" ] && [ ! -L "$config/workspace-name" ]; then
++        IFS= read -r title < "$config/workspace-name" || :
++    fi
++else
++    title="${agent_dir//[-_]/ }"
++    # A named agent may override its banner without modifying the host registry.
++    if [ -f "$config/banner.title" ] && [ ! -L "$config/banner.title" ]; then
++        IFS= read -r title < "$config/banner.title" || :
++    fi
++fi
++# A guest can edit these cosmetic files. Never evaluate shell fragments or
++# forward terminal control characters to figlet.
++title="${title:0:48}"
++if [[ ! "$title" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]*$ ]]; then
++    title="Workspace"
++fi
++
++font="standard"
++if [ -f "$config/banner.font" ] && [ ! -L "$config/banner.font" ]; then
++    IFS= read -r preferred < "$config/banner.font" || :
++    case "$preferred" in
++        standard|slant|small|big|shadow|banner) font="$preferred" ;;
++    esac
++fi
++color="rainbow"
++if [ -f "$config/banner.color" ] && [ ! -L "$config/banner.color" ]; then
++    IFS= read -r preferred < "$config/banner.color" || :
++    case "$preferred" in
++        plain|rainbow) color="$preferred" ;;
++    esac
++fi
++
++motd="$HOME/.local/share/potbot/motd.d"
++if command -v figlet >/dev/null 2>&1; then
++    # Use the upstream 10-figbanner's figlet/lolcat treatment with a dynamic
++    # title. The original source remains copied intact in motd.d for provenance.
++    if [ "$color" = rainbow ] && [ -x /usr/games/lolcat ]; then
++        figlet -c -f "$font" "$title" | /usr/games/lolcat -f || :
++    else
++        figlet -c -f "$font" "$title" || :
+     fi
+-    if [ -x /usr/games/fortune ]; then
++fi
++if [ -x /usr/games/lolcat ]; then
++    if [ -x /usr/games/fortune ] && [ -f "$motd/20-fortune" ]; then
+         bash "$motd/20-fortune" || :
+     fi
+-    bash "$motd/99-insult" || :
++    if [ -f "$motd/99-insult" ]; then
++        bash "$motd/99-insult" || :
++    fi
+ fi
+diff --git a/tests/unit/test_agent_skeleton.py b/tests/unit/test_agent_skeleton.py
+index 92a0890..0ed4b4f 100644
+--- a/tests/unit/test_agent_skeleton.py
++++ b/tests/unit/test_agent_skeleton.py
+@@ -204,3 +204,91 @@ def test_build_includes_vendor_assets_and_required_tools():
+     recipe = (repo / "sandbox/image/Dockerfile").read_text(encoding="utf-8")
+     for package in ("figlet", "fortune-mod", "fortunes-min", "lolcat"):
+         assert package in recipe
++
++
++def _interactive_banner(agent_home: Path) -> str:
++    """Exercise a genuine interactive Bash PTY with an observable figlet fixture."""
++    tool = agent_home / ".local/bin/figlet"
++    tool.write_text('#!/bin/sh\nprintf "FIGLET:%s\\n" "$*"\n', encoding="utf-8")
++    tool.chmod(0o755)
++    master, slave = os.openpty()
++    try:
++        process = subprocess.Popen(
++            ["bash", "--noprofile", "-i", "-c", ":"],
++            env={"HOME": str(agent_home), "PATH": "/usr/bin:/bin",
++                 "POTBOT_WELCOME": "1", "TERM": "xterm-256color"},
++            stdin=slave, stdout=slave, stderr=slave, start_new_session=True,
++        )
++        os.close(slave)
++        slave = -1
++        process.wait(timeout=5)
++        chunks = bytearray()
++        while True:
++            try:
++                chunk = os.read(master, 4096)
++            except OSError:
++                break
++            if not chunk:
++                break
++            chunks.extend(chunk)
++        assert process.returncode == 0
++        return chunks.decode("utf-8", errors="replace")
++    finally:
++        os.close(master)
++        if slave != -1:
++            os.close(slave)
++
++
++def test_workspace_banner_switches_to_named_agent_style(registry):
++    if not shutil.which("bash"):
++        pytest.skip("Bash not installed")
++    owner, workspace, home = registry
++    agent_id = uuid4()
++    anonymous = owner.provision(workspace, agent_id)
++    root = home / anonymous.directory
++    assert (root / ".config/potbot/workspace-name").read_text() == "danceflow\n"
++    meta = json.loads((root / ".config/potbot/skeleton.json").read_text())
++    assert meta["workspace_display_name"] == "danceflow"
++    assert "FIGLET:-c -f standard danceflow" in _interactive_banner(root)
++
++    # The title override must be ignored until the agent is formally named.
++    (root / ".config/potbot/banner.title").write_text("Velvet Volt\n", encoding="utf-8")
++    assert "FIGLET:-c -f standard danceflow" in _interactive_banner(root)
++
++    named = owner.rename(workspace, agent_id, "velvet-volt", expected_revision=1)
++    named_root = home / named.directory
++    assert "FIGLET:-c -f standard Velvet Volt" in _interactive_banner(named_root)
++    # Removing an override exposes the default name chosen during rename.
++    (named_root / ".config/potbot/banner.title").unlink()
++    assert "FIGLET:-c -f standard velvet volt" in _interactive_banner(named_root)
++
++    (named_root / ".config/potbot/banner.title").write_text("Electric Dreams\n")
++    (named_root / ".config/potbot/banner.font").write_text("slant\n")
++    (named_root / ".config/potbot/banner.color").write_text("plain\n")
++    assert "FIGLET:-c -f slant Electric Dreams" in _interactive_banner(named_root)
++    assert owner.provision(workspace, agent_id) == named
++    assert (named_root / ".config/potbot/banner.title").read_text() == "Electric Dreams\n"
++
++
++def test_invalid_banner_customization_is_not_executed(registry):
++    if not shutil.which("bash"):
++        pytest.skip("Bash not installed")
++    owner, workspace, home = registry
++    agent_id = uuid4()
++    anon = owner.provision(workspace, agent_id)
++    named = owner.rename(workspace, agent_id, "safe-agent", expected_revision=1)
++    root = home / named.directory
++    (root / ".config/potbot/banner.title").write_text("Hi$(touch /tmp/UNSAFE)\n")
++    (root / ".config/potbot/banner.font").write_text("../../home/attacker\n")
++    result = _interactive_banner(root)
++    assert "FIGLET:-c -f standard Workspace" in result
++    assert "UNSAFE" not in result
++
++
++def test_workspace_banner_normalizes_unicode_and_bounds_length():
++    from potbot.tools.agent_skeleton import workspace_banner_label
++
++    assert workspace_banner_label("DanceFlow 🎸 Studio") == "DanceFlow Studio"
++    assert workspace_banner_label("électric nights") == "electric nights"
++    assert workspace_banner_label("🎉") == "Workspace"
++    assert len(workspace_banner_label("A" * 180)) == 48
+diff --git a/tests/unit/test_model_cache_routes.py b/tests/unit/test_model_cache_routes.py
+index c190706..05fd653 100644
+--- a/tests/unit/test_model_cache_routes.py
++++ b/tests/unit/test_model_cache_routes.py
+@@ -27,7 +27,7 @@ def test_skeleton_aliases_are_in_installed_agent_homes(tmp_path: Path) -> None:
+     home.mkdir()
+     fd = os.open(home, os.O_RDONLY | os.O_DIRECTORY)
+     try:
+-        install_agent_skeleton(fd)
++        install_agent_skeleton(fd, workspace_name="danceflow")
+     finally:
+         os.close(fd)
+     for relative, target in MODEL_HOME_ALIASES.items():

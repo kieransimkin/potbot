@@ -1,0 +1,15 @@
+This folder contains agent-owned preferences, not host authorization data.
+A symbolic name and shell customization cannot change workspace credentials.
+
+Interactive Figlet banner:
+* Before the agent is named, Potbot displays the provisioned workspace name.
+* After renaming the agent home, the new agent name becomes the default banner.
+* A named agent may create banner.title (one short plain-text line) for its own title.
+* banner.font accepts: standard, slant, small, big, shadow, banner.
+* banner.color accepts: rainbow or plain.
+* POTBOT_WELCOME=0 hides the greeting; non-interactive scripts are always quiet.
+* workspace-name is an initial workspace label, not an authorization record.
+
+Scripts are copied from a pinned version of Kieran Simkin's MOTD repository.
+The original 10-figbanner is preserved for provenance; potbot-welcome renders
+its Figlet/lolcat effect using the current dynamic title instead.

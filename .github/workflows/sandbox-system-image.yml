@@ -1,0 +1,159 @@
+name: Sandbox system image build and publication
+on:
+  push:
+    branches: [main]
+    paths:
+      - sandbox/**
+      - scripts/sandbox_image_manifest.py
+      - docs/implementation/28-shared-model-library-and-download-admission.md
+      - scripts/qualify_shared_workspace.py
+      - scripts/check_model_cache_policy.py
+      - scripts/model_store_operator.py
+      - scripts/check_shared_tool_install.py
+      - src/potbot/tools/shared_tool_store.py
+      - tests/unit/test_shared_tool_store.py
+      - tests/unit/test_shared_tool_install_gate.py
+      - docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
+      - src/potbot/tools/shared_model_library.py
+      - src/potbot/tools/model_cache_routes.py
+      - tests/unit/test_shared_model_library.py
+      - tests/unit/test_model_cache_routes.py
+      - src/potbot/tools/workspace_concurrency.py
+      - src/potbot/tools/shared_workspace_isolation.py
+      - src/potbot/tools/agent_homes.py
+      - src/potbot/tools/agent_skeleton.py
+      - src/potbot/tools/agent_skeleton/**
+      - src/potbot/tools/shared_bash_sessions.py
+      - tests/unit/test_agent_skeleton.py
+      - src/potbot/tools/github_concurrency.py
+      - tests/unit/test_workspace_concurrency.py
+      - tests/unit/test_shared_workspace_isolation.py
+      - tests/unit/test_sandbox_image_manifest.py
+      - .github/workflows/sandbox-system-image.yml
+  pull_request:
+    paths:
+      - sandbox/**
+      - scripts/sandbox_image_manifest.py
+      - docs/implementation/28-shared-model-library-and-download-admission.md
+      - scripts/qualify_shared_workspace.py
+      - scripts/check_model_cache_policy.py
+      - scripts/model_store_operator.py
+      - scripts/check_shared_tool_install.py
+      - src/potbot/tools/shared_tool_store.py
+      - tests/unit/test_shared_tool_store.py
+      - tests/unit/test_shared_tool_install_gate.py
+      - docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
+      - src/potbot/tools/shared_model_library.py
+      - src/potbot/tools/model_cache_routes.py
+      - tests/unit/test_shared_model_library.py
+      - tests/unit/test_model_cache_routes.py
+      - src/potbot/tools/workspace_concurrency.py
+      - src/potbot/tools/shared_workspace_isolation.py
+      - src/potbot/tools/agent_homes.py
+      - src/potbot/tools/agent_skeleton.py
+      - src/potbot/tools/agent_skeleton/**
+      - src/potbot/tools/shared_bash_sessions.py
+      - tests/unit/test_agent_skeleton.py
+      - src/potbot/tools/github_concurrency.py
+      - tests/unit/test_workspace_concurrency.py
+      - tests/unit/test_shared_workspace_isolation.py
+      - tests/unit/test_sandbox_image_manifest.py
+      - .github/workflows/sandbox-system-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check source contract without running any sandbox
+        run: |
+          python -m compileall -q scripts/sandbox_image_manifest.py scripts/qualify_shared_workspace.py src/potbot/tools/
+          PYTHONPATH=src python -m unittest discover -s tests/unit -p 'test_workspace_concurrency.py' -v
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Gate model cache destinations for the image
+        run: |
+          uv run --locked python scripts/check_model_cache_policy.py --image-contract sandbox/image/Dockerfile
+      - name: Verify named agent homes, original MOTD sources and shared tool admission
+        run: |
+          uv sync --locked --dev
+          uv run --locked python -m pytest -q \
+            tests/unit/test_agent_skeleton.py \
+            tests/unit/test_concurrent_resources_s2.py \
+            tests/unit/test_shared_execution_s2.py \
+            tests/unit/test_shared_model_library.py \
+            tests/unit/test_model_cache_routes.py
+            tests/unit/test_shared_tool_store.py \
+            tests/unit/test_shared_tool_install_gate.py
+
+  build-rootfs:
+    needs: validate
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Login only for publishing from main
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Select pinned base digest and output tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_DIGEST="$(docker buildx imagetools inspect debian:bookworm-slim --format '{{.Manifest.Digest}}')"
+          [[ "$BASE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}-sandbox:system-v1-${GITHUB_SHA}-${{ matrix.arch }}"
+          echo "POTBOT_SANDBOX_BASE=debian:bookworm-slim@${BASE_DIGEST}" >> "$GITHUB_ENV"
+          echo "POTBOT_SANDBOX_IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+          echo "POTBOT_SANDBOX_PLATFORM=linux/${{ matrix.arch }}" >> "$GITHUB_ENV"
+          echo "POTBOT_SOURCE_COMMIT=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+      - name: Build OCI rootfs image with Compose (never up/run)
+        run: docker compose -f sandbox/compose.build.yaml build --progress=plain
+      - name: Publish immutable-tagged image
+        if: github.event_name != 'pull_request'
+        run: docker compose -f sandbox/compose.build.yaml push
+      - name: Record immutable image digest and manifest
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIGEST="$(docker buildx imagetools inspect "$IMAGE" --format '{{.Manifest.Digest}}')"
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          python scripts/sandbox_image_manifest.py \
+            --image "${IMAGE%:*}" --digest "${DIGEST#sha256:}" \
+            --source-commit "$GITHUB_SHA" --platform "$POTBOT_SANDBOX_PLATFORM" \
+            --output "artifacts/sandbox-images/${{ matrix.arch }}.json"
+          echo "PUBLISHED_REF=${IMAGE%:*}@${DIGEST}" >> "$GITHUB_ENV"
+      - name: Install signing client
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+      - name: Sign OCI release digest using OIDC
+        if: github.event_name != 'pull_request'
+        run: cosign sign --yes "$PUBLISHED_REF"
+      - name: Retain build identity manifest
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-image-${{ matrix.arch }}
+          path: artifacts/sandbox-images/${{ matrix.arch }}.json
+          if-no-files-found: error
+          retention-days: 30

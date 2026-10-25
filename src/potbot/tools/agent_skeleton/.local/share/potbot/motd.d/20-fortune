@@ -1,0 +1,5 @@
+#!/bin/bash
+echo
+/usr/games/fortune | /usr/games/lolcat -f
+echo
+

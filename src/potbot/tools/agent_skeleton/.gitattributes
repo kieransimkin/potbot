@@ -1,0 +1,4 @@
+# Upstream MOTD scripts intentionally preserve their exact Git blob bytes,
+# including the original terminal blank line.
+.local/share/potbot/motd.d/10-figbanner whitespace=-blank-at-eof
+.local/share/potbot/motd.d/20-fortune whitespace=-blank-at-eof

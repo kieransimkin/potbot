@@ -1,0 +1,1331 @@
+diff --git a/src/potbot/tools/isolation.py b/src/potbot/tools/isolation.py
+--- a/src/potbot/tools/isolation.py
++++ b/src/potbot/tools/isolation.py
+@@ -22,3 +22,4 @@
+ from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
+ from potbot.domain.serialization import content_hash
++from potbot.workspace_sandbox import GUEST_AGENT_HOME, GUEST_MODELS_ROOT, GUEST_TOOLS_ROOT
+ 
+@@ -228,4 +229,8 @@
+         max_open_files: int,
+         ipc_profile: str = "none",
++        shared_tools_root: Path | None = None,
++        agent_home_root: Path | None = None,
++        models_root: Path | None = None,
++        shared_tools_write: bool = False,
+     ) -> IsolationLaunch:
+         if ipc_profile not in {"none", "private-loopback-v1"}:
+@@ -267,3 +272,46 @@
+             if resolved not in writable:
+                 writable.append(resolved)
++        # Map only this workspace's host directories into fixed guest paths.
++        # The immutable rootfs/image must pre-create /usr/local/tools because
++        # Bubblewrap cannot mkdir under an already read-only /usr mount.
++        guest_profile = any(
++            value is not None for value in (shared_tools_root, agent_home_root, models_root)
++        )
++        if guest_profile:
++            if shared_tools_root is None or agent_home_root is None or models_root is None:
++                raise InvalidInputError("Agent mount profile must supply all three roots")
++            tools = shared_tools_root.resolve(strict=True)
++            home = agent_home_root.resolve(strict=True)
++            models = models_root.resolve(strict=True)
++            expected_agent_base = sandbox / "environments" / "agents"
++            if (
++                tools != sandbox / "tools"
++                or shared_tools_root.is_symlink()
++                or models != sandbox / "models"
++                or models_root.is_symlink()
++                or home.name != "home"
++                or home.parent.parent != expected_agent_base
++                or agent_home_root.is_symlink()
++                or not all(path.is_dir() for path in (tools, home, models))
++            ):
++                raise InvalidInputError("Agent mount paths must belong to this workspace")
++            alias = home / "Tools"
++            if not alias.is_symlink() or os.readlink(alias) != GUEST_TOOLS_ROOT:
++                raise InvalidInputError("Agent Tools link must target the workspace guest mount")
++            # Never make an alternate host-path writable under the guest mount.
++            # A separate installer profile has its own explicit guest RW bind.
++            if any(
++                area.is_relative_to(tools) or tools.is_relative_to(area)
++                or area.is_relative_to(expected_agent_base)
++                or expected_agent_base.is_relative_to(area)
++                for area in writable
++            ):
++                raise InvalidInputError("Agent support mounts bypass isolated home or tools")
++            for placeholder in (Path(GUEST_TOOLS_ROOT), Path(GUEST_AGENT_HOME), Path(GUEST_MODELS_ROOT)):
++                if not placeholder.is_dir() or placeholder.is_symlink():
++                    raise CapabilityUnavailableError(
++                        "Workspace base image lacks required guest mountpoints"
++                    )
++        elif shared_tools_write:
++            raise InvalidInputError("Tool write access requires an agent mount profile")
+         seccomp = _seccomp_fd(private_loopback_ipc=ipc_profile == "private-loopback-v1")
+@@ -299,5 +347,14 @@
+             for path in roots:
+                 arguments.extend(("--ro-bind", str(path), str(path)))
++            if guest_profile:
++                # Ordinary consumers get read-only static tools; only a
++                # separately admitted installer may opt into the writable view.
++                arguments.extend((
++                    "--bind" if shared_tools_write else "--ro-bind",
++                    str(tools), GUEST_TOOLS_ROOT,
++                ))
++                arguments.extend(("--bind", str(home), GUEST_AGENT_HOME))
++                arguments.extend(("--bind", str(models), "/var/ai"))
+             arguments.extend(
+                 (
+                     "--chdir",
+@@ -320,2 +377,6 @@
+                     "sandbox_root": str(sandbox),
++                    "shared_tools_guest": GUEST_TOOLS_ROOT if guest_profile else None,
++                    "shared_tools_write": shared_tools_write,
++                    "agent_home": str(home) if guest_profile else None,
++                    "models_guest": "/var/ai" if guest_profile else None,
+                     "network": "private-namespace-tcp" if ipc_profile != "none" else "deny",
+diff --git a/src/potbot/tools/supervisor.py b/src/potbot/tools/supervisor.py
+--- a/src/potbot/tools/supervisor.py
++++ b/src/potbot/tools/supervisor.py
+@@ -19,5 +19,6 @@
+ from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
+ from potbot.tools.isolation import BubblewrapBackend
+ from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor
++from potbot.workspace_sandbox import GUEST_TOOLS_ROOT
+ 
+ Outcome = Literal[
+@@ -45,3 +46,7 @@
+     ipc_profile: Literal["none", "private-loopback-v1"] = "none"
++    shared_tools_root: Path | None = None
++    agent_home_root: Path | None = None
++    models_root: Path | None = None
++    shared_tools_write: bool = False
+ 
+     def __post_init__(self) -> None:
+@@ -81,4 +86,23 @@
+         for path in (*self.read_only_roots, *self.writable_roots):
+             if not isinstance(path, Path):
+                 raise InvalidInputError("sandbox mount roots must be Path values")
++        profile = (self.shared_tools_root, self.agent_home_root, self.models_root)
++        if any(value is not None for value in profile):
++            if any(not isinstance(value, Path) for value in profile):
++                raise InvalidInputError("Agent mount profile needs three Path values")
++            assert self.shared_tools_root is not None
++            assert self.agent_home_root is not None
++            assert self.models_root is not None
++            home = self.agent_home_root.resolve()
++            if (
++                self.shared_tools_root.resolve() != sandbox / "tools"
++                or self.models_root.resolve() != sandbox / "models"
++                or home.name != "home"
++                or home.parent.parent != sandbox / "environments" / "agents"
++            ):
++                raise InvalidInputError("Agent mount profile crosses workspace boundaries")
++        if type(self.shared_tools_write) is not bool or (
++            self.shared_tools_write and not all(value is not None for value in profile)
++        ):
++            raise InvalidInputError("Shared tool write profile requires trusted agent mounts")
+         for path in self.writable_roots:
+@@ -144,2 +168,14 @@
+-        if not Path(request.argv[0]).is_file() or not os.access(request.argv[0], os.X_OK):
++        # Executables in guest /usr/local/tools are backed by this workspace's
++        # bound directory. Never inspect a coincidentally named host binary.
++        executable = Path(request.argv[0])
++        guest = Path(GUEST_TOOLS_ROOT)
++        if executable.is_relative_to(guest):
++            if request.shared_tools_root is None or executable == guest:
++                raise InvalidInputError("Guest tool executable requires a workspace mount")
++            source = request.shared_tools_root / executable.relative_to(guest)
++            canonical = source.resolve()
++            if not canonical.is_relative_to(request.shared_tools_root.resolve()):
++                raise InvalidInputError("Guest tool executable escapes installed tool store")
++            executable = canonical
++        if not executable.is_file() or not os.access(executable, os.X_OK):
+             return ProcessResult(
+@@ -171,3 +207,9 @@
+                 max_open_files=request.max_open_files,
+                 ipc_profile=request.ipc_profile,
++                **({
++                    "shared_tools_root": request.shared_tools_root,
++                    "agent_home_root": request.agent_home_root,
++                    "models_root": request.models_root,
++                    "shared_tools_write": request.shared_tools_write,
++                } if request.shared_tools_root is not None else {}),
+             )
+diff --git a/src/potbot/tools/gateway.py b/src/potbot/tools/gateway.py
+--- a/src/potbot/tools/gateway.py
++++ b/src/potbot/tools/gateway.py
+@@ -9,3 +9,4 @@
+ import stat
+-from collections.abc import Callable
++from collections.abc import Callable, Mapping
++from contextlib import ExitStack
+ from pathlib import Path
+@@ -34,4 +35,6 @@
+ from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor, SecretReferenceProvider
++from potbot.tools.shared_installations import SharedToolStore
+ from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
++from potbot.workspace_sandbox import GUEST_TOOLS_ROOT
+ 
+ if TYPE_CHECKING:
+@@ -57,3 +60,5 @@
+         read_only_roots: tuple[Path, ...] = (),
+         workspace_sandbox: WorkspaceSandbox | None = None,
++        agent_tool_mounts: bool = False,
++        shared_tool_abis: Mapping[str, str] | None = None,
+     ) -> None:
+@@ -65,2 +70,4 @@
+         self.workspace_sandbox = workspace_sandbox
++        self.agent_tool_mounts = agent_tool_mounts
++        self.shared_tool_abis = dict(shared_tool_abis or {})
+         self.instance_id = uuid4()
+@@ -322,2 +329,5 @@
+             sandbox_root = root
++            agent_home_root: Path | None = None
++            shared_tools_root: Path | None = None
++            models_root: Path | None = None
+             if self.workspace_sandbox is not None:
+@@ -342,4 +352,16 @@
+                     *read_only_roots,
+                     sandbox.path("models"),
+                 )
++                if self.agent_tool_mounts:
++                    # Trusted principal is a compatibility identity until the
++                    # agent registry exposes an explicit per-agent ID here.
++                    agent_id = str(context.principal_id)
++                    agent_home_root = sandbox.agent_home(agent_id)
++                    sandbox_environment = sandbox.agent_runtime_environment(agent_id)
++                    shared_tools_root = sandbox.path("tools")
++                    models_root = sandbox.path("models")
++                    # Old support mounts expose all agents' homes and shared
++                    # caches. The agent profile instead binds only its home.
++                    writable_roots = ()
++                    read_only_roots = self.read_only_roots
+             request = ProcessRequest(
+@@ -357,2 +379,5 @@
+                 writable_roots=writable_roots,
++                shared_tools_root=shared_tools_root,
++                agent_home_root=agent_home_root,
++                models_root=models_root,
+                 stdin=stdin,
+@@ -361,6 +386,22 @@
+-            result = self.supervisor.run(
+-                request,
+-                cancelled=lambda: self._cancelled(context, run, lease),
+-                redactor=material.redactor,
+-            )
++            with ExitStack() as tool_leases:
++                guest_executable = Path(definition.argv_prefix[0])
++                if guest_executable.is_relative_to(Path(GUEST_TOOLS_ROOT)):
++                    if not self.agent_tool_mounts or self.workspace_sandbox is None:
++                        raise ScopeDeniedError("Shared guest tool requires an agent mount profile")
++                    relative = guest_executable.relative_to(GUEST_TOOLS_ROOT)
++                    if not relative.parts:
++                        raise InvalidInputError("Shared tool name is missing")
++                    abi = self.shared_tool_abis.get(relative.parts[0])
++                    if abi is None:
++                        raise ScopeDeniedError("Shared tool has no trusted ABI installation grant")
++                    installed = tool_leases.enter_context(
++                        SharedToolStore(self.workspace_sandbox).use(relative.parts[0], abi_tag=abi)
++                    )
++                    if installed.guest_executable != definition.argv_prefix[0]:
++                        raise StateMismatchError("ToolDefinition does not pin the published launcher")
++                result = self.supervisor.run(
++                    request,
++                    cancelled=lambda: self._cancelled(context, run, lease),
++                    redactor=material.redactor,
++                )
+             if not result.processes_stopped:
+diff --git a/src/potbot/tools/cli_adapter.py b/src/potbot/tools/cli_adapter.py
+--- a/src/potbot/tools/cli_adapter.py
++++ b/src/potbot/tools/cli_adapter.py
+@@ -24,3 +24,3 @@
+ from potbot.tools.supervisor import ProcessRequest, ProcessResult, ProcessSupervisor
+-from potbot.workspace_sandbox import WorkspaceSandbox
++from potbot.workspace_sandbox import GUEST_TOOLS_ROOT, WorkspaceSandbox
+ 
+@@ -82,3 +82,4 @@
+         pinned_executables: Mapping[str, str],
+         argument_policies: Mapping[str, ArgPolicy] | None = None,
++        agent_id: str | None = None,
+     ) -> None:
+@@ -101,3 +102,7 @@
+         self.argument_policies = dict(argument_policies or {})
++        # Only the authenticated adapter can choose an agent identity.
++        self.agent_id = agent_id
++        if agent_id is not None:
++            self.sandbox.agent_home(agent_id)
+ 
+     def run(self, proposal: ActionProposal) -> CliObservation:
+@@ -119,2 +124,10 @@
+         executable = Path(tool.argv_prefix[0])
++        guest = Path(GUEST_TOOLS_ROOT)
++        if executable.is_relative_to(guest):
++            if self.agent_id is None or executable == guest:
++                raise ScopeDeniedError("Shared CLI launcher requires an authenticated agent")
++            backing = self.sandbox.path("tools") / executable.relative_to(guest)
++            if not backing.resolve().is_relative_to(self.sandbox.path("tools").resolve()):
++                raise ScopeDeniedError("CLI guest executable escapes the shared tool store")
++            executable = backing
+         if executable.name.lower() in _SHELL_NAMES:
+@@ -138,3 +151,11 @@
+         # No inherited shell environment, no host HOME, no host temporary directory.
+         environment = {**dict(tool.environment), **self.sandbox.runtime_environment()}
++        guest_profile = self.agent_id is not None
++        agent_home_root: Path | None = None
++        if guest_profile:
++            assert self.agent_id is not None
++            agent_home_root = self.sandbox.agent_home(self.agent_id)
++            environment = {**dict(tool.environment), **self.sandbox.agent_runtime_environment(
++                self.agent_id
++            )}
+         request = ProcessRequest(
+@@ -152,8 +173,11 @@
+-            read_only_roots=tuple(
++            read_only_roots=() if guest_profile else tuple(
+                 self.sandbox.path(area) for area in ("models", "tools", "dependencies")
+             ),
+-            writable_roots=tuple(
++            writable_roots=() if guest_profile else tuple(
+                 self.sandbox.path(area)
+                 for area in ("tmp", "cache", "environments", "builds", "tests")
+             ),
++            shared_tools_root=self.sandbox.path("tools") if guest_profile else None,
++            agent_home_root=agent_home_root,
++            models_root=self.sandbox.path("models") if guest_profile else None,
+         )
+diff --git a/src/potbot/workspace_sandbox.py b/src/potbot/workspace_sandbox.py
+--- a/src/potbot/workspace_sandbox.py
++++ b/src/potbot/workspace_sandbox.py
+@@ -11,6 +11,7 @@
+ 
+ import hashlib
+ import os
++import re
+ import stat
+ from dataclasses import dataclass
+ from pathlib import Path
+@@ -23,6 +24,10 @@
+     from potbot.persistence.database import Database
+ 
+ POLICY_VERSION = 1
++_AGENT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
++GUEST_TOOLS_ROOT = "/usr/local/tools"
++GUEST_AGENT_HOME = "/home/user"
++GUEST_MODELS_ROOT = "/var/ai"
+ _LAYOUT = (
+     "repository",
+     "candidates",
+@@ -110,6 +115,76 @@
+                 directory.mkdir(mode=0o700)
+             if directory.resolve(strict=True).parent != self.root:
+                 raise ScopeDeniedError("Workspace sandbox layout cannot traverse links.")
++            if area == "tools" and os.name == "posix":
++                # Do not mutate an already-correct directory when a restricted
++                # app user is only allowed to inspect the registered sandbox.
++                # Provisioning must assign the workspace group to this directory.
++                if stat.S_IMODE(directory.stat().st_mode) != 0o2770:
++                    try:
++                        directory.chmod(0o2770)
++                    except PermissionError as error:
++                        raise ScopeDeniedError(
++                            "Workspace shared tools need a provisioned group-writable root"
++                        ) from error
++
++    def agent_home(self, agent_id: str) -> Path:
++        """Provision a private per-agent home, with a guest-only Tools alias.
++
++        The absolute symlink target is resolved *inside* the qualified sandbox,
++        not by the host. Never pass home/Tools to host-side path confinement.
++        """
++        if not isinstance(agent_id, str) or not _AGENT_ID.fullmatch(agent_id):
++            raise InvalidInputError("Invalid trusted agent identity")
++        self.ensure_layout()
++        root = self.path("environments")
++        agent_root = root / "agents" / agent_id
++        home = agent_root / "home"
++        for folder in (root / "agents", agent_root, home):
++            if folder.is_symlink():
++                raise ScopeDeniedError("Agent home hierarchy may not contain links")
++            folder.mkdir(mode=0o700, exist_ok=True)
++            self.confine(folder, area="environments", must_exist=True)
++        for relative in ("Projects", ".cache", ".local", ".local/state", ".local/tmp"):
++            folder = home / relative
++            if folder.is_symlink():
++                raise ScopeDeniedError("Agent runtime directories may not be links")
++            folder.mkdir(mode=0o700, exist_ok=True)
++        alias = home / "Tools"
++        if alias.is_symlink():
++            if os.readlink(alias) != GUEST_TOOLS_ROOT:
++                raise ScopeDeniedError("Agent Tools alias has been replaced")
++        elif alias.exists():
++            raise ScopeDeniedError("Agent Tools alias must be a symbolic link")
++        else:
++            alias.symlink_to(GUEST_TOOLS_ROOT, target_is_directory=True)
++        return home
++
++    def agent_runtime_environment(self, agent_id: str) -> dict[str, str]:
++        """Use guest paths; runtime state never enters the shared tool checkout."""
++        self.agent_home(agent_id)
++        return {
++            "HOME": GUEST_AGENT_HOME,
++            "TMPDIR": f"{GUEST_AGENT_HOME}/.local/tmp",
++            "TMP": f"{GUEST_AGENT_HOME}/.local/tmp",
++            "TEMP": f"{GUEST_AGENT_HOME}/.local/tmp",
++            "XDG_CACHE_HOME": f"{GUEST_AGENT_HOME}/.cache",
++            "XDG_CONFIG_HOME": f"{GUEST_AGENT_HOME}/.config",
++            "XDG_STATE_HOME": f"{GUEST_AGENT_HOME}/.local/state",
++            "UV_CACHE_DIR": f"{GUEST_AGENT_HOME}/.cache/uv",
++            "PIP_CACHE_DIR": f"{GUEST_AGENT_HOME}/.cache/pip",
++            "CARGO_HOME": f"{GUEST_AGENT_HOME}/.cargo",
++            "npm_config_cache": f"{GUEST_AGENT_HOME}/.cache/npm",
++            "PYTHONPYCACHEPREFIX": f"{GUEST_AGENT_HOME}/.cache/pycache",
++            "HF_HOME": "/var/ai/huggingface",
++            "HF_HUB_CACHE": "/var/ai/huggingface/hub",
++            "HUGGINGFACE_HUB_CACHE": "/var/ai/huggingface/hub",
++            "TRANSFORMERS_CACHE": "/var/ai/transformers",
++            "TORCH_HOME": "/var/ai/torch",
++            "OLLAMA_MODELS": "/var/ai/ollama",
++            "POTBOT_TOOLS_DIR": GUEST_TOOLS_ROOT,
++            "POTBOT_AGENT_ID": agent_id,
++            "POTBOT_WORKSPACE_SANDBOX": str(self.root),
++        }
+ 
+     def confine(
+         self,
+diff --git a/src/potbot/tools/shared_installations.py b/src/potbot/tools/shared_installations.py
+new file mode 100644
+--- /dev/null
++++ b/src/potbot/tools/shared_installations.py
+@@ -0,0 +1,435 @@
++"""Workspace shared-tool lifecycle: pinned, reusable installs and isolated agent forks.
++
++This is a trusted *operator-side* workflow, not a model-invokable shell. Installation
++from network sources and execution of build scripts require separately admitted,
++sandboxed installer jobs. A normal tool consumer only obtains a read-only lease.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++import shutil
++import subprocess
++from collections.abc import Iterator, Mapping
++from contextlib import contextmanager
++from dataclasses import asdict, dataclass
++from pathlib import Path, PurePosixPath
++
++from potbot.domain.errors import (
++    CapabilityUnavailableError,
++    InvalidInputError,
++    ScopeDeniedError,
++    StateMismatchError,
++)
++from potbot.workspace_sandbox import WorkspaceSandbox
++
++try:
++    import fcntl
++except ImportError:  # pragma: no cover - qualified local execution is Linux/WSL2
++    fcntl = None  # type: ignore[assignment]
++
++_NAME = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
++_COMMIT = re.compile(r"[0-9a-f]{40}\Z")
++_TAG = re.compile(r"[a-zA-Z0-9._+-]{1,96}\Z")
++_SCHEMA = 1
++_STATIC_DIRS = ("downloads", "build", "environment")
++_RUNTIME_DIRS = ("cache", "state", "tmp")
++_ALLOWED_LAUNCHERS = frozenset({"checkout", "build", "environment"})
++
++
++def _relative_file(value: str) -> PurePosixPath:
++    path = PurePosixPath(value)
++    if (
++        not value
++        or "\\" in value
++        or path.is_absolute()
++        or path.as_posix() != value
++        or len(path.parts) < 2
++        or any(part in {"", ".", ".."} for part in path.parts)
++        or path.parts[0] not in _ALLOWED_LAUNCHERS
++    ):
++        raise InvalidInputError("Tool entrypoint must be inside a declared shared tool area")
++    return path
++
++
++@dataclass(frozen=True, slots=True)
++class SharedToolRecipe:
++    """Trusted install gate; data alone does not authorize downloads or execution."""
++
++    name: str
++    source_url: str
++    commit: str
++    entrypoint: str
++    abi_tag: str
++    downloads_models: bool
++    model_download_paths: tuple[str, ...] = ()
++
++    def __post_init__(self) -> None:
++        if not isinstance(self.name, str) or not _NAME.fullmatch(self.name):
++            raise InvalidInputError("Invalid workspace tool name")
++        if not self.source_url.startswith("https://github.com/") or any(
++            character in self.source_url for character in ("\n", "\r", "\x00", " ")
++        ):
++            raise InvalidInputError("Tool source must be an explicit reviewed GitHub URL")
++        if not isinstance(self.commit, str) or not _COMMIT.fullmatch(self.commit):
++            raise InvalidInputError("Tool source must be pinned to a full commit SHA")
++        _relative_file(self.entrypoint)
++        if not isinstance(self.abi_tag, str) or not _TAG.fullmatch(self.abi_tag):
++            raise InvalidInputError("Shared build/environment requires an explicit ABI tag")
++        if type(self.downloads_models) is not bool:
++            raise InvalidInputError("Tool model-download discovery must be explicit")
++        if self.downloads_models != bool(self.model_download_paths):
++            raise InvalidInputError("Model-downloading tools must declare /var/ai destinations")
++        for value in self.model_download_paths:
++            if (
++                not isinstance(value, str)
++                or not value.startswith("/var/ai/")
++                or ".." in PurePosixPath(value).parts
++                or "\x00" in value
++            ):
++                raise InvalidInputError("Model downloads must be redirected below /var/ai")
++
++
++@dataclass(frozen=True, slots=True)
++class SharedToolUse:
++    """Retained only while the caller holds the shared use lock."""
++
++    root: Path
++    checkout: Path
++    executable: Path
++    environment: Path
++    commit: str
++    abi_tag: str
++    model_environment: Mapping[str, str]
++
++    @property
++    def guest_root(self) -> str:
++        return f"/usr/local/tools/{self.root.name}"
++
++    @property
++    def guest_executable(self) -> str:
++        """Approved guest path for ProcessRequest.argv[0], not a host path."""
++        return f"{self.guest_root}/{self.executable.relative_to(self.root).as_posix()}"
++
++
++class SharedToolStore:
++    """An isolated catalog under one registered workspace's ``tools/`` area.
++
++    Callers must authenticate the agent identity and authorize tool installation,
++    use, or edit via the existing controller. Git runs without a shell or network.
++    """
++
++    def __init__(self, sandbox: WorkspaceSandbox, *, git_binary: str | None = None) -> None:
++        if not isinstance(sandbox, WorkspaceSandbox):
++            raise InvalidInputError("A registered workspace sandbox is required")
++        self.sandbox = sandbox
++        self.root = sandbox.path("tools")
++        found = git_binary or shutil.which("git")
++        if not found or not Path(found).is_file():
++            raise CapabilityUnavailableError("An operator-pinned Git binary is required")
++        self.git = str(Path(found).resolve(strict=True))
++
++    def _location(self, name: str) -> Path:
++        if not isinstance(name, str) or not _NAME.fullmatch(name):
++            raise InvalidInputError("Invalid workspace tool name")
++        path = self.root / name
++        if path.is_symlink():
++            raise ScopeDeniedError("Shared tool root may not be a symbolic link")
++        return path
++
++    @contextmanager
++    def _lock(self, name: str, *, exclusive: bool) -> Iterator[None]:
++        """Controller-owned locks; untrusted writers cannot replace lock files."""
++        if fcntl is None:
++            raise CapabilityUnavailableError("Shared tools need qualified Linux file locks")
++        lock_dir = self.sandbox.path("receipts") / "shared-tool-locks"
++        lock_dir.mkdir(mode=0o700, exist_ok=True)
++        if lock_dir.is_symlink():
++            raise ScopeDeniedError("Shared tool lock directory is symlinked")
++        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
++        fd = os.open(lock_dir / f"{name}.lock", flags, 0o600)
++        try:
++            fcntl.flock(fd, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
++            yield
++        finally:
++            fcntl.flock(fd, fcntl.LOCK_UN)
++            os.close(fd)
++
++    def _git(self, *args: str, cwd: Path | None = None) -> str:
++        environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
++        environment.update(
++            GIT_CONFIG_NOSYSTEM="1",
++            GIT_CONFIG_GLOBAL=os.devnull,
++            GIT_TERMINAL_PROMPT="0",
++            GIT_LFS_SKIP_SMUDGE="1",
++        )
++        command = (
++            self.git,
++            "-c",
++            "core.hooksPath=/dev/null",
++            "-c",
++            "protocol.ext.allow=never",
++            "-c",
++            "filter.lfs.required=false",
++            *args,
++        )
++        result = subprocess.run(
++            command,
++            cwd=cwd,
++            env=environment,
++            stdin=subprocess.DEVNULL,
++            stdout=subprocess.PIPE,
++            stderr=subprocess.PIPE,
++            check=False,
++            timeout=120,
++        )
++        if result.returncode:
++            raise StateMismatchError(
++                "Pinned tool Git operation failed (exit " + str(result.returncode) + ")"
++            )
++        return result.stdout.decode("utf-8", "replace").strip()
++
++    def _clean_source(self, checkout: Path, commit: str) -> None:
++        if (
++            checkout.is_symlink()
++            or (checkout / ".git").is_symlink()
++            or not (checkout / ".git").is_dir()
++        ):
++            raise ScopeDeniedError("Expected an independent Git tool checkout")
++        if Path(self._git("-C", str(checkout), "rev-parse", "--show-toplevel")) != checkout:
++            raise ScopeDeniedError("Tool Git top-level does not match checkout")
++        self._git("-C", str(checkout), "reset", "--hard", commit)
++        self._git("-C", str(checkout), "clean", "-ffdx", "--", ".")
++        if self._git("-C", str(checkout), "rev-parse", "HEAD") != commit:
++            raise StateMismatchError("Tool checkout did not return to its pinned Git revision")
++        if self._git("-C", str(checkout), "status", "--porcelain=1", "--ignored"):
++            raise StateMismatchError("Tool cleanup left runtime or untracked files in checkout")
++
++    def _manifest_path(self, name: str) -> Path:
++        location = self.sandbox.path("receipts") / "shared-tool-manifests"
++        if location.is_symlink():
++            raise ScopeDeniedError("Trusted tool manifest store is symlinked")
++        location.mkdir(mode=0o700, exist_ok=True)
++        return location / f"{name}.json"
++
++    def _read_recipe(self, name: str) -> tuple[SharedToolRecipe, str]:
++        manifest = self._manifest_path(name)
++        if manifest.is_symlink() or not manifest.is_file():
++            raise ScopeDeniedError("Shared tool is not published")
++        try:
++            record = json.loads(manifest.read_text(encoding="utf-8"))
++            if record["schema_version"] != _SCHEMA:
++                raise ValueError("unknown installation version")
++            recipe = SharedToolRecipe(**record["recipe"])
++            digest = record["launcher_sha256"]
++            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
++                raise ValueError("invalid launcher digest")
++        except (OSError, KeyError, TypeError, ValueError, InvalidInputError) as error:
++            raise StateMismatchError("Shared tool manifest is invalid") from error
++        if recipe.name != name:
++            raise StateMismatchError("Shared tool manifest has the wrong identity")
++        return recipe, digest
++
++    def _launcher(self, root: Path, recipe: SharedToolRecipe) -> Path:
++        entrypoint = root.joinpath(*_relative_file(recipe.entrypoint).parts)
++        if (
++            entrypoint.is_symlink()
++            or not entrypoint.is_file()
++            or not entrypoint.resolve(strict=True).is_relative_to(root.resolve(strict=True))
++        ):
++            raise ScopeDeniedError("Shared tool launcher is not a confined regular file")
++        return entrypoint
++
++    @staticmethod
++    def _digest(path: Path) -> str:
++        with path.open("rb") as handle:
++            return hashlib.file_digest(handle, "sha256").hexdigest()
++
++    def _verify(self, name: str, *, abi_tag: str) -> SharedToolUse:
++        recipe, digest = self._read_recipe(name)
++        root = self._location(name)
++        checkout = root / "checkout"
++        if abi_tag != recipe.abi_tag:
++            raise StateMismatchError("Shared tool binaries or environment have a different ABI")
++        if (
++            checkout.is_symlink()
++            or (checkout / ".git").is_symlink()
++            or not (checkout / ".git").is_dir()
++        ):
++            raise ScopeDeniedError("Shared tool Git directory is missing or redirected")
++        if self._git("-C", str(checkout), "rev-parse", "HEAD") != recipe.commit:
++            raise StateMismatchError("Installed tool source revision has changed")
++        if self._git("-C", str(checkout), "status", "--porcelain=1", "--ignored"):
++            raise StateMismatchError("Installed tool checkout is dirty; clean before reuse")
++        launcher = self._launcher(root, recipe)
++        if self._digest(launcher) != digest:
++            raise StateMismatchError("Shared tool executable changed after publication")
++        return SharedToolUse(
++            root,
++            checkout,
++            launcher,
++            root / "environment",
++            recipe.commit,
++            recipe.abi_tag,
++            self.model_environment(recipe),
++        )
++
++    @staticmethod
++    def model_environment(recipe: SharedToolRecipe) -> dict[str, str]:
++        if not recipe.downloads_models:
++            return {}
++        # A tool-specific installer still has to verify its actual download paths.
++        return {
++            "HF_HOME": "/var/ai/huggingface",
++            "HF_HUB_CACHE": "/var/ai/huggingface/hub",
++            "HUGGINGFACE_HUB_CACHE": "/var/ai/huggingface/hub",
++            "TRANSFORMERS_CACHE": "/var/ai/transformers",
++            "TORCH_HOME": "/var/ai/torch",
++            "OLLAMA_MODELS": "/var/ai/ollama",
++        }
++
++    def stage(self, recipe: SharedToolRecipe, source_checkout: Path) -> Path:
++        """Copy an admitted local source into the shared library without network.
++
++        An installer action may subsequently put reviewed downloads, build outputs,
++        and relocatable environments into the sibling static directories before
++        calling ``register``. This method does not execute source code.
++        """
++        source = self.sandbox.confine(
++            source_checkout, area="repository", must_exist=True
++        )
++        if source.is_symlink() or (source / ".git").is_symlink() or not (source / ".git").is_dir():
++            raise ScopeDeniedError("Installation source must be a local Git checkout")
++        if self._git("-C", str(source), "rev-parse", "HEAD") != recipe.commit:
++            raise StateMismatchError("Tool source does not match its pinned commit")
++        if self._git("-C", str(source), "status", "--porcelain=1", "--ignored"):
++            raise StateMismatchError("Tool source must be clean before staging")
++        with self._lock(recipe.name, exclusive=True):
++            root = self._location(recipe.name)
++            if root.exists() or root.is_symlink():
++                raise StateMismatchError("Shared tool staging destination already exists")
++            root.mkdir(mode=0o2770)
++            if os.name == "posix":
++                root.chmod(0o2770)
++            try:
++                self._git(
++                    "clone", "--local", "--no-hardlinks", "--no-checkout", "--",
++                    str(source), str(root / "checkout"),
++                )
++                self._git("-C", str(root / "checkout"), "checkout", "--detach", recipe.commit)
++                for directory in _STATIC_DIRS:
++                    folder = root / directory
++                    folder.mkdir(mode=0o2770)
++                    if os.name == "posix":
++                        folder.chmod(0o2770)
++            except BaseException:
++                shutil.rmtree(root)
++                raise
++        return root
++
++    def register(self, recipe: SharedToolRecipe) -> None:
++        """Publish an already staged, independently approved and built tool.
++
++        The installer is responsible for putting a *clean* Git checkout and any
++        pre-downloaded/prebuilt files in the tool root before calling this gate.
++        No arbitrary install scripts run in the Potbot operator process.
++        """
++        with self._lock(recipe.name, exclusive=True):
++            root = self._location(recipe.name)
++            if not root.is_dir() or self._manifest_path(recipe.name).exists():
++                raise StateMismatchError("Tool must be staged but not already published")
++            checkout = root / "checkout"
++            if (
++                checkout.is_symlink()
++                or (checkout / ".git").is_symlink()
++                or not (checkout / ".git").is_dir()
++            ):
++                raise ScopeDeniedError("Tool staging needs an independent Git checkout")
++            if self._git("-C", str(checkout), "rev-parse", "HEAD") != recipe.commit:
++                raise StateMismatchError("Tool source is not at its pinned commit")
++            if self._git("-C", str(checkout), "status", "--porcelain=1", "--ignored"):
++                raise StateMismatchError("Tool installation must begin from a clean checkout")
++            for directory in _STATIC_DIRS:
++                folder = root / directory
++                if folder.is_symlink():
++                    raise ScopeDeniedError("Static artifact directory cannot be a link")
++                folder.mkdir(exist_ok=True)
++            launcher = self._launcher(root, recipe)
++            # The authoritative manifest is controller-owned, never stored in
++            # the group-writable tool root where another agent could replace it.
++            record = {
++                "schema_version": _SCHEMA,
++                "recipe": asdict(recipe),
++                "launcher_sha256": self._digest(launcher),
++                "static_areas": list(_STATIC_DIRS),
++                "runtime_areas": ["/home/user/.cache/tools", "/home/user/.local/state/tools"],
++            }
++            manifest = self._manifest_path(recipe.name)
++            temporary = manifest.with_suffix(".tmp")
++            if temporary.is_symlink() or temporary.exists():
++                raise ScopeDeniedError("Tool staging metadata path is already occupied")
++            with temporary.open("x", encoding="utf-8") as stream:
++                json.dump(record, stream, sort_keys=True, indent=2)
++                stream.write("\n")
++                stream.flush()
++                os.fsync(stream.fileno())
++            temporary.replace(manifest)
++
++    @contextmanager
++    def use(self, name: str, *, abi_tag: str) -> Iterator[SharedToolUse]:
++        """Keep this context open for the *entire* supervised tool invocation."""
++        with self._lock(name, exclusive=False):
++            yield self._verify(name, abi_tag=abi_tag)
++
++    def clean(self, name: str) -> None:
++        """Reset only Git source; static build/download/env siblings survive."""
++        with self._lock(name, exclusive=True):
++            recipe, _ = self._read_recipe(name)
++            self._clean_source(self._location(name) / "checkout", recipe.commit)
++            self._verify(name, abi_tag=recipe.abi_tag)
++
++    def fork_for_edit(self, name: str, agent_id: str) -> Path:
++        """Clean shared source then make an independent offline agent clone."""
++        home = self.sandbox.agent_home(agent_id)
++        destination = home / "Projects" / name
++        with self._lock(name, exclusive=True):
++            recipe, _ = self._read_recipe(name)
++            self._clean_source(self._location(name) / "checkout", recipe.commit)
++            self._verify(name, abi_tag=recipe.abi_tag)
++            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
++            if destination.exists() or destination.is_symlink():
++                raise StateMismatchError("Agent tool checkout already exists")
++            # No hardlinks, alternates or network dependency on the shared repo.
++            self._git(
++                "clone", "--local", "--no-hardlinks", "--no-checkout", "--",
++                str(self._location(name) / "checkout"), str(destination),
++            )
++            try:
++                self._git("-C", str(destination), "checkout", "--detach", recipe.commit)
++                if self._git("-C", str(destination), "status", "--porcelain=1", "--ignored"):
++                    raise StateMismatchError("Agent clone is not clean")
++            except BaseException:
++                shutil.rmtree(destination)
++                raise
++        return destination
++
++    def clean_agent_runtime(self, name: str, agent_id: str) -> None:
++        """Drop this agent's tool-specific scratch only, never its checkout."""
++        home = self.sandbox.agent_home(agent_id)
++        with self._lock(name, exclusive=True):
++            self._read_recipe(name)
++            for area in _RUNTIME_DIRS:
++                root = home / ".cache" if area == "cache" else home / ".local" / area
++                parent = root / "tools"
++                location = parent / name
++                if any(path.is_symlink() for path in (root, parent, location)):
++                    raise ScopeDeniedError("Agent runtime cleanup cannot follow links")
++                if not location.resolve().is_relative_to(home.resolve(strict=True)):
++                    raise ScopeDeniedError("Agent runtime cleanup would leave its private home")
++                if location.exists():
++                    if not location.is_dir():
++                        raise ScopeDeniedError("Agent tool runtime path is not a directory")
++                    shutil.rmtree(location)
+diff --git a/scripts/shared_tool_admin.py b/scripts/shared_tool_admin.py
+new file mode 100644
+--- /dev/null
++++ b/scripts/shared_tool_admin.py
+@@ -0,0 +1,58 @@
++"""Trusted operator workflow for offline staged Potbot shared-tool installations.
++
++Do not give this script to a model as a shell tool; the controller must separately
++approve staging, publication, cleaning and cloning and record operation receipts.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++from potbot.tools.shared_installations import SharedToolRecipe, SharedToolStore
++from potbot.workspace_sandbox import WorkspaceSandbox
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--sandbox-root", type=Path, required=True)
++    commands = parser.add_subparsers(dest="command", required=True)
++    commands.add_parser("prepare-home").add_argument("agent_id")
++    stage = commands.add_parser("stage")
++    stage.add_argument("--recipe", type=Path, required=True)
++    stage.add_argument("--source", type=Path, required=True)
++    publish = commands.add_parser("publish")
++    publish.add_argument("--recipe", type=Path, required=True)
++    for name in ("clean", "fork", "clean-agent-runtime"):
++        op = commands.add_parser(name)
++        op.add_argument("tool")
++        if name != "clean":
++            op.add_argument("agent_id")
++    args = parser.parse_args(argv)
++    sandbox = WorkspaceSandbox.existing(args.sandbox_root)
++    store = SharedToolStore(sandbox)
++    if args.command == "prepare-home":
++        value = sandbox.agent_home(args.agent_id)
++    elif args.command in {"stage", "publish"}:
++        # Recipes must be prepared and approved independently by the operator.
++        recipe = SharedToolRecipe(**json.loads(args.recipe.read_text(encoding="utf-8")))
++        if args.command == "stage":
++            value = store.stage(recipe, args.source)
++        else:
++            store.register(recipe)
++            value = store.root / recipe.name
++    elif args.command == "clean":
++        store.clean(args.tool)
++        value = store.root / args.tool / "checkout"
++    elif args.command == "fork":
++        value = store.fork_for_edit(args.tool, args.agent_id)
++    else:
++        store.clean_agent_runtime(args.tool, args.agent_id)
++        value = sandbox.agent_home(args.agent_id)
++    print(json.dumps({"operation": args.command, "path": str(value)}, sort_keys=True))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/docs/workspace-shared-tools.md b/docs/workspace-shared-tools.md
+new file mode 100644
+--- /dev/null
++++ b/docs/workspace-shared-tools.md
+@@ -0,0 +1,165 @@
++# Workspace shared tools and isolated agent runtimes
++
++**Design + first backend implementation, 25 October 2026.** Applies to the Potbot
++workspace sandbox (called a *repository* in the product UI), not to an individual
++Git checkout. Based on `main` at `7bc8794615426ffeb6e8619ba97d60c2d02fb51c`.
++
++## Contract
++
++Each workspace has one shared, group-writable installation library presented to
++approved sandbox processes as `/usr/local/tools`. Every agent has its own home,
++private writable runtime and Git checkouts. `/home/user/Tools` is an absolute
++**guest** symlink to `/usr/local/tools`, not a host-side link to arbitrary `/usr`.
++
++```text
++Host: <registered-workspace-root>/
++  tools/                                   <- group owner = this workspace only, 2770
++    <tool>/
++      checkout/                            <- pinned, clean Git tree (no runtime files)
++      downloads/                           <- immutable reviewed wheel/tarball archives
++      build/                               <- compiled outputs, ABI-tagged
++      environment/                         <- reusable, frozen venv/node_modules/etc.
++  environments/agents/
++    <agent-id>/home/                       <- private, 0700
++      Tools -> /usr/local/tools            <- resolves inside sandbox only
++      Projects/<tool>/                     <- independent editable clone
++      .cache/tools/<tool>/                 <- per-agent cache
++      .local/state/tools/<tool>/           <- per-agent state
++      .local/tmp/tools/<tool>/             <- per-agent scratch
++  models/                                  <- mutable models mapped to /var/ai
++  receipts/shared-tool-manifests/          <- controller-owned recipe, executable digest
++  receipts/shared-tool-locks/              <- controller-owned reader/writer lease files
++
++Guest per agent:
++  /usr/local/tools -> workspace's shared tools/ mount
++  /home/user       -> environments/agents/<id>/home bind mount
++  /home/user/Tools -> /usr/local/tools
++  /var/ai          -> workspace's writable models/ mount
++```
++
++**Precondition:** The qualified base image/WSL distro must create empty
++`/usr/local/tools`, `/home/user` and `/var/ai` mountpoints *before* Bubblewrap
++runs. The host's `/usr` is mounted read-only. No agent may mount the host's actual
++`/usr/local/tools`. Linux Bubblewrap cannot safely make `/usr/local/tools` under
++an already read-only `/usr`; the modified launcher rejects absent mountpoints.
++Provision the workspace group owner and setgid directory permissions explicitly;
++`2770` alone does not set the correct group identity. Agent home owner/ACL must
++remain private even though the tools library is shared. Do not make the shared
++library world-writable (never mode `777`). The operator must ensure mountpoint
++and filesystem permissions as part of image qualification.
++
++## Tool installation and selection
++
++The trusted, operator/controller-mediated API is
++`potbot.tools.shared_installations.SharedToolStore` (do **not** expose it as a
++model-selectable shell command):
++
++1. **Discover:** Validate a reviewed GitHub source URL, exact 40-character commit,
++   launcher relative path, platform/ABI tag, expected model-download behaviour,
++   and required destinations under `/var/ai`.
++2. **Reuse:** For an already installed tool, `use(tool, abi_tag=...)` acquires a
++   shared lease, verifies its pinned revision, ignored/untracked file cleanliness,
++   launcher digest and ABI, and returns the launcher plus frozen environment.
++   Retain the context manager through the **whole** supervised invocation.
++   Ordinary agents get a **read-only** tools mount; execution remains subject to
++   the existing controller ToolDefinition/CapabilityContext/lease/budget/pinned
++   executable enforcement. Merely finding a binary never authorizes execution.
++3. **First install:** `stage(recipe, admitted_local_source)` copies a clean,
++   pinned, local Git repository (without hardlinks). The *approved sandboxed
++   installer* populates `downloads/`, `build/`, and `environment/`; the caller
++   qualifies relocatability, architecture and runtime pinning. `register(recipe)`
++   publishes the manifest *outside* the writable tool directory. Scripts and
++   network access are **not** executed by the operator API itself. Use only
++   operator-approved installed paths for real process execution.
++4. **Edit/upgrade:** `fork_for_edit(tool, trusted_agent_id)` obtains an exclusive
++   lease, `reset --hard` and `clean -ffdx` the shared source back to its exact
++   pinned SHA, verifies the published tool, then clones a detached independent
++   checkout into `/home/user/Projects/<tool>` without hardlinks/alternates.
++   Edits, builds and tests happen in that agent checkout and private state;
++   there is no live in-place mutation of the shared tool. Promoting upgrades
++   needs a separately reviewed, version-pinned install, validation and publish
++   transaction—not a blind `git pull` on the shared checkout.
++5. **Clean:** Every registered tool has the mandatory generic `clean(tool)`
++   routine; no tool-specific cleanup script is blindly trusted. It discards
++   tracked modifications, untracked and ignored files under the **shared Git
++   checkout only** and verifies pinned revision + clean status. `downloads/`,
++   `build/` and `environment/` are siblings and are preserved. For a specific
++   agent, `clean_agent_runtime(tool, agent_id)` deletes only that agent's
++   `.cache`, `.local/state`, and `.local/tmp` tool-specific directories and
++   rejects symlink traversal. It intentionally never deletes another agent's
++   cache, checkout, or credentials. Both operations are lock-coordinated.
++
++### Artifact classification — what can really be shared?
++
++| Artifact | Shared read-only at execution? | Storage | Qualification |
++|---|---|---|---|
++| Pinned Git source checkout | Yes | `/usr/local/tools/<tool>/checkout` | exact commit, clean tree, separate edit clone |
++| Package archives/wheels/npm tarballs/crates | Yes | `downloads/` | checksum/SBOM/license checks, offline reproducibility; installer-only writes |
++| Native binaries, `.so`, compiled wheels, wasm | Yes, for matching platform | `build/` | arch/libc/CPU/runtime ABI tag; no host-specific absolute links |
++| Python venv, node modules, vendor dependencies | Conditionally | `environment/` | frozen lockfile, relocation or fixed path, ABI match, no auto-sync or writes during execution |
++| Pip/uv/npm/cargo build caches, compiler scratch | No (mutable) | `/home/user/.cache` or `.local/tmp` | per-agent cache/locks, no shared mutable cache reuse |
++| Logs, PID files, temporary files, sockets, X sessions | No | per-agent home/state/tmp | never written in checkout or static environment |
++| Home config, tokens, SSH/Git credentials, browser profiles | No | private agent home/controller broker | never publish in shared artifacts |
++| ML model weights, tokenizer files | Qualified shared global read-only and/or writable workspace area | global mounted model store and `/var/ai` | declared model download gate, content identification, immutable links, controlled writable staging |
++| GPU runtime cache, Torch JIT cache, per-process kernels | No by default | per-agent cache | host/device/driver-specific, avoid concurrent corruption |
++| Editable tool fork | No | `/home/user/Projects/<tool>` | independent checkout; no hardlinks to shared install |
++
++For Python, prefer building/installing a **wheelhouse** once and installing to
++an ABI-qualified *fixed path* environment, then launch the environment's actual
++entrypoint directly. Avoid `uv run` or `pip install` auto-mutating a frozen shared
++environment: use `uv run --no-sync` only where verified. For Node, install
++lockfile-pinned `node_modules` with `npm ci` in the installer, then run `node`
++directly; leave npm cache per-agent. For Rust/Go/C/C++, share deterministic
++outputs only when target triple, runtime libraries, compiler flags and ABI match.
++For GPU binaries include driver/CUDA/runtime constraints in the qualified tag.
++
++**Model download gate:** installation recipes explicitly declare whether tools
++fetch models and a list of allowed `/var/ai/...` destinations. An installer
++must audit/cache-redirection of Hugging Face, Transformers, PyTorch, Ollama, and
++tool-specific custom downloaders; generic declared paths do not prove an
++arbitrary installer obeyed them. Actual filesystem monitoring and global
++read-only model-store import remain separate operator deliverables.
++
++## Security and concurrency
++
++- A tool checkout is a *shared untrusted asset*, not an access-control boundary.
++  `ToolDefinition` pinning and the existing controller admission remain mandatory.
++  Published manifest and lockfiles are outside the group-writable tools tree.
++- The consumer process gets the tools mount **read-only**. Only an expressly
++  authorized installer process may set `shared_tools_write=True`. Group-writable
++  host ownership is not an authorization to bypass the controller.
++- `use` holds a reader `flock`; clean, new staging, and editable fork take a
++  writer `flock`. All controller operations on a given tool must honor it.
++  The lock does **not** prevent a malicious agent that has obtained unrelated
++  writable mount access or an external host process from tampering mid-run.
++  Deployment must restrict writable mounts to admitted installer lifetimes and
++  qualify stronger immutable/content-addressed snapshots where adversarial
++  co-tenants must be defended against.
++- Cross-workspace paths, symlinked roots, missing mounts, incorrect ABI,
++  missing pinned checkout, and dirty shared source fail closed. Agents never
++  receive writable parent mounts (`environments/` or `tools/`) merely to execute
++  an existing tool. Linux/WSL2 is the initial qualified target, not native
++  Windows/macOS sandbox execution.
++- Workspace-relative host source identity is bound to trusted paths. The
++  controller must establish GitHub source provenance and installer approval;
++  passing a URL string in a recipe **does not** verify the network source.
++
++## Status and follow-on gates
++
++**Implemented in this increment:** agent home layout and alias, guest environment,
++optional agent-aware Bubblewrap mounts via ProcessRequest, opt-in controller/CLI
++adapters, pinned shared install catalogue, generic source cleaning, independent
++agent fork, model redirection declaration, and offline real-Git unit tests.
++Existing legacy tools keep their old launch profile until a qualified base image
++and trusted controller opt-in are provisioned; a patch alone does not enable
++mounting or installation automatically in deployed workspaces.
++
++**Required before production qualification:** (a) provision workspace Unix groups,
++image mountpoints and per-agent POSIX identities; (b) integrate the controller's
++install/upgrade approval with this catalogue and durable receipts; (c) tie the
++shared use lease to each full supervised process lifetime; (d) add actual
++installer network/egress/model-write mediation and SBOM/hash reproducibility
++and ABI/relocation test gates; (e) exercise real Linux Bubblewrap/Xpra under
++concurrent agents with negative cross-workspace/host-symlink tests; (f) add
++failure-atomic staged upgrades and rollback. Do not label the opt-in profile
++production-qualified until those checks pass.
+diff --git a/tests/unit/test_shared_installations.py b/tests/unit/test_shared_installations.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_shared_installations.py
+@@ -0,0 +1,159 @@
++"""Offline, real-Git acceptance for workspace shared tools and per-agent forks."""
++
++from __future__ import annotations
++
++import os
++import shutil
++import subprocess
++from pathlib import Path
++
++import pytest
++
++from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
++from potbot.tools.shared_installations import SharedToolRecipe, SharedToolStore
++from potbot.workspace_sandbox import WorkspaceSandbox
++
++
++def git(*args: str, cwd: Path | None = None) -> str:
++    result = subprocess.run(
++        [shutil.which("git") or "git", *args],
++        cwd=cwd,
++        capture_output=True,
++        text=True,
++        check=True,
++    )
++    return result.stdout.strip()
++
++
++@pytest.fixture
++def ready_tool(tmp_path: Path) -> tuple[WorkspaceSandbox, SharedToolStore, SharedToolRecipe]:
++    sandbox = WorkspaceSandbox.prepare(tmp_path / "registered")
++    source = sandbox.path("repository") / "calculator"
++    source.mkdir()
++    git("init", "-q", cwd=source)
++    git("config", "user.email", "fixture@example.invalid", cwd=source)
++    git("config", "user.name", "Fixture", cwd=source)
++    (source / ".gitignore").write_text(".cache/\n", encoding="utf-8")
++    (source / "bin").mkdir()
++    launcher = source / "bin" / "calculator"
++    launcher.write_text("#!/bin/sh\nprintf 'ok\\n'\n", encoding="utf-8")
++    launcher.chmod(0o755)
++    git("add", ".", cwd=source)
++    git("commit", "-qm", "pinned tool", cwd=source)
++    revision = git("rev-parse", "HEAD", cwd=source)
++    recipe = SharedToolRecipe(
++        "calculator",
++        "https://github.com/example/calculator",
++        revision,
++        "checkout/bin/calculator",
++        "linux-x86_64-glibc-py313",
++        False,
++    )
++    store = SharedToolStore(sandbox)
++    tool_root = store.stage(recipe, source)
++    (tool_root / "downloads").mkdir(exist_ok=True)
++    (tool_root / "downloads" / "wheel.whl").write_bytes(b"static download")
++    (tool_root / "build").mkdir(exist_ok=True)
++    (tool_root / "build" / "native.so").write_bytes(b"precompiled binary")
++    (tool_root / "environment").mkdir(exist_ok=True)
++    (tool_root / "environment" / "python").write_bytes(b"shared venv")
++    store.register(recipe)
++    return sandbox, store, recipe
++
++
++def test_agent_home_is_private_and_guest_alias_is_exact(tmp_path: Path) -> None:
++    sandbox = WorkspaceSandbox.prepare(tmp_path / "ws")
++    first = sandbox.agent_home("agent-one")
++    second = sandbox.agent_home("agent-two")
++    assert first != second
++    assert first.is_relative_to(sandbox.path("environments"))
++    assert os.readlink(first / "Tools") == "/usr/local/tools"
++    assert os.readlink(second / "Tools") == "/usr/local/tools"
++    assert sandbox.agent_runtime_environment("agent-one")["HOME"] == "/home/user"
++    assert sandbox.agent_runtime_environment("agent-one")["PIP_CACHE_DIR"].startswith(
++        "/home/user/.cache/"
++    )
++    for bad in ("../escape", "x/y", "", "../../tmp", "agent with spaces"):
++        with pytest.raises(InvalidInputError):
++            sandbox.agent_home(bad)
++    (first / "Tools").unlink()
++    (first / "Tools").symlink_to("/tmp/escape")
++    with pytest.raises(ScopeDeniedError):
++        sandbox.agent_home("agent-one")
++
++
++def test_shared_use_clean_and_fork_retains_static_assets(ready_tool) -> None:
++    sandbox, store, recipe = ready_tool
++    shared = sandbox.path("tools") / "calculator"
++    with store.use("calculator", abi_tag=recipe.abi_tag) as installed:
++        assert installed.executable == shared / "checkout" / "bin" / "calculator"
++        assert installed.guest_root == "/usr/local/tools/calculator"
++        assert installed.model_environment == {}
++    checkout = shared / "checkout"
++    (checkout / "bin" / "calculator").write_text("broken", encoding="utf-8")
++    (checkout / "temp.log").write_text("runtime", encoding="utf-8")
++    (checkout / ".cache").mkdir()
++    (checkout / ".cache" / "bundle").write_text("runtime", encoding="utf-8")
++    with pytest.raises(StateMismatchError):
++        with store.use("calculator", abi_tag=recipe.abi_tag):
++            pass
++    store.clean("calculator")
++    assert not (checkout / "temp.log").exists()
++    assert not (checkout / ".cache").exists()
++    assert (checkout / "bin" / "calculator").read_text().startswith("#!/bin/sh")
++    assert (shared / "downloads" / "wheel.whl").read_bytes() == b"static download"
++    assert (shared / "build" / "native.so").read_bytes() == b"precompiled binary"
++    assert (shared / "environment" / "python").read_bytes() == b"shared venv"
++    clone = store.fork_for_edit("calculator", "agent-one")
++    assert clone == sandbox.agent_home("agent-one") / "Projects" / "calculator"
++    assert git("rev-parse", "HEAD", cwd=clone) == recipe.commit
++    assert git("rev-parse", "--is-shallow-repository", cwd=clone) == "false"
++    (clone / "bin" / "calculator").write_text("agent edit", encoding="utf-8")
++    with store.use("calculator", abi_tag=recipe.abi_tag) as installed:
++        assert installed.executable.read_text().startswith("#!/bin/sh")
++    with pytest.raises(StateMismatchError):
++        store.fork_for_edit("calculator", "agent-one")
++
++
++def test_abi_and_launcher_integrity_checked(ready_tool) -> None:
++    sandbox, store, recipe = ready_tool
++    with pytest.raises(StateMismatchError):
++        with store.use("calculator", abi_tag="linux-aarch64-glibc-py313"):
++            pass
++    launcher = sandbox.path("tools") / "calculator" / "checkout" / "bin" / "calculator"
++    launcher.unlink()
++    launcher.symlink_to("/etc/passwd")
++    with pytest.raises((StateMismatchError, ScopeDeniedError)):
++        with store.use("calculator", abi_tag=recipe.abi_tag):
++            pass
++
++
++def test_model_gate_and_agent_runtime_clean(ready_tool) -> None:
++    sandbox, store, _ = ready_tool
++    with pytest.raises(InvalidInputError):
++        SharedToolRecipe(
++            "bad", "https://github.com/example/bad", "a" * 40,
++            "checkout/bin/run", "linux-x86_64", True,
++        )
++    with pytest.raises(InvalidInputError):
++        SharedToolRecipe(
++            "bad", "https://github.com/example/bad", "a" * 40,
++            "checkout/bin/run", "linux-x86_64", True, ("/home/user/models",),
++        )
++    recipe = SharedToolRecipe(
++        "model-tool", "https://github.com/example/model-tool", "a" * 40,
++        "checkout/bin/run", "linux-x86_64", True, ("/var/ai/model-tool",),
++    )
++    assert SharedToolStore.model_environment(recipe)["HF_HOME"].startswith("/var/ai/")
++    first = sandbox.agent_home("alice")
++    second = sandbox.agent_home("bob")
++    for home in (first, second):
++        for root in (home / ".cache", home / ".local" / "state", home / ".local" / "tmp"):
++            cache = root / "tools" / "calculator"
++            cache.mkdir(parents=True)
++            (cache / "unused").write_text("temporary", encoding="utf-8")
++    store.clean_agent_runtime("calculator", "alice")
++    for root in (first / ".cache", first / ".local" / "state", first / ".local" / "tmp"):
++        assert not (root / "tools" / "calculator").exists()
++    for root in (second / ".cache", second / ".local" / "state", second / ".local" / "tmp"):
++        assert (root / "tools" / "calculator" / "unused").exists()
+diff --git a/tests/unit/test_workspace_tool_mounts.py b/tests/unit/test_workspace_tool_mounts.py
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test_workspace_tool_mounts.py
+@@ -0,0 +1,94 @@
++"""Guest namespace and admission tests for one workspace's shared tool store."""
++
++from __future__ import annotations
++
++import os
++from pathlib import Path
++
++import pytest
++
++from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError
++from potbot.tools import isolation
++from potbot.tools.isolation import BubblewrapBackend
++from potbot.tools.supervisor import ProcessRequest
++from potbot.workspace_sandbox import WorkspaceSandbox
++
++
++def test_request_rejects_cross_workspace_agent_mounts(tmp_path: Path) -> None:
++    first = WorkspaceSandbox.prepare(tmp_path / "one")
++    second = WorkspaceSandbox.prepare(tmp_path / "two")
++    source = first.path("candidates") / "candidate"
++    source.mkdir()
++    common = dict(
++        argv=("/bin/true",), cwd=source, workspace_root=source,
++        sandbox_root=first.root,
++        shared_tools_root=first.path("tools"),
++        agent_home_root=first.agent_home("agent-1"),
++        models_root=first.path("models"),
++    )
++    request = ProcessRequest(**common)
++    assert request.shared_tools_root == first.path("tools")
++    with pytest.raises(InvalidInputError):
++        ProcessRequest(**{**common, "agent_home_root": second.agent_home("agent-2")})
++    with pytest.raises(InvalidInputError):
++        ProcessRequest(**{**common, "shared_tools_root": second.path("tools")})
++    with pytest.raises(InvalidInputError):
++        ProcessRequest(**{**common, "models_root": second.path("models")})
++    with pytest.raises(InvalidInputError):
++        ProcessRequest(**{**common, "agent_home_root": None, "shared_tools_write": True})
++    with pytest.raises(InvalidInputError):
++        ProcessRequest(**{**common, "shared_tools_write": "true"})
++
++
++def test_agent_profile_ro_and_operator_only_rw_binds(tmp_path: Path, monkeypatch) -> None:
++    sandbox = WorkspaceSandbox.prepare(tmp_path / "qualified")
++    candidate = sandbox.path("candidates") / "candidate"
++    candidate.mkdir()
++    home = sandbox.agent_home("agent-1")
++    # Exercise base-image mountpoint precondition with a temporary stand-in.
++    # The real deployed guest location is always /usr/local/tools.
++    guest_placeholder = tmp_path / "image" / "usr" / "local" / "tools"
++    guest_home = tmp_path / "image" / "home" / "user"
++    guest_models = tmp_path / "image" / "var" / "ai"
++    for folder in (guest_placeholder, guest_home, guest_models):
++        folder.mkdir(parents=True)
++    (home / "Tools").unlink()
++    (home / "Tools").symlink_to(str(guest_placeholder))
++    monkeypatch.setattr(isolation, "GUEST_TOOLS_ROOT", str(guest_placeholder))
++    monkeypatch.setattr(isolation, "GUEST_AGENT_HOME", str(guest_home))
++    monkeypatch.setattr(isolation, "GUEST_MODELS_ROOT", str(guest_models))
++    monkeypatch.setattr(isolation, "_seccomp_fd", lambda **kw: os.open(os.devnull, os.O_RDONLY))
++    backend = BubblewrapBackend(executable=Path("/bin/true"), prlimit=Path("/bin/true"))
++
++    def prepare(write: bool):
++        launch = backend.prepare(
++            argv=("/bin/true",), cwd=candidate,
++            workspace_root=candidate, sandbox_root=sandbox.root,
++            read_only_roots=(), writable_roots=(), status_fd=1,
++            memory_bytes=128*1024*1024, cpu_seconds=60,
++            max_file_bytes=128*1024*1024, max_open_files=256,
++            shared_tools_root=sandbox.path("tools"),
++            agent_home_root=home, models_root=sandbox.path("models"),
++            shared_tools_write=write,
++        )
++        try:
++            return launch.argv
++        finally:
++            os.close(launch.pass_fds[0])
++
++    readonly = prepare(False)
++    writable = prepare(True)
++    assert ("--ro-bind", str(sandbox.path("tools")), str(guest_placeholder)) in tuple(
++        readonly[i:i+3] for i in range(len(readonly)-2)
++    )
++    assert ("--bind", str(sandbox.path("tools")), str(guest_placeholder)) in tuple(
++        writable[i:i+3] for i in range(len(writable)-2)
++    )
++    for argv in (readonly, writable):
++        triples = tuple(argv[i:i+3] for i in range(len(argv)-2))
++        assert ("--bind", str(home), str(guest_home)) in triples
++        assert ("--bind", str(sandbox.path("models")), str(guest_models)) in triples
++
++    guest_placeholder.rmdir()
++    with pytest.raises(CapabilityUnavailableError):
++        prepare(False)
