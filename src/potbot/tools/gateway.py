@@ -43,6 +43,7 @@ from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
 )
+from potbot.tools.worker_attribution import validate_host_agent_binding, worker_subject
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
 from potbot.tools.workspace_supervision import (
     WorkspaceExecutorIdentity,
@@ -52,6 +53,7 @@ from potbot.tools.workspace_supervision import (
 )
 
 if TYPE_CHECKING:
+    from potbot.tools.agent_homes import AgentHomeRegistry
     from potbot.workspace_sandbox import WorkspaceSandbox
 
 
@@ -72,11 +74,15 @@ class ToolGateway:
         shared_runtime: SharedWorkspaceRuntime | None = None,
         shared_leases: WorkspaceLeaseLedger | None = None,
         ai_monitor: AiConfigHistoryMonitor | None = None,
+        agent_homes: AgentHomeRegistry | None = None,
+        host_agent_id: UUID | None = None,
     ) -> None:
         self.database, self.artifacts, self.candidates = database, artifacts, candidates
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts
         if (shared_runtime is None) != (shared_leases is None):
             raise InvalidInputError("shared tool admission requires both runtime and lease broker")
+        validate_host_agent_binding(shared=shared_runtime is not None,
+                                    registry=agent_homes, agent_id=host_agent_id, ledger=shared_leases)
         if shared_runtime is None and ai_monitor is not None:
             raise InvalidInputError("AI config watcher requires a shared workspace runtime")
         if shared_runtime is not None and (workspace_sandbox is not None or read_only_roots):
@@ -94,6 +100,7 @@ class ToolGateway:
                 raise StateMismatchError("operator watcher differs from admitted supervisor")
         self.shared_runtime = shared_runtime
         self.shared_leases = shared_leases
+        self.agent_homes, self.host_agent_id = agent_homes, host_agent_id
         self.supervisor = supervisor or ProcessSupervisor()
         self.ai_monitor = (
             self.supervisor.backend.ai_monitor if shared_runtime is not None else None
@@ -412,6 +419,12 @@ class ToolGateway:
                     *read_only_roots,
                     sandbox.path("models"),
                 )
+            # A host-bound registry may identify the Cog agent. A principal
+            # alone is NOT an agent and must not contribute to agent heat bars.
+            subject = (worker_subject(context, registry=getattr(self, "agent_homes", None),
+                                      agent_id=getattr(self, "host_agent_id", None),
+                                      ledger=self.shared_leases)
+                       if self.shared_runtime is not None else None)
             request = ProcessRequest(
                 argv=(*definition.argv_prefix, *proposal.arguments),
                 cwd=self._paths(root, proposal),
@@ -429,8 +442,10 @@ class ToolGateway:
                 stdin=stdin,
                 memory_bytes=definition.memory_bytes or 4 * 1024**3,
                 cpu_seconds=definition.cpu_seconds or 60,
-                telemetry_workspace_id=context.workspace_id if self.shared_runtime else None,
-                telemetry_agent_id=context.principal_id if self.shared_runtime else None,
+                telemetry_workspace_id=context.workspace_id if subject else None,
+                telemetry_agent_id=subject.subject_id if subject else None,
+                telemetry_identity_kind=subject.identity_kind if subject else "principal",
+                telemetry_run_id=action_id if subject else None,
             )
             result = self.supervisor.run(
                 request,

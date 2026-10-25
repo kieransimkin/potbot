@@ -21,12 +21,19 @@ from potbot.domain.errors import (
 )
 from potbot.domain.serialization import canonical_json
 from potbot.tools.execution_contracts import EVENT, WORK_KINDS, ExecutionPolicy, WorkBinding, fields
+from potbot.tools.sandbox_cog_worker import (
+    SandboxedCogExecutor, SandboxedCogOperation, require_isolated_work,
+)
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
 
 
 @dataclass(frozen=True, slots=True)
 class HostOperation:
-    """In-process installation, supplied by trusted host code, never deserialized."""
+    """Trusted controller service only (artifact/receipt control plane).
+
+    Forbidden as an executable work installation in ExecutionCogRuntime.
+    Arbitrary execution must use a SandboxedCogOperation, not a Python callback.
+    """
 
     binding: WorkBinding
     handler: Callable[[ExecutionCall, TypedCogValue], Awaitable[TypedCogValue]]
@@ -132,11 +139,13 @@ class ExecutionCogRuntime:
         repository_state_id: UUID,
         emitter_run_id: UUID,
         policy: ExecutionPolicy,
-        operations: tuple[HostOperation, ...],
+        operations: tuple[SandboxedCogOperation, ...],
         admit: Callable[[CogSignature, TypedCogValue, CogRunContext], None],
         receipts: Any = None,
         artifact_ranges: Any = None,
         artifact_uploads: Any = None,
+        sandbox_executor: SandboxedCogExecutor | None = None,
+        sandbox_agent_id: UUID | None = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -149,6 +158,13 @@ class ExecutionCogRuntime:
             raise ScopeDeniedError(
                 "Execution needs independent host admission and bounded installations"
             )
+        # The only installed *worker* implementation is an admitted sandbox
+        # executable. Legacy HostOperation callbacks cannot dispatch model work.
+        require_isolated_work(operations)
+        if operations and (not isinstance(sandbox_executor, SandboxedCogExecutor)
+                           or not isinstance(sandbox_agent_id, UUID)):
+            raise ScopeDeniedError("Cog worker requires a qualified sandbox executor and registered agent")
+        self.sandbox_executor, self.sandbox_agent_id = sandbox_executor, sandbox_agent_id
         if artifact_uploads is not None and artifact_ranges is None:
             raise ScopeDeniedError("Upload profile requires its matching range service")
         if artifact_ranges is not None:
@@ -364,11 +380,27 @@ class ExecutionCogRuntime:
                     call.owner = asyncio.current_task()
                     self._live[context.invocation_id] = call
                     try:
+                        if isinstance(op, SandboxedCogOperation):
+                            if self.sandbox_executor is None or self.sandbox_agent_id is None:
+                                raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
+                            call.progress("sandbox_worker_dispatched")
+                            return await self.sandbox_executor.execute(
+                                op, typed, context, self.actor, self.sandbox_agent_id,
+                            )
+                        # Only independently constructed trusted controller
+                        # artifact services may remain in this process.
+                        if signature not in self._direct_operations or not isinstance(op, HostOperation):
+                            raise ScopeDeniedError("in-process Cog worker handler rejected")
                         return await execute(call, op.handler, typed)
                     finally:
                         self._live.pop(context.invocation_id, None)
 
-                result = await asyncio.wait_for(run(), timeout=self.policy.max_wall_ms / 1000)
+                budget_s = self.policy.max_wall_ms / 1000
+                # The child has its own hard wall deadline. Allow its supervisor
+                # time to confirm process-tree shutdown and forensic audit.
+                result = await asyncio.wait_for(run(), timeout=budget_s + (
+                    10 if isinstance(op, SandboxedCogOperation) else 0
+                ))
                 if typed.fingerprint != typed_hash:
                     raise StateMismatchError("Handler mutated its pinned semantic input")
                 if (

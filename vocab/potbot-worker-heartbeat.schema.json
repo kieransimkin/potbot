@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://type/potbot-worker-heartbeat-v1",
+  "title": "Potbot SYN worker node heartbeat (operator-relayed)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "type_ref", "workspace_id", "agent_id", "worker_run_id",
+    "node_id", "node_ref", "node_type_ref", "incarnation", "sequence",
+    "monotonic_ns", "status"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "type_ref": { "const": "synny://type/potbot-worker-heartbeat-v1" },
+    "workspace_id": { "$ref": "#/$defs/uuid" },
+    "agent_id": { "$ref": "#/$defs/uuid" },
+    "worker_run_id": { "$ref": "#/$defs/uuid" },
+    "node_id": { "$ref": "#/$defs/uuid" },
+    "node_ref": { "type": "string", "pattern": "^syn://thing/potbot-worker-node-[0-9a-f]{32}$" },
+    "node_type_ref": { "const": "synny://type/potbot-worker-syn-node-v1" },
+    "incarnation": { "$ref": "#/$defs/uuid" },
+    "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "monotonic_ns": { "type": "integer", "minimum": 1 },
+    "status": { "enum": ["admitted", "executing", "stopping"] }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    }
+  }
+}

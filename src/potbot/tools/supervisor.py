@@ -50,6 +50,8 @@ class ProcessRequest:
     # Trusted launch identity; no model-supplied paths or PIDs are accepted.
     telemetry_workspace_id: UUID | None = None
     telemetry_agent_id: UUID | None = None
+    telemetry_identity_kind: Literal["agent", "principal"] = "principal"
+    telemetry_run_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if (self.telemetry_workspace_id is None) != (self.telemetry_agent_id is None) or (
@@ -59,6 +61,11 @@ class ProcessRequest:
             )
         ):
             raise InvalidInputError("worker audit needs paired trusted workspace and agent UUIDs")
+        if (self.telemetry_identity_kind not in {"agent", "principal"}
+                or (self.telemetry_identity_kind == "agent" and self.telemetry_workspace_id is None)
+                or (self.telemetry_run_id is not None and (
+                    not isinstance(self.telemetry_run_id, UUID) or self.telemetry_workspace_id is None))):
+            raise InvalidInputError("worker audit attribution or run binding is invalid")
         if (self.guest_uid is None) != (self.guest_gid is None):
             raise InvalidInputError("guest UID/GID must be selected together")
         if self.guest_uid is not None and (
@@ -226,7 +233,9 @@ class ProcessSupervisor:
                         or config.cgroup_root.is_relative_to(home)):
                     raise CapabilityUnavailableError("operator monitoring assets may not overlap sandbox home")
                 telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
-                                                 request.telemetry_agent_id, launch.identity)
+                                                 request.telemetry_agent_id, launch.identity,
+                                                 identity_kind=request.telemetry_identity_kind,
+                                                 run_id=request.telemetry_run_id)
             process = subprocess.Popen(
                 telemetry.command(launch.argv) if telemetry is not None else launch.argv,
                 cwd="/",

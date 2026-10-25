@@ -88,6 +88,7 @@ def test_global_reader_never_exposes_private_paths_or_foreign_agents(tmp_path: P
         _safe_write(worker_dir / 'live.json', {
             'schema': 1, 'state': 'running', 'workspace_id': str(w),
             'agent_id': str(uuid.uuid4()), 'worker_id': str(uuid.uuid4()),
+            'identity_kind': 'agent',
             'sampled_at': __import__('time').time(),
             'usage': {'cpu_usec': 10, 'pids_current': 1, 'memory_current_bytes': 100}})
     reader = OperatorTelemetryReader(root)
@@ -190,3 +191,19 @@ def test_symlink_target_is_not_reported_as_file_access(tmp_path: Path):
     assert _trace_events(trace, 1, output, Counter()) == 1
     row = json.loads(output.getvalue())
     assert row['path'] == '/home/created-link' and row['path_role'] == 'destination'
+
+
+def test_cgroup_cleanup_is_idempotent_and_fail_closed(tmp_path: Path):
+    from potbot.tools.worker_telemetry import _terminate_cgroup
+    (tmp_path / 'cgroup.procs').write_text('')
+    assert _terminate_cgroup(tmp_path, attempts=1, interval=0)
+    (tmp_path / 'cgroup.procs').write_text('12345\n')
+    (tmp_path / 'cgroup.kill').write_text('')
+    assert not _terminate_cgroup(tmp_path, attempts=2, interval=0)
+    assert (tmp_path / 'cgroup.kill').read_text() == '1\n'
+    (tmp_path / 'cgroup.kill').unlink()
+    (tmp_path / 'cgroup.kill').symlink_to(tmp_path / 'untrusted')
+    import pytest
+    with pytest.raises(OSError):
+        _terminate_cgroup(tmp_path, attempts=1, interval=0)
+    assert not (tmp_path / 'untrusted').exists()

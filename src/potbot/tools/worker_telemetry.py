@@ -6,11 +6,11 @@ an operator-created cgroup-v2 leaf before exec. The sandbox has no cgroup or
 operator audit mount. Raw traces can contain secrets; NEVER publish them in UI.
 
 Strict accounting: cgroup CPU/IO lifetime totals and system load are kernel
-counters; individual PID CPU/RSS/IO observations are sampled lower bounds.
-The syscall/file event history itself is traced, not sampled. A monitor fault
-fences successful completion. A pinned, single-purpose native helper joins the
-operator-owned cgroup BEFORE executing strace (no unsafe Python preexec_fn).
-Production exit accounting will require qualified taskstats or eBPF support.
+counters; individual PID CPU, peak RSS and I/O exit totals are supplied by
+Linux taskstats (registered BEFORE worker spawn). /proc is still used only for
+live observations. The syscall/file history is traced, not sampled. A monitor
+fault fences completion. A pinned native helper joins the operator-owned
+cgroup BEFORE executing strace (no Python preexec_fn).
 """
 from __future__ import annotations
 
@@ -29,6 +29,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
+from potbot.tools.worker_audit import file_access_index, process_tree, write_process_tree
+from potbot.tools.taskstats_exit import TaskstatsExitStream
 
 _TRACE_LINE = re.compile(r"^\s*(?P<stamp>\d+\.\d+)\s+(?P<call>[A-Za-z_][A-Za-z_0-9]*)\(")
 _TRACE_RESUMED = re.compile(r"^\s*(?P<stamp>\d+\.\d+)\s+<\.\.\.\s+(?P<call>[A-Za-z_][A-Za-z_0-9]*) resumed>(?P<rest>.*)$")
@@ -298,11 +300,45 @@ class WorkerMonitorConfig:
         return cls(Path(root), Path(cgroup), Path(tracer), Path(helper), tracer_sha, helper_sha)
 
 
+def _terminate_cgroup(cgroup: Path, *, attempts: int = 40, interval: float = 0.025) -> bool:
+    """Kill descendants even when the supervising parent has NOT been reaped.
+
+    The caller must still treat an unconfirmed parent shutdown as indeterminate.
+    Writing cgroup.kill is never, by itself, evidence of complete termination.
+    """
+    if not 1 <= attempts <= 100 or not 0 <= interval <= 1:
+        raise ValueError("invalid cgroup shutdown bounds")
+    procs = cgroup / "cgroup.procs"
+    fd = os.open(procs, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        live = os.read(fd, 65536)
+        if os.read(fd, 1):
+            raise CapabilityUnavailableError("cgroup process list exceeds observation bound")
+    finally:
+        os.close(fd)
+    if not live.strip():
+        return True
+    kill = os.open(cgroup / "cgroup.kill", os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        os.write(kill, b"1\n")
+    finally:
+        os.close(kill)
+    for _ in range(attempts):
+        if not procs.read_text(encoding="ascii").strip():
+            return True
+        time.sleep(interval)
+    return False
+
+
 class WorkerMonitorSession:
     """One process tree: host-owned cgroup + secure trace files + live snapshot."""
     def __init__(self, config: WorkerMonitorConfig, workspace_id: UUID,
-                 agent_id: UUID, image_identity: str) -> None:
+                 agent_id: UUID, image_identity: str, *,
+                 identity_kind: str = "principal", run_id: UUID | None = None) -> None:
+        if identity_kind not in {"agent", "principal"} or (run_id is not None and not isinstance(run_id, UUID)):
+            raise ScopeDeniedError("unqualified telemetry attribution or run identity")
         self.config, self.workspace_id, self.agent_id = config, workspace_id, agent_id
+        self.identity_kind, self.run_id = identity_kind, run_id
         self.worker_id = uuid4()
         self.image_identity = image_identity
         self._path = config.audit_root / str(workspace_id)
@@ -311,6 +347,12 @@ class WorkerMonitorSession:
             raise ScopeDeniedError("workspace telemetry directory must be private")
         self.path = self._path / str(self.worker_id)
         self.path.mkdir(mode=0o700)
+        # Index only live workers, not the unbounded history of completed runs.
+        # The entire index belongs to the operator and is never guest-mounted.
+        self._active_dir = _private_root(self._path / ".active") if (self._path / ".active").exists() else self._path / ".active"
+        self._active_dir.mkdir(mode=0o700, exist_ok=True)
+        _private_root(self._active_dir)
+        self._active_live = self._active_dir / (str(self.worker_id) + ".json")
         self.cgroup = config.cgroup_root / self.worker_id.hex
         self.cgroup.mkdir(mode=0o755)
         self._stop = threading.Event()
@@ -320,13 +362,17 @@ class WorkerMonitorSession:
         self._last_usage: dict[str, int] = {}
         self._started_at = time.time()
         self._start_pid: int | None = None
+        # Register taskstats on all CPUs BEFORE spawning the first subprocess.
+        # A late collector misses short-lived children irrecoverably.
+        self._kernel: TaskstatsExitStream | None = None
         self._live = self.path / "live.json"
         try:
             _cgroup_usage(self.cgroup)  # Reject unaccounted cgroup before launch.
             _safe_write(self.path / "identity.json", {
                 "schema": 1, "workspace_id": str(workspace_id), "agent_id": str(agent_id),
                 "worker_id": str(self.worker_id), "image_identity": image_identity,
-                "started_at": self._started_at,
+                "identity_kind": identity_kind,
+                "run_id": str(run_id) if run_id else None, "started_at": self._started_at,
             })
         except BaseException:
             self.cgroup.rmdir()
@@ -339,6 +385,14 @@ class WorkerMonitorSession:
             with executable.open("rb") as file:
                 if hashlib.file_digest(file, "sha256").hexdigest() != expected:
                     raise CapabilityUnavailableError("operator executable pin changed before launch")
+        if self._kernel is not None:
+            raise CapabilityUnavailableError("worker taskstats registration already dispatched")
+        collector = TaskstatsExitStream()
+        collector.open()  # Must succeed before we return an executable command.
+        if not collector.healthy:
+            collector.close()
+            raise CapabilityUnavailableError("taskstats exit listener failed pre-dispatch")
+        self._kernel = collector
         return (str(self.config.cgroup_join), str(self.cgroup), "--",
                 str(self.config.strace), "-f", "-ff", "-qq", "-ttt", "-T", "-yy",
                 "-s", "4096", "-o", str(self.path / "trace"), "--", *argv)
@@ -350,9 +404,12 @@ class WorkerMonitorSession:
 
     @property
     def healthy(self) -> bool:
-        return self._fault is None and self._thread is not None and self._thread.is_alive()
+        return (self._fault is None and self._thread is not None and self._thread.is_alive()
+                and self._kernel is not None and self._kernel.healthy)
 
     def _sample(self) -> None:
+        if self._kernel is None or not self._kernel.healthy:
+            raise CapabilityUnavailableError("kernel task-exit collection lost")
         self._last_usage = _cgroup_usage(self.cgroup)
         for token in (self.cgroup / "cgroup.procs").read_text(encoding="ascii").splitlines():
             if not _PID.fullmatch(token):
@@ -369,12 +426,15 @@ class WorkerMonitorSession:
                 for label in ("cpu_ticks_sampled", "rss_pages_sampled", "read_bytes_sampled", "write_bytes_sampled"):
                     previous[label] = max(previous[label], sample[label])
                 previous["ppid"] = sample["ppid"]
-        _safe_write(self._live, {
+        live = {
             "schema": 1, "state": "running", "workspace_id": str(self.workspace_id),
             "agent_id": str(self.agent_id), "worker_id": str(self.worker_id),
+            "identity_kind": self.identity_kind,
             "pid": self._start_pid, "sampled_at": time.time(), "usage": self._last_usage,
             "observed_processes": len(self._processes),
-        })
+        }
+        _safe_write(self._live, live)
+        _safe_write(self._active_live, live)
         total = sum(p.stat().st_size for p in self.path.glob("trace.*") if p.is_file())
         if total > self.config.max_trace_bytes:
             raise CapabilityUnavailableError("complete syscall audit exceeds configured byte ceiling")
@@ -395,13 +455,10 @@ class WorkerMonitorSession:
         try:
             # Terminate any detached descendants by *cgroup identity*, never by
             # a potentially recycled PID, before taking lifetime counters.
-            if confirmed_stopped and (self.cgroup / "cgroup.procs").read_text().strip():
-                fd = os.open(self.cgroup / "cgroup.kill", os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-                try: os.write(fd, b"1\n")
-                finally: os.close(fd)
-                for _ in range(40):
-                    if not (self.cgroup / "cgroup.procs").read_text().strip(): break
-                    time.sleep(0.025)
+            if not _terminate_cgroup(self.cgroup):
+                self._fault = self._fault or "descendants_not_stopped"
+                confirmed_stopped = False
+            # This never upgrades a caller's unconfirmed parent shutdown.
             self._sample()
             traces = sorted(self.path.glob("trace.*"))
             total_size = sum(p.stat().st_size for p in traces)
@@ -428,6 +485,26 @@ class WorkerMonitorSession:
                                          "file_events": entries, **timing}
                 output.flush()
                 os.fsync(output.fileno())
+            # Full process relationship evidence comes from clone/fork results,
+            # not /proc sampling (which misses microsecond-lived children).
+            # Taskstats has been continuously registered since pre-exec and must
+            # account for *every* traced PID, including unobserved short tasks.
+            if self._kernel is None:
+                raise CapabilityUnavailableError("kernel exit accounting was not registered")
+            traced_pids = {int(path.suffix[1:]) for path in traces
+                           if _PID.fullmatch(path.suffix[1:])}
+            kernel_lifetime = self._kernel.coverage(traced_pids)
+            # Check listener shutdown before recording audit_complete. It must
+            # not be possible to publish a complete receipt after a lost exit
+            # collector or a non-responsive receive thread.
+            self._kernel.close()
+            self._kernel = None
+            tree = process_tree(traces, sampled_processes=self._processes,
+                                syscall_lifetime=per_pid, kernel_exit=kernel_lifetime)
+            tree_index = write_process_tree(tree, self.path / "process-tree.jsonl")
+            file_index = file_access_index(event_path, self.path / "file-index.jsonl")
+            if not tree["tree_complete"]:
+                integrity["process_tree_gaps"] = 1
             sha = hashlib.sha256()
             for path in traces:
                 with path.open("rb") as stream:
@@ -437,22 +514,28 @@ class WorkerMonitorSession:
             _safe_write(self.path / "lifetime.json", {
                 "schema": 1, "workspace_id": str(self.workspace_id), "agent_id": str(self.agent_id),
                 "worker_id": str(self.worker_id), "started_at": self._started_at,
+                "identity_kind": self.identity_kind,
+                "run_id": str(self.run_id) if self.run_id else None,
+                "process_tree": tree_index, "file_index": file_index,
                 "finished_at": time.time(), "audit_complete": complete,
                 "audit_failure": self._fault, "syscall_counts": dict(counts),
                 "file_event_count": event_count, "trace_sha256": sha.hexdigest(),
                 "trace_integrity": integrity,
-                "per_pid_syscall_lifetime": per_pid,
+                "per_pid_syscall_lifetime_in_process_tree": True,
                 "per_pid_syscall_wall_time_is_not_cpu_time": True,
                 "traced_pid_count": len(traces),
-                "traced_pids": [int(p.suffix[1:]) for p in traces if _PID.fullmatch(p.suffix[1:])],
-                "sampled_processes": self._processes,
-                "sampled_pid_resources_are_lower_bounds": True,
+                "sampled_process_count": len(self._processes),
+                "per_pid_kernel_exit_accounting": True,
+                "per_pid_kernel_exit_count": len(kernel_lifetime),
+                "taskstats_missing_exit_events": 0,
+                "sampled_pid_resources_are_lower_bounds": False,
                 "cgroup_lifetime_usage_includes_tracer": True,
                 "cgroup_usage": self._last_usage,
             })
             _safe_write(self._live, {
                 "schema": 1, "state": "finished", "workspace_id": str(self.workspace_id),
                 "agent_id": str(self.agent_id), "worker_id": str(self.worker_id),
+                "identity_kind": self.identity_kind,
                 "sampled_at": time.time(), "usage": self._last_usage,
             })
         except BaseException as exc:
@@ -460,15 +543,26 @@ class WorkerMonitorSession:
             complete = False
             # Persist a fail-closed marker, but never fabricate complete audit.
             try:
-                _safe_write(self._live, {"schema": 1, "state": "fault", "workspace_id": str(self.workspace_id),
-                    "agent_id": str(self.agent_id), "worker_id": str(self.worker_id), "sampled_at": time.time(),
-                    "usage": self._last_usage, "fault": self._fault})
+                fault = {"schema": 1, "state": "fault", "workspace_id": str(self.workspace_id),
+                         "agent_id": str(self.agent_id), "worker_id": str(self.worker_id),
+                         "identity_kind": self.identity_kind, "sampled_at": time.time(),
+                         "usage": self._last_usage, "fault": self._fault}
+                _safe_write(self._live, fault)
+                _safe_write(self._active_live, fault)
             except OSError:
                 pass
+        # Always deregister the global exit listener, even after a fault.
+        if self._kernel is not None:
+            try:
+                self._kernel.close()
+            except BaseException:
+                complete = False
+                self._fault = self._fault or "taskstats_close_failed"
         # A populated cgroup is never silently released or reused.
         try:
             if confirmed_stopped and not (self.cgroup / "cgroup.procs").read_text().strip():
                 self.cgroup.rmdir()
+                self._active_live.unlink(missing_ok=True)
             else:
                 complete = False
         except OSError:
@@ -603,10 +697,24 @@ class OperatorTelemetryReader:
             workers: list[dict[str, Any]] = []
             agent_share: dict[str, float] = {}
             workspace = self.root / str(workspace_id)
+            active_keys: set[str] = set()
+            index_overflow = False
             if workspace.is_dir() and not workspace.is_symlink():
-                for folder in list(workspace.iterdir())[:256]:
-                    if not folder.is_dir() or folder.is_symlink(): continue
-                    try: item = _safe_read(folder / "live.json")
+                active = workspace / ".active"
+                if active.is_symlink():
+                    raise ScopeDeniedError("operator active worker index redirected")
+                if active.is_dir():
+                    _private_root(active)
+                    candidates = sorted(active.glob("*.json"))
+                else:
+                    # Rolling upgrade compatibility; Phase 32 had no active
+                    # index. Do not claim complete coverage beyond 256 files.
+                    legacy = [p / "live.json" for p in workspace.iterdir()
+                              if p.is_dir() and not p.is_symlink()]
+                    candidates = legacy
+                index_overflow = len(candidates) > 1024 if active.is_dir() else len(candidates) > 256
+                for filename in candidates[:1024 if active.is_dir() else 256]:
+                    try: item = _safe_read(filename)
                     except (OSError, ValueError, ScopeDeniedError): continue
                     if item.get("workspace_id") != str(workspace_id) or item.get("state") != "running": continue
                     if not isinstance(item.get("sampled_at"), (int, float)) or time.time() - item["sampled_at"] > 5: continue
@@ -614,17 +722,34 @@ class OperatorTelemetryReader:
                     if not isinstance(agent, str): continue
                     try: UUID(agent)
                     except ValueError: continue
+                    # Older/unknown observations are never falsely called agents.
+                    identity_kind = item.get("identity_kind", "principal")
+                    if identity_kind not in {"agent", "principal"}: continue
                     usage = item.get("usage")
                     if not isinstance(usage, dict) or type(usage.get("cpu_usec")) is not int: continue
-                    worker_key = str(item.get("worker_id"))
+                    worker_id = str(item.get("worker_id"))
+                    try: UUID(worker_id)
+                    except ValueError: continue
+                    worker_key = f"{workspace_id}:{worker_id}"
+                    active_keys.add(worker_key)
                     value = usage["cpu_usec"]
                     before = self._previous_workers.get(worker_key)
                     delta = max(0, value - before) if before is not None else 0
                     self._previous_workers[worker_key] = value
-                    workers.append({"workerId": worker_key, "agentId": agent,
-                                    "pidCount": min(4096, max(0, int(usage.get("pids_current", 0)))),
-                                    "memoryBytes": max(0, int(usage.get("memory_current_bytes", 0)))})
-                    agent_share[agent] = agent_share.get(agent, 0) + delta
+                    summary = {"workerId": worker_id, "identityKind": identity_kind,
+                               "pidCount": min(4096, max(0, int(usage.get("pids_current", 0)))),
+                               "memoryBytes": max(0, int(usage.get("memory_current_bytes", 0)))}
+                    if identity_kind == "agent":
+                        summary["agentId"] = agent
+                        agent_share[agent] = agent_share.get(agent, 0) + delta
+                    workers.append(summary)
+            for recorded in tuple(self._previous_workers):
+                if recorded.startswith(str(workspace_id) + ":") and recorded not in active_keys:
+                    self._previous_workers.pop(recorded, None)
+            if index_overflow:
+                # A partial worker index must not produce authoritative agent
+                # heat percentages: hidden workers could consume arbitrary CPU.
+                agent_share.clear()
             # CPU host 'busy' is summed over all logical CPUs; both counters
             # are durations. cgroup time includes only observed traced subtree.
             host_usec = host_busy_delta * 1_000_000 / os.sysconf("SC_CLK_TCK")
@@ -639,4 +764,8 @@ class OperatorTelemetryReader:
                                "pressure": {name: _psi(name) for name in ("cpu", "io", "memory")},
                                "logicalCpus": os.cpu_count() or 1},
                     "workers": workers, "agents": agents,
-                    "audit": {"sampling": "on-demand", "individualPidCpu": "sampled_lower_bound"}}
+                    "audit": {"sampling": "on-demand", "individualPidCpu": "sampled_lower_bound",
+                              "agentAttribution": "registered_agents_only",
+                              "workerIndexOverflow": index_overflow,
+                              "cgroupCpuIncludesTracer": True,
+                              "lifetimePidResources": "kernel_taskstats_exit"}}

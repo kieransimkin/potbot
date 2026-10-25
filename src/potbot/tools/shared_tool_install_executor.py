@@ -146,6 +146,7 @@ class SharedToolInstallExecutor:
                 workspace_root=self.runtime.home, sandbox_root=self.runtime.home,
                 guest_uid=home.uid, guest_gid=home.gid,
                 telemetry_workspace_id=workspace_id, telemetry_agent_id=agent_id,
+                telemetry_identity_kind="agent",
                 timeout_ms=600_000, max_output_bytes=1_048_576,
                 memory_bytes=8 * 1024**3, cpu_seconds=600,
             )
