@@ -38,6 +38,7 @@ SERVICE_CREDENTIAL_NAMES = (
     "providers.gemini",
     "providers.evolink",
     "api.access_token",
+    "api.setup_token",
 )
 _NAMES = {"postgres.application", "postgres.admin", *SERVICE_CREDENTIAL_NAMES}
 _PURPOSE_ENV = {"application": "POTBOT_DSN", "admin": "POTBOT_ADMIN_DSN"}
@@ -399,6 +400,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("status", help="show whether native credentials exist, never their values")
     commands.add_parser("service-status", help="inspect hosted API credential presence")
     commands.add_parser("api-show", help="display the API token to an interactive terminal only")
+    commands.add_parser("setup-show", help="display the distinct setup token to an interactive terminal only")
     for name in ("service-set", "service-delete"):
         command = commands.add_parser(name)
         command.add_argument("--name", required=True, choices=SERVICE_CREDENTIAL_NAMES)
@@ -418,13 +420,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     name: store.get(name) is not None for name in SERVICE_CREDENTIAL_NAMES
                 },
             }
-        elif args.command == "api-show":
+        elif args.command in {"api-show", "setup-show"}:
             if not sys.stdout.isatty() or not sys.stdin.isatty():
-                raise InvalidInputError("API token display requires an interactive terminal.")
-            token = store.get("api.access_token")
+                raise InvalidInputError("Token display requires an interactive terminal.")
+            name = "api.setup_token" if args.command == "setup-show" else "api.access_token"
+            token = store.get(name)
             if token is None:
-                raise CapabilityUnavailableError("No API token is configured.")
-            print("Potbot API key: " + token, flush=True)
+                raise CapabilityUnavailableError("No requested token is configured.")
+            print(("Potbot setup key: " if args.command == "setup-show" else "Potbot API key: ") + token, flush=True)
             return 0
         elif args.command == "service-set":
             value = _hidden_prompt(f"Value for {args.name} (hidden): ")
@@ -432,8 +435,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise InvalidInputError(
                     "API credentials must contain only visible ASCII characters."
                 )
-            if args.name == "api.access_token" and len(value) < 32:
-                raise InvalidInputError("API access tokens need at least 32 characters.")
+            if args.name in {"api.access_token", "api.setup_token"} and len(value) < 32:
+                raise InvalidInputError("API access and setup tokens need at least 32 characters.")
             store.set(args.name, value)
             result = {"profile": store.profile, "name": args.name, "saved": True}
         elif args.command == "service-delete":

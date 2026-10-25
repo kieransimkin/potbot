@@ -112,8 +112,17 @@ def application(args: argparse.Namespace) -> FastAPI:
         settings=settings,
     )
     from potbot.api.ui_resources import register_ui_routes
+    from potbot.api.ui_api_setup import register_api_setup_routes
 
     register_ui_routes(app, database, authenticate, settings.allowed_origins)
+    # The separate setup-token capability is resolved at request time. Ordinary
+    # workspace bearers can never mutate the host's credential vault alone.
+    # The setup bridge is only enabled on an operator loopback listener.
+    if args.host == "localhost" or args.host in {"127.0.0.1", "::1"}:
+        register_api_setup_routes(
+            app, database, authenticate, settings.allowed_origins, credentials,
+            changed=directory.invalidate_provider,
+        )
     return app
 
 

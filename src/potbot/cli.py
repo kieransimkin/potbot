@@ -53,6 +53,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.credentials import main as credentials_main
 
         return credentials_main(args[1:])
+    if args and args[0] == "operator":
+        from potbot.tools.operator_cli import main as operator_main
+
+        return operator_main(args[1:])
     if args and args[0] == "dependencies":
         from potbot.dependencies import main as dependencies_main
 
@@ -107,6 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser(
         "credentials", help="manage database, provider and API credentials in the native vault"
     )
+    commands.add_parser("operator", help="run the S7 AI-history operator on a qualified host")
     parsed = parser.parse_args(args)
     if parsed.command == "info":
         print(

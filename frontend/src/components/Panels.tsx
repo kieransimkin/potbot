@@ -104,6 +104,10 @@ export function MenuPanel() {
       </button>)}
     </div>)}
     {isLive && <div className="menu-section">
+      <h2>OPERATOR SETUP</h2>
+      <a className="menu-item" href="/setup/apis"><span>Remote API credentials</span><span aria-hidden="true">↗</span></a>
+    </div>}
+    {isLive && <div className="menu-section">
       <h2>XPRA APPLICATION WINDOWS</h2>
       {xAvailable && <p className="muted-note">{xTransport === "xpra-native-binary"
         ? "Xpra seamless · native binary stream · individual docked windows"
@@ -214,6 +218,8 @@ export function PreferencesPanel() {
       <button type="button" onClick={() => openPanel("activity")}>Activity ↗</button></div>
     <div className="settings-row"><div><strong>Model catalogue</strong><small>{modelStatus}</small></div>
       <button type="button" onClick={() => openPanel("installations")}>Models ↗</button></div>
+    <div className="settings-row"><div><strong>Remote API credentials</strong><small>Manage keys in the native vault.</small></div>
+      <a href="/setup/apis">API setup ↗</a></div>
     <h2>Activity windows</h2>
     <button type="button" className="menu-item" onClick={() => openPanel("downloads")}>Downloads and transfers <span>↗</span></button>
     <button type="button" className="menu-item" onClick={() => openPanel("installations")}>Model installations <span>↗</span></button>

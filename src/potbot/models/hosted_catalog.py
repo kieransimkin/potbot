@@ -100,6 +100,13 @@ class HostedModelDirectory:
         for key in [key for key, value in self._cache.items() if value.expires_at <= now]:
             self._cache_bytes -= self._cache.pop(key).size_bytes
 
+    def invalidate_provider(self, provider: str) -> None:
+        """Discard local provider metadata after an OS-vault key change."""
+        provider_name(provider)
+        with self._lock:
+            for key in [key for key in self._cache if key[1] == provider]:
+                self._cache_bytes -= self._cache.pop(key).size_bytes
+
     def _snapshot(self, workspace_id: UUID) -> dict[str, _CachedCatalog]:
         with self._lock:
             self._prune()
