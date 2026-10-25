@@ -4,7 +4,7 @@ export type AppSession = { id: string; kind: string; title: string;
   state: "running" | "exited" | "indeterminate"; detached: boolean;
   startedAt: number; exitCode: number | null };
 export type AppInventory = { workspaceId: string; configured: boolean;
-  choices: AppChoice[]; sessions: AppSession[] };
+  choices: AppChoice[]; sessions: AppSession[]; xpraReadOnly?: boolean };
 
 const KIND = /^[a-z][a-z0-9-]{1,31}$/;
 const ID = /^[0-9a-f]{32}$/;
@@ -47,5 +47,7 @@ export function projectAppInventory(value: unknown, workspaceId: string): AppInv
     sessions.push(session);
   }
   if (!x.configured && (choices.length || sessions.length)) return null;
-  return { workspaceId, configured: x.configured, choices, sessions };
+  if (x.xpraReadOnly !== undefined && typeof x.xpraReadOnly !== "boolean") return null;
+  return { workspaceId, configured: x.configured, choices, sessions,
+    ...(typeof x.xpraReadOnly === "boolean" ? {xpraReadOnly:x.xpraReadOnly} : {}) };
 }

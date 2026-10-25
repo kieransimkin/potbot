@@ -43,5 +43,6 @@ RUN python3 -m venv --copies /opt/potbot/browser \
     && /opt/potbot/browser/bin/pip install --no-cache-dir \
          playwright==1.64.1 patchright==1.64.2 playwright-stealth==2.0.3
 COPY src/potbot/tools/xpra_browser_worker.py /opt/potbot/browser_worker.py
+COPY src/potbot/tools/browser_https_routes.py /opt/potbot/browser_https_routes.py
 WORKDIR /home
 CMD ["/bin/bash"]

@@ -36,7 +36,8 @@ class WorkspaceXServer:
     """Own display allocation, Xpra process and one-time browser stream tickets."""
 
     def __init__(self, workspace_id: UUID, sandbox_root: Path, *,
-                 display: int | None = None, xpra_executable: str = "xpra") -> None:
+                 display: int | None = None, xpra_executable: str = "xpra",
+                 readonly_mode: bool = False) -> None:
         if not isinstance(workspace_id, UUID):
             raise ValueError("workspace ID must be a UUID")
         selected = Path(sandbox_root)
@@ -47,6 +48,9 @@ class WorkspaceXServer:
             raise ValueError("invalid workspace display number")
         self.workspace_id, self.sandbox_root = workspace_id, root
         self.display_number = display
+        if type(readonly_mode) is not bool:
+            raise ValueError("invalid Xpra readonly mode")
+        self.readonly_mode = readonly_mode
         self.xpra_executable = xpra_executable
         self.auth_file = root / ".potbot" / "x11" / "Xauthority"
         self.session_file = root / ".potbot" / "x11" / "session.json"
@@ -121,7 +125,8 @@ class WorkspaceXServer:
             os.chmod(self.auth_file, 0o600)
             self._owned_auth = True
             self._xpra = XpraSeamlessSession(self.sandbox_root, self.display,
-                                              self.auth_file, binary=self.xpra_executable)
+                                              self.auth_file, binary=self.xpra_executable,
+                                              readonly_mode=self.readonly_mode)
             self._xpra.start()
             payload = json.dumps({
                 "schema_version": 3, "workspace_id": str(self.workspace_id),
@@ -217,7 +222,8 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         authenticate(authorization)
         server.environment()
         return {"workspaceId": str(server.workspace_id), "available": True,
-                "transport": "xpra-native-binary", "windowPresentation": "dockview"}
+                "transport": "xpra-native-binary", "windowPresentation": "dockview",
+                "xpraReadOnly": server.readonly_mode}
 
     @app.post("/v1/xpra/tickets")
     def tickets(authorization: str | None = Header(default=None)) -> JSONResponse:
@@ -231,10 +237,11 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
         authenticate(authorization)
         if apps is None:
             data = {"workspaceId": str(server.workspace_id), "configured": False,
-                    "choices": [], "sessions": []}
+                    "choices": [], "sessions": [], "xpraReadOnly": server.readonly_mode}
         else:
             data = {"workspaceId": str(server.workspace_id), "configured": True,
-                    "choices": apps.choices(), "sessions": apps.list_sessions()}
+                    "choices": apps.choices(), "sessions": apps.list_sessions(),
+                    "xpraReadOnly": server.readonly_mode}
         return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
 
     from potbot.domain.errors import DomainError
@@ -402,8 +409,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="private operator-owned app recipes and pinned runtime; disabled by default")
     args = parser.parse_args(argv)
     token = os.environ.get("POTBOT_XPRA_BRIDGE_TOKEN", "")
+    readonly = False
+    if args.apps_policy is not None:
+        from potbot.tools.browser_operator_policy import server_readonly_required
+        readonly = server_readonly_required(args.apps_policy)
     server = WorkspaceXServer(args.workspace_id, args.sandbox_root, display=args.display,
-                              xpra_executable=args.xpra_binary)
+                              xpra_executable=args.xpra_binary, readonly_mode=readonly)
     import uvicorn
     apps = None
     try:

@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import signal
 import stat
 import subprocess
@@ -70,16 +71,19 @@ class XpraSandboxLaunchBackend:
     current workspace's owned socket, and the guest network remains unshared.
     """
 
-    def __init__(self, *, server: Any, backend: Any, ledger: Any) -> None:
+    def __init__(self, *, server: Any, backend: Any, ledger: Any,
+                 browser_gateway: Any = None) -> None:
         from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
         if not isinstance(backend, SharedWorkspaceBubblewrapBackend):
             raise CapabilityUnavailableError("Xpra applications require qualified shared-rootfs Bubblewrap")
         self.server, self.backend, self.ledger = server, backend, ledger
+        self.browser_gateway = browser_gateway
         self.runtime = backend.runtime
         if self.runtime.home.resolve(strict=True) != server.sandbox_root or server.workspace_id is None:
             raise ScopeDeniedError("Xpra display does not belong to the pinned workspace")
 
-    def prepare(self, *, argv: tuple[str, ...], status_fd: int) -> IsolationLaunch:
+    def prepare(self, *, argv: tuple[str, ...], status_fd: int,
+                browser_egress: bool = False) -> IsolationLaunch:
         from potbot.tools.workspace_supervision import validate_runtime_pin
         from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
         assert isinstance(self.backend, SharedWorkspaceBubblewrapBackend)
@@ -114,6 +118,7 @@ class XpraSandboxLaunchBackend:
                       max_open_files=256)
         launch = self.backend.prepare(**kwargs)
         replacement = -1
+        token_fd = -1
         try:
             replacement = _seccomp_fd(private_x11_unix=True)
             args = list(launch.argv)
@@ -128,6 +133,42 @@ class XpraSandboxLaunchBackend:
             mount = args.index("--proc")
             args[mount:mount] = ["--ro-bind", str(socket_path),
                                   "/home/.tmp/.X11-unix/" + socket_path.name]
+            if browser_egress and self.browser_gateway is not None:
+                if not self.server.readonly_mode:
+                    raise ScopeDeniedError("networked browsers need Xpra readonly input")
+                gateway = self.browser_gateway
+                source = gateway.path
+                metadata = source.lstat()
+                if (source.is_symlink() or not stat.S_ISSOCK(metadata.st_mode)
+                        or metadata.st_uid != os.getuid()
+                        or stat.S_IMODE(metadata.st_mode) != 0o600):
+                    raise ScopeDeniedError("CONNECT broker lost its private socket")
+                guest_dir = home / ".tmp" / ".potbot-connect"
+                if guest_dir.is_symlink():
+                    raise ScopeDeniedError("browser CONNECT mount parent redirected")
+                guest_dir.mkdir(mode=0o700, exist_ok=True)
+                if not guest_dir.is_dir() or guest_dir.stat().st_uid != os.getuid():
+                    raise ScopeDeniedError("browser CONNECT mount parent owner changed")
+                placeholder = guest_dir / "egress.sock"
+                if placeholder.is_symlink() or (placeholder.exists() and not placeholder.is_file()):
+                    raise ScopeDeniedError("browser CONNECT mount target redirected")
+                f = os.open(placeholder, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+                os.close(f)
+                mount = args.index("--proc")
+                if not hasattr(os, "memfd_create"):
+                    raise CapabilityUnavailableError("sealed CONNECT secret FD unavailable")
+                token_fd = os.memfd_create("potbot-browser-egress", flags=os.MFD_CLOEXEC)
+                os.write(token_fd, gateway.token.encode("ascii"))
+                os.lseek(token_fd, 0, os.SEEK_SET)
+                args[mount:mount] = ["--ro-bind", str(source),
+                    "/home/.tmp/.potbot-connect/egress.sock",
+                    "--ro-bind-data", str(token_fd),
+                    "/home/.tmp/.potbot-connect/token"]
+                pos = args.index("--chdir")
+                args[pos:pos] = ["--setenv", "POTBOT_BROWSER_CONNECT_SOCKET",
+                    "/home/.tmp/.potbot-connect/egress.sock",
+                    "--setenv", "POTBOT_BROWSER_CONNECT_TOKEN_FILE",
+                    "/home/.tmp/.potbot-connect/token"]
             chdir = args.index("--chdir")
             args[chdir:chdir] = ["--setenv", "DISPLAY", env["DISPLAY"],
                                  "--setenv", "XAUTHORITY", "/home/.potbot/x11/Xauthority"]
@@ -135,10 +176,16 @@ class XpraSandboxLaunchBackend:
                                      "workspace": str(self.server.workspace_id),
                                      "socket": str(socket_path),
                                      "socket_inode": socket_path.stat().st_ino,
-                                     "authority_digest": hashlib.sha256(auth.read_bytes()).hexdigest()})
+                                     "authority_digest": hashlib.sha256(auth.read_bytes()).hexdigest(),
+                                     "browser_egress": browser_egress and self.browser_gateway is not None,
+                                     "broker_inode": (self.browser_gateway.path.stat().st_ino
+                                         if browser_egress and self.browser_gateway is not None else None)})
             os.close(old_fd)
-            return IsolationLaunch(tuple(args), (replacement, status_fd), identity)
+            return IsolationLaunch(tuple(args),
+                (replacement, status_fd) + ((token_fd,) if token_fd >= 0 else ()), identity)
         except BaseException:
+            if token_fd >= 0:
+                os.close(token_fd)
             if replacement >= 0:
                 os.close(replacement)
             for original in launch.pass_fds:
@@ -295,8 +342,11 @@ class XpraApplicationSupervisor:
             launch = None
             process = None
             try:
-                launch = self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
                 controlled_browser = kind == "controlled-browser"
+                launch = (self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd,
+                                               browser_egress=True)
+                          if controlled_browser and getattr(self.backend, "browser_gateway", None) is not None
+                          else self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd))
                 process = self.popen(launch.argv,
                                      stdin=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
                                      stdout=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
@@ -443,6 +493,8 @@ class XpraApplicationSupervisor:
                 self._terminate(app)
             self._settle()
         self._watcher.join(timeout=2)
+        if getattr(self.backend, "browser_gateway", None) is not None:
+            self.backend.browser_gateway.stop()
         if self.ai_monitor is not None:
             self.ai_monitor.stop()
 
@@ -472,11 +524,20 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
     try:
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
         allowed = {"workspaceId", "principalId", "runtime", "ledger", "recipes"}
-        if (not isinstance(data, dict) or set(data) not in (allowed, allowed | {"browserLeases"})
+        optional = {"browserLeases", "strictXpraInput", "browserEgress"}
+        if (not isinstance(data, dict) or not allowed <= set(data)
+                or set(data) - allowed - optional
                 or ("browserLeases" in data and type(data["browserLeases"]) is not bool)):
             raise ValueError()
         if UUID(data["workspaceId"]) != server.workspace_id:
             raise ScopeDeniedError("application policy belongs to another workspace")
+        if ("strictXpraInput" in data and type(data["strictXpraInput"]) is not bool):
+            raise ValueError("strictXpraInput must be a boolean")
+        strict = data.get("strictXpraInput") is True
+        if (strict != server.readonly_mode or
+                (data.get("browserLeases") is True) != strict or
+                ("browserEgress" in data and (not strict or not isinstance(data["browserEgress"], dict)))):
+            raise ScopeDeniedError("strict browser leases and Xpra server mode must agree")
         principal = UUID(data["principalId"])
         obj = data["runtime"]
         required = {"imageDigest", "qualificationSha256", "rootfs", "home", "modelStaging", "sharedModels", "sharedTools"}
@@ -500,6 +561,17 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         if not isinstance(raw, list) or not 1 <= len(raw) <= 12:
             raise ValueError()
         recipes = tuple(AppRecipe(row["kind"], row["title"], tuple(row["argv"])) for row in raw)
+        egress_spec = data.get("browserEgress")
+        if egress_spec is not None:
+            if (not isinstance(egress_spec, dict) or set(egress_spec) != {"hosts", "socket"}
+                    or not isinstance(egress_spec["hosts"], list)
+                    or not all(isinstance(h, str) for h in egress_spec["hosts"])
+                    or not isinstance(egress_spec["socket"], str)
+                    or not Path(egress_spec["socket"]).is_absolute()
+                    or Path(egress_spec["socket"]).is_relative_to(paths["home"])
+                    or Path(egress_spec["socket"]).is_relative_to(paths["rootfs"])
+                    or not any(r.kind == "controlled-browser" for r in recipes)):
+                raise ValueError("invalid browser CONNECT policy")
     except (ValueError, TypeError, KeyError, OSError, json.JSONDecodeError) as exc:
         raise InvalidInputError("invalid operator application policy") from exc
     # Modern rootfs images require the same active, integrity-checked /etc/ai
@@ -510,9 +582,25 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         from potbot.tools.ai_config_history import AiConfigHistoryMonitor
         monitor = AiConfigHistoryMonitor(config_dir=ai_config, past_dir=ai_past)
         monitor.start()
+    gateway = None
+    if egress_spec is not None:
+        from potbot.tools.browser_connect_gateway import BrowserConnectGateway, ConnectPolicy
+        try:
+            gateway = BrowserConnectGateway(Path(egress_spec["socket"]),
+                policy=ConnectPolicy(tuple(egress_spec["hosts"])),
+                token=secrets.token_urlsafe(32))
+            gateway.start()
+        except BaseException:
+            if monitor is not None:
+                monitor.stop()
+            log_operator = locals().get("log_operator")
+            if log_operator is not None:
+                log_operator.close()
+            raise
     try:
         backend = SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=monitor)
-        xbackend = XpraSandboxLaunchBackend(server=server, backend=backend, ledger=ledger)
+        xbackend = XpraSandboxLaunchBackend(server=server, backend=backend, ledger=ledger,
+                                            browser_gateway=gateway)
         from potbot.tools.browser_session_leases import BrowserSessionCoordinator
         leases = (BrowserSessionCoordinator(server.workspace_id, principal)
                   if data.get("browserLeases") is True else None)
@@ -521,6 +609,8 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
                                          browser_leases=leases,
                                          ai_monitor=monitor)
     except BaseException:
+        if gateway is not None:
+            gateway.stop()
         if monitor is not None:
             monitor.stop()
         raise

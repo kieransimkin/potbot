@@ -11,11 +11,17 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
 import sys
 from collections import deque
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlsplit, urlunsplit
+# The same verified module is packaged with the script in /opt/potbot.
+if __package__:
+    from .browser_https_routes import require_egress_config, install_https_routes
+else:
+    from browser_https_routes import require_egress_config, install_https_routes
 
 COMMANDS = frozenset({
     "state", "navigate", "accessibility", "interactive", "inspect.start",
@@ -177,6 +183,10 @@ class BrowserWorker:
         self._picker = False
 
     async def start(self) -> None:
+        egress = require_egress_config()
+        # Never leak the short-lived CONNECT capability to the Chromium/Node subprocess.
+        os.environ.pop("POTBOT_BROWSER_CONNECT_TOKEN_FILE", None)
+        os.environ.pop("POTBOT_BROWSER_CONNECT_SOCKET", None)
         # No launch can inherit a host CDP websocket. Browser/driver start inside
         # the namespace; Playwright/Patchright manage Chromium via local pipes.
         if self.engine == "patchright":
@@ -194,6 +204,8 @@ class BrowserWorker:
         if self.stealth:
             from playwright_stealth import Stealth
             await Stealth().apply_stealth_async(self.context)
+        if egress is not None:
+            await install_https_routes(self.context, *egress)
         self.page = await self.context.new_page()
         self.page.on("requestfailed", lambda request: self._errors.append(_safe_url(request.url)))
         self.cdp = await self.context.new_cdp_session(self.page)

@@ -24,7 +24,8 @@ class XpraSessionError(RuntimeError):
 
 class XpraSeamlessSession:
     def __init__(self, root: Path, display: str, authority: Path, *,
-                 binary: str = "xpra", startup_timeout: float = 20.0) -> None:
+                 binary: str = "xpra", startup_timeout: float = 20.0,
+                 readonly_mode: bool = False) -> None:
         if not root.is_absolute() or not root.is_dir() or root.is_symlink():
             raise ValueError("Xpra requires an existing absolute workspace root")
         if not display.startswith(":") or not display[1:].isdigit() or not 100 <= int(display[1:]) <= 999:
@@ -36,6 +37,9 @@ class XpraSeamlessSession:
         if not 2 <= startup_timeout <= 60:
             raise ValueError("Xpra startup timeout out of bounds")
         self.root, self.display, self.authority = root, display, authority
+        if type(readonly_mode) is not bool:
+            raise ValueError("readonly Xpra mode must be set by the operator")
+        self.readonly_mode = readonly_mode
         self.binary, self.startup_timeout = binary, startup_timeout
         suffix = hashlib.sha256(os.fsencode(root.resolve())).hexdigest()[:16]
         self.host_runtime_root = Path(f"/tmp/potbot-xpra-u{os.getuid()}")
@@ -65,6 +69,7 @@ class XpraSeamlessSession:
             self.binary, "seamless", self.display, "--backend=x11", "--use-display=no",
             "--daemon=no", "--attach=no", "--exit-with-client=no",
             "--start-new-commands=no", "--systemd-run=no", "--mdns=no",
+            *(("--readonly=yes",) if self.readonly_mode else ()),
             "--clipboard=no", "--printing=no", "--file-transfer=no",
             "--speaker=off", "--microphone=off", "--webcam=no",
             "--html=on", f"--socket-dir={self.socket_dir}",

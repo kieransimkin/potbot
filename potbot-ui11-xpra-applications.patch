@@ -1,0 +1,1803 @@
+diff --git a/.github/workflows/xpra-native-window-acceptance.yml b/.github/workflows/xpra-native-window-acceptance.yml
+index add7090..d0350a5 100644
+--- a/.github/workflows/xpra-native-window-acceptance.yml
++++ b/.github/workflows/xpra-native-window-acceptance.yml
+@@ -4,6 +4,8 @@ on:
+   push:
+     paths:
+       - 'src/potbot/tools/xpra_seamless.py'
++      - 'src/potbot/tools/xpra_app_sessions.py'
++      - 'src/potbot/tools/isolation.py'
+       - 'src/potbot/tools/x11_workspace_server.py'
+       - 'frontend/**'
+       - 'tests/integration/test_xpra_*'
+@@ -56,6 +58,7 @@ jobs:
+           uv run --locked python -m pytest -q
+           tests/integration/test_xpra_native_bridge.py
+           tests/integration/test_xpra_vendor_contract.py
++          tests/unit/test_xpra_application_sessions.py
+       - uses: actions/setup-node@v4
+         with:
+           node-version: '22'
+diff --git a/docs/ui/implementation-plan.md b/docs/ui/implementation-plan.md
+index 24c80f1..c3e78af 100644
+--- a/docs/ui/implementation-plan.md
++++ b/docs/ui/implementation-plan.md
+@@ -292,3 +292,17 @@ browser tests must run on the appropriately provisioned Linux host.
+ - Still needed: controller-owned detached chat execution, paginated/deleteable
+   history, native backend workspace discovery, per-workspace Xpra bridges,
+   authenticated browser/terminal **creation**, and full live-host E2E/CI.
++
++### UI-11: authorized workspace Xpra application sessions
++
++The operator-only Xpra bridge now supports pinned launch recipes, session
++inventory, detach/reattach, explicit termination, and qualified Bubblewrap/X11
++socket admission. Next.js and the dockable application/terminal/browser panes
++use the same workspace-scoped service. See
++[`ui11-xpra-application-sessions.md`](ui11-xpra-application-sessions.md)
++for the host-only policy, security model and manual qualification procedure.
++The private `--apps-policy` option is required to enable launches; absent that
++file, the old read-only Xpra window viewer remains functional. Normal browser
++navigation has no newly granted network permission. Operator-process restart
++cannot yet migrate active GUI processes; process death and lease expiry are
++explicit and never silently replayed.
+diff --git a/docs/ui/ui11-xpra-application-sessions.md b/docs/ui/ui11-xpra-application-sessions.md
+new file mode 100644
+index 0000000..796b48a
+--- /dev/null
++++ b/docs/ui/ui11-xpra-application-sessions.md
+@@ -0,0 +1,171 @@
++# UI-11 — Qualified workspace Xpra application sessions
++
++## What is implemented
++
++The Xpra relay now offers an **operator-controlled application session API**.
++A browser authenticated to Next.js may request a *kind* from a trusted policy,
++but cannot supply a command line, environment, image, working directory, URL,
++mount, device or host process ID. The Xpra relay starts processes only from a
++qualified `SharedWorkspaceBubblewrapBackend` with an active image pin. No Xvfb,
++XTEST, VNC desktop, native host shell, or unconfined launch fallback exists.
++
++The same **workspace** (also called *repository* in the Potbot UI) owns the
++X display, its Unix socket and Xauthority, every application session and every
++Dockview window. Multiple Git repositories inside that workspace share those.
++
++- An operator-approved **terminal** recipe can launch xterm running Bash.
++- An operator-approved **browser** recipe can launch a GUI browser from the
++  qualified image. Because the sandbox isolates the network, internet browsing
++  is *not* enabled until a separately qualified network/proxy policy exists.
++- Further GUI app recipes are permitted only if the operator pins their exact
++  executable and argument vector and the immutable image contains that binary.
++- Xpra owns the window/protocol/codec transport. The UI manages individual
++  Dockview windows, forwards Xpra keyboard/pointer events and controls the
++  application process separately.
++- Closing/minimizing a Dockview pane only hides/detaches its window. **Stop**
++  is explicit and requires confirmation; **Reattach** works after refreshing
++  or reopening the UI, while the Xpra relay process remains alive.
++
++## Host-only setup
++
++Prerequisites: Linux/qualified WSL2, Potbot's signed and unpacked rootfs,
++`bwrap`, `prlimit`, `libseccomp`, `xauth`, Xpra Xdummy and installed GUI binaries.
++The host operator must have already activated the immutable rootfs digest and
++qualification SHA-256 through `WorkspaceLeaseLedger.pin_image`. **This is not
++performed by the UI or by an agent.**
++
++Create a JSON policy at an operator-private path **outside** the sandbox home
++and rootfs (e.g. `/var/lib/potbot/operators/workspace-apps.json`). It must be
++owned by the Xpra relay process UID and have mode `0600`:
++
++```json
++{
++  "workspaceId": "00000000-0000-4000-8000-000000000001",
++  "principalId": "00000000-0000-4000-8000-000000000002",
++  "ledger": "/var/lib/potbot/ledgers/workspace.sqlite3",
++  "runtime": {
++    "imageDigest": "<64-lowercase-hex-sha256>",
++    "qualificationSha256": "<64-lowercase-hex-sha256>",
++    "rootfs": "/var/lib/potbot/images/qualified-rootfs",
++    "home": "/var/lib/potbot/workspaces/workspace-one/home",
++    "modelStaging": "/var/lib/potbot/workspaces/workspace-one/var-ai",
++    "sharedModels": "/var/lib/potbot/shared-models",
++    "sharedTools": "/var/lib/potbot/shared-tools",
++    "aiConfig": "/var/lib/potbot/workspaces/workspace-one/etc-ai",
++    "aiPast": "/var/lib/potbot/operator-ai-history/workspace-one"
++  },
++  "recipes": [
++    { "kind": "terminal", "title": "Bash (xterm)",
++      "argv": ["/usr/bin/xterm", "-fa", "Monospace", "-e", "/bin/bash"] },
++    { "kind": "browser", "title": "Workspace Firefox",
++      "argv": ["/usr/bin/firefox", "--no-remote", "about:blank"] }
++  ]
++}
++```
++
++The example contains placeholders, **not working credentials**. Install each
++executable in the pinned rootfs and verify the path before adding its recipe.
++For legacy rootfs images that truly lack `/etc/ai` and `/etc/ai-past`, omit
++`aiConfig` and `aiPast` together. On modern images, both are mandatory; the
++operator starts the AI configuration watcher before permitting launches. If
++another process owns that monitor, the Xpra application service fails closed.
++
++Launch the Xpra relay as the operator controlling that workspace, using the
++**same** `--workspace-id` and `--sandbox-root` home specified in the policy:
++
++```bash
++export POTBOT_XPRA_BRIDGE_TOKEN='<long-host-only-credential>'
++PYTHONPATH=src python -m potbot.tools.x11_workspace_server \
++  --workspace-id 00000000-0000-4000-8000-000000000001 \
++  --sandbox-root /var/lib/potbot/workspaces/workspace-one/home \
++  --browser-origin http://127.0.0.1:3100 \
++  --port 8765 \
++  --apps-policy /var/lib/potbot/operators/workspace-apps.json
++```
++
++The Next.js server uses its existing `POTBOT_UI_XPRA_BRIDGE_*` settings to
++access this loopback-only relay. For **multiple** authorized workspaces,
++configure a separate private Xpra bridge for each workspace in the server-only
++`POTBOT_UI_XPRA_BRIDGES_JSON` environment variable, alongside
++`POTBOT_UI_WORKSPACES_JSON` (the latter keeps its original `id`, `name`, `url`,
++`token`, optional `model` shape):
++
++```json
++[
++  {"workspaceId":"00000000-0000-4000-8000-000000000001",
++   "bridgeUrl":"http://127.0.0.1:8765/",
++   "bridgeToken":"<private-host-bearer>",
++   "publicWsUrl":"ws://127.0.0.1:8765/v1/xpra/ws"},
++  {"workspaceId":"00000000-0000-4000-8000-000000000003",
++   "bridgeUrl":"http://127.0.0.1:8766/",
++   "bridgeToken":"<separate-private-host-bearer>",
++   "publicWsUrl":"ws://127.0.0.1:8766/v1/xpra/ws"}
++]
++```
++
++The Xpra bridges are validated against the independently allowed Potbot backend
++workspaces. Unknown IDs, duplicate entries, non-loopback bridge HTTP URLs or
++invalid WebSocket URLs fail closed. The old single-workspace settings remain
++supported. Do not place the bridge bearer, launch policy or Xauthority in
++browser-visible configuration. An unconfigured workspace can still show other
++UI panels but cannot launch an application or open an Xpra stream.
++
++## Authenticated API contract
++
++| Request | Meaning |
++|---|---|
++| `GET /v1/xpra/apps` | Explicit operator recipes and session inventory |
++| `POST /v1/xpra/apps` | `{ "kind": "terminal" }` only; exact operator recipe |
++| `POST /v1/xpra/apps/{id}/attach` | Reattach process entry after UI reconnect |
++| `POST /v1/xpra/apps/{id}/detach` | Detach entry; process survives |
++| `POST /v1/xpra/apps/{id}/terminate` | Explicitly terminate the process group |
++
++These endpoints require the **private Xpra relay service bearer**. The public
++Next.js equivalents are under `/api/ui/xpra/apps` and require the existing
++operator cookie, same-origin checks for mutations and the exact workspace header.
++Only a whitelisted session projection is returned (ID, title, kind, state,
++exit code, start time, detach state); host PIDs, argv, mounts and sockets are
++never forwarded.
++
++## Isolation and reliability notes
++
++- The normal shared-rootfs sandbox still denies all sockets. Only a trusted
++  Xpra application invocation swaps in a seccomp profile allowing AF_UNIX
++  sockets, bound by a separate network namespace and a single physical Xpra
++  socket mounted into its private guest filesystem. No host X socket directory
++  or Xpra control socket is mounted.
++- The Xauthority cookie is stored inside the workspace's operator-provisioned
++  `.potbot/x11` directory, not in the immutable rootfs. The host validates its
++  owner, mode and location before every launch.
++- One full-workspace write lease covers *all* launched GUI processes; a second
++  tool requiring the same exclusive home lease may be delayed until the GUI
++  session group is closed. This conservative choice prevents uncoordinated
++  shared-home writes, at the cost of concurrency. It does **not** establish
++  independent kernel-enforced per-agent filesystem isolation.
++- Host-side process starts, stops, lease fencing, abnormal exit and Xpra/AI
++  watcher failure are tracked. Closing the browser or detaching a pane does
++  not kill applications. Restarting the **Xpra operator process** terminates
++  its owned app group; an unknown orphaned lease requires reconciliation rather
++  than automatic replay.
++- Application delivery is Xpra's native individual-window channel. There is
++  no HTML framebuffer polling path and no synthetic terminal window pretending
++  to be a running process.
++- This implementation does not grant network access to a browser or implement
++  generalized PTY streaming outside the Xpra window. Both require separate
++  host-reviewed policies.
++
++## Qualification
++
++```bash
++PYTHONPATH=src pytest -q tests/unit/test_xpra_application_sessions.py \
++  tests/integration/test_xpra_native_bridge.py
++cd frontend && npm test && npm run typecheck && npm run build
++```
++
++On a **real**, separately provisioned operator host, launch the relay with
++`--apps-policy`, use the UI to launch xterm, observe a new native Xpra window,
++press keys in that window, minimize then restore the Dockview pane, reconnect
++the Next.js browser, reattach the process, and finally Stop it. Verify the
++active group lease is released *only* after all applications exit. An opt-in
++real Xpra/browser acceptance step is still required; tests using a fake Xpra
++relay do not constitute production qualification.
+diff --git a/frontend/README.md b/frontend/README.md
+index 3d1cc10..c7bffb2 100644
+--- a/frontend/README.md
++++ b/frontend/README.md
+@@ -316,3 +316,18 @@ another workspace using a bearer token from a different workspace.
+ See [the UI-10 implementation and security contract](../docs/ui/ui10-durable-workspace-chat.md)
+ for configuration, endpoint details, persistence/recovery limits and the next
+ backend milestones. Single-workspace environment variables remain supported.
++
++### UI-11 — Qualified Xpra application sessions
++
++The Xpra application manager now exposes an operator-pinned Launch menu and
++running-process sessions. Bash/xterm and browser panels may start approved
++recipes. Closing a Dockview window never terminates the application; an
++explicit Stop action does. Application sessions are scoped to the workspace and
++persist across Next.js reconnections while the Xpra operator remains running.
++Launches stay **disabled** without a pinned rootfs, live Xpra socket, qualified
++Linux Bubblewrap/AF_UNIX IPC and operator-private `--apps-policy`.
++See `docs/ui/ui11-xpra-application-sessions.md`.
++
++For multiple concurrent Xpra workspaces, set the server-only `POTBOT_UI_XPRA_BRIDGES_JSON`
++array with separate scoped bridge tokens and endpoints. Legacy single-workspace
++`POTBOT_UI_XPRA_BRIDGE_*` settings are still accepted.
+diff --git a/frontend/src/app/api/ui/xpra/apps/[sessionId]/[operation]/route.ts b/frontend/src/app/api/ui/xpra/apps/[sessionId]/[operation]/route.ts
+new file mode 100644
+index 0000000..2558907
+--- /dev/null
++++ b/frontend/src/app/api/ui/xpra/apps/[sessionId]/[operation]/route.ts
+@@ -0,0 +1,9 @@
++import { appProxy } from "../../../../../../../lib/server/xpra-apps.ts";
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++export function POST(request: Request, context: {params: Promise<{sessionId: string; operation: string}>}) {
++  return context.params.then(({sessionId, operation}) =>
++    ["attach", "detach", "terminate"].includes(operation) ?
++      appProxy(request, operation as "attach" | "detach" | "terminate", sessionId) :
++      new Response(null, {status:404}));
++}
+diff --git a/frontend/src/app/api/ui/xpra/apps/route.ts b/frontend/src/app/api/ui/xpra/apps/route.ts
+new file mode 100644
+index 0000000..4948c05
+--- /dev/null
++++ b/frontend/src/app/api/ui/xpra/apps/route.ts
+@@ -0,0 +1,5 @@
++import { appProxy } from "../../../../../lib/server/xpra-apps.ts";
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++export function GET(request: Request) { return appProxy(request, "list"); }
++export function POST(request: Request) { return appProxy(request, "start"); }
+diff --git a/frontend/src/app/api/ui/xpra/ticket/route.ts b/frontend/src/app/api/ui/xpra/ticket/route.ts
+index f839057..d037adf 100644
+--- a/frontend/src/app/api/ui/xpra/ticket/route.ts
++++ b/frontend/src/app/api/ui/xpra/ticket/route.ts
+@@ -1,4 +1,4 @@
+-import { xpraBridgeConfig } from "../../../../../lib/server/xpra.ts";
++import { xpraBridgeConfigForWorkspace } from "../../../../../lib/server/xpra.ts";
+ import { requireOperator, safeError, validOrigin } from "../../../../../lib/server/security.ts";
+ 
+ export const runtime = "nodejs";
+@@ -9,7 +9,7 @@ export async function POST(request: Request): Promise<Response> {
+   const operator = requireOperator(request);
+   if (operator instanceof Response) return operator;
+   if (!validOrigin(request, operator)) return safeError("Untrusted Xpra session origin.", 403);
+-  const config = xpraBridgeConfig();
++  const config = xpraBridgeConfigForWorkspace(request.headers.get("x-potbot-workspace"));
+   if (!config) return safeError("Workspace Xpra stream not configured.", 503);
+   if (request.headers.get("x-potbot-workspace") !== null && request.headers.get("x-potbot-workspace") !== config.workspaceId)
+     return safeError("Xpra is not configured for the selected workspace.", 404);
+diff --git a/frontend/src/app/globals.css b/frontend/src/app/globals.css
+index 327ae56..ab78bbf 100644
+--- a/frontend/src/app/globals.css
++++ b/frontend/src/app/globals.css
+@@ -357,3 +357,11 @@ body.potbot-reduced-motion *, body.potbot-reduced-motion *::before, body.potbot-
+   color: #eff8ff; padding: .36rem .65rem; }
+ .conversation-manager button:disabled { opacity: .5; }
+ .conversation-manager .subtle { flex-basis: 100%; font-size: .68rem; }
++
++/* UI-11: operator-approved application sessions share the Xpra window manager. */
++.applications-launcher { border-bottom: 1px solid var(--border, #353b48); padding: 12px 0; }
++.applications-launcher h3 { font-size: 0.96rem; margin: 0 0 5px; }
++.applications-launch-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; }
++.applications-launch-buttons button { max-width: 100%; }
++.applications-launcher .applications-item { align-items: center; }
++.applications-launcher .applications-item button { flex-shrink: 0; }
+diff --git a/frontend/src/components/OrbWorkspace.tsx b/frontend/src/components/OrbWorkspace.tsx
+index 6966e90..d085121 100644
+--- a/frontend/src/components/OrbWorkspace.tsx
++++ b/frontend/src/components/OrbWorkspace.tsx
+@@ -8,6 +8,8 @@ import { bootWorkspaces } from "@/lib/boot";
+ import { readChatStream } from "@/lib/chat-stream";
+ import { conversationEntries, projectSession, projectSessionList } from "@/lib/chat-sessions";
+ import type { ChatSessionSummary } from "@/lib/chat-sessions";
++import { projectAppInventory, validAppKind, appSessionId } from "@/lib/xpra-apps";
++import type { AppInventory } from "@/lib/xpra-apps";
+ import { DEFAULT_GRAPH_VIEW, mergeGraphTimeline, sanitizedGraphView } from "@/lib/graph-workbench";
+ import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
+ import { RUN_ID } from "@/lib/live-schema";
+@@ -160,6 +162,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
+   const preferenceInFlight = useRef(new Set<string>());
+   const transferInFlight = useRef(new Set<string>());
+   const sessionGeneration = useRef(0);
++  const [appInventories, setAppInventories] = useState<Record<string, AppInventory>>({});
++  const [appStatuses, setAppStatuses] = useState<Record<string, string>>({});
++  const appsInFlight = useRef(new Set<string>());
+   const [xWindowsByWorkspace, setXWindowsByWorkspace] = useState<Record<string, XWindowInfo[]>>({});
+   const [xErrorsByWorkspace, setXErrorsByWorkspace] = useState<Record<string, Record<string, string>>>({});
+   const [xMinimizedByWorkspace, setXMinimizedByWorkspace] = useState<Record<string, string[]>>({});
+@@ -952,6 +957,82 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
+     return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
+   }, [demo, gateway, workspace?.id, refreshActivity, refreshModels, refreshPreferences, refreshTransfers]);
+ 
++  // Operator-approved application sessions. Xpra windows themselves still
++  // arrive via the native codec channel and are docked independently.
++  const refreshApps = useCallback(() => {
++    if (demo || gateway !== "ready" || !workspace) return;
++    const id = workspace.id;
++    if (appsInFlight.current.has(id)) return;
++    appsInFlight.current.add(id);
++    const generation = sessionGeneration.current;
++    void (async () => {
++      try {
++        const response = await fetch("/api/ui/xpra/apps", {
++          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(id),
++        });
++        if (!response.ok) throw new Error("Application operator unavailable");
++        const projected = projectAppInventory(await response.json(), id);
++        if (!projected) throw new Error("Untrusted application inventory");
++        if (sessionGeneration.current === generation) {
++          setAppInventories(prev => ({ ...prev, [id]: projected }));
++          setAppStatuses(prev => ({ ...prev, [id]: projected.configured ? "Operator session ready" : "App launching not configured" }));
++        }
++      } catch {
++        if (sessionGeneration.current === generation)
++          setAppStatuses(prev => ({ ...prev, [id]: "Application launcher unavailable" }));
++      } finally { appsInFlight.current.delete(id); }
++    })();
++  }, [demo, gateway, workspace?.id]);
++
++  const launchApp = useCallback((kind: string) => {
++    if (demo || gateway !== "ready" || !workspace || !validAppKind(kind) ||
++        !appInventories[workspace.id]?.choices.some(choice => choice.kind === kind)) return;
++    const id = workspace.id;
++    const generation = sessionGeneration.current;
++    setAppStatuses(prev => ({ ...prev, [id]: `Launching ${kind} in sandbox…` }));
++    void (async () => {
++      try {
++        const response = await fetch("/api/ui/xpra/apps", {method:"POST", credentials:"same-origin",
++          headers:{ "Content-Type":"application/json", ...scopedHeaders(id) },
++          body:JSON.stringify({kind})});
++        if (!response.ok) throw new Error("Launch rejected");
++        if (sessionGeneration.current !== generation) return;
++        setAppStatuses(prev => ({ ...prev, [id]: `${kind} launched; Xpra window discovery in progress` }));
++        refreshApps();
++        openPanel("applications");
++      } catch {
++        if (sessionGeneration.current === generation)
++          setAppStatuses(prev => ({ ...prev, [id]: `${kind} launch rejected by workspace operator` }));
++      }
++    })();
++  }, [demo, gateway, workspace?.id, appInventories, refreshApps, openPanel]);
++
++  const appAction = useCallback((sessionId: string, action: "attach" | "detach" | "terminate") => {
++    if (demo || gateway !== "ready" || !workspace || !appSessionId(sessionId) ||
++        !appInventories[workspace.id]?.sessions.some(item => item.id === sessionId)) return;
++    if (action === "terminate" && !window.confirm("Terminate this workspace application? Closing a pane alone never does this.")) return;
++    const id = workspace.id;
++    const generation = sessionGeneration.current;
++    void (async () => {
++      try {
++        const response = await fetch(`/api/ui/xpra/apps/${sessionId}/${action}`, {
++          method:"POST", credentials:"same-origin", headers:scopedHeaders(id), body:"" });
++        if (!response.ok) throw new Error("Application operation rejected");
++        if (sessionGeneration.current === generation) refreshApps();
++      } catch {
++        if (sessionGeneration.current === generation)
++          setAppStatuses(prev => ({ ...prev, [id]: "Application action was not accepted" }));
++      }
++    })();
++  }, [demo, gateway, workspace?.id, appInventories, refreshApps]);
++
++  useEffect(() => {
++    if (demo || gateway !== "ready" || !workspace) return;
++    refreshApps();
++    const timer = setInterval(() => { if (!document.hidden) refreshApps(); }, 4500);
++    return () => clearInterval(timer);
++  }, [demo, gateway, workspace?.id, refreshApps]);
++
+   const logout = useCallback(() => {
+     sessionGeneration.current++;
+     for (const controller of requests.current.values()) controller.abort();
+@@ -964,6 +1045,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
+       setActivityFeeds({}); setActivityStatuses({}); setModelLists({}); setModelStatuses({});
+       setRemotePrefs({}); setPreferenceStatuses({}); setTransferFeeds({}); setTransferStatuses({});
+       activityCursors.current = {};
++      setAppInventories({}); setAppStatuses({}); appsInFlight.current.clear();
+       setXAvailable(false); setXWindowsByWorkspace({}); setXTransportByWorkspace({});
+       setXErrorsByWorkspace({}); setXMinimizedByWorkspace({}); setXReconnectByWorkspace({});
+       setXpraIframeSrc(null); xpraChannel.current = "";
+@@ -996,6 +1078,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
+     transfers: transferFeeds[workspace.id] ?? [],
+     transfersStatus: demo ? "Preview · no transfers" : transferStatuses[workspace.id] ?? "Transfers not loaded",
+     refreshTransfers, queueTransfer, cancelTransfer,
++    appInventory: appInventories[workspace.id] ?? null,
++    appStatus: demo ? "Preview mode" : appStatuses[workspace.id] ?? "Loading application sessions",
++    refreshApps, launchApp, appAction,
+     xAvailable, xTransport: xTransportByWorkspace[workspace.id] ?? null,
+     xWindows: xWindowsByWorkspace[workspace.id] ?? [],
+     xWindowErrors: xErrorsByWorkspace[workspace.id] ?? {},
+@@ -1012,6 +1097,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
+       refreshTransfers, queueTransfer, cancelTransfer,
+       compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
+       dockPanel, floatPanel, graphFullscreen, xAvailable, xTransportByWorkspace,
++      appInventories, appStatuses, refreshApps, launchApp, appAction,
+       xWindowsByWorkspace, xErrorsByWorkspace, xMinimizedByWorkspace,
+       xReconnectByWorkspace, retryXpra, sendXpra,
+       openXWindow, closeXWindow]);
+diff --git a/frontend/src/components/Panels.tsx b/frontend/src/components/Panels.tsx
+index d1131bb..6d1f43c 100644
+--- a/frontend/src/components/Panels.tsx
++++ b/frontend/src/components/Panels.tsx
+@@ -159,17 +159,21 @@ export function FullscreenGraph() {
+ }
+ 
+ export function TerminalPanel() {
+-  const { xAvailable, xWindows, openXWindow, openPanel } = useWorkspace();
++  const { xAvailable, xWindows, openXWindow, openPanel, appInventory, launchApp, appStatus } = useWorkspace();
+   const shells = xWindows.filter(item => /\b(?:xterm|terminal|bash|shell)\b/i.test(item.title)).slice(0, 20);
+   return <motion.div layoutId="potbot-terminal-emergence" className="placeholder-panel terminal-placeholder">
+     <div className="terminal-welcome">
+       <code>$ potbot console</code>
++      {(appInventory?.choices ?? []).filter(choice => choice.kind === "terminal").map(choice =>
++        <button key={choice.kind} type="button" disabled={!xAvailable}
++          onClick={() => launchApp(choice.kind)}>Launch sandbox {choice.title} ↗</button>)}
++      <small role="status">{appStatus}</small>
+       {xAvailable && shells.length ? <>
+         <p>Workspace Xpra shell windows</p>
+         {shells.map(item => <button type="button" key={item.id}
+           onClick={() => openXWindow(item.id)}>Open {item.title} ↗</button>)}
+       </> : <p>No workspace Bash session is connected.</p>}
+-      <small>A real terminal can already appear as an Xpra application window when launched by the workspace executor. Creating/reattaching a PTY from the composer requires an authenticated backend terminal-session API.</small>
++      <small>Operator-approved X11 terminal sessions appear through Xpra and remain running when their Dockview pane closes. Direct PTY streaming from the composer is a separate capability.</small>
+       <button type="button" onClick={() => openPanel("applications")}>Open Xpra application manager ↗</button>
+     </div>
+     <DockControls id="terminal" />
+@@ -177,18 +181,22 @@ export function TerminalPanel() {
+ }
+ 
+ export function BrowserPanel() {
+-  const { xWindows, xAvailable, openXWindow, openPanel } = useWorkspace();
++  const { xWindows, xAvailable, openXWindow, openPanel, appInventory, launchApp, appStatus } = useWorkspace();
+   return <div className="placeholder-panel panel-scroll">
+     <div className="browser-address"><span>◎</span><span>Workspace Xpra application viewer</span>
+       <span className="subtle">{xAvailable ? "CONNECTED" : "DISCONNECTED"}</span></div>
+     <div className="empty-panel"><h2>Controlled browser</h2>
++      {(appInventory?.choices ?? []).filter(choice => choice.kind === "browser").map(choice =>
++        <button key={choice.kind} type="button" disabled={!xAvailable}
++          onClick={() => launchApp(choice.kind)}>Launch sandbox {choice.title} ↗</button>)}
++      <small role="status">{appStatus}</small>
+       <p>Browsers launched by the authorized workspace executor appear as individual Xpra windows, with keyboard, pointer, focus and docking routed through Xpra—not an insecure third-party iframe.</p>
+       {xWindows.length > 0 ? <div className="applications-list" aria-label="Available Xpra windows">
+         {xWindows.slice(0, 20).map(item => <button type="button" key={item.id}
+           onClick={() => openXWindow(item.id)}>Open {item.title} ↗</button>)}
+       </div> : <p>No Xpra application windows are currently reported.</p>}
+       <button type="button" onClick={() => openPanel("applications")}>Manage all Xpra windows ↗</button>
+-      <small>Starting a browser automatically, choosing URLs and preserving a browser session require the backend browser-launch contract. Existing Xpra applications can be controlled immediately.</small>
++      <small>Only operator-approved browser recipes can be launched. Browser navigation and keyboard/pointer controls use its Xpra window; network access remains governed by the workspace sandbox policy.</small>
+     </div><DockControls id="browser" />
+   </div>;
+ }
+diff --git a/frontend/src/components/WorkspaceContext.tsx b/frontend/src/components/WorkspaceContext.tsx
+index 6705f50..bc86e7c 100644
+--- a/frontend/src/components/WorkspaceContext.tsx
++++ b/frontend/src/components/WorkspaceContext.tsx
+@@ -2,6 +2,7 @@
+ 
+ import { createContext, useContext } from "react";
+ import type { ChatSessionSummary } from "@/lib/chat-sessions";
++import type { AppInventory } from "@/lib/xpra-apps";
+ import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
+ import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
+ import type { GraphView, Timeline } from "@/lib/graph-workbench";
+@@ -43,6 +44,11 @@ type WorkspaceContextValue = {
+   refreshTransfers: () => void;
+   queueTransfer: (artifact: ArtifactManifest) => void;
+   cancelTransfer: (id: string) => void;
++  appInventory: AppInventory | null;
++  appStatus: string;
++  refreshApps: () => void;
++  launchApp: (kind: string) => void;
++  appAction: (id: string, action: "attach" | "detach" | "terminate") => void;
+   xAvailable: boolean;
+   xTransport: XWindowTransport | null;
+   xWindows: XWindowInfo[];
+diff --git a/frontend/src/components/XpraApplicationsPanel.tsx b/frontend/src/components/XpraApplicationsPanel.tsx
+index 923e082..0d92252 100644
+--- a/frontend/src/components/XpraApplicationsPanel.tsx
++++ b/frontend/src/components/XpraApplicationsPanel.tsx
+@@ -9,7 +9,7 @@ import { DockControls } from "./Panels";
+ /** A dockable switcher for every Xpra application, including minimized panes. */
+ export function XpraApplicationsPanel() {
+   const { xAvailable, xWindows, xMinimizedWindows, xTransport, xReconnectAttempts,
+-    retryXpra, openXWindow, closeXWindow } = useWorkspace();
++    retryXpra, openXWindow, closeXWindow, appInventory, appStatus, refreshApps, launchApp, appAction } = useWorkspace();
+   const [query, setQuery] = useState("");
+   const [filter, setFilter] = useState<WindowFilter>("all");
+   const display = useMemo(() => projectXpraWindows(xWindows, xMinimizedWindows, query, filter),
+@@ -25,6 +25,35 @@ export function XpraApplicationsPanel() {
+       </p>
+       {!xAvailable && <button type="button" onClick={retryXpra}>Reconnect Xpra</button>}
+     </header>
++    <div className="applications-launcher" aria-label="Operator-approved application sessions">
++      <h3>Launch sandbox application</h3>
++      <p role="status">{appStatus}</p>
++      <div className="applications-launch-buttons">
++        {(appInventory?.choices ?? []).map(choice => <button type="button" key={choice.kind}
++          disabled={!xAvailable || !appInventory?.configured}
++          onClick={() => launchApp(choice.kind)} title={`Start ${choice.title} inside the qualified workspace`}>
++          <span aria-hidden="true">＋</span> {choice.title}
++        </button>)}
++        <button type="button" onClick={refreshApps}>Refresh sessions</button>
++      </div>
++      {(!appInventory?.configured || !appInventory.choices.length) &&
++        <p className="muted-note">No operator-approved launch recipes are available. Xpra windows can still be viewed and controlled.</p>}
++      {(appInventory?.sessions ?? []).length > 0 && <ul className="applications-list" aria-label="Workspace application processes">
++        {appInventory!.sessions.map(app => <li key={app.id} className="applications-item">
++          <span className="applications-symbol" aria-hidden="true">◈</span>
++          <span className="applications-description"><strong>{app.title}</strong>
++            <small>{app.state}{app.detached ? " · detached" : " · attached"} · {app.id.slice(0, 8)}</small>
++          </span>
++          {app.state === "running" && <>
++            <button type="button" onClick={() => appAction(app.id, app.detached ? "attach" : "detach")}>
++              {app.detached ? "Reattach" : "Detach"}
++            </button>
++            <button type="button" onClick={() => appAction(app.id, "terminate")}
++              aria-label={`Terminate ${app.title}`}>Stop</button>
++          </>}
++        </li>)}
++      </ul>}
++    </div>
+     <div className="applications-search">
+       <label htmlFor="xpra-app-search">Find window</label>
+       <input id="xpra-app-search" type="search" value={query}
+@@ -53,7 +82,7 @@ export function XpraApplicationsPanel() {
+     </ul>
+     {display.limited && <p role="status">Showing 256 windows. Refine the search for more.</p>}
+     {!display.items.length && <p className="muted-note">{query ? "No windows match that search." : "No matching X applications."}</p>}
+-    <p className="muted-note">Closing or minimizing a pane leaves the X11 application running in this workspace. Only the workspace executor may terminate its process.</p>
++    <p className="muted-note">Closing or minimizing a pane leaves the X11 application running in this workspace. Termination is an explicit, operator-authorized action above; closing a pane alone does not stop the process.</p>
+     <DockControls id="applications" />
+   </section>;
+ }
+diff --git a/frontend/src/lib/server/xpra-apps.ts b/frontend/src/lib/server/xpra-apps.ts
+new file mode 100644
+index 0000000..c1ad33c
+--- /dev/null
++++ b/frontend/src/lib/server/xpra-apps.ts
+@@ -0,0 +1,66 @@
++import { xpraBridgeConfigForWorkspace } from "./xpra.ts";
++import { projectAppInventory, projectAppSession, validAppKind, appSessionId } from "../xpra-apps.ts";
++import { requireOperator, safeError, validOrigin, boundedJSON } from "./security.ts";
++
++export function xpraAppScope(request: Request, write = false) {
++  const operator = requireOperator(request);
++  if (operator instanceof Response) return operator;
++  if (write && !validOrigin(request, operator)) return safeError("Untrusted application request.", 403);
++  const selected = request.headers.get("x-potbot-workspace");
++  const config = xpraBridgeConfigForWorkspace(selected);
++  if (!config || selected !== config.workspaceId)
++    return safeError("No application service for this workspace.", 404);
++  if (new URL(request.url).search) return safeError("Unexpected application query.", 400);
++  return config;
++}
++
++async function boundedResponse(response: Response, maximum: number): Promise<unknown> {
++  const length = Number(response.headers.get("content-length") ?? "0");
++  if (length > maximum) throw new Error("upstream response is too large");
++  const body = await response.arrayBuffer();
++  if (body.byteLength > maximum) throw new Error("upstream response exceeds limit");
++  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
++}
++
++export async function appProxy(request: Request, op: "list" | "start" | "attach" | "detach" | "terminate",
++                               sessionId?: string): Promise<Response> {
++  const config = xpraAppScope(request, op !== "list");
++  if (config instanceof Response) return config;
++  if (sessionId !== undefined && !appSessionId(sessionId)) return safeError("Invalid application session.", 400);
++  let kind: string | undefined;
++  if (op === "start") {
++    let raw: unknown;
++    try { raw = await boundedJSON(request, 2048); }
++    catch { return safeError("Invalid application request.", 400); }
++    if (!raw || typeof raw !== "object" || Array.isArray(raw) ||
++        Object.keys(raw).join(",") !== "kind" || !validAppKind((raw as {kind?: unknown}).kind))
++      return safeError("Only an approved application kind is accepted.", 400);
++    kind = (raw as {kind:string}).kind;
++  }
++  const tail = op === "list" || op === "start" ? "" : `/${sessionId}/${op}`;
++  const endpoint = `/v1/xpra/apps${tail}`;
++  try {
++    const response = await fetch(config.base + endpoint, {
++      method: op === "list" ? "GET" : "POST", redirect: "error", cache: "no-store",
++      headers: { Authorization: `Bearer ${config.secret}`,
++                 ...(op === "start" ? { "Content-Type": "application/json" } : {}) },
++      ...(op === "start" ? { body: JSON.stringify({kind}) } : {}),
++      signal: AbortSignal.timeout(7000),
++    });
++    if (response.status === 503) return safeError("Workspace launcher is not configured.", 503);
++    if (response.status === 404) return safeError("Application session not found.", 404);
++    if (response.status === 409) return safeError("Application request was rejected by the operator.", 409);
++    if (!response.ok) return safeError("Application service unavailable.", 502);
++    const document = await boundedResponse(response, 45_000);
++    const obj = document as {workspaceId?: unknown;session?:unknown};
++    if (op === "list") {
++      const projected = projectAppInventory(document, config.workspaceId);
++      return projected ? Response.json(projected, {headers:{"Cache-Control":"private, no-store"}}) :
++        safeError("Malformed application inventory.", 502);
++    }
++    const session = obj?.workspaceId === config.workspaceId && projectAppSession(obj.session);
++    return session ? Response.json({workspaceId:config.workspaceId, session},
++      {status:op === "start" ? 201 : 200,headers:{"Cache-Control":"private, no-store"}}) :
++      safeError("Malformed application response.", 502);
++  } catch { return safeError("Application service unavailable.", 503); }
++}
+diff --git a/frontend/src/lib/server/xpra.ts b/frontend/src/lib/server/xpra.ts
+index 2d5c307..336876d 100644
+--- a/frontend/src/lib/server/xpra.ts
++++ b/frontend/src/lib/server/xpra.ts
+@@ -7,10 +7,13 @@ export function xpraBridgeConfig(env: NodeJS.ProcessEnv = process.env): XpraBrid
+   const requested = env.POTBOT_UI_XPRA_WORKSPACE_ID;
+   const potbot = requested ? configs.find(c => c.workspaceId === requested) :
+     configs.length === 1 ? configs[0] : undefined;
+-  const address = env.POTBOT_UI_XPRA_BRIDGE_URL;
+-  const secret = env.POTBOT_UI_XPRA_BRIDGE_TOKEN;
+-  const publicWs = env.POTBOT_UI_XPRA_PUBLIC_WS_URL;
+-  if (!potbot || !address || !secret || !publicWs || secret.length < 32 || secret.length > 4096 ||
++  return potbot ? validatedBridge(potbot.workspaceId, env.POTBOT_UI_XPRA_BRIDGE_URL,
++    env.POTBOT_UI_XPRA_BRIDGE_TOKEN, env.POTBOT_UI_XPRA_PUBLIC_WS_URL) : null;
++}
++
++function validatedBridge(workspaceId: string, address: unknown, secret: unknown, publicWs: unknown): XpraBridgeConfig | null {
++  if (typeof address !== "string" || typeof secret !== "string" || typeof publicWs !== "string" ||
++      !address || !secret || !publicWs || secret.length < 32 || secret.length > 4096 ||
+       /[\r\n]/.test(secret)) return null;
+   try {
+     const local = new URL(address);
+@@ -21,6 +24,41 @@ export function xpraBridgeConfig(env: NodeJS.ProcessEnv = process.env): XpraBrid
+         (publicEndpoint.protocol !== "wss:" && !(publicEndpoint.protocol === "ws:" && wsLocal)) ||
+         publicEndpoint.pathname !== "/v1/xpra/ws" || publicEndpoint.search || publicEndpoint.hash ||
+         publicEndpoint.username || publicEndpoint.password) return null;
+-    return { base: local.origin, secret, publicWs: publicEndpoint.toString(), workspaceId: potbot.workspaceId };
++    return { base: local.origin, secret, publicWs: publicEndpoint.toString(), workspaceId };
++  } catch { return null; }
++}
++
++/** Multi-workspace Xpra is configured exclusively on the Next.js host.
++ * The user-selected workspace must be on the already-authorized backend list.
++ * Legacy single-bridge environment settings continue to work unchanged.
++ */
++export function xpraBridgeConfigForWorkspace(workspaceId: string | null,
++    env: NodeJS.ProcessEnv = process.env): XpraBridgeConfig | null {
++  if (!workspaceId) return env.POTBOT_UI_XPRA_BRIDGES_JSON ? null : xpraBridgeConfig(env);
++  const allowed = workspaceConnections(env);
++  if (!allowed.some(x => x.workspaceId === workspaceId)) return null;
++  const serialized = env.POTBOT_UI_XPRA_BRIDGES_JSON;
++  if (serialized === undefined) {
++    const legacy = xpraBridgeConfig(env);
++    return legacy?.workspaceId === workspaceId ? legacy : null;
++  }
++  if (serialized.length > 16_384) return null;
++  try {
++    const entries: unknown = JSON.parse(serialized);
++    if (!Array.isArray(entries) || !entries.length || entries.length > 20) return null;
++    const seen = new Set<string>();
++    let match: XpraBridgeConfig | null = null;
++    for (const item of entries) {
++      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
++      const x = item as Record<string, unknown>;
++      if (Object.keys(x).sort().join(",") !== "bridgeToken,bridgeUrl,publicWsUrl,workspaceId" ||
++          typeof x.workspaceId !== "string" || seen.has(x.workspaceId) ||
++          !allowed.some(w => w.workspaceId === x.workspaceId)) return null;
++      seen.add(x.workspaceId);
++      const bridge = validatedBridge(x.workspaceId, x.bridgeUrl, x.bridgeToken, x.publicWsUrl);
++      if (!bridge) return null;
++      if (x.workspaceId === workspaceId) match = bridge;
++    }
++    return match;
+   } catch { return null; }
+ }
+diff --git a/frontend/src/lib/xpra-apps.ts b/frontend/src/lib/xpra-apps.ts
+new file mode 100644
+index 0000000..9ec4ade
+--- /dev/null
++++ b/frontend/src/lib/xpra-apps.ts
+@@ -0,0 +1,51 @@
++/** Only allowlisted application metadata may cross from the Xpra operator relay. */
++export type AppChoice = { kind: string; title: string };
++export type AppSession = { id: string; kind: string; title: string;
++  state: "running" | "exited" | "indeterminate"; detached: boolean;
++  startedAt: number; exitCode: number | null };
++export type AppInventory = { workspaceId: string; configured: boolean;
++  choices: AppChoice[]; sessions: AppSession[] };
++
++const KIND = /^[a-z][a-z0-9-]{1,31}$/;
++const ID = /^[0-9a-f]{32}$/;
++export function appSessionId(value: string): boolean { return ID.test(value); }
++export function validAppKind(value: unknown): value is string {
++  return typeof value === "string" && KIND.test(value);
++}
++export function projectAppSession(value: unknown): AppSession | null {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
++  const x = value as Record<string, unknown>;
++  if (typeof x.id !== "string" || !ID.test(x.id) || !validAppKind(x.kind) ||
++      typeof x.title !== "string" || !x.title || x.title.length > 80 ||
++      !["running", "exited", "indeterminate"].includes(String(x.state)) ||
++      typeof x.detached !== "boolean" || !Number.isSafeInteger(x.startedAt) ||
++      (x.startedAt as number) < 0 ||
++      !(x.exitCode === null || (Number.isInteger(x.exitCode) &&
++        (x.exitCode as number) >= -255 && (x.exitCode as number) <= 255))) return null;
++  return { id: x.id, kind: x.kind, title: x.title,
++    state: x.state as AppSession["state"], detached: x.detached,
++    startedAt: x.startedAt as number, exitCode: x.exitCode as number | null };
++}
++export function projectAppInventory(value: unknown, workspaceId: string): AppInventory | null {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
++  const x = value as Record<string, unknown>;
++  if (x.workspaceId !== workspaceId || typeof x.configured !== "boolean" ||
++      !Array.isArray(x.choices) || x.choices.length > 12 ||
++      !Array.isArray(x.sessions) || x.sessions.length > 100) return null;
++  const choices: AppChoice[] = [];
++  const sessions: AppSession[] = [];
++  for (const item of x.choices) {
++    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
++    const row = item as Record<string, unknown>;
++    if (!validAppKind(row.kind) || typeof row.title !== "string" ||
++        !row.title || row.title.length > 80 || choices.some(c => c.kind === row.kind)) return null;
++    choices.push({ kind: row.kind, title: row.title });
++  }
++  for (const item of x.sessions) {
++    const session = projectAppSession(item);
++    if (!session || sessions.some(s => s.id === session.id)) return null;
++    sessions.push(session);
++  }
++  if (!x.configured && (choices.length || sessions.length)) return null;
++  return { workspaceId, configured: x.configured, choices, sessions };
++}
+diff --git a/frontend/tests/xpra-apps.test.mjs b/frontend/tests/xpra-apps.test.mjs
+new file mode 100644
+index 0000000..d07c521
+--- /dev/null
++++ b/frontend/tests/xpra-apps.test.mjs
+@@ -0,0 +1,94 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { projectAppInventory, projectAppSession, validAppKind, appSessionId } from '../src/lib/xpra-apps.ts';
++import { GET, POST } from '../src/app/api/ui/xpra/apps/route.ts';
++import { POST as mutate } from '../src/app/api/ui/xpra/apps/[sessionId]/[operation]/route.ts';
++
++const origin = 'http://127.0.0.1:3100';
++const workspaceId = '123e4567-e89b-12d3-a456-426614174000';
++const id = '1'.repeat(32);
++const token = 't'.repeat(50);
++const env = {
++  POTBOT_UI_PASSWORD: 'xpra-tests-password', POTBOT_UI_COOKIE_SECRET: 'q'.repeat(64),
++  POTBOT_UI_PUBLIC_ORIGIN: origin,
++  POTBOT_UI_BACKEND_URL: 'http://127.0.0.1:8000',
++  POTBOT_UI_BACKEND_TOKEN: 'backend-only',
++  POTBOT_UI_WORKSPACE_ID: workspaceId,
++  POTBOT_UI_XPRA_BRIDGE_URL: 'http://127.0.0.1:8765/',
++  POTBOT_UI_XPRA_BRIDGE_TOKEN: token,
++  POTBOT_UI_XPRA_PUBLIC_WS_URL: 'ws://127.0.0.1:8765/v1/xpra/ws',
++};
++const sample = {id,kind:'terminal',title:'Shell',state:'running',detached:false,startedAt:1700000000,exitCode:null};
++
++test('session projections omit paths, argv, Xauthority and host PIDs',()=>{
++  assert.ok(validAppKind('terminal')); assert.ok(!validAppKind('../evil'));
++  assert.ok(appSessionId(id)); assert.ok(!appSessionId('../../etc/passwd'));
++  assert.deepEqual(projectAppSession({...sample, argv:['/host/secret'], pid:99}), sample);
++  assert.equal(projectAppSession({...sample, state:'starting'}), null);
++  assert.equal(projectAppSession({...sample,id:'bad'}), null);
++  assert.equal(projectAppSession({...sample,startedAt:Infinity}),null);
++  assert.deepEqual(projectAppInventory({workspaceId,configured:true,choices:[{kind:'terminal',title:'Shell'}],
++    sessions:[{...sample, socket:'/tmp/fake', authority:'SECRET'}]},workspaceId),
++  {workspaceId,configured:true,choices:[{kind:'terminal',title:'Shell'}],sessions:[sample]});
++  assert.equal(projectAppInventory({workspaceId:'wrong', configured:true,choices:[],sessions:[]},workspaceId),null);
++  assert.equal(projectAppInventory({workspaceId,configured:false,choices:[{kind:'terminal',title:'Shell'}],sessions:[]},workspaceId),null);
++});
++
++test('authenticated BFF routes enforce workspace, origin, kinds and owned session IDs',async t=>{
++  const old={};for(const [key,value] of Object.entries(env)){old[key]=process.env[key];process.env[key]=value;}
++  const original=globalThis.fetch;
++  t.after(()=>{globalThis.fetch=original;for(const [k,v] of Object.entries(old)){if(v===undefined) delete process.env[k]; else process.env[k]=v;}});
++  const { POST: login }=await import('../src/app/api/ui/auth/login/route.ts');
++  const auth=await login(new Request(origin+'/api/ui/auth/login',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify({password:env.POTBOT_UI_PASSWORD})}));
++  assert.equal(auth.status,200);
++  const cookie=auth.headers.get('set-cookie').split(';')[0];
++  const baseHeaders={cookie,'x-potbot-workspace':workspaceId, origin};
++  let called=0;
++  globalThis.fetch=async (url,opts)=>{
++    called++;
++    assert.equal(opts.headers.Authorization,`Bearer ${token}`);
++    assert.ok(url.startsWith('http://127.0.0.1:8765/v1/xpra/apps'));
++    if(opts.method==='GET') return Response.json({workspaceId,configured:true,choices:[{kind:'terminal',title:'Shell'}],sessions:[sample]});
++    if(url.endsWith('/terminate')) return Response.json({workspaceId,session:{...sample,state:'exited',exitCode:0}});
++    assert.equal(JSON.parse(opts.body).kind,'terminal');
++    return Response.json({workspaceId,session:sample},{status:201});
++  };
++  const denied=await POST(new Request(origin+'/api/ui/xpra/apps',{method:'POST',headers:{...baseHeaders,origin:'https://evil.test'},body:'{"kind":"terminal"}'}));
++  assert.equal(denied.status,403);assert.equal(called,0);
++  assert.equal((await GET(new Request(origin+'/api/ui/xpra/apps',{headers:{...baseHeaders,'x-potbot-workspace':'other'}}))).status,404);
++  assert.equal(called,0);
++  const invalid=await POST(new Request(origin+'/api/ui/xpra/apps',{method:'POST',headers:baseHeaders,body:JSON.stringify({kind:'terminal',argv:['/bin/bash']})}));
++  assert.equal(invalid.status,400);assert.equal(called,0);
++  const listed=await GET(new Request(origin+'/api/ui/xpra/apps',{headers:baseHeaders}));
++  assert.equal(listed.status,200);assert.equal((await listed.json()).sessions[0].id,id);
++  const created=await POST(new Request(origin+'/api/ui/xpra/apps',{method:'POST',headers:baseHeaders,body:'{"kind":"terminal"}'}));
++  assert.equal(created.status,201);assert.equal((await created.json()).session.id,id);
++  const stopped=await mutate(new Request(origin+`/api/ui/xpra/apps/${id}/terminate`,{method:'POST',headers:baseHeaders}),
++    {params:Promise.resolve({sessionId:id,operation:'terminate'})});
++  assert.equal(stopped.status,200);assert.equal((await stopped.json()).session.state,'exited');
++  assert.equal(called,3);
++  assert.equal((await mutate(new Request(origin+'/api/ui/xpra/apps/bad/terminate',{method:'POST',headers:baseHeaders}),
++    {params:Promise.resolve({sessionId:'bad',operation:'terminate'})})).status,400);
++});
++
++test('different operator-authorized workspaces select their own private Xpra relay', async()=>{
++  const { xpraBridgeConfigForWorkspace }=await import('../src/lib/server/xpra.ts');
++  const other='123e4567-e89b-12d3-a456-426614174999';
++  const multi={...env, POTBOT_UI_WORKSPACES_JSON: JSON.stringify([
++    {id:workspaceId,name:'One',url:'http://127.0.0.1:8000',token:'backend-one'},
++    {id:other,name:'Two',url:'http://127.0.0.1:8001',token:'backend-two'},
++  ]), POTBOT_UI_XPRA_BRIDGES_JSON:JSON.stringify([
++    {workspaceId,bridgeUrl:'http://127.0.0.1:8765/',bridgeToken:token,publicWsUrl:'ws://127.0.0.1:8765/v1/xpra/ws'},
++    {workspaceId:other,bridgeUrl:'http://127.0.0.1:8766/',bridgeToken:'b'.repeat(48),publicWsUrl:'ws://127.0.0.1:8766/v1/xpra/ws'},
++  ])};
++  const a=xpraBridgeConfigForWorkspace(workspaceId,multi);
++  const b=xpraBridgeConfigForWorkspace(other,multi);
++  assert.equal(a?.base,'http://127.0.0.1:8765');
++  assert.equal(b?.base,'http://127.0.0.1:8766');
++  assert.notEqual(a?.secret,b?.secret);
++  assert.equal(xpraBridgeConfigForWorkspace('unauthorized',multi),null);
++  const bad={...multi, POTBOT_UI_XPRA_BRIDGES_JSON:JSON.stringify([
++    {workspaceId,bridgeUrl:'http://evil.test/',bridgeToken:token,publicWsUrl:'ws://evil.test/v1/xpra/ws'},
++  ])};
++  assert.equal(xpraBridgeConfigForWorkspace(workspaceId,bad),null);
++});
+diff --git a/src/potbot/tools/isolation.py b/src/potbot/tools/isolation.py
+index 821b0fa..c210f5e 100644
+--- a/src/potbot/tools/isolation.py
++++ b/src/potbot/tools/isolation.py
+@@ -105,7 +105,16 @@ def runtime_roots() -> tuple[Path, ...]:
+     return tuple(roots)
+ 
+ 
+-def _seccomp_fd(*, private_loopback_ipc: bool = False) -> int:
++def _seccomp_fd(*, private_loopback_ipc: bool = False,
++                private_x11_unix: bool = False) -> int:
++    """Default deny with optional explicit, namespace-confined X11 AF_UNIX IPC.
++
++    X11 admission must also mount only the workspace socket into a private
++    Bubblewrap filesystem, unshare the network and verify its Xauthority.
++    This syscall gate alone is not an X11 capability.
++    """
++    if private_loopback_ipc and private_x11_unix:
++        raise CapabilityUnavailableError("IPC profiles must not be combined")
+     library = ctypes.util.find_library("seccomp")
+     if library is None or not hasattr(os, "memfd_create"):
+         raise CapabilityUnavailableError("libseccomp and Linux memfd support are required")
+@@ -135,9 +144,26 @@ def _seccomp_fd(*, private_loopback_ipc: bool = False) -> int:
+         for name in _DENIED_SYSCALLS:
+             if private_loopback_ipc and name in _PRIVATE_IPC_SYSCALLS:
+                 continue
++            if private_x11_unix and name in {"socket", "socketpair", "connect", "sendto", "sendmsg"}:
++                continue
+             number = lib.seccomp_syscall_resolve_name(name.encode())
+             if number >= 0 and lib.seccomp_rule_add(context, 0x00050001, number, 0) != 0:
+                 raise CapabilityUnavailableError("seccomp policy could not be compiled")
++        if private_x11_unix:
++            # Only AF_UNIX sockets. Bwrap's --unshare-all provides a separate
++            # network namespace; filesystem paths visible to the guest are
++            # limited to its verified rootfs, /home and the single Xpra socket.
++            for syscall in (b"socket", b"socketpair"):
++                number = lib.seccomp_syscall_resolve_name(syscall)
++                if number < 0:
++                    raise CapabilityUnavailableError("X11 AF_UNIX syscall unavailable")
++                # Context default is ALLOW: block every domain OTHER than AF_UNIX.
++                # SCMP_CMP_NE = 1. Using EQ here would accidentally reject
++                # the one Unix-socket capability we are trying to grant.
++                domain = _ArgumentComparison(0, 1, 1, 0)  # SCMP_CMP_NE AF_UNIX
++                if lib.seccomp_rule_add_array(context, 0x00050001, number, 1,
++                                              ctypes.byref(domain)) != 0:
++                    raise CapabilityUnavailableError("X11 AF_UNIX syscall policy failed")
+         if private_loopback_ipc:
+             # Linux AF_INET/AF_INET6 stream sockets inside --unshare-net only.
+             # AF_UNIX pathname sockets remain forbidden: a shared pathname
+diff --git a/src/potbot/tools/x11_workspace_server.py b/src/potbot/tools/x11_workspace_server.py
+index ad5b586..4589fba 100644
+--- a/src/potbot/tools/x11_workspace_server.py
++++ b/src/potbot/tools/x11_workspace_server.py
+@@ -21,7 +21,7 @@ from pathlib import Path
+ from uuid import UUID
+ 
+ import websockets
+-from fastapi import FastAPI, Header, HTTPException, WebSocket
++from fastapi import FastAPI, Header, HTTPException, WebSocket, Request
+ from fastapi.responses import JSONResponse
+ from starlette.websockets import WebSocketDisconnect
+ 
+@@ -198,7 +198,8 @@ class WorkspaceXServer:
+                 setattr(self, name, None)
+ 
+ 
+-def create_app(server: WorkspaceXServer, token: str, allowed_origin: str) -> FastAPI:
++def create_app(server: WorkspaceXServer, token: str, allowed_origin: str,
++               apps: object | None = None) -> FastAPI:
+     """Private HTTP admission and one-use WebSocket relay to Xpra over AF_UNIX."""
+     if not isinstance(token, str) or len(token) < 32 or "\n" in token:
+         raise ValueError("Xpra bridge needs a private service bearer")
+@@ -225,6 +226,58 @@ def create_app(server: WorkspaceXServer, token: str, allowed_origin: str) -> Fas
+                              "expiresInSeconds": 30},
+                             headers={"Cache-Control": "private, no-store"})
+ 
++    @app.get("/v1/xpra/apps")
++    def list_apps(authorization: str | None = Header(default=None)) -> JSONResponse:
++        authenticate(authorization)
++        if apps is None:
++            data = {"workspaceId": str(server.workspace_id), "configured": False,
++                    "choices": [], "sessions": []}
++        else:
++            data = {"workspaceId": str(server.workspace_id), "configured": True,
++                    "choices": apps.choices(), "sessions": apps.list_sessions()}
++        return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
++
++    from potbot.domain.errors import DomainError
++
++    @app.post("/v1/xpra/apps")
++    async def launch_app(request: Request, authorization: str | None = Header(default=None)) -> JSONResponse:
++        authenticate(authorization)
++        if apps is None:
++            raise HTTPException(503, "qualified application launcher not configured")
++        if int(request.headers.get("content-length", "0") or "0") > 2048:
++            raise HTTPException(413, "application request too large")
++        body = await request.body()
++        if len(body) > 2048:
++            raise HTTPException(413, "application request too large")
++        try:
++            data = json.loads(body)
++        except (ValueError, UnicodeError):
++            raise HTTPException(400, "invalid application request") from None
++        if not isinstance(data, dict) or set(data) != {"kind"} or not isinstance(data["kind"], str):
++            raise HTTPException(400, "only an approved application kind may be submitted")
++        try:
++            result = apps.start(data["kind"])
++        except (ValueError, RuntimeError, DomainError, OSError):
++            # Never expose sandbox roots, Xauthority, command paths or leases.
++            raise HTTPException(409, "application admission rejected") from None
++        return JSONResponse({"workspaceId": str(server.workspace_id), "session": result},
++                            status_code=201, headers={"Cache-Control": "private, no-store"})
++
++    @app.post("/v1/xpra/apps/{session_id}/{operation}")
++    def app_operation(session_id: str, operation: str,
++                      authorization: str | None = Header(default=None)) -> JSONResponse:
++        authenticate(authorization)
++        if apps is None:
++            raise HTTPException(503, "qualified application launcher not configured")
++        if operation not in {"attach", "detach", "terminate"}:
++            raise HTTPException(404, "unknown application operation")
++        try:
++            result = getattr(apps, operation)(session_id)
++        except (ValueError, RuntimeError, DomainError, OSError):
++            raise HTTPException(404, "application session unavailable") from None
++        return JSONResponse({"workspaceId": str(server.workspace_id), "session": result},
++                            headers={"Cache-Control": "private, no-store"})
++
+     @app.websocket("/v1/xpra/ws")
+     async def websocket_bridge(ws: WebSocket) -> None:
+         if ws.headers.get("origin") != allowed_origin or not server.consume_ticket(
+@@ -283,18 +336,26 @@ def main(argv: list[str] | None = None) -> int:
+     parser.add_argument("--port", type=int, default=8765)
+     parser.add_argument("--xpra-binary", default="xpra")
+     parser.add_argument("--browser-origin", required=True)
++    parser.add_argument("--apps-policy", type=Path, default=None,
++                        help="private operator-owned app recipes and pinned runtime; disabled by default")
+     args = parser.parse_args(argv)
+     token = os.environ.get("POTBOT_XPRA_BRIDGE_TOKEN", "")
+     server = WorkspaceXServer(args.workspace_id, args.sandbox_root, display=args.display,
+                               xpra_executable=args.xpra_binary)
+-    app = create_app(server, token, args.browser_origin)
+     import uvicorn
++    apps = None
+     try:
+         server.start()
++        if args.apps_policy is not None:
++            from potbot.tools.xpra_app_sessions import load_operator_application_policy
++            apps = load_operator_application_policy(args.apps_policy, server)
++        app = create_app(server, token, args.browser_origin, apps)
+         print(json.dumps({"workspaceId": str(server.workspace_id), "display": server.display,
+                           "transport": "xpra-native-binary", "screenShared": False}), flush=True)
+         uvicorn.run(app, host="127.0.0.1", port=args.port, access_log=False)
+     finally:
++        if apps is not None:
++            apps.shutdown()
+         server.stop()
+     return 0
+ 
+diff --git a/src/potbot/tools/xpra_app_sessions.py b/src/potbot/tools/xpra_app_sessions.py
+new file mode 100644
+index 0000000..544e39b
+--- /dev/null
++++ b/src/potbot/tools/xpra_app_sessions.py
+@@ -0,0 +1,429 @@
++"""Host-admitted Xpra application sessions in one qualified workspace rootfs.
++
++No HTTP caller can choose argv, environment, mounts, image or process identity.
++The operator reads a private policy, validates the active image pin, and uses
++Bubblewrap with an explicit workspace X11 Unix-socket capability. Xpra supplies
++window frames and input; this service owns only application process lifetimes.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++import signal
++import stat
++import subprocess
++import threading
++import time
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any, Callable
++from uuid import UUID, uuid4
++
++from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
++from potbot.domain.serialization import content_hash
++from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
++
++_KIND = re.compile(r"[a-z][a-z0-9-]{1,31}\Z")
++_ID = re.compile(r"[0-9a-f]{32}\Z")
++
++
++@dataclass(frozen=True)
++class AppRecipe:
++    kind: str
++    title: str
++    argv: tuple[str, ...]
++
++    def __post_init__(self) -> None:
++        if not _KIND.fullmatch(self.kind) or not (1 <= len(self.title) <= 80):
++            raise InvalidInputError("invalid operator application identity")
++        if (not 1 <= len(self.argv) <= 24 or not self.argv[0].startswith("/") or
++                any(not isinstance(x, str) or not x or len(x) > 256 or "\x00" in x
++                    for x in self.argv)):
++            raise InvalidInputError("applications require bounded, pinned guest argv")
++        if self.argv[0] in {"/bin/sh", "/bin/bash", "/usr/bin/env"}:
++            raise ScopeDeniedError("GUI recipes must launch an explicit graphical application")
++
++
++@dataclass(frozen=True)
++class AppView:
++    id: str
++    kind: str
++    title: str
++    state: str
++    detached: bool
++    started_at: int
++    exit_code: int | None
++
++    def document(self) -> dict[str, Any]:
++        return {"id": self.id, "kind": self.kind, "title": self.title,
++                "state": self.state, "detached": self.detached,
++                "startedAt": self.started_at, "exitCode": self.exit_code}
++
++
++class XpraSandboxLaunchBackend:
++    """Wrap an already-qualified shared-rootfs backend with ONE live Xpra grant.
++
++    The normal sandbox IPC profile is not weakened: only this operator-created
++    wrapper swaps to AF_UNIX-scoped seccomp. Its physical X11 socket is the
++    current workspace's owned socket, and the guest network remains unshared.
++    """
++
++    def __init__(self, *, server: Any, backend: Any, ledger: Any) -> None:
++        from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
++        if not isinstance(backend, SharedWorkspaceBubblewrapBackend):
++            raise CapabilityUnavailableError("Xpra applications require qualified shared-rootfs Bubblewrap")
++        self.server, self.backend, self.ledger = server, backend, ledger
++        self.runtime = backend.runtime
++        if self.runtime.home.resolve(strict=True) != server.sandbox_root or server.workspace_id is None:
++            raise ScopeDeniedError("Xpra display does not belong to the pinned workspace")
++
++    def prepare(self, *, argv: tuple[str, ...], status_fd: int) -> IsolationLaunch:
++        from potbot.tools.workspace_supervision import validate_runtime_pin
++        from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
++        assert isinstance(self.backend, SharedWorkspaceBubblewrapBackend)
++        validate_runtime_pin(self.ledger, self.runtime, self.server.workspace_id)
++        # Query the running display on EVERY admission, never trust a stale
++        # socket file, a browser-supplied display number or caller's DISPLAY.
++        env = self.server.environment()
++        socket_path = self.server.socket_path
++        auth = self.server.auth_file
++        home = self.runtime.home.resolve(strict=True)
++        if (not socket_path.is_socket() or socket_path.is_symlink() or
++                not auth.is_file() or auth.is_symlink() or auth.resolve().parent != home / ".potbot" / "x11" or
++                auth.stat().st_uid != os.getuid() or auth.stat().st_mode & 0o077):
++            raise ScopeDeniedError("Xpra socket or Xauthority lost its operator-owned identity")
++        # /tmp is a rootfs symlink to /home/.tmp. Mount a single X socket at
++        # /home/.tmp/.X11-unix/XNNN (never host /tmp or the socket directory).
++        guest_socket_dir = home / ".tmp" / ".X11-unix"
++        if guest_socket_dir.is_symlink():
++            raise ScopeDeniedError("Xpra socket destination directory is redirected")
++        guest_socket_dir.mkdir(mode=0o700, exist_ok=True)
++        if not guest_socket_dir.is_dir() or guest_socket_dir.stat().st_uid != os.getuid():
++            raise ScopeDeniedError("Xpra guest socket directory is not operator-owned")
++        target = guest_socket_dir / socket_path.name
++        if target.is_symlink() or (target.exists() and not target.is_file()):
++            raise ScopeDeniedError("Xpra socket target was redirected")
++        fd = os.open(target, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
++        os.close(fd)
++        kwargs = dict(argv=argv, workspace_root=home, cwd=home,
++                      read_only_roots=(), writable_roots=(), sandbox_root=home,
++                      status_fd=status_fd, memory_bytes=2 * 1024**3,
++                      cpu_seconds=3600, max_file_bytes=128 * 1024**2,
++                      max_open_files=256)
++        launch = self.backend.prepare(**kwargs)
++        replacement = -1
++        try:
++            replacement = _seccomp_fd(private_x11_unix=True)
++            args = list(launch.argv)
++            if (args.count("--seccomp") != 1 or args.count("--proc") != 1 or
++                    len(launch.pass_fds) != 2 or launch.pass_fds[0] == status_fd):
++                raise CapabilityUnavailableError("sandbox launch structure does not support Xpra IPC")
++            old_fd = launch.pass_fds[0]
++            sec_index = args.index("--seccomp")
++            if args[sec_index + 1] != str(old_fd) or args.count("--unshare-all") != 1:
++                raise CapabilityUnavailableError("sandbox network or seccomp policy changed")
++            args[sec_index + 1] = str(replacement)
++            mount = args.index("--proc")
++            args[mount:mount] = ["--ro-bind", str(socket_path),
++                                  "/home/.tmp/.X11-unix/" + socket_path.name]
++            chdir = args.index("--chdir")
++            args[chdir:chdir] = ["--setenv", "DISPLAY", env["DISPLAY"],
++                                 "--setenv", "XAUTHORITY", "/home/.potbot/x11/Xauthority"]
++            identity = content_hash({"base": launch.identity, "transport": "xpra-unix-v1",
++                                     "workspace": str(self.server.workspace_id),
++                                     "socket": str(socket_path),
++                                     "socket_inode": socket_path.stat().st_ino,
++                                     "authority_digest": hashlib.sha256(auth.read_bytes()).hexdigest()})
++            os.close(old_fd)
++            return IsolationLaunch(tuple(args), (replacement, status_fd), identity)
++        except BaseException:
++            if replacement >= 0:
++                os.close(replacement)
++            for original in launch.pass_fds:
++                if original != status_fd:
++                    os.close(original)
++            raise
++
++
++class _App:
++    def __init__(self, identifier: str, recipe: AppRecipe,
++                 process: subprocess.Popen[bytes], identity: str) -> None:
++        self.id, self.recipe, self.process, self.identity = identifier, recipe, process, identity
++        self.started_at = int(time.time())
++        self.detached = False
++        self.indeterminate = False
++
++    def view(self) -> AppView:
++        exit_code = self.process.poll()
++        return AppView(self.id, self.recipe.kind, self.recipe.title,
++                       "indeterminate" if self.indeterminate else "running" if exit_code is None else "exited",
++                       self.detached, self.started_at, exit_code)
++
++
++class XpraApplicationSupervisor:
++    """Operator-owned sessions; closing a Dockview pane NEVER stops a process.
++
++    One workspace-wide lease covers all concurrently running GUI applications.
++    The exclusive lease is released only when every process has actually ended.
++    This conservatively fences overlapping unbrokered writes to the shared home.
++    """
++
++    def __init__(self, *, workspace_id: UUID, principal_id: UUID, recipes: tuple[AppRecipe, ...],
++                 backend: XpraSandboxLaunchBackend, ledger: Any,
++                 popen: Callable[..., subprocess.Popen[bytes]] = subprocess.Popen,
++                 ai_monitor: Any = None,
++                 max_apps: int = 4, max_age_seconds: int = 3600) -> None:
++        if (not isinstance(workspace_id, UUID) or not isinstance(principal_id, UUID) or
++                workspace_id != backend.server.workspace_id or not 1 <= max_apps <= 12):
++            raise ScopeDeniedError("app supervisor must have one admitted workspace and principal")
++        if not recipes or len(recipes) > 12 or len({r.kind for r in recipes}) != len(recipes):
++            raise InvalidInputError("app recipes must be a bounded operator allowlist")
++        self.workspace_id, self.principal_id = workspace_id, principal_id
++        self.recipes = {r.kind: r for r in recipes}
++        self.backend, self.ledger, self.popen = backend, ledger, popen
++        self.ai_monitor = ai_monitor
++        self.max_apps, self.max_age_seconds = max_apps, max_age_seconds
++        self._lock = threading.RLock()
++        self._apps: dict[str, _App] = {}
++        self._group_ids: set[str] = set()
++        self._guard: Any = None
++        self._stop = threading.Event()
++        self._watcher = threading.Thread(target=self._watch, name="potbot-xpra-app-watch", daemon=True)
++        self._watcher.start()
++
++    def _settle(self) -> None:
++        """Called under lock. Never release lease for an unconfirmed process tree."""
++        if self._guard is None or any(
++            self._apps[identifier].process.poll() is None for identifier in self._group_ids
++        ):
++            return
++        group = tuple(self._group_ids)
++        self._group_ids.clear()
++        guard, self._guard = self._guard, None
++        try:
++            from potbot.tools.workspace_supervision import admission_digest
++            guard.finish(evidence_sha256=admission_digest("xpra-apps-all-stopped"),
++                         uncertain=guard.fenced or any(self._apps[identifier].indeterminate for identifier in group))
++        except Exception:
++            guard.abandon()
++
++    def _terminate(self, app: _App) -> None:
++        proc = app.process
++        if proc.poll() is not None:
++            return
++        try:
++            os.killpg(proc.pid, signal.SIGTERM)
++        except ProcessLookupError:
++            pass
++        try:
++            proc.wait(timeout=1.5)
++        except subprocess.TimeoutExpired:
++            try:
++                os.killpg(proc.pid, signal.SIGKILL)
++            except ProcessLookupError:
++                pass
++            try:
++                proc.wait(timeout=1.5)
++            except subprocess.TimeoutExpired:
++                app.indeterminate = True
++
++    def _watch(self) -> None:
++        while not self._stop.wait(0.25):
++            with self._lock:
++                guard = self._guard
++                if guard is None:
++                    continue
++                expired = any(app.process.poll() is None and
++                              time.time() - app.started_at > self.max_age_seconds
++                              for app in self._apps.values())
++                try:
++                    self.backend.server.environment()  # crash or lost X socket => fence GUI apps
++                    lost_display = False
++                except (OSError, RuntimeError):
++                    lost_display = True
++                lost_watcher = self.ai_monitor is not None and not self.ai_monitor.is_healthy()
++                if guard.fenced or expired or lost_display or lost_watcher:
++                    for app in self._apps.values():
++                        self._terminate(app)
++                        if guard.fenced or lost_display or lost_watcher:
++                            app.indeterminate = True
++                self._settle()
++
++    def list_sessions(self) -> list[dict[str, Any]]:
++        with self._lock:
++            self._settle()
++            return [app.view().document() for app in sorted(self._apps.values(), key=lambda a: a.started_at)] [-100:]
++
++    def choices(self) -> list[dict[str, str]]:
++        return [{"kind": r.kind, "title": r.title} for r in self.recipes.values()]
++
++    def start(self, kind: str) -> dict[str, Any]:
++        if not isinstance(kind, str) or kind not in self.recipes:
++            raise ScopeDeniedError("application kind is not on the operator allowlist")
++        with self._lock:
++            self._settle()
++            if sum(a.process.poll() is None for a in self._apps.values()) >= self.max_apps:
++                raise StateMismatchError("workspace application capacity reached")
++            first = self._guard is None
++            if first:
++                from potbot.tools.workspace_supervision import WorkspaceLeaseGuard, WorkspaceExecutorIdentity
++                runtime = self.backend.runtime
++                guard = WorkspaceLeaseGuard.exclusive_home(
++                    self.ledger, WorkspaceExecutorIdentity(self.workspace_id, self.principal_id,
++                                                           runtime.image_digest),
++                    operation="xpra.apps", idempotency_key="xpra-" + uuid4().hex)
++                guard.start()
++                self._guard = guard
++            if self._guard.fenced:
++                raise StateMismatchError("workspace application lease has been fenced")
++            write_fd = os.open(os.devnull, os.O_WRONLY)
++            launch = None
++            process = None
++            try:
++                launch = self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
++                process = self.popen(launch.argv, stdin=subprocess.DEVNULL,
++                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
++                                     cwd="/", env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
++                                     close_fds=True, pass_fds=launch.pass_fds,
++                                     start_new_session=True)
++                os.close(write_fd); write_fd = -1
++                # Bwrap writes its small JSON status to /dev/null, not a pipe
++                # whose undrained buffer could stall a long-lived process.
++                if process.poll() is not None:
++                    raise CapabilityUnavailableError("sandbox application exited during admission")
++                app = _App(uuid4().hex, self.recipes[kind], process, launch.identity)
++                self._apps[app.id] = app
++                self._group_ids.add(app.id)
++                # Bounded operator state; live applications are never pruned.
++                if len(self._apps) > 200:
++                    retired = [key for key, old in self._apps.items()
++                               if key not in self._group_ids and old.process.poll() is not None]
++                    for key in retired[:len(self._apps)-200]:
++                        del self._apps[key]
++                return app.view().document()
++            except BaseException:
++                if process is not None:
++                    # A child that exited during admission may already have
++                    # mutated the home. Preserve an uncertain receipt even if
++                    # it is now stopped; never call this successful work.
++                    temporary = _App(uuid4().hex, self.recipes[kind], process, "")
++                    self._terminate(temporary)
++                    temporary.indeterminate = True
++                    self._apps[temporary.id] = temporary
++                    self._group_ids.add(temporary.id)
++                self._settle()
++                raise
++            finally:
++                for fd in (write_fd, *(launch.pass_fds if launch is not None else ())):
++                    if fd >= 0:
++                        try: os.close(fd)
++                        except OSError: pass
++
++    def detach(self, identifier: str) -> dict[str, Any]:
++        with self._lock:
++            app = self._get(identifier)
++            app.detached = True
++            return app.view().document()
++
++    def attach(self, identifier: str) -> dict[str, Any]:
++        with self._lock:
++            app = self._get(identifier)
++            app.detached = False
++            return app.view().document()
++
++    def terminate(self, identifier: str) -> dict[str, Any]:
++        with self._lock:
++            app = self._get(identifier)
++            self._terminate(app)
++            self._settle()
++            return app.view().document()
++
++    def _get(self, identifier: str) -> _App:
++        if not isinstance(identifier, str) or not _ID.fullmatch(identifier) or identifier not in self._apps:
++            raise ScopeDeniedError("application does not belong to this workspace")
++        return self._apps[identifier]
++
++    def shutdown(self) -> None:
++        self._stop.set()
++        with self._lock:
++            for app in self._apps.values():
++                self._terminate(app)
++            self._settle()
++        self._watcher.join(timeout=2)
++        if self.ai_monitor is not None:
++            self.ai_monitor.stop()
++
++
++def load_operator_application_policy(path: Path, server: Any) -> XpraApplicationSupervisor:
++    """Load PRIVATE host-only policy with an independently pinned runtime.
++
++    File must belong to the bridge operator and be outside workspace home and
++    immutable rootfs. It is configuration, NOT an attestation; the image must
++    already be qualified and pinned in the controller-owned lease ledger.
++    """
++    from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime, SharedWorkspaceBubblewrapBackend
++    from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
++    from potbot.tools.workspace_supervision import validate_runtime_pin
++    if (path.is_symlink() or not path.is_file() or path.stat().st_uid != os.getuid() or
++            stat.S_IMODE(path.stat().st_mode) & 0o077):
++        raise ScopeDeniedError("Xpra application policy must be private and operator-owned")
++    if path.stat().st_size > 8192:
++        raise InvalidInputError("Xpra application policy is too large")
++    def unique_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
++        result: dict[str, object] = {}
++        for key, value in pairs:
++            if key in result:
++                raise ValueError("duplicate application policy key")
++            result[key] = value
++        return result
++    try:
++        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
++        if not isinstance(data, dict) or set(data) != {"workspaceId", "principalId", "runtime", "ledger", "recipes"}:
++            raise ValueError()
++        if UUID(data["workspaceId"]) != server.workspace_id:
++            raise ScopeDeniedError("application policy belongs to another workspace")
++        principal = UUID(data["principalId"])
++        obj = data["runtime"]
++        required = {"imageDigest", "qualificationSha256", "rootfs", "home", "modelStaging", "sharedModels", "sharedTools"}
++        ai_keys = {"aiConfig", "aiPast"}
++        if not isinstance(obj, dict) or (set(obj) not in (required, required | ai_keys)):
++            raise ValueError()
++        paths = {k: Path(obj[k]).resolve(strict=True) for k in ("rootfs", "home", "modelStaging", "sharedModels", "sharedTools")}
++        if path.resolve().is_relative_to(paths["home"]) or path.resolve().is_relative_to(paths["rootfs"]):
++            raise ScopeDeniedError("Xpra policy must be outside guest filesystems")
++        ai_config = Path(obj["aiConfig"]).resolve(strict=True) if "aiConfig" in obj else None
++        ai_past = Path(obj["aiPast"]).resolve(strict=True) if "aiPast" in obj else None
++        runtime = SharedWorkspaceRuntime(
++            image_digest=obj["imageDigest"], qualification_sha256=obj["qualificationSha256"],
++            rootfs=paths["rootfs"], home=paths["home"], model_staging=paths["modelStaging"],
++            shared_models=paths["sharedModels"], shared_tools=paths["sharedTools"],
++            ai_config_dir=ai_config, ai_history_dir=ai_past,
++        )
++        ledger = WorkspaceLeaseLedger(Path(data["ledger"]), workspace_home=paths["home"])
++        validate_runtime_pin(ledger, runtime, server.workspace_id)
++        raw = data["recipes"]
++        if not isinstance(raw, list) or not 1 <= len(raw) <= 12:
++            raise ValueError()
++        recipes = tuple(AppRecipe(row["kind"], row["title"], tuple(row["argv"])) for row in raw)
++    except (ValueError, TypeError, KeyError, OSError, json.JSONDecodeError) as exc:
++        raise InvalidInputError("invalid operator application policy") from exc
++    # Modern rootfs images require the same active, integrity-checked /etc/ai
++    # monitor as other workspace executors. If another operator owns its
++    # singleton watcher, this second operator cannot launch processes.
++    monitor = None
++    if ai_config is not None:
++        from potbot.tools.ai_config_history import AiConfigHistoryMonitor
++        monitor = AiConfigHistoryMonitor(config_dir=ai_config, past_dir=ai_past)
++        monitor.start()
++    try:
++        backend = SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=monitor)
++        xbackend = XpraSandboxLaunchBackend(server=server, backend=backend, ledger=ledger)
++        return XpraApplicationSupervisor(workspace_id=server.workspace_id, principal_id=principal,
++                                         recipes=recipes, backend=xbackend, ledger=ledger,
++                                         ai_monitor=monitor)
++    except BaseException:
++        if monitor is not None:
++            monitor.stop()
++        raise
+diff --git a/tests/acceptance/xpra_approved_app_smoke.py b/tests/acceptance/xpra_approved_app_smoke.py
+new file mode 100644
+index 0000000..bb36508
+--- /dev/null
++++ b/tests/acceptance/xpra_approved_app_smoke.py
+@@ -0,0 +1,61 @@
++"""Opt-in *real host* workspace GUI application session smoke check.
++
++Requires an operator-provisioned, pinned rootfs, Xpra Xdummy server, app policy,
++and running authenticated bridge. Never falls back to an unconfined host app.
++The existing xbill_dock_smoke handles real per-window pixel/control testing.
++"""
++from __future__ import annotations
++
++import json
++import os
++from urllib.request import Request, urlopen
++
++
++def main() -> int:
++    if os.environ.get("POTBOT_RUN_XPRA_APPROVED_APPS") != "1":
++        print("SKIP: operator-approved Xpra app smoke requires explicit host opt-in")
++        return 0
++    base = os.environ.get("POTBOT_XPRA_APP_BRIDGE_URL", "")
++    token = os.environ.get("POTBOT_XPRA_BRIDGE_TOKEN", "")
++    workspace = os.environ.get("POTBOT_XPRA_APP_WORKSPACE_ID", "")
++    if (not base.startswith("http://127.0.0.1:") or not base.endswith("/") or
++            not token or len(token) < 32 or not workspace):
++        raise SystemExit("Refusing unqualified/non-loopback application acceptance target")
++
++    def call(path: str, body: dict | None = None) -> dict:
++        payload = json.dumps(body).encode() if body is not None else None
++        request = Request(base.rstrip("/") + path, data=payload,
++            headers={"Authorization":"Bearer "+token,
++                     **({"Content-Type":"application/json"} if body is not None else {})},
++            method="POST" if body is not None else "GET")
++        with urlopen(request,timeout=10) as response:
++            result = json.load(response)
++        if result.get("workspaceId") != workspace:
++            raise AssertionError("application scope did not match expected workspace")
++        return result
++
++    listing=call("/v1/xpra/apps")
++    if listing.get("configured") is not True or not any(c["kind"]=="terminal" for c in listing["choices"]):
++        raise AssertionError("qualified terminal recipe not configured")
++    identifier = None
++    try:
++        launched=call("/v1/xpra/apps", {"kind":"terminal"})["session"]
++        identifier=launched["id"]
++        if launched["state"] != "running":
++            raise AssertionError("GUI launcher failed to start a sandbox process")
++        call(f"/v1/xpra/apps/{identifier}/detach", {})
++        found=call("/v1/xpra/apps")["sessions"]
++        if not any(item["id"]==identifier and item["state"]=="running" and item["detached"] for item in found):
++            raise AssertionError("detach stopped the GUI process")
++        call(f"/v1/xpra/apps/{identifier}/attach", {})
++        print("PASS: sandbox xterm launch and GUI session detach/reattach are operational")
++        return 0
++    finally:
++        if identifier:
++            stopped=call(f"/v1/xpra/apps/{identifier}/terminate", {})["session"]
++            if stopped["state"] not in ("exited", "indeterminate"):
++                raise AssertionError("operator application did not stop safely")
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/unit/test_xpra_application_sessions.py b/tests/unit/test_xpra_application_sessions.py
+new file mode 100644
+index 0000000..0dd9b0a
+--- /dev/null
++++ b/tests/unit/test_xpra_application_sessions.py
+@@ -0,0 +1,271 @@
++"""Application bridge tests never spawn a host process or require Xpra packages."""
++import os
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++from fastapi.testclient import TestClient
++
++from potbot.tools.x11_workspace_server import WorkspaceXServer, create_app
++from potbot.tools.xpra_app_sessions import AppRecipe, XpraApplicationSupervisor, _App
++from potbot.domain.errors import InvalidInputError, ScopeDeniedError
++
++
++class FakeApps:
++    def __init__(self):
++        self.ident = 'a' * 32
++        self.running = True
++        self.detached = False
++
++    def choices(self):
++        return [{'kind':'terminal','title':'Shell'}]
++
++    def list_sessions(self):
++        return [self.view()]
++
++    def view(self):
++        return {'id':self.ident,'kind':'terminal','title':'Shell','state':'running' if self.running else 'exited',
++                'detached':self.detached,'startedAt':1700000000,'exitCode':None if self.running else 0}
++
++    def start(self,kind):
++        if kind!='terminal': raise ScopeDeniedError('not authorized')
++        return self.view()
++
++    def attach(self,identifier):
++        self.check(identifier);self.detached=False;return self.view()
++
++    def detach(self,identifier):
++        self.check(identifier);self.detached=True;return self.view()
++
++    def terminate(self,identifier):
++        self.check(identifier);self.running=False;return self.view()
++
++    def check(self,identifier):
++        if identifier != self.ident: raise ScopeDeniedError('foreign session')
++
++
++def test_app_bridge_auth_and_lifecycle(tmp_path):
++    root = tmp_path / 'workspace';root.mkdir()
++    server = WorkspaceXServer(uuid4(),root)
++    apps = FakeApps()
++    token = 'x'*48
++    client = TestClient(create_app(server,token,'http://localhost:3100',apps))
++    assert client.get('/v1/xpra/apps').status_code == 401
++    headers = {'Authorization':'Bearer '+token}
++    doc=client.get('/v1/xpra/apps',headers=headers).json()
++    assert doc['workspaceId']==str(server.workspace_id)
++    assert doc['sessions'][0]['id']==apps.ident
++    assert client.post('/v1/xpra/apps',headers=headers,json={'kind':'terminal','argv':['/bin/sh']}).status_code==400
++    assert client.post('/v1/xpra/apps',headers=headers,json={'kind':'../../invalid'}).status_code==409
++    result = client.post('/v1/xpra/apps',headers=headers,json={'kind':'terminal'})
++    assert result.status_code==201
++    assert client.post('/v1/xpra/apps/bad/terminate',headers=headers).status_code==404
++    assert client.post('/v1/xpra/apps/'+apps.ident+'/detach',headers=headers).json()['session']['detached']
++    assert not client.post('/v1/xpra/apps/'+apps.ident+'/attach',headers=headers).json()['session']['detached']
++    assert client.post('/v1/xpra/apps/'+apps.ident+'/terminate',headers=headers).json()['session']['state']=='exited'
++
++
++def test_unconfigured_launcher_does_not_fall_back_to_host(tmp_path):
++    root=tmp_path/'workspace';root.mkdir()
++    server=WorkspaceXServer(uuid4(),root)
++    client=TestClient(create_app(server,'x'*48,'http://localhost:3100'))
++    headers={'Authorization':'Bearer '+'x'*48}
++    assert client.get('/v1/xpra/apps',headers=headers).json()['configured'] is False
++    assert client.post('/v1/xpra/apps',headers=headers,json={'kind':'terminal'}).status_code==503
++
++
++def test_operator_recipe_is_exact_not_shell_or_arbitrary_argv():
++    recipe=AppRecipe('terminal','xterm',('/usr/bin/xterm','-e','/bin/bash'))
++    assert recipe.argv[0]=='/usr/bin/xterm'
++    for argv in [('/bin/bash','-c','id'),('bash',),(),('/usr/bin/env','bash')]:
++        with pytest.raises((InvalidInputError,ScopeDeniedError)):
++            AppRecipe('terminal','Shell',argv)
++    with pytest.raises(InvalidInputError): AppRecipe('../tool','Shell',('/usr/bin/xterm',))
++
++
++def test_xpra_only_seccomp_profiles_cannot_be_combined():
++    from potbot.tools.isolation import _seccomp_fd
++    from potbot.domain.errors import CapabilityUnavailableError
++    with pytest.raises(CapabilityUnavailableError):
++        _seccomp_fd(private_x11_unix=True, private_loopback_ipc=True)
++    try:
++        fd=_seccomp_fd(private_x11_unix=True)
++    except CapabilityUnavailableError:
++        pytest.skip('libseccomp unavailable on this host')
++    try:
++        assert fd>=0
++    finally:
++        os.close(fd)
++
++
++
++def test_xpra_ipc_seccomp_permits_unix_and_rejects_inet_in_a_child():
++    """Execute the exported BPF: the AF_UNIX comparison must not be reversed."""
++    import subprocess
++    import sys
++    from potbot.domain.errors import CapabilityUnavailableError
++    from potbot.tools.isolation import _seccomp_fd
++    try:
++        fd = _seccomp_fd(private_x11_unix=True)
++    except CapabilityUnavailableError:
++        pytest.skip("host has no Linux libseccomp/BPF exporter")
++    code = r'''import ctypes, errno, os, platform, socket, sys
++fd=int(sys.argv[1]); data=os.read(fd, 262144)
++assert data and len(data)%8 == 0
++code=(ctypes.c_ubyte*len(data)).from_buffer_copy(data)
++class FProg(ctypes.Structure):
++    _fields_=[("length", ctypes.c_ushort), ("filter", ctypes.c_void_p)]
++prog=FProg(len(data)//8, ctypes.cast(code,ctypes.c_void_p).value)
++libc=ctypes.CDLL(None,use_errno=True)
++assert libc.prctl(38,1,0,0,0)==0, "no-new-privs unavailable"
++number={"x86_64":317,"aarch64":277}.get(platform.machine())
++if number is None: sys.exit(77)
++rc=libc.syscall(ctypes.c_long(number),ctypes.c_long(1),ctypes.c_long(0),ctypes.byref(prog))
++if rc != 0:
++    sys.exit(77 if ctypes.get_errno() in (errno.EPERM,errno.ENOSYS) else 8)
++with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as sock: pass
++try:
++    with socket.socket(socket.AF_INET,socket.SOCK_STREAM): pass
++except OSError as e:
++    assert e.errno==errno.EPERM, e
++else:
++    raise AssertionError("the GUI sandbox must not create IPv4 sockets")
++try:
++    a,b = socket.socketpair(); a.close(); b.close()
++except OSError as e:
++    raise AssertionError(f"AF_UNIX socketpair blocked: {e}")
++'''
++    try:
++        result=subprocess.run([sys.executable,"-c",code,str(fd)], pass_fds=(fd,),
++                              capture_output=True,text=True,timeout=12)
++    finally:
++        os.close(fd)
++    if result.returncode == 77:
++        pytest.skip("host forbids nested seccomp filter installation")
++    assert result.returncode == 0, result.stderr
++
++
++def test_grouped_application_lease_and_detach_do_not_kill_running_processes(monkeypatch):
++    """Two UI applications share one admitted writer guard, not two conflicting leases."""
++    import sys
++    import types
++    from potbot.tools.isolation import IsolationLaunch
++    from potbot.tools import xpra_app_sessions as sessions
++    workspace = uuid4()
++    principal = uuid4()
++    events=[]
++    processes=[]
++
++    class FakeGuard:
++        fenced=False
++        def start(self): events.append('lease-start')
++        def finish(self,**kwargs): events.append('lease-finish')
++        def abandon(self): events.append('lease-abandon')
++
++    class GuardFactory:
++        @staticmethod
++        def exclusive_home(*args,**kwargs):return FakeGuard()
++
++    fake_supervision = types.SimpleNamespace(
++        WorkspaceLeaseGuard=GuardFactory,
++        WorkspaceExecutorIdentity=lambda *args: args,
++        admission_digest=lambda value: 'f'*64,
++    )
++    monkeypatch.setitem(sys.modules,'potbot.tools.workspace_supervision',fake_supervision)
++
++    class FakeProcess:
++        def __init__(self):self.pid=12345678;self.exit=None
++        def poll(self):return self.exit
++
++    class FakeBackend:
++        server=types.SimpleNamespace(workspace_id=workspace, environment=lambda: {'DISPLAY':':412'})
++        runtime=types.SimpleNamespace(image_digest='a'*64)
++        def prepare(self,*,argv,status_fd):
++            events.append(tuple(argv))
++            return IsolationLaunch(('qualified-bwrap',*argv),(status_fd,),'hash-of-sandbox-admission')
++
++    def fake_popen(*args,**kwargs):
++        assert args[0][0]=='qualified-bwrap'
++        assert kwargs['start_new_session'] is True
++        process=FakeProcess();processes.append(process)
++        return process
++
++    service=XpraApplicationSupervisor(workspace_id=workspace,principal_id=principal,
++        recipes=(AppRecipe('terminal','Terminal',('/usr/bin/xterm',)),
++                 AppRecipe('browser','Browser',('/usr/bin/firefox','about:blank'))),
++        backend=FakeBackend(),ledger=object(),popen=fake_popen)
++    try:
++        first=service.start('terminal');second=service.start('browser')
++        assert events.count('lease-start')==1
++        assert len(service.list_sessions())==2
++        assert service.detach(first['id'])['detached'] is True
++        assert len(processes)==2 and all(proc.poll() is None for proc in processes)
++        assert service.attach(first['id'])['detached'] is False
++        def stop_only(app): app.process.exit=0
++        monkeypatch.setattr(service,'_terminate',stop_only)
++        service.terminate(first['id'])
++        assert events.count('lease-finish')==0
++        service.terminate(second['id'])
++        assert events.count('lease-finish')==1
++        with pytest.raises(ScopeDeniedError):service.terminate('f'*32)
++    finally:
++        service.shutdown()
++
++
++def test_xpra_bwrap_admission_mounts_only_its_workspaces_socket(tmp_path, monkeypatch):
++    """Inspect the actual Bwrap argv, without launching an unconfined GUI process."""
++    import socket
++    import tempfile
++    import shutil
++    import sys
++    import types
++    from potbot.tools import xpra_app_sessions as sessions
++    from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
++    from potbot.domain.errors import CapabilityUnavailableError
++    workspace=uuid4()
++    home=tmp_path/'workspace';(home/'.tmp').mkdir(parents=True)
++    private=home/'.potbot'/'x11';private.mkdir(parents=True)
++    authority=private/'Xauthority';authority.write_text('private cookie')
++    authority.chmod(0o600)
++    sock=socket.socket(socket.AF_UNIX)
++    sockdir=Path(tempfile.mkdtemp(prefix='p-x11-',dir='/tmp'))
++    socketpath=sockdir/'X412'
++    sock.bind(str(socketpath));sock.listen()
++
++    class FakeQualifiedBackend:
++        runtime=types.SimpleNamespace(home=home)
++        def prepare(self,**kwargs):
++            fd=_seccomp_fd()
++            status=kwargs['status_fd']
++            return IsolationLaunch(('prlimit','--','bwrap','--unshare-all','--ro-bind',str(tmp_path),'/',
++                                    '--proc','/proc','--clearenv','--chdir','/home',
++                                    '--seccomp',str(fd),'--json-status-fd',str(status),'--',*kwargs['argv']),
++                                   (fd,status),'base-isolation')
++    server=types.SimpleNamespace(sandbox_root=home,workspace_id=workspace,
++           socket_path=socketpath, auth_file=authority, environment=lambda:{'DISPLAY':':412'})
++    fake_shared=types.SimpleNamespace(SharedWorkspaceBubblewrapBackend=FakeQualifiedBackend)
++    fake_supervision=types.SimpleNamespace(validate_runtime_pin=lambda *args: None)
++    monkeypatch.setitem(sys.modules,'potbot.tools.shared_workspace_isolation',fake_shared)
++    monkeypatch.setitem(sys.modules,'potbot.tools.workspace_supervision',fake_supervision)
++    fd=os.open(os.devnull,os.O_WRONLY)
++    try:
++        backend=sessions.XpraSandboxLaunchBackend(server=server,backend=FakeQualifiedBackend(),ledger=object())
++        try:
++            launch=backend.prepare(argv=('/usr/bin/xterm',),status_fd=fd)
++        except CapabilityUnavailableError:
++            pytest.skip('libseccomp missing for fake launch preflight')
++        try:
++            argv=list(launch.argv)
++            index=argv.index(str(socketpath))
++            assert argv[index-1]=='--ro-bind'
++            assert argv[index+1]=='/home/.tmp/.X11-unix/X412'
++            assert argv[argv.index('--setenv')+1]=='DISPLAY'
++            assert 'XAUTHORITY' in argv
++            assert argv.count('--unshare-all')==1
++            assert argv.index('--seccomp')>argv.index('--chdir')
++        finally:
++            os.close(launch.pass_fds[0])
++    finally:
++        os.close(fd)
++        sock.close()
++        shutil.rmtree(sockdir)

@@ -8,7 +8,8 @@ import { useWorkspace } from "./WorkspaceContext";
 
 /** Dockview chrome and one persistent canvas per Xpra *application*, not desktop. */
 export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) {
-  const { xWindows, xWindowErrors, closeXWindow, xAvailable, sendXpra } = useWorkspace();
+  const { xWindows, xWindowErrors, closeXWindow, xAvailable, sendXpra, appInventory } = useWorkspace();
+  const xpraReadOnly = appInventory?.xpraReadOnly === true;
   const id = params?.windowId || "";
   const info = xWindows.find(x => x.id === id);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -40,7 +41,7 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
       const bounds = surface.getBoundingClientRect();
       const point = normalizedPointerPosition(event.clientX, event.clientY,
         bounds, surface.width, surface.height);
-      if (!point) return;
+      if (!point || xpraReadOnly) return;
       event.preventDefault();
       event.stopPropagation();
       markXpraInput(id);
@@ -58,11 +59,11 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
       sendXpra(id, { action: "blur" });
       unregister();
     };
-  }, [id, info?.generation, sendXpra]);
+  }, [id, info?.generation, sendXpra, xpraReadOnly]);
 
   function pointer(event: React.PointerEvent<HTMLCanvasElement>, action: "pointer" | "button", pressed = false) {
     const surface = canvas.current;
-    if (!surface || !info) return;
+    if (!surface || !info || xpraReadOnly) return;
     if (action === "pointer" && performance.now() - lastPointer.current < 16) return;
     lastPointer.current = performance.now();
     const point = normalizedPointerPosition(event.clientX, event.clientY,
@@ -86,11 +87,12 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
       <small>Native Xpra damage stream · Dockview chrome</small>
       <button type="button" onClick={() => closeXWindow(id)} aria-label="Minimize application pane">Minimize ↗</button>
     </header>
+    {xpraReadOnly && <p role="status">Read-only Xpra display: direct keyboard and mouse input is disabled. Use the reserved browser inspector controls.</p>}
     <div className="xwindow-viewport">
       <canvas ref={canvas} width={640} height={480}
         className="xpra-app-canvas" aria-label={`Interactive Xpra window: ${info?.title || id}`}
         role="img" tabIndex={0}
-        onFocus={() => sendXpra(id, { action: "focus" })}
+        onFocus={() => { if (!xpraReadOnly) sendXpra(id, { action: "focus" }); }}
         onPointerDown={e => pointer(e, "button", true)}
         onPointerUp={e => pointer(e, "button", false)}
         onPointerMove={e => pointer(e, "pointer")}
@@ -98,12 +100,12 @@ export function XpraWindowPanel({ params }: { params?: { windowId?: string } }) 
           e.currentTarget.releasePointerCapture(e.pointerId); sendXpra(id, { action: "blur" }); }}
         onContextMenu={e => e.preventDefault()}
         onBlur={() => sendXpra(id, { action: "blur" })}
-        onKeyDown={e => { e.preventDefault(); e.stopPropagation(); if (!e.repeat) {
+        onKeyDown={e => { if (xpraReadOnly) return; e.preventDefault(); e.stopPropagation(); if (!e.repeat) {
           markXpraInput(id); sendXpra(id, {
           action: "key", key: e.key, code: e.code, pressed: true,
           shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey,
         }); } }}
-        onKeyUp={e => { e.preventDefault(); e.stopPropagation(); sendXpra(id, {
+        onKeyUp={e => { if (xpraReadOnly) return; e.preventDefault(); e.stopPropagation(); sendXpra(id, {
           action: "key", key: e.key, code: e.code, pressed: false,
           shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey,
         }); }} />

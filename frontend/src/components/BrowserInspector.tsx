@@ -23,6 +23,10 @@ export function BrowserInspector() {
   const [status, setStatus] = useState("Select an operator-approved controlled Chromium session.");
   const [result, setResult] = useState<BrowserResult | null>(null);
   const [preview, setPreview] = useState("");
+  const [previewAt, setPreviewAt] = useState(0);
+  const [frameAction, setFrameAction] = useState<"inspect" | "click">("inspect");
+  const [frameX, setFrameX] = useState("0");
+  const [frameY, setFrameY] = useState("0");
 
   const send = useCallback(async (command: BrowserResult): Promise<BrowserResult> => {
     if (!selected) throw new Error("No controlled Chromium session");
@@ -47,7 +51,7 @@ export function BrowserInspector() {
       setResult(output);
       const frame = output.frame as { mime?: string; base64?: string } | undefined;
       if (frame?.mime === "image/jpeg" && frame.base64 && /^[A-Za-z0-9+/=]+$/.test(frame.base64))
-        setPreview(`data:image/jpeg;base64,${frame.base64}`);
+        { setPreview(`data:image/jpeg;base64,${frame.base64}`); setPreviewAt(Date.now()); }
       if (command.op === "inspect.start") setPicker(true);
       if (command.op === "inspect.stop") setPicker(false);
     } catch (error) { setStatus(error instanceof Error ? error.message : "Browser request failed"); }
@@ -78,6 +82,7 @@ export function BrowserInspector() {
   useEffect(() => { setPicker(false); setResult(null); setPreview(""); }, [selected]);
 
   const configured = (appInventory?.choices ?? []).some(s => s.kind === "controlled-browser");
+  const readonly = appInventory?.xpraReadOnly === true;
   return <section className="browser-inspector" aria-label="Chromium browser inspector">
     <h3>Browser automation &amp; DevTools inspector</h3>
     <p role="status">{reservation.status}</p>
@@ -94,7 +99,7 @@ export function BrowserInspector() {
       <label htmlFor="controlled-browser-url">Workspace browser address</label>
       <input id="controlled-browser-url" value={url} onChange={e => setUrl(e.target.value)} maxLength={2048} />
       <button disabled={!selected || busy} onClick={() => run({ op: "navigate", url })}>Navigate</button>
-      <button disabled={!selected || busy} aria-pressed={picker} onClick={() => run({ op: picker ? "inspect.stop" : "inspect.start" })}>
+      <button disabled={!selected || busy || (readonly && !picker)} aria-pressed={picker} onClick={() => run({ op: picker ? "inspect.stop" : "inspect.start" })}>
         {picker ? "Cancel element picker" : "Pick element in Xpra window"}
       </button>
       <button disabled={!selected || busy} onClick={() => run({ op: "accessibility" })}>Accessibility tree</button>
@@ -112,9 +117,39 @@ export function BrowserInspector() {
         onChange={e => setTyped(e.target.value)} />
       <button disabled={!selected || busy} onClick={() => run({ op: "input.keyboard", action: "type", text: typed })}>Type into focused element</button>
     </div>
+    {readonly && <p role="status">Native Xpra input is read-only. Capture a screenshot, then inspect its pixels or use reserved semantic controls.</p>}
     {picker && <p role="status">Picker active: click the target in the native Chromium Xpra window. The page element is highlighted by DevTools.</p>}
     <p role="status">{status}</p>
-    {preview && <img className="browser-inspector-preview" src={preview} alt="Sampled Chromium viewport" />}
+    {preview && <>
+      <label htmlFor="browser-frame-action">Screenshot interaction (lease-controlled)</label>
+      <select id="browser-frame-action" value={frameAction} onChange={e => setFrameAction(e.target.value as "inspect" | "click")}>
+        <option value="inspect">Inspect clicked pixel (DOM/CDP)</option>
+        <option value="click">Click at pixel (may submit)</option>
+      </select>
+      <img className="browser-inspector-preview" src={preview} alt="Sampled Chromium viewport; click to inspect or interact"
+        role="button" tabIndex={0}
+        onClick={e => {
+          if (Date.now() - previewAt > 5000 || busy) { setStatus("Screenshot is stale; capture a fresh frame before interacting"); return; }
+          const rect = e.currentTarget.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return;
+          const x = Math.floor((e.clientX - rect.left) * e.currentTarget.naturalWidth / rect.width);
+          const y = Math.floor((e.clientY - rect.top) * e.currentTarget.naturalHeight / rect.height);
+          if (x < 0 || y < 0 || x >= e.currentTarget.naturalWidth || y >= e.currentTarget.naturalHeight) return;
+          void run(frameAction === "inspect" ? {op:"inspect.at", x, y} :
+            {op:"input.pointer", action:"click", x, y});
+        }}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); setStatus("Use a pointer to select a precise screenshot position"); } }} />
+    </>}
+    {preview && <div className="browser-inspector-controls" aria-label="Keyboard accessible screenshot coordinates">
+      <label htmlFor="browser-pixel-x">Pixel x</label><input id="browser-pixel-x" type="number" min="0" max="4096" value={frameX} onChange={e => setFrameX(e.target.value)} />
+      <label htmlFor="browser-pixel-y">Pixel y</label><input id="browser-pixel-y" type="number" min="0" max="4096" value={frameY} onChange={e => setFrameY(e.target.value)} />
+      <button disabled={!selected || busy} type="button" onClick={() => {
+        const x = Number(frameX), y = Number(frameY);
+        if (Date.now() - previewAt > 5000) { setStatus("Screenshot is stale; capture a new frame"); return; }
+        if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y) || x < 0 || y < 0 || x > 4096 || y > 4096) return;
+        void run({op:"inspect.at", x, y});
+      }}>Inspect pixel</button>
+    </div>}
     {result && <pre className="browser-inspector-result" tabIndex={0}>{JSON.stringify(result, (key, value) => key === "base64" ? "[rendered image above]" : value, 2)}</pre>}
     <small>The page's accessible roles and names are preferred over coordinates. Source mappings depend on the page's CSS and source maps. Browser output is untrusted page content.</small>
   </section>;
