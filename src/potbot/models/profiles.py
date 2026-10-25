@@ -35,8 +35,16 @@ class ModelProfile:
 
     def to_dict(self) -> dict[str, Any]:
         from potbot.models.prompt_compiler import profile_for_model
+        from potbot.models.specialist_catalog import parameter_estimate
 
+        resource_previews = (
+            [parameter_estimate(self.total_parameters_b, quantization)
+             for quantization in ("Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M",
+                                  "Q6_K", "Q8_0", "F16")]
+            if self.total_parameters_b is not None else []
+        )
         return {
+            "quantization_planning_previews": resource_previews,
             "prompt_profile": profile_for_model(self.canonical_model).to_dict(),
             "canonical_model": self.canonical_model,
             "architecture": self.architecture,
@@ -72,9 +80,9 @@ _MODERN_PROFILES = (
                  architecture="moe", total_parameters_b=35, active_parameters_b=3,
                  roles=("reasoning", "coding")),
     ModelProfile("LiquidAI/LFM2.5-8B-A1B", "reasoning", "tokenizer-native-v1", "native",
-                 ("https://huggingface.co/LiquidAI",),
-                 ("Verify architecture and model repository before selecting an inference backend.",),
-                 architecture="moe", total_parameters_b=8, active_parameters_b=1,
+                 ("https://huggingface.co/LiquidAI/LFM2.5-8B-A1B",),
+                 ("Hybrid MoE; verify exact quantization, LFM licence and backend before deployment.",),
+                 architecture="moe", total_parameters_b=8.3, active_parameters_b=1.5,
                  roles=("reasoning", "coding")),
     ModelProfile("microsoft/Phi-4-mini-reasoning", "reasoning", "tokenizer-native-v1", "native",
                  ("https://huggingface.co/microsoft/Phi-4-mini-reasoning",),
@@ -120,6 +128,7 @@ _PROFILES = (
             "The 128K family context claim is not a qualified deployment limit.",
             "Provider examples may execute model code; this profile never enables remote code.",
         ),
+        architecture="dense", total_parameters_b=3.8,
     ),
     ModelProfile(
         "google/gemma-3-4b-it",
@@ -136,7 +145,7 @@ _PROFILES = (
             "Use the exact local tokenizer template; no other model's tool syntax is assumed.",
             "The 128K family context claim is not a qualified deployment limit.",
         ),
-        access_conditions_required=True,
+        access_conditions_required=True, architecture="dense", total_parameters_b=4,
     ),
     ModelProfile(
         "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -153,6 +162,7 @@ _PROFILES = (
             "Longer YaRN configurations need distinct deployment identity and qualification.",
             "Tokenizer tool markers do not imply a qualified backend tool protocol.",
         ),
+        architecture="dense", total_parameters_b=7,
     ),
     ModelProfile(
         "google/codegemma-7b-it",
@@ -168,7 +178,7 @@ _PROFILES = (
             "Controller instructions are explicitly prepended to the first user turn.",
             "Keep implementation packets compact and measure limits with the exact tokenizer.",
         ),
-        access_conditions_required=True,
+        access_conditions_required=True, architecture="dense", total_parameters_b=7,
     ),
     ModelProfile(
         "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
@@ -185,6 +195,7 @@ _PROFILES = (
             "Provider examples may execute model code; this profile never enables remote code.",
             "Use the Instruct chat model, not the Base code-insertion protocol.",
         ),
+        architecture="moe", total_parameters_b=16, active_parameters_b=2.4,
     ),
 )
 

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "potbot-atomic-steering-heldout-v1",
+  "cases": [
+    {"id":"steer-urgent-stop","role":"steering_timing","task":"Currently deploying. New user message: Stop. Don't deploy that; use a staging server instead. Return timing as interrupt/deferred/background/clarify.","grader":"json_subset","expected":{"timing":"interrupt"},"split":"holdout"},
+    {"id":"steer-default-defer","role":"steering_timing","task":"Currently compiling. New user message: After you finish, create a dashboard. Return timing.","grader":"json_subset","expected":{"timing":"deferred"},"split":"holdout"},
+    {"id":"steer-fyi","role":"steering_timing","task":"Currently researching libraries. New user message: Oh and by the way, the computer is an ARM device. Return timing.","grader":"json_subset","expected":{"timing":"background"},"split":"holdout"},
+    {"id":"steer-urgent-in-fyi","role":"steering_timing","task":"Currently publishing. New user message: By the way, stop publishing immediately. Return timing.","grader":"json_subset","expected":{"timing":"interrupt"},"split":"holdout"},
+    {"id":"steer-defer-default","role":"steering_timing","task":"Currently implementing phase 1. New user message: Also implement automatic backups. There is no urgency stated. Return timing.","grader":"json_subset","expected":{"timing":"deferred"},"split":"holdout"},
+    {"id":"status-pass","role":"status","task":"A completed command receipt has exit_status=0, no failed checks, and output artifact SHA verified. Classify process_status.","grader":"json_subset","expected":{"process_status":"passed"},"split":"holdout"},
+    {"id":"status-fail","role":"status","task":"A completed test receipt has exit_status=1 and one failed assertion. Classify process_status.","grader":"json_subset","expected":{"process_status":"failed"},"split":"holdout"},
+    {"id":"status-indeterminate","role":"status","task":"A model call was dispatched but worker crashed and provider outcome is unavailable. Classify process_status.","grader":"json_subset","expected":{"process_status":"indeterminate"},"split":"holdout"},
+    {"id":"atomic-json","role":"atomicity","task":"Host registered operation parse_json validates one bounded JSON file against a pinned schema. No subgoals remain. Return atomic and operation.","grader":"json_subset","expected":{"atomic":true,"operation":"parse_json"},"split":"holdout"},
+    {"id":"non-atomic-keywords","role":"atomicity","task":"Task: extract lyrics phrases, import Trends, cross-check evidence, request editorial approval, then create shortlist. Is the entire task atomic?","grader":"json_subset","expected":{"atomic":false},"split":"holdout"},
+    {"id":"selection-missing-permission","role":"tool_selection","task":"A model requests POST to an unknown publication endpoint. It isn't in the host tool registry. Return allowed and action.","grader":"json_subset","expected":{"allowed":false,"action":"abstain"},"split":"holdout"},
+    {"id":"assumption-source-index","role":"assumption","task":"Hypothesis: Google Trends index 80 proves there were 80 searches. Return verified and needs_evidence.","grader":"json_subset","expected":{"verified":false,"needs_evidence":true},"split":"holdout"}
+  ]
+}

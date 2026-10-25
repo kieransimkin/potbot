@@ -8,14 +8,15 @@ import pytest
 from potbot.cli import main
 from potbot.domain.model_proposals import ModelCodingResponse
 from potbot.domain.serialization import canonical_json
+from potbot.models.registry import DEFAULT_MODELS
 
 
-def test_catalog_preserves_five_unqualified_roles_without_database(monkeypatch, capsys):
+def test_catalog_preserves_unqualified_roles_without_database(monkeypatch, capsys):
     monkeypatch.delenv("POTBOT_DSN", raising=False)
     monkeypatch.delenv("POTBOT_ADMIN_DSN", raising=False)
     assert main(["models", "catalog"]) == 0
     result = json.loads(capsys.readouterr().out)
-    assert len(result["profiles"]) == 5
+    assert len(result["profiles"]) == len(DEFAULT_MODELS)
     assert result["live_inference_available"] is False
     assert result["qualified_deployments"] == 0
     assert all(profile["qualified"] is False for profile in result["profiles"])

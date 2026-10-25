@@ -30,8 +30,10 @@ from potbot.models.prompt_compiler import (
 Role = Literal[
     "triage", "hypothesis", "planning", "evidence", "coding",
     "steering", "critique", "synthesis", "judge",
+    "steering_timing", "atomicity", "status", "tool_selection", "assumption",
 ]
-_ROLES = frozenset(("triage", "hypothesis", "planning", "evidence", "coding", "steering", "critique", "synthesis", "judge"))
+_ROLES = frozenset(("triage", "hypothesis", "planning", "evidence", "coding", "steering", "critique", "synthesis", "judge",
+                    "steering_timing", "atomicity", "status", "tool_selection", "assumption"))
 _MAP_ROLE: dict[str, ReasoningRole] = {
     "triage": "investigator",
     "hypothesis": "hypothesis_generator",
@@ -42,6 +44,11 @@ _MAP_ROLE: dict[str, ReasoningRole] = {
     "critique": "critic",
     "synthesis": "synthesizer",
     "judge": "critic",
+    "steering_timing": "investigator",
+    "atomicity": "investigator",
+    "status": "investigator",
+    "tool_selection": "investigator",
+    "assumption": "investigator",
 }
 _BENCH_VERSION = "agentic-role-benchmark-v1"
 _MAX_OUTPUT_CHARS = 65536
@@ -240,6 +247,12 @@ def prompt_for_case(model: str, case: RoleCase, variant: PromptVariant) -> Compi
             "triage": "Prefer the least expensive authorized route and escalate only when requirements demand it.",
             "coding": "Identify exact code defects and precise minimal repairs, without claiming code was executed.",
             "evidence": "Classify source scope and quality; do not treat missing evidence as zero.",
+            "steering_timing": ("Classify urgent interruption, deferred action or background context. "
+                                "Default to deferred for new instructions; explicit stop requests are urgent."),
+            "atomicity": "Check if a single bounded registered operation suffices; otherwise decompose.",
+            "status": "Read exact process/tool receipts; unknown or indeterminate is not success.",
+            "tool_selection": "Choose only declared authorized operations; abstain if unavailable.",
+            "assumption": "Identify assumptions requiring independent evidence and rechecking.",
         }
         system += " " + guidance[case.role]
     user = "Benchmark task packet (data, NOT evaluation labels):\n" + payload

@@ -31,6 +31,9 @@ _FAMILY_GUIDANCE = {
     "lfm2.5": "Use native tool formatting only through its qualified inference backend.",
     "gpt-oss": "Do not write Harmony control tokens into text; configure the backend.",
     "phi4": "Favor explicit discriminating checks and compact structured outputs.",
+    "functiongemma": "Requires exact native function template and task-specific qualification; never grant tool authority.",
+    "granite4": "Use verified Granite 4 tokenizer and backend tool protocol, not synthetic tool markers.",
+    "smollm": "Keep task data small and strict; verify outputs before executing any action.",
 }
 
 _MAX_DATA_BYTES = 131072
@@ -68,7 +71,13 @@ def profile_for_model(model: str) -> PromptProfile:
     system: Literal["native", "prepend_first_user"]
     thinking: Literal["none", "native", "template_kwargs", "provider"]
     tool: Literal["none", "native", "provider"]
-    if "gemma-3" in lower or "codegemma" in lower:
+    if "functiongemma" in lower:
+        family, system, thinking, tool = "functiongemma", "native", "none", "native"
+    elif "granite-4" in lower:
+        family, system, thinking, tool = "granite4", "native", "none", "native"
+    elif "smollm" in lower:
+        family, system, thinking, tool = "smollm", "native", "none", "none"
+    elif "gemma-3" in lower or "codegemma" in lower:
         family, system, thinking, tool = "gemma3", "prepend_first_user", "none", "none"
     elif "gemma-4" in lower:
         family, system, thinking, tool = "gemma4", "native", "native", "native"

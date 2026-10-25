@@ -451,3 +451,24 @@ uv run --locked python scripts/benchmark_agentic_models.py preflight \
 See [the operator and methodology guide](docs/implementation/23-agentic-model-benchmark-and-monitoring.md)
 for the full local and hosted run commands, private side-by-side reports, paid
 limits, judge position-swap checks and periodic drift monitoring.
+
+## Atomic task planning and small specialist models (R7 foundation)
+
+Potbot also supplies a bounded atomic-operation taxonomy, non-executing recursive
+DAG validator and fast rule-first temporal steering classifier. Incoming messages
+can be classified as `interrupt`, `deferred` (the default for new actions),
+`background` or `clarify`; this **does not yet** alter running PostgreSQL tasks.
+A separate advisory catalogue covers ultra-small reasoners, coders, tool routers,
+rerankers and encoders with alternative quantization estimates and explicit
+immutable-artifact validation:
+
+```bash
+uv run --locked potbot models specialists --role steering --quantization Q4_K_M
+uv run --locked potbot models specialists --role coding --vram-mib 4096 --disk-free-mib 8192
+uv run --locked potbot models install-artifact --manifest operator-artifact.json \
+    --models-root ./models --confirm-download
+```
+
+See [the R7 design and security boundaries](docs/implementation/24-atomic-task-routing-and-specialists.md)
+for recursive stopping conditions, candidate model identities, hardware estimate
+limitations, licensing and the controller/benchmark integration still required.

@@ -16,7 +16,12 @@
         "critique",
         "synthesis",
         "judge",
-        "planning"
+        "planning",
+        "steering_timing",
+        "atomicity",
+        "status",
+        "tool_selection",
+        "assumption"
       ],
       "tier": "micro"
     },
@@ -36,7 +41,12 @@
         "critique",
         "synthesis",
         "judge",
-        "coding"
+        "coding",
+        "steering_timing",
+        "atomicity",
+        "status",
+        "tool_selection",
+        "assumption"
       ],
       "tier": "small"
     },
@@ -52,7 +62,10 @@
         "planning",
         "triage",
         "evidence",
-        "judge"
+        "judge",
+        "status",
+        "atomicity",
+        "tool_selection"
       ],
       "tier": "micro"
     },
@@ -68,7 +81,10 @@
         "planning",
         "triage",
         "evidence",
-        "judge"
+        "judge",
+        "status",
+        "atomicity",
+        "tool_selection"
       ],
       "tier": "small"
     },
@@ -83,7 +99,12 @@
         "triage",
         "evidence",
         "steering",
-        "judge"
+        "judge",
+        "steering_timing",
+        "atomicity",
+        "status",
+        "tool_selection",
+        "assumption"
       ],
       "tier": "micro"
     }
