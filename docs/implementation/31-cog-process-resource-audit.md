@@ -16,8 +16,17 @@ Only the trusted host/operator may set these environment variables:
 - `POTBOT_OPERATOR_CGROUP_ROOT` — existing delegated cgroup-v2 subtree
   with CPU, memory, IO and PID accounting enabled. The operator needs permission
   to create/remove child cgroups and move its own children into them.
-- `POTBOT_OPERATOR_STRACE` — absolute host path to a pinned executable, e.g.
-  `/usr/bin/strace`. Never use an executable from `/home` or shared tool store.
+- `POTBOT_OPERATOR_STRACE` — absolute host path to the qualified strace
+  executable, e.g. `/usr/bin/strace`. Never use a guest-provided executable.
+- `POTBOT_OPERATOR_STRACE_SHA256` — exact SHA-256 of that strace binary.
+- `POTBOT_OPERATOR_CGROUP_JOIN` — absolute path to the operator-built, trusted
+  native launcher described in `native/potbot-cgroup-join/README.md`.
+- `POTBOT_OPERATOR_CGROUP_JOIN_SHA256` — exact SHA-256 of the launcher.
+
+The helper runs outside Bubblewrap, joins its private cgroup and then `execv()`s
+strace. Python's unsafe `preexec_fn` is **not** used. A missing/mismatched
+binary pin fails the launch closed. Requalify both SHA-256 values whenever the
+operator image or strace package is updated.
 
 Missing qualification stops shared sandbox execution, rather than running an
 unmonitored worker. The legacy Bubblewrap runtime still exists for non-shared
@@ -46,7 +55,14 @@ overhead. Per-PID CPU/RSS/IO values obtained from `/proc` are *sampled lower
 bounds*, not final per-PID lifetime totals for very short processes. Trace file
 coverage includes syscalls on strace-supported Linux ABIs; translating complex
 relative/renamed paths into canonical inode identity is still incomplete. Raw
-per-PID strace files remain the authoritative forensic record. The 180-second and 2-second UI windows are time-weighted from a continuously
+per-PID strace files remain the authoritative forensic record. Structured file
+journals now reconstruct strace's unfinished/resumed calls and record the two
+pathname roles for rename/link operations. Missing or unpaired continuations
+mark the audit incomplete. Per-PID completed syscall count and summed syscall
+**wall duration** are persisted, but syscall wall duration is *not* CPU time.
+Cgroup lifetime CPU, peak memory and IO totals remain authoritative at cgroup
+scope; exact final CPU/RSS/IO for short-lived individual processes still needs
+an independently qualified task-exit collector. The 180-second and 2-second UI windows are time-weighted from a continuously
 running host sampler, independently of UI polling. Each reading is a normalized
 aggregate saturation indicator: maximum of busy CPU and Linux CPU/memory/I/O
 PSI. It is not a sum of resource percentages or a GPU capacity indicator.
@@ -61,3 +77,19 @@ and keep the private cgroup-v2 resource ledger as the accounting boundary.
 
 **Do not treat this development patch alone as a fully qualified production
 forensic or hostile multi-agent isolation boundary.**
+
+### Kernel accounting follow-up
+
+The next phase should attach a single operator-owned, cgroup-filtered eBPF task
+exit collector (or qualified Linux taskstats listener) **before** the worker
+executes. Match exit records against tracee task IDs and kernel task start times,
+record per-task user/system CPU, read/write bytes, peak RSS and exit status,
+reconcile totals with cgroup lifetime statistics, and fail closed if any event
+is missing, truncated or dropped. Include kernel/WSL2 feature checks and
+explicit overhead benchmarks. Linux taskstats/netlink may lose kernel-to-user
+messages under pressure, so it cannot be treated as inherently lossless.
+
+Agent IDs for `ToolGateway` currently follow the authenticated principal rather
+than a separately resolved agent-home identity; they must be transitioned to a
+host-owned Cog/agent registry before claiming independently accurate heat bars
+for multiple agents operating under the same principal.

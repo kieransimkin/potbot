@@ -8,8 +8,9 @@ operator audit mount. Raw traces can contain secrets; NEVER publish them in UI.
 Strict accounting: cgroup CPU/IO lifetime totals and system load are kernel
 counters; individual PID CPU/RSS/IO observations are sampled lower bounds.
 The syscall/file event history itself is traced, not sampled. A monitor fault
-fences successful completion. Production high-throughput collection can later
-replace strace with a qualified kernel eBPF collector behind this contract.
+fences successful completion. A pinned, single-purpose native helper joins the
+operator-owned cgroup BEFORE executing strace (no unsafe Python preexec_fn).
+Production exit accounting will require qualified taskstats or eBPF support.
 """
 from __future__ import annotations
 
@@ -30,6 +31,11 @@ from uuid import UUID, uuid4
 from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
 
 _TRACE_LINE = re.compile(r"^\s*(?P<stamp>\d+\.\d+)\s+(?P<call>[A-Za-z_][A-Za-z_0-9]*)\(")
+_TRACE_RESUMED = re.compile(r"^\s*(?P<stamp>\d+\.\d+)\s+<\.\.\.\s+(?P<call>[A-Za-z_][A-Za-z_0-9]*) resumed>(?P<rest>.*)$")
+_TRACE_END_TIME = re.compile(r"\s<(?P<seconds>\d+\.\d+)>\s*$")
+# These modify both the source *and* the destination pathname.
+_DUAL_PATH = frozenset({"rename", "renameat", "renameat2", "link", "linkat"})
+_UNFINISHED = "<unfinished ...>"
 _STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 _FD_PATH = re.compile(r"\b\d+<(/[^>]{1,8192})>")
 _PID = re.compile(r"[1-9][0-9]{0,9}\Z")
@@ -132,54 +138,119 @@ def _proc_details(pid: int) -> dict[str, int] | None:
         return None  # PID already exited; syscall trace still records its lifetime.
 
 
-def _trace_events(path: Path, pid: int, events: Any, calls: Counter[str]) -> int:
-    """Replay a per-PID trace to an append-only structured file event journal."""
+def _trace_events(path: Path, pid: int, events: Any, calls: Counter[str],
+                  *, integrity: dict[str, int] | None = None,
+                  timing: dict[str, int] | None = None) -> int:
+    """Reassemble strace's unfinished/resumed lines before classifying access.
+
+    strace -ff traces one task per file. A resumed syscall has no pathname in
+    its continuation; classifying it alone drops the original file access.
+    Unpaired continuations are signalled as audit-incomplete, never discarded.
+    """
     count = 0
+    pending: tuple[str, str, str] | None = None
+    malformed = 0
+    total_duration_us = 0
     with path.open("r", encoding="utf-8", errors="replace") as raw:
         for line in raw:
             match = _TRACE_LINE.match(line)
-            if not match:
-                continue  # <unfinished ...>, resumed or exit markers are still in raw log.
-            syscall = match["call"]
+            resumed = _TRACE_RESUMED.match(line)
+            if match:
+                syscall = match["call"]
+                if _UNFINISHED in line:
+                    if pending is not None:
+                        malformed += 1
+                    head = line.split(_UNFINISHED, 1)[0]
+                    pending = (syscall, match["stamp"], head[match.start("call"):])
+                    continue
+                if pending is not None:
+                    # Seeing a new entry without the prior continuation is
+                    # evidence of a missing/unparsable trace line.
+                    malformed += 1
+                    pending = None
+                assembled = line[match.start("call"):]
+                stamp = match["stamp"]
+            elif resumed:
+                syscall = resumed["call"]
+                if pending is None or pending[0] != syscall:
+                    malformed += 1
+                    continue
+                stamp = pending[1]
+                assembled = pending[2] + resumed["rest"]
+                pending = None
+            else:
+                # Signals and exit markers are not syscall completions.
+                continue
             calls[syscall] += 1
+            duration = _TRACE_END_TIME.search(assembled)
+            if duration:
+                total_duration_us += int(round(float(duration["seconds"]) * 1_000_000))
             mode: str | None = None
             if syscall in {"open", "openat", "openat2", "creat"}:
-                mode = ("read_write" if "O_RDWR" in line else "write" if any(flag in line for flag in (
-                    "O_WRONLY", "O_CREAT", "O_TRUNC", "O_APPEND")) or syscall == "creat" else "read")
-            elif syscall.startswith(("execve", "fexecve")):
+                mode = ("read_write" if "O_RDWR" in assembled else "write" if any(
+                    flag in assembled for flag in ("O_WRONLY", "O_CREAT", "O_TRUNC", "O_APPEND")
+                ) or syscall == "creat" else "read")
+            elif syscall in {"execve", "execveat", "fexecve"}:
                 mode = "execute"
             elif syscall in {"read", "readv", "pread64", "preadv", "preadv2", "sendfile", "splice", "copy_file_range"}:
                 mode = "read"
-            elif syscall in {"write", "writev", "pwrite64", "pwritev", "pwritev2", "ftruncate", "fsync", "fdatasync"}:
+            elif syscall in {"write", "writev", "pwrite64", "pwritev", "pwritev2", "ftruncate", "fsync", "fdatasync", "fallocate"}:
                 mode = "write"
             elif syscall in {"unlink", "unlinkat", "rename", "renameat", "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "fchmod", "fchmodat", "chown", "fchown", "fchownat", "link", "linkat", "symlink", "symlinkat", "truncate", "utimensat"}:
                 mode = "metadata_write"
-            elif syscall in {"stat", "statx", "lstat", "fstat", "fstatat", "newfstatat", "access", "faccessat", "readlink", "readlinkat", "getdents", "getdents64"}:
+            elif syscall in {"stat", "statx", "lstat", "fstat", "fstatat", "newfstatat", "access", "faccessat", "readlink", "readlinkat", "getdents", "getdents64", "name_to_handle_at"}:
                 mode = "metadata_read"
-            elif syscall in {"mmap", "mmap2"} and "MAP_SHARED" in line and "PROT_WRITE" in line:
-                mode = "write"
+            elif syscall in {"mmap", "mmap2"}:
+                if "MAP_SHARED" in assembled and "PROT_WRITE" in assembled:
+                    mode = "write"
+                elif "PROT_READ" in assembled or "PROT_EXEC" in assembled:
+                    mode = "read"
             if mode is None:
                 continue
-            # strace -yy gives descriptor target for read/write, while file
-            # syscalls contain a quoted pathname. Keep the raw line private.
-            fd = _FD_PATH.search(line)
-            quoted = _STRING.search(line)
-            pathname: str | None = None
-            if syscall in {"open", "openat", "openat2", "creat", "execve", "stat", "statx", "lstat", "fstatat", "newfstatat", "access", "faccessat", "readlink", "readlinkat", "unlink", "unlinkat", "rename", "renameat", "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "chown", "link", "linkat", "symlink", "symlinkat", "truncate", "utimensat"}:
-                if quoted:
-                    try: pathname = ast.literal_eval(quoted.group())
-                    except (ValueError, SyntaxError): pathname = None
+            fd = _FD_PATH.search(assembled)
+            # The first quoted string is a pathname for path-based calls, and
+            # a user buffer for read/write (hence use the decoded -yy fd there).
+            quoted = _STRING.findall(assembled)
+            path_syscalls = {"open", "openat", "openat2", "creat", "execve", "execveat",
+                "stat", "statx", "lstat", "fstatat", "newfstatat", "access", "faccessat",
+                "readlink", "readlinkat", "unlink", "unlinkat", "rename", "renameat",
+                "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "chown", "link",
+                "linkat", "symlink", "symlinkat", "truncate", "utimensat", "name_to_handle_at"}
+            paths: list[tuple[str, str | None]] = []
+            if syscall in path_syscalls and quoted:
+                # Symlink's target is only stored as text; it is not a file
+                # accessed by this syscall. Audit the created link, not target.
+                if syscall in {"symlink", "symlinkat"}:
+                    tokens = [(1, quoted[1])] if len(quoted) >= 2 else []
+                else:
+                    tokens = list(enumerate(quoted[:2] if syscall in _DUAL_PATH else quoted[:1]))
+                for index, token in tokens:
+                    try:
+                        pathname = ast.literal_eval(token)
+                    except (ValueError, SyntaxError):
+                        continue
+                    if isinstance(pathname, str) and pathname:
+                        role = ("source" if index == 0 else "destination") if syscall in _DUAL_PATH else (
+                            "destination" if syscall in {"symlink", "symlinkat"} else None)
+                        paths.append((pathname, role))
             elif fd:
-                pathname = fd.group(1)
-            if pathname is None and fd:
-                pathname = fd.group(1)
-            if not pathname or not isinstance(pathname, str):
-                continue
-            event = {"pid": pid, "time": float(match["stamp"]), "syscall": syscall,
-                     "path": pathname[:8192], "mode": mode,
-                     "result_error": " = -1 " in line}
-            events.write(json.dumps(event, ensure_ascii=True, sort_keys=True) + "\n")
-            count += 1
+                paths = [(fd.group(1), None)]
+            if not paths and fd:
+                paths = [(fd.group(1), None)]
+            for pathname, role in paths:
+                record = {"pid": pid, "time": float(stamp), "syscall": syscall,
+                          "path": pathname[:8192], "mode": mode,
+                          "result_error": " = -1 " in assembled}
+                if role is not None:
+                    record["path_role"] = role
+                events.write(json.dumps(record, ensure_ascii=True, sort_keys=True) + "\n")
+                count += 1
+    if pending is not None:
+        malformed += 1
+    if integrity is not None:
+        integrity["unpaired_syscalls"] = integrity.get("unpaired_syscalls", 0) + malformed
+    if timing is not None:
+        timing["syscall_wall_usec"] = total_duration_us
     return count
 
 
@@ -188,6 +259,9 @@ class WorkerMonitorConfig:
     audit_root: Path  # outside every guest mount, operator owned (0700)
     cgroup_root: Path  # delegated, controller-enabled cgroup v2 subtree
     strace: Path        # pinned host binary, never a guest-provided executable
+    cgroup_join: Path   # operator-owned native helper, no Python preexec_fn
+    strace_sha256: str  # image-qualified digest, before every launch
+    cgroup_join_sha256: str
     max_trace_bytes: int = _MAX_TRACE
     sample_seconds: float = 0.2
 
@@ -197,20 +271,31 @@ class WorkerMonitorConfig:
                 and not self.cgroup_root.is_symlink() and self.cgroup_root.resolve(strict=True) == self.cgroup_root
                 and (self.cgroup_root / "cgroup.controllers").exists()):
             raise CapabilityUnavailableError("delegated cgroup v2 root unavailable")
-        if (not self.strace.is_absolute() or not self.strace.is_file() or self.strace.is_symlink()
-                or not os.access(self.strace, os.X_OK)
-                or self.strace.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH)):
-            raise CapabilityUnavailableError("pinned operator strace binary unavailable or writable")
+        for executable, expected in ((self.strace, self.strace_sha256),
+                                     (self.cgroup_join, self.cgroup_join_sha256)):
+            if (not isinstance(executable, Path) or not executable.is_absolute()
+                    or not executable.is_file() or executable.is_symlink()
+                    or executable.resolve(strict=True) != executable
+                    or not os.access(executable, os.X_OK)
+                    or executable.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+                    or not isinstance(expected, str) or not re.fullmatch(r"[a-f0-9]{64}", expected)):
+                raise CapabilityUnavailableError("operator monitoring executable unqualified")
+            # Recheck immediately before launch to reject a replaced binary.
+            with executable.open("rb") as stream:
+                if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
+                    raise CapabilityUnavailableError("operator monitoring executable differs from image pin")
         if not 1024 * 1024 <= self.max_trace_bytes <= 4 * 1024**3 or not .05 <= self.sample_seconds <= 2:
             raise ValueError("worker monitor limits invalid")
 
     @classmethod
     def from_environment(cls) -> WorkerMonitorConfig:
-        root, cgroup, tracer = (os.environ.get(key) for key in (
-            "POTBOT_OPERATOR_AUDIT_ROOT", "POTBOT_OPERATOR_CGROUP_ROOT", "POTBOT_OPERATOR_STRACE"))
-        if not all((root, cgroup, tracer)):
-            raise CapabilityUnavailableError("operator telemetry roots and traced executable must be configured")
-        return cls(Path(root), Path(cgroup), Path(tracer))
+        root, cgroup, tracer, helper, tracer_sha, helper_sha = (os.environ.get(key) for key in (
+            "POTBOT_OPERATOR_AUDIT_ROOT", "POTBOT_OPERATOR_CGROUP_ROOT", "POTBOT_OPERATOR_STRACE",
+            "POTBOT_OPERATOR_CGROUP_JOIN", "POTBOT_OPERATOR_STRACE_SHA256",
+            "POTBOT_OPERATOR_CGROUP_JOIN_SHA256"))
+        if not all((root, cgroup, tracer, helper, tracer_sha, helper_sha)):
+            raise CapabilityUnavailableError("operator telemetry binaries, pinned digests and roots must be configured")
+        return cls(Path(root), Path(cgroup), Path(tracer), Path(helper), tracer_sha, helper_sha)
 
 
 class WorkerMonitorSession:
@@ -248,15 +333,15 @@ class WorkerMonitorSession:
             raise
 
     def command(self, argv: tuple[str, ...]) -> tuple[str, ...]:
-        return (str(self.config.strace), "-f", "-ff", "-qq", "-ttt", "-T", "-yy",
+        # Requalify hashes at launch, not merely when the monitor was created.
+        for executable, expected in ((self.config.strace, self.config.strace_sha256),
+                                     (self.config.cgroup_join, self.config.cgroup_join_sha256)):
+            with executable.open("rb") as file:
+                if hashlib.file_digest(file, "sha256").hexdigest() != expected:
+                    raise CapabilityUnavailableError("operator executable pin changed before launch")
+        return (str(self.config.cgroup_join), str(self.cgroup), "--",
+                str(self.config.strace), "-f", "-ff", "-qq", "-ttt", "-T", "-yy",
                 "-s", "4096", "-o", str(self.path / "trace"), "--", *argv)
-
-    def enter_cgroup(self) -> None:
-        """Called only in Popen's child, before it execs strace: no sampling race."""
-        os.umask(0o077)
-        fd = os.open(self.cgroup / "cgroup.procs", os.O_WRONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
-        try: os.write(fd, b"0\n")
-        finally: os.close(fd)
 
     def start(self, pid: int) -> None:
         self._start_pid = pid
@@ -323,23 +408,41 @@ class WorkerMonitorSession:
             if not traces or total_size > self.config.max_trace_bytes:
                 raise CapabilityUnavailableError("worker trace absent or over byte quota")
             counts: Counter[str] = Counter()
+            integrity: dict[str, int] = {}
+            per_pid: dict[str, dict[str, int]] = {}
             event_path = self.path / "file-events.jsonl"
             fd = os.open(event_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as output:
-                event_count = sum(_trace_events(path, int(path.suffix[1:]), output, counts)
-                                  for path in traces if _PID.fullmatch(path.suffix[1:]))
+                event_count = 0
+                for path in traces:
+                    if not _PID.fullmatch(path.suffix[1:]):
+                        integrity["invalid_trace_filenames"] = integrity.get("invalid_trace_filenames", 0) + 1
+                        continue
+                    pid = int(path.suffix[1:])
+                    per_calls: Counter[str] = Counter()
+                    timing: dict[str, int] = {}
+                    entries = _trace_events(path, pid, output, per_calls, integrity=integrity, timing=timing)
+                    event_count += entries
+                    counts.update(per_calls)
+                    per_pid[str(pid)] = {"completed_syscalls": sum(per_calls.values()),
+                                         "file_events": entries, **timing}
+                output.flush()
+                os.fsync(output.fileno())
             sha = hashlib.sha256()
             for path in traces:
                 with path.open("rb") as stream:
                     while (block := stream.read(1048576)): sha.update(block)
             self._last_usage = _cgroup_usage(self.cgroup)
-            complete = confirmed_stopped and self._fault is None and event_count >= 0
+            complete = confirmed_stopped and self._fault is None and not any(integrity.values())
             _safe_write(self.path / "lifetime.json", {
                 "schema": 1, "workspace_id": str(self.workspace_id), "agent_id": str(self.agent_id),
                 "worker_id": str(self.worker_id), "started_at": self._started_at,
                 "finished_at": time.time(), "audit_complete": complete,
                 "audit_failure": self._fault, "syscall_counts": dict(counts),
                 "file_event_count": event_count, "trace_sha256": sha.hexdigest(),
+                "trace_integrity": integrity,
+                "per_pid_syscall_lifetime": per_pid,
+                "per_pid_syscall_wall_time_is_not_cpu_time": True,
                 "traced_pid_count": len(traces),
                 "traced_pids": [int(p.suffix[1:]) for p in traces if _PID.fullmatch(p.suffix[1:])],
                 "sampled_processes": self._processes,

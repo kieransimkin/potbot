@@ -222,6 +222,7 @@ class ProcessSupervisor:
                 home, audit = self.backend.runtime.home.resolve(), config.audit_root
                 if (audit == home or audit.is_relative_to(home) or home.is_relative_to(audit)
                         or config.strace.is_relative_to(home)
+                        or config.cgroup_join.is_relative_to(home)
                         or config.cgroup_root.is_relative_to(home)):
                     raise CapabilityUnavailableError("operator monitoring assets may not overlap sandbox home")
                 telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
@@ -236,7 +237,6 @@ class ProcessSupervisor:
                 start_new_session=True,
                 close_fds=True,
                 pass_fds=launch.pass_fds,
-                preexec_fn=telemetry.enter_cgroup if telemetry is not None else None,
             )
             if telemetry is not None:
                 telemetry.start(process.pid)
