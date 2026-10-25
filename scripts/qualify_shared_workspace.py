@@ -84,10 +84,10 @@ def qualify(runtime: SharedWorkspaceRuntime) -> dict[str, object]:
             command=f'touch /var/ai/{marker} && test -e /var/ai/{marker}',
             must_succeed=True,
         ),
-        "shared_tools_writable": _case(
+        "shared_tools_read_only_during_normal_run": _case(
             supervisor, home=home,
-            command=f'touch /usr/local/tools/{marker} && test -e /usr/local/tools/{marker}',
-            must_succeed=True,
+            command=f'touch /usr/local/tools/{marker}',
+            must_succeed=False,
         ),
         "shared_tools_group_mode": _case(
             supervisor, home=home,
@@ -119,7 +119,6 @@ def qualify(runtime: SharedWorkspaceRuntime) -> dict[str, object]:
     }
     (home / ".tmp" / marker).unlink(missing_ok=True)
     (runtime.model_staging / marker).unlink(missing_ok=True)
-    (runtime.shared_tools / marker).unlink(missing_ok=True)
     passed = all(item["passed"] for item in tests.values())
     result: dict[str, object] = {
         "schema": "potbot-sandbox-qualification-smoke/v1", "qualified_smoke": passed,

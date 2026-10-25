@@ -86,8 +86,9 @@ def test_bubblewrap_rootfs_prepares_readonly_root_and_scoped_writes(tmp_path: Pa
         assert args[args.index("--chdir") + 1] == "/home/projects"
         positions = [i for i, value in enumerate(args) if value == "--bind"]
         assert [args[i + 1:i + 3] for i in positions] == [
-            [str(home), "/home"], [str(staging), "/var/ai"],
-            [str(tools), "/usr/local/tools"]]
+            [str(home), "/home"], [str(staging), "/var/ai"]]
+        assert [str(tools), "/usr/local/tools"] in [
+            args[i + 1:i + 3] for i, value in enumerate(args) if value == "--ro-bind"]
         assert [str(library), "/opt/potbot/models"] in [
             args[i + 1:i + 3] for i, value in enumerate(args) if value == "--ro-bind"]
         assert "HF_HOME" in args and "/var/ai/cache/huggingface" in args

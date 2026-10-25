@@ -19,6 +19,7 @@ from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, 
 from potbot.domain.serialization import content_hash
 from potbot.tools.isolation import BubblewrapBackend, IsolationLaunch, _seccomp_fd
 from potbot.tools.model_cache_routes import model_environment
+from potbot.tools.shared_tool_mounts import ToolWriteGrant
 
 
 def is_wsl2(kernel_release: str) -> bool:
@@ -94,8 +95,10 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
     """
 
     def __init__(self, runtime: SharedWorkspaceRuntime, *,
-                 executable: Path | None = None, prlimit: Path | None = None) -> None:
+                 executable: Path | None = None, prlimit: Path | None = None,
+                 tool_write_grant: ToolWriteGrant | None = None) -> None:
         self.runtime = runtime
+        self.tool_write_grant = tool_write_grant
         self.executable = executable or Path(shutil.which("bwrap") or "/unavailable/bwrap")
         self.prlimit = prlimit or Path(shutil.which("prlimit") or "/unavailable/prlimit")
 
@@ -206,11 +209,25 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         # working-directory convention only, not UID isolation.
         guest_parts = guest_cwd.split("/")
         guest_home = "/home" if len(guest_parts) < 3 else "/home/" + guest_parts[2]
-        # Bubblewrap --clearenv makes the caller's Popen environment irrelevant
-        # to guest processes. Install a host-compiled, tool-specific per-agent
-        # environment for an authorized shared-tool entrypoint.
+        tool_write_source: Path | None = None
+        if self.tool_write_grant is not None:
+            # A writable installation mount is issued only by a trusted host
+            # runner holding an active, exclusive per-tool maintenance lease.
+            if guest.startswith("/usr/local/tools/"):
+                raise ScopeDeniedError("installers must execute a verified rootfs program")
+            tool_write_source = self.tool_write_grant.admit(
+                runtime=self.runtime, cwd=cwd, guest_uid=guest_uid, guest_gid=guest_gid,
+            )
+        # --clearenv removes caller-supplied variables. Use the operator's
+        # dedicated cache policy for installation, per-agent state for use.
         guest_env = model_environment()
-        if guest.startswith("/usr/local/tools/"):
+        if tool_write_source is not None:
+            from potbot.tools.shared_tool_store import tool_process_environment
+
+            guest_env = tool_process_environment(
+                self.tool_write_grant.slug, guest_home.split("/")[-1], installing=True
+            )
+        elif guest.startswith("/usr/local/tools/"):
             if guest_home == "/home":
                 raise ScopeDeniedError("shared tools require an agent-local working directory")
             from potbot.tools.shared_tool_store import tool_process_environment
@@ -231,7 +248,11 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                    "--gid", str(guest_gid)) if guest_uid is not None else ()),
                 "--ro-bind", str(rootfs), "/", "--bind", str(home), "/home",
                 "--bind", str(staging), "/var/ai",
-                "--bind", str(tools), "/usr/local/tools",
+                # Normal use can read, but never mutate a shared checkout.
+                "--ro-bind", str(tools), "/usr/local/tools",
+                *( ("--bind", str(tool_write_source),
+                    "/usr/local/tools/" + self.tool_write_grant.slug)
+                   if tool_write_source is not None else () ),
                 "--ro-bind", str(library), "/opt/potbot/models",
                 "--proc", "/proc", "--dev", "/dev",
                 "--clearenv", "--setenv", "HOME", guest_home,
@@ -244,12 +265,16 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 "--seccomp", str(seccomp), "--json-status-fd", str(status_fd), "--", *argv,
             ]
             identity = content_hash({
-                "backend": "shared-rootfs-bwrap-seccomp-v1", "image": self.runtime.image_digest,
+                "backend": "shared-rootfs-bwrap-seccomp-v2", "image": self.runtime.image_digest,
                 "qualification": self.runtime.qualification_sha256,
                 "rootfs": str(rootfs), "home": str(home), "cwd": guest_cwd,
-                "network": "private-denied", "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-rw/models-ro/proc/dev",
+                "network": "private-denied", "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-ro/models-ro/proc/dev",
                 "model_staging": str(staging), "shared_models": str(library),
                 "shared_tools": str(tools),
+                "writable_tool": self.tool_write_grant.slug if tool_write_source else None,
+                "tool_write_lease": (
+                    self.tool_write_grant.guard.lease.lease_id if tool_write_source else None
+                ),
                 "tool_entrypoints": sorted(self.runtime.tool_entrypoints),
                 "guest_uid": guest_uid, "guest_gid": guest_gid,
                 "kernel_agent_dac_qualified": False,
