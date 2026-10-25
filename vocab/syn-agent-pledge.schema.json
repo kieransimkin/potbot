@@ -1,12 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "synny://schema/syn-agent-pledge/v1",
-  "title": "SYN agent-mode pledge and candidate identity public protocol v1",
-  "description": "Public wire shapes only. SYN exclusively owns keys, inheritance reservations and acceptance authority. Signed envelopes must be authenticated and replay-fenced by SYN.",
+  "$id": "synny://schema/syn-agent-pledge/v2",
+  "title": "SYN agent-mode hardware-bound inheritance and pledge protocol v2",
+  "description": "Version 2: temporary Ed25519 key is CSPRNG-generated and used only for signature verification. The signed raw hardware_unique_id is the SHA-256 inheritance input; it is sensitive and must travel only in authenticated encrypted operator-directed channels. SYN owns custody/attestation and replay fencing.",
   "oneOf": [
-    {"$ref": "#/$defs/signedOffer"},
-    {"$ref": "#/$defs/signedCandidates"},
-    {"$ref": "#/$defs/signedSelection"}
+    {
+      "$ref": "#/$defs/signedOffer"
+    },
+    {
+      "$ref": "#/$defs/signedCandidates"
+    },
+    {
+      "$ref": "#/$defs/signedSelection"
+    }
   ],
   "$defs": {
     "hash32": {
@@ -25,91 +31,196 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version", "type_ref", "temporary_public_key_hash",
-        "timestamp_unix_seconds", "target_master_public_key_hash", "pulse_challenge"
+        "schema_version",
+        "type_ref",
+        "temporary_public_key_hash",
+        "timestamp_unix_seconds",
+        "target_master_public_key_hash",
+        "pulse_challenge",
+        "hardware_unique_id"
       ],
       "properties": {
-        "schema_version": {"const": 1},
-        "type_ref": {"const": "synny://type/syn-agent-pledge-offer-v1"},
-        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
-        "timestamp_unix_seconds": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
-        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
-        "pulse_challenge": {"$ref": "#/$defs/hash32"}
+        "schema_version": {
+          "const": 2
+        },
+        "type_ref": {
+          "const": "synny://type/syn-agent-pledge-offer-v2"
+        },
+        "temporary_public_key_hash": {
+          "$ref": "#/$defs/hash32"
+        },
+        "timestamp_unix_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "target_master_public_key_hash": {
+          "$ref": "#/$defs/hash32"
+        },
+        "pulse_challenge": {
+          "$ref": "#/$defs/hash32"
+        },
+        "hardware_unique_id": {
+          "$ref": "#/$defs/hardwareId",
+          "description": "Raw bytes as canonical lowercase hex, never a temporary key hash. This is sensitive device metadata."
+        }
       }
     },
     "signedOffer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["offer", "temporary_public_key", "signature"],
+      "required": [
+        "offer",
+        "temporary_public_key",
+        "signature"
+      ],
       "properties": {
-        "offer": {"$ref": "#/$defs/offer"},
-        "temporary_public_key": {"$ref": "#/$defs/hash32"},
-        "signature": {"$ref": "#/$defs/signature"}
+        "offer": {
+          "$ref": "#/$defs/offer"
+        },
+        "temporary_public_key": {
+          "$ref": "#/$defs/hash32"
+        },
+        "signature": {
+          "$ref": "#/$defs/signature"
+        }
       }
     },
     "candidates": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version", "type_ref", "temporary_public_key_hash",
-        "target_master_public_key_hash", "operator_byte", "inheritance",
-        "inheritance_hex", "short_public_key_hashes"
+        "schema_version",
+        "type_ref",
+        "pledge_offer_sha256",
+        "target_master_public_key_hash",
+        "operator_byte",
+        "inheritance",
+        "inheritance_hex",
+        "short_public_key_hashes"
       ],
       "properties": {
-        "schema_version": {"const": 1},
-        "type_ref": {"const": "synny://type/syn-agent-identity-candidates-v1"},
-        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
-        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
-        "operator_byte": {"type": "integer", "minimum": 0, "maximum": 255},
-        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
-        "inheritance_hex": {"$ref": "#/$defs/hash3"},
+        "schema_version": {
+          "const": 2
+        },
+        "type_ref": {
+          "const": "synny://type/syn-agent-identity-candidates-v2"
+        },
+        "target_master_public_key_hash": {
+          "$ref": "#/$defs/hash32"
+        },
+        "operator_byte": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "inheritance": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777215
+        },
+        "inheritance_hex": {
+          "$ref": "#/$defs/hash3"
+        },
         "short_public_key_hashes": {
           "type": "array",
           "minItems": 8,
           "maxItems": 8,
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/hash3"}
+          "items": {
+            "$ref": "#/$defs/hash3"
+          }
+        },
+        "pledge_offer_sha256": {
+          "$ref": "#/$defs/hash32"
         }
       }
     },
     "signedCandidates": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["candidates", "operator_public_key", "signature"],
+      "required": [
+        "candidates",
+        "operator_public_key",
+        "signature"
+      ],
       "properties": {
-        "candidates": {"$ref": "#/$defs/candidates"},
-        "operator_public_key": {"$ref": "#/$defs/hash32"},
-        "signature": {"$ref": "#/$defs/signature"}
+        "candidates": {
+          "$ref": "#/$defs/candidates"
+        },
+        "operator_public_key": {
+          "$ref": "#/$defs/hash32"
+        },
+        "signature": {
+          "$ref": "#/$defs/signature"
+        }
       }
     },
     "selection": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version", "type_ref", "temporary_public_key_hash",
-        "target_master_public_key_hash", "inheritance", "independence",
-        "chosen_short_public_key_hash", "candidate_offer_digest"
+        "schema_version",
+        "type_ref",
+        "target_master_public_key_hash",
+        "inheritance",
+        "independence",
+        "chosen_short_public_key_hash",
+        "candidate_offer_digest"
       ],
       "properties": {
-        "schema_version": {"const": 1},
-        "type_ref": {"const": "synny://type/syn-agent-independence-selection-v1"},
-        "temporary_public_key_hash": {"$ref": "#/$defs/hash32"},
-        "target_master_public_key_hash": {"$ref": "#/$defs/hash32"},
-        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
-        "independence": {"type": "integer", "minimum": 1, "maximum": 8},
-        "chosen_short_public_key_hash": {"$ref": "#/$defs/hash3"},
-        "candidate_offer_digest": {"$ref": "#/$defs/hash32"}
+        "schema_version": {
+          "const": 2
+        },
+        "type_ref": {
+          "const": "synny://type/syn-agent-independence-selection-v2"
+        },
+        "target_master_public_key_hash": {
+          "$ref": "#/$defs/hash32"
+        },
+        "inheritance": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777215
+        },
+        "independence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "chosen_short_public_key_hash": {
+          "$ref": "#/$defs/hash3"
+        },
+        "candidate_offer_digest": {
+          "$ref": "#/$defs/hash32"
+        }
       }
     },
     "signedSelection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["selection", "temporary_public_key", "signature"],
+      "required": [
+        "selection",
+        "temporary_public_key",
+        "signature"
+      ],
       "properties": {
-        "selection": {"$ref": "#/$defs/selection"},
-        "temporary_public_key": {"$ref": "#/$defs/hash32"},
-        "signature": {"$ref": "#/$defs/signature"}
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
+        "temporary_public_key": {
+          "$ref": "#/$defs/hash32"
+        },
+        "signature": {
+          "$ref": "#/$defs/signature"
+        }
       }
+    },
+    "hardwareId": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{2}){6,256}$",
+      "minLength": 12,
+      "maxLength": 512
     }
   }
 }

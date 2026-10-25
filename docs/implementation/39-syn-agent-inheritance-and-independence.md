@@ -1,6 +1,6 @@
-# SYN agent-mode provisioning — inheritance and independence (v1 design contract)
+# SYN agent-mode provisioning — inheritance and independence (historical v1 contract)
 
-**Status:** New owner-specified requirements plus a public calculation/verifier library; **not a running SYN node or an activated enrollment API**. Supersedes the earlier provisional `m/6969/420'` root path (the first index **is hardened**). This document extends the SYN-ownership specification in Phase 38; it does not authorize Potbot to derive, store, unwrap, transmit, or invent private keys.
+**Status:** Historical reference. **Superseded for new enrollment by [the hardware-identifier v2 contract](40-syn-agent-hardware-inheritance.md).** Do not implement the temporary-key-hash inheritance formula below for newly provisioned agents. New owner-specified requirements plus a public calculation/verifier library; **not a running SYN node or an activated enrollment API**. Supersedes the earlier provisional `m/6969/420'` root path (the first index **is hardened**). This document extends the SYN-ownership specification in Phase 38; it does not authorize Potbot to derive, store, unwrap, transmit, or invent private keys.
 
 ## 1. Installation identities and custody
 
