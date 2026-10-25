@@ -160,3 +160,23 @@ Next before UI-4:
 
 See [`xpra-seamless-integration.md`](xpra-seamless-integration.md) for the
 complete setup, pin, contract and end-to-end test plan.
+
+### UI-6: Native Xpra damage-region and window-controls pass
+
+- Replaced whole-window decoded ImageBitmap export on every paint with per-window
+  coalesced, bounded damage rectangles and a full-window fallback for resize,
+  scroll and unusually large damage. No PNG polling, XTEST or Xvfb path returns.
+- A Dockview pane must receive a full frame after attach/reconnect before
+  accepting cropped updates; frames carry per-window generations and sequence
+  numbers to prevent stale updates after X window ID reuse.
+- Minimized panes disable bitmap copies; restored panes request full resync.
+  Pointer focus, window close and keyboard release remain owned by Xpra.
+- ResizeObserver is debounced and wheel input uses a non-passive listener.
+- Visible Xpra windows display FPS and approximate decoded-pixel copy volume
+  without claiming actual GPU utilization or network bandwidth.
+- Fixed an existing frontend TypeScript discriminated-union import/narrowing
+  failure, and cleaned up *owned* private Xpra Unix sockets after shutdown so
+  clean workspace restarts work under CI.
+- **Pending:** full pinned HTML5 production build, actual browser WebGL/Canvas
+  frame-rate profiling, real Xpra/XBill dock-and-input acceptance and
+  multi-workspace backend discovery/session storage.

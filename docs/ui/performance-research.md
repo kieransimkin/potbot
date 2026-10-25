@@ -54,3 +54,27 @@ For UI-3 compare our on-demand instanced renderer against
 first-interaction time, sustained orbit FPS, p95 node-picking time, WebGL VRAM,
 initial parse/render and stability after switching workspaces 100 times.
 Use actual event payloads from Potbot's graph-projection API once available.
+
+## UI-6: native Xpra per-window damage projection
+
+Xpra delivers encoded damage to its pinned HTML5 client. The decoder paints
+into each native Xpra window canvas (without visible Xpra borders). Potbot
+instruments successful `do_paint()` callbacks and tracks the union of changed
+rectangles until the next native draw. We export cropped `ImageBitmap` regions,
+not complete canvases, except when resize/scroll/large or invalid damage needs
+resynchronization. The parent keeps a persistent 2D canvas and applies patches
+at their exact source offsets. It refuses incremental frames until a full
+baseline arrives and checks window-generation and sequence identifiers.
+
+This design bounds copy work per update by the *damage region* instead of the
+application window's full area. Transfers are capped near 30 Hz and at most
+one outstanding bitmap per window; changes arriving during a pending transfer
+are coalesced for a subsequent frame. Hidden/minimized panes stop copying,
+while Xpra keeps the application alive on the workspace display.
+
+`npm run benchmark:xpra` compares synthetic **decoded pixel-copy volume** for
+eight 1280x720 windows at 30 Hz, each updating a 48x48 patch, against full-frame
+copies. It also measures Node-side frame-metadata validation speed. This is a
+controlled *illustration*, not Xpra's encoded bandwidth, browser GPU memory,
+actual window FPS or proof of smooth animation. Full qualification must use
+real Xpra + XBill/terminal/browser panes and browser performance tooling.

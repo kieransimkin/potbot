@@ -40,8 +40,9 @@ The display allocator fences workspace ownership with exclusive lock files and
 refuses ambiguous existing X sockets. Xpra starts without a TCP listener or
 remote launching, with transfer, printing, clipboard and audio disabled.
 Startup fails closed instead of substituting another backend. A clean shutdown
-archives the server log, releases locks and allows a new session; stale
-session records require operator reconciliation.
+waits for its owned process group, removes only its own orphaned private Unix
+socket entries, archives the server log and releases locks; foreign files and
+ambiguous stale session records still require operator reconciliation.
 
 ## HTML5 client adaptation and licensing
 
@@ -70,12 +71,25 @@ preserve Xpra's tested codec, keyboard mapping and X11 protocol implementation
 rather than rewritting them. `UPSTREAM-REVISION` and `LICENSE` are bundled.
 
 The client processes native Xpra compressed damage and decodes through upstream
-WebWorkers/codec modules. Potbot's thin window adapter transfers one `ImageBitmap`
-per affected window to its Dockview canvas, throttled to approximately 30 frames
-per second per window with a pending-frame cap. A damaged window can currently
-cause transfer of its whole decoded surface; this is a **known optimization
-limit**, not a PNG desktop polling fallback. Future work can transfer damage
-regions or share GPU texture handles to cut browser-side copy costs.
+WebWorkers/codec modules. The Potbot adapter observes successful native
+`XpraWindow.do_paint()` callbacks and coalesces overlapping damage bounds. It
+transfers only the affected crop using `createImageBitmap(canvas, x, y, w, h)`
+with a per-window in-flight cap and approximately 30 FPS scheduling. Large,
+unknown, scroll or resize damage falls back to a **complete window** transfer,
+never a virtual-desktop framebuffer. The Dockview pane maintains a persistent
+2D canvas: full frames establish its baseline, subsequent damage rectangles
+update only their local region. Generation and sequence checks discard stale
+frames after ID reuse or reconnection. Minimized panes suspend extra bitmap
+copies and demand a new full baseline when restored.
+
+The window toolbar exposes per-window displayed FPS, incremental-frame counts
+and estimated **decoded browser pixel copy volume**. These are not GPU usage,
+encoded network bandwidth or end-to-end frame latency measurements. A separate
+synthetic, CPU-only diagnostic is available with `npm run benchmark:xpra`.
+Actual frame rates, browser GPU memory, decoder throughput, resize behavior,
+input latency and multiple game windows remain subject to Playwright acceptance
+on a real Xpra/Xdummy host. Future work may use native GPU texture handles or
+shared worker buffers to reduce the browser-side copy further.
 
 ### Prepare the pinned source
 
@@ -136,7 +150,7 @@ is never replayed automatically.
 ## Verification and acceptance
 
 - Python: `PYTHONPATH=src python -m pytest -q tests/integration/test_xpra_native_bridge.py tests/integration/test_xpra_vendor_contract.py`.
-- Frontend: `cd frontend && npm test && npm install && npm run typecheck && npm run build`.
+- Frontend: `cd frontend && npm test && npm run benchmark:xpra && npm install && npm run typecheck && npm run build`.
 - Pinned upstream compatibility: GitHub Actions workflow
   `xpra-native-window-acceptance.yml` checks out the precise upstream SHA,
   patches it, validates native hooks and runs frontend typecheck/build.

@@ -135,7 +135,9 @@ def test_clean_stop_allows_restarting_the_same_workspace(tmp_path: Path, fake_xp
     first_display = None
     session.start()
     first_display = session.display
+    first_socket = session.xpra_protocol_socket
     session.stop()
+    assert not first_socket.exists()  # dead Xpra sockets must not block clean restart
     assert not session.session_file.exists()
     assert list((root / ".potbot" / "x11").glob("xpra-*.log"))
     session.start()

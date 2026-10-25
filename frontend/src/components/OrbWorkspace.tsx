@@ -11,7 +11,7 @@ import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
 import { RUN_ID } from "@/lib/live-schema";
 import { validXpraWindow, xpraFrameURL, validXpraControl, windowPanelId, XWINDOW_ID } from "@/lib/xpra-contract";
 import { deliverXpraFrame } from "@/lib/xpra-frames";
-import type { XWindowInfo, XWindowTransport } from "@/lib/xpra-contract";
+import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import { decodeSavedLayout, layoutStorageKey, PANEL_TITLES, shouldMinimizePanel } from "@/lib/layout";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 import { WorkspaceOrbit } from "./WorkspaceOrbit";
@@ -136,6 +136,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [runIds, setRunIds] = useState<Record<string, string>>({});
   const [graphs, setGraphs] = useState<Record<string, GraphProjection>>({});
   const [xWindowsByWorkspace, setXWindowsByWorkspace] = useState<Record<string, XWindowInfo[]>>({});
+  const [xErrorsByWorkspace, setXErrorsByWorkspace] = useState<Record<string, Record<string, string>>>({});
   const [xAvailable, setXAvailable] = useState(false);
   const [xpraIframeSrc, setXpraIframeSrc] = useState<string | null>(null);
   const xpraIframe = useRef<HTMLIFrameElement | null>(null);
@@ -143,6 +144,8 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [xTransportByWorkspace, setXTransportByWorkspace] = useState<Record<string, XWindowTransport | null>>({});
   const xSeen = useRef<Record<string, Set<string>>>({});
   const xHidden = useRef<Record<string, Set<string>>>({});
+  const xGeneration = useRef<Record<string, Map<string, number>>>({});
+  const xLastFullRequest = useRef<Record<string, Map<string, number>>>({});
   const [graphHealth, setGraphHealth] = useState<Record<string, string>>({});
   const [graphTimelines, setGraphTimelines] = useState<Record<string, Timeline>>({});
   const [graphViews, setGraphViews] = useState<Record<string, GraphView>>({});
@@ -304,6 +307,10 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
         const channel = Array.from(crypto.getRandomValues(new Uint8Array(16)))
           .map(n => n.toString(16).padStart(2, "0")).join("");
         xpraChannel.current = channel;
+        // A new Xpra connection may reuse numeric X window IDs; old frames
+        // must never paint into the replacement application's surface.
+        xGeneration.current[workspaceId] = new Map();
+        xLastFullRequest.current[workspaceId] = new Map();
         setXpraIframeSrc(xpraFrameURL(document.wsUrl, channel));
       } catch {
         if (!alive) return;
@@ -325,12 +332,46 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
         if (reconnects++ < 8) retry = setTimeout(requestTicket, Math.min(15000, 1200 * 2 ** reconnects));
         return;
       }
+      if (payload.action === "error" && typeof payload.id === "string" &&
+          XWINDOW_ID.test(payload.id) && payload.reason === "window-bitmap-unavailable" &&
+          xGeneration.current[workspaceId]?.get(payload.id) === payload.generation) {
+        setXErrorsByWorkspace(state => ({ ...state, [workspaceId]: {
+          ...state[workspaceId], [payload.id]: "Xpra decoder cannot capture this window. Retry the full frame or check the backend decoder.",
+        } }));
+        return;
+      }
       if (payload.action === "frame" && typeof payload.id === "string" &&
-          XWINDOW_ID.test(payload.id) && payload.bitmap instanceof ImageBitmap) {
-        deliverXpraFrame(payload.id, payload.bitmap);
+          XWINDOW_ID.test(payload.id) && typeof ImageBitmap !== "undefined" &&
+          payload.bitmap instanceof ImageBitmap) {
+        const expected = xGeneration.current[workspaceId]?.get(payload.id);
+        if (payload.generation !== expected) { payload.bitmap.close(); return; }
+        const disposition = deliverXpraFrame(payload.id, payload.bitmap, payload);
+        if (disposition === "applied") setXErrorsByWorkspace(state => {
+          if (!state[workspaceId]?.[payload.id]) return state;
+          const next = { ...state[workspaceId] };
+          delete next[payload.id];
+          return { ...state, [workspaceId]: next };
+        });
+        if (disposition === "resync") {
+          const last = xLastFullRequest.current[workspaceId] ??= new Map();
+          const now = performance.now();
+          if (now - (last.get(payload.id) ?? -1000) > 500) {
+            last.set(payload.id, now);
+            sendXpra(payload.id, { action: "frame" });
+          }
+        }
         return;
       }
       if (payload.action === "close" && typeof payload.id === "string" && XWINDOW_ID.test(payload.id)) {
+        if (xGeneration.current[workspaceId]?.get(payload.id) !== payload.generation) return;
+        xGeneration.current[workspaceId]?.delete(payload.id);
+        xLastFullRequest.current[workspaceId]?.delete(payload.id);
+        setXErrorsByWorkspace(state => {
+          if (!state[workspaceId]?.[payload.id]) return state;
+          const next = { ...state[workspaceId] };
+          delete next[payload.id];
+          return { ...state, [workspaceId]: next };
+        });
         setXWindowsByWorkspace(state => ({ ...state, [workspaceId]:
           (state[workspaceId] || []).filter(item => item.id !== payload.id) }));
         const pane = apiRef.current?.getPanel(windowPanelId(payload.id));
@@ -342,6 +383,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       if (payload.action === "open") {
         const item = validXpraWindow(payload);
         if (!item) return;
+        const previous = xGeneration.current[workspaceId] ??= new Map();
+        if ((previous.get(item.id) ?? 0) > item.generation) return;
+        previous.set(item.id, item.generation);
         setXWindowsByWorkspace(state => ({ ...state, [workspaceId]: [
           ...(state[workspaceId] || []).filter(w => w.id !== item.id), item,
         ] }));
@@ -365,7 +409,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     void requestTicket();
     return () => { alive = false; if (retry) clearTimeout(retry);
       window.removeEventListener("message", message); setXpraIframeSrc(null); setXAvailable(false); };
-  }, [demo, gateway, workspace?.id]);
+  }, [demo, gateway, workspace?.id, sendXpra]);
 
   const openPanel = useCallback((id: PanelId) => {
     const api = apiRef.current;
@@ -516,6 +560,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
       setGraphHealth({}); setGraphTimelines({}); setGraphViews({}); setCompactPrefs({});
       setXAvailable(false); setXWindowsByWorkspace({}); setXTransportByWorkspace({});
+      setXErrorsByWorkspace({});
       xSeen.current = {}; xHidden.current = {};
       setPassword(""); setSelected(0); apiRef.current = null;
     }).catch(() => setNotice("Logout failed; your existing operator session may still be active."));
@@ -532,6 +577,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     runId: runIds[workspace.id] ?? null,
     xAvailable, xTransport: xTransportByWorkspace[workspace.id] ?? null,
     xWindows: xWindowsByWorkspace[workspace.id] ?? [],
+    xWindowErrors: xErrorsByWorkspace[workspace.id] ?? {},
     sendXpra,
     openXWindow, closeXWindow,
     logout, sendMessage, openPanel, closePanel, dockPanel,
@@ -539,7 +585,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     [workspace, demo, messages, busy, graphs, graphHealth, graphTimelines, graphViews,
       compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
       dockPanel, floatPanel, graphFullscreen, xAvailable, xTransportByWorkspace,
-      xWindowsByWorkspace, sendXpra,
+      xWindowsByWorkspace, xErrorsByWorkspace, sendXpra,
       openXWindow, closeXWindow]);
 
   if (!workspace || !session) return <main className="setup-screen">

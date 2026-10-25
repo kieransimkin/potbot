@@ -23,7 +23,7 @@ CLIENT_HOOKS = (
     "  on_mousescroll(", "  _keyb_onkeydown(", "  _keyb_onkeyup(",
     "  release_keys(", "  set_focus(",
 )
-WINDOW_HOOKS = ("class XpraWindow", "  draw()", "this.draw_canvas")
+WINDOW_HOOKS = ("class XpraWindow", "  draw()", "  do_paint(", "  resize(", "this.draw_canvas")
 
 
 def check_protocol_hooks(client_js: str, window_js: str) -> None:

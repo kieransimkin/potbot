@@ -215,3 +215,36 @@ The private backend relay and the Next.js server require the Xpra token and
 public WebSocket URL described in
 [`docs/ui/xpra-seamless-integration.md`](../docs/ui/xpra-seamless-integration.md).
 Real sandboxed XBill/Dockview acceptance remains opt-in until qualified.
+
+## UI-6 — efficient Xpra damage surfaces and per-window diagnostics
+
+The Xpra HTML5 decoder still owns the native protocol, codecs and X11 input.
+Potbot now copies only coalesced changed rectangles from each decoded *window*
+canvas into Dockview. Scrolling, resizing, unknown packets and damage exceeding
+70% of the window use a full-window baseline instead. Each frame includes the
+Xpra window generation and a monotonic sequence, preventing late updates from
+repainting a recycled X11 window identifier.
+
+Minimizing an application pane suspends `ImageBitmap` copies without killing its
+X process; reopening requests a complete frame before incremental updates.
+Window input uses Xpra's native key/pointer/focus methods. Resize is debounced,
+and wheel events use a non-passive listener to avoid scrolling the page.
+
+Each pane displays an approximate rendered FPS, count of incremental patches and
+cumulative decoded pixel-copy volume. An unsupported bitmap decoder reports an
+error with a manual retry control; it does **not** spin indefinitely. These
+measurements are not compressed stream bandwidth, measured GPU memory or
+end-to-end remote interaction latency.
+
+```bash
+npm test
+npm run benchmark:xpra
+npm run typecheck
+npm run build
+```
+
+The CPU-only synthetic damage benchmark shows theoretical pixel-copy savings,
+not actual browser/GPU FPS. Live acceptance still needs the Xpra/XBill and
+Playwright-equipped host described in the Xpra integration guide. This patch
+also fixes two Xpra CI failures: a TypeScript control union and cleanup of
+orphaned sockets after an owned Xpra process exits.

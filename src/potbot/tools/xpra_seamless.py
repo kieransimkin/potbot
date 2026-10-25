@@ -171,6 +171,19 @@ class XpraSeamlessSession:
                 except ProcessLookupError:
                     pass
                 process.wait(timeout=3)
+        if process is not None and process.poll() is not None:
+            # Xpra may leave its AF_UNIX inode after a clean shutdown. Since
+            # this owner launched and waited for the whole process group, it
+            # may remove only the actual sockets inside its private socket
+            # directory. Unknown files/symlinks remain fail-closed, and no
+            # cleanup occurs for sessions we did not launch.
+            for socket_file in self.socket_files():
+                try:
+                    metadata = socket_file.lstat()
+                    if metadata.st_uid == os.getuid() and stat.S_ISSOCK(metadata.st_mode):
+                        socket_file.unlink()
+                except FileNotFoundError:
+                    pass
         if self._log is not None:
             self._log.close()
             self._log = None

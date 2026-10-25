@@ -22,6 +22,7 @@ type WorkspaceContextValue = {
   xAvailable: boolean;
   xTransport: XWindowTransport | null;
   xWindows: XWindowInfo[];
+  xWindowErrors: Record<string, string>;
   openXWindow: (windowId: string) => void;
   closeXWindow: (windowId: string) => void;
   sendXpra: (windowId: string, command: XpraControl) => void;

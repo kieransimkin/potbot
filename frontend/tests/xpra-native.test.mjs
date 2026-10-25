@@ -37,7 +37,7 @@ test('native client URLs reject external redirects and carry only short-lived ti
   assert.throws(() => xpraFrameURL(ws, 'invalid-channel'));
   assert.equal(windowPanelId('xwin-a2'), 'x11:xwin-a2');
   assert.ok(XWINDOW_ID.test('xwin-abcdef'));
-  assert.equal(validXpraWindow({id:'xwin-a2', title:'XBill',width:640,height:480,x:1,y:2})?.title,'XBill');
+  assert.equal(validXpraWindow({id:'xwin-a2', title:'XBill',width:640,height:480,x:1,y:2,generation:1})?.title,'XBill');
   assert.equal(validXpraWindow({id:'xwin-a2',title:'XBill',width:100000,height:480,x:1,y:2}),null);
   assert.ok(validXpraControl({ action:'blur' }));
   assert.ok(!validXpraControl({ action:'resize',width:99999,height:20 }));
@@ -70,18 +70,23 @@ test('BFF issues only operator-scoped single-use capabilities with origin valida
   assert.equal(called,1);
 });
 
-test('window-only Xpra JS adapter forwards decoded frames and routes input to upstream methods',async()=>{
+test('native Xpra control adapter handles input, metadata, resize and safe close', async () => {
   const source=fs.readFileSync(new URL('../vendor/xpra-html5/potbot-window-bridge.js',import.meta.url),'utf8');
-  const messages=[];const forwarded=[];const handlers=new Map();
-  const parent={postMessage:(data,origin,transfer)=>messages.push({data,origin,transfer})};
-  const xpraWindow={wid:42,title:'XBill',w:480,h:320,x:1,y:2,
-    canvas:{ getBoundingClientRect:()=>({left:0,top:0}) },resize_counter:0,
-    resize(w,h){this.w=w;this.h=h;},};
+  const messages=[], forwarded=[], handlers=new Map();
+  const parent={postMessage:(data,domain)=>{assert.equal(domain,origin);messages.push(data);}};
+  class XpraWindow {
+    resize(w,h){this.w=w;this.h=h;this.canvas.width=w;this.canvas.height=h;}
+    do_paint(_packet, cb){cb();}
+    draw(){return true;}
+  }
+  const win=Object.assign(new XpraWindow(),{wid:42,title:'XBill',w:480,h:320,x:1,y:2,
+    canvas:{width:480,height:320,getBoundingClientRect:()=>({left:0,top:0})},
+    resize_counter:0});
   class XpraClient {
     id_to_window={};connected=true;
-    _new_window(wid){xpraWindow.client=this;this.id_to_window[wid]=xpraWindow;return 'created';}
+    _new_window(wid){win.client=this;this.id_to_window[wid]=win;}
     _process_lost_window(packet){delete this.id_to_window[packet[1]];}
-    _process_window_metadata(_packet){return 'metadata';}
+    _process_window_metadata(){win.title='XBill: running';}
     set_focus(w){forwarded.push(['focus',w.wid]);}
     release_keys(){forwarded.push(['blur']);}
     _keyb_onkeydown(e){forwarded.push(['keydown',e.key]);}
@@ -92,41 +97,44 @@ test('window-only Xpra JS adapter forwards decoded frames and routes input to up
     on_mousescroll(_e,w){forwarded.push(['wheel',w.wid]);}
     send_configure_window(w){forwarded.push(['resize',w.w,w.h]);}
   }
-  class XpraWindow {draw(){return 1;}}
-  const mockBitmap={width:480,height:320,close:()=>{}};
   const sandbox={ URLSearchParams,location:{search:'?potbot_channel='+channel,origin},
     window:{parent,addEventListener:(name,fn)=>handlers.set(name,fn)},
-    performance:{now:()=>1000},Map,Set,Number,Math,
-    XpraClient,XpraWindow,createImageBitmap:async()=>mockBitmap,
-    KeyboardEvent:class{constructor(type,options){Object.assign(this,options);this.type=type;}},
-    MouseEvent:class{constructor(type,options){Object.assign(this,options);this.type=type;}},
-    WheelEvent:class{constructor(type,options){Object.assign(this,options);this.type=type;}} };
-  sandbox.window.parent=parent;
-  sandbox.window.XpraClient=XpraClient;
+    performance:{now:()=>1000},Map,Set,Number,Math,Promise,Utilities:{s:code=>code},
+    setTimeout:fn=>{queueMicrotask(fn);return 1;},clearTimeout:()=>{},
+    XpraClient,XpraWindow,createImageBitmap:async(_,x,y,w,h)=>({width:w,height:h,close(){}}),
+    KeyboardEvent:class{constructor(type,props){Object.assign(this,props);this.type=type;}},
+    MouseEvent:class{constructor(type,props){Object.assign(this,props);this.type=type;}},
+    WheelEvent:class{constructor(type,props){Object.assign(this,props);this.type=type;}}};
   vm.runInNewContext(source,sandbox);
-  const client=new XpraClient();
-  sandbox.window.PotbotXpraBridge.bindClient(client);
+  const client=new XpraClient();sandbox.window.PotbotXpraBridge.bindClient(client);
   client._new_window(42);
-  assert.equal(messages.at(-1).data.id,'xwin-2a');
-  assert.equal(messages.at(-1).data.action,'open');
-  xpraWindow.client=client;
-  const renderer=new XpraWindow();Object.assign(renderer,xpraWindow);
-  client.id_to_window[42]=renderer;
-  renderer.draw();await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(messages.at(-1).data.action,'frame');
-  assert.equal(messages.at(-1).data.bitmap,mockBitmap);
-  const dispatch=(id,action,extra={})=>handlers.get('message')({source:parent,origin,data:{type:'potbot:xpra-control',channel,id,action,...extra}});
-  dispatch('xwin-2a','focus'); dispatch('xwin-2a','key',{key:'x',code:'KeyX',pressed:true});
-  dispatch('xwin-2a','key',{key:'x',code:'KeyX',pressed:false});
-  dispatch('xwin-2a','pointer',{x:10,y:20});
-  dispatch('xwin-2a','button',{x:10,y:20,button:1,pressed:true});
-  dispatch('xwin-2a','wheel',{x:10,y:20,deltaY:45});
-  dispatch('xwin-2a','resize',{width:600,height:410});
-  dispatch('xwin-2a','blur');
-  assert.deepEqual(forwarded.map(x=>x[0]),['focus','focus','keydown','focus','keyup','pointer','button-down','wheel','resize','blur']);
-  assert.deepEqual(forwarded.find(x=>x[0]==='resize'),['resize',600,410]);
-  handlers.get('message')({source:parent,origin:'https://evil.test',data:{type:'potbot:xpra-control',channel,id:'xwin-2a',action:'focus'}});
-  assert.equal(forwarded.length,10);
+  assert.equal(messages.at(-1).action,'open');
+  assert.equal(messages.at(-1).generation,1);
+  const dispatch=(action,extra={})=>handlers.get('message')({source:parent,origin,
+    data:{type:'potbot:xpra-control',channel,id:'xwin-2a',action,...extra}});
+  dispatch('visibility',{visible:true});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(messages.at(-1).action,'frame');
+  assert.equal(messages.at(-1).full,true);
+  client._process_window_metadata(['metadata',42]);
+  assert.equal(messages.at(-1).title,'XBill: running');
+  dispatch('focus'); dispatch('key',{key:'x',code:'KeyX',pressed:true});
+  dispatch('key',{key:'x',code:'KeyX',pressed:false});
+  dispatch('pointer',{x:10,y:20});
+  dispatch('button',{x:10,y:20,button:1,pressed:true});
+  dispatch('button',{x:10,y:20,button:1,pressed:false});
+  dispatch('wheel',{x:10,y:20,deltaY:45});
+  dispatch('resize',{width:600,height:410});
+  dispatch('blur');
+  assert.deepEqual(forwarded.map(x=>x[0]),[
+    'focus','focus','keydown','focus','keyup','pointer','button-down','button-up',
+    'wheel','resize','blur']);
+  assert.equal(win.w,600);
+  const forbidden=forwarded.length;
+  handlers.get('message')({source:parent,origin:'https://evil.test',data:{
+    type:'potbot:xpra-control',channel,id:'xwin-2a',action:'focus'}});
+  assert.equal(forwarded.length,forbidden);
   client._process_lost_window(['lost',42]);
-  assert.equal(messages.at(-1).data.action,'close');
+  assert.equal(messages.at(-1).action,'close');
+  assert.equal(messages.at(-1).generation,1);
 });
