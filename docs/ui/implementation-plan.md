@@ -260,3 +260,21 @@ these views should never fabricate active jobs, bytes or install success.
 The latest frontend CI issue following UI-6 was the Xpra-control union type and
 import narrowing; the UI-7 changes included here address that, but a fresh
 CI run is required for acceptance.
+
+## UI-9 — Real workspace preferences and artifact transfers
+
+Migration 26 adds principal-scoped persisted preferences and a separate,
+workspace-scoped durable model transfer queue. The Next.js preferences,
+downloads, installations and activity windows now use real authenticated
+backend receipts (or explicitly state that the service is unavailable).
+A checksum-pinned Hugging Face worker writes verified files under an
+operator-supplied storage root. See
+[`ui9-preferences-transfers.md`](ui9-preferences-transfers.md) for installation,
+acceptance and security boundaries. Never confuse downloaded weights with a
+qualified installed model or a `model.generate` inference job.
+
+**Unfinished backend services needing independent qualification:** durable
+multi-workspace chat sessions; principal-level workspace discovery; safe
+sandboxed PTY/browser creation and reattachment through Xpra; model runtime
+qualification after verified download. Real PostgreSQL, Hugging Face and Xpra
+browser tests must run on the appropriately provisioned Linux host.

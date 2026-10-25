@@ -7,7 +7,7 @@ import { useWorkspace } from "./WorkspaceContext";
 import { DockControls } from "./Panels";
 
 export function ActivityPanel() {
-  const { demo, activity, activityStatus, refreshActivity, openPanel } = useWorkspace();
+  const { demo, activity, activityStatus, refreshActivity, openPanel, transfers, transfersStatus } = useWorkspace();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<JobViewFilter>("all");
   const visible = useMemo(() => filterJobs(activity?.jobs ?? [], query, status), [activity, query, status]);
@@ -46,10 +46,11 @@ export function ActivityPanel() {
       </li>)}</ol>
       {activity.hasMore && <small>More events available; updating shortly.</small>}
     </section>}
-    <div className="activity-unavailable"><strong>Transfers and installs</strong>
-      <p>Potbot currently exposes job events, but not an authenticated transfer/install-progress service. A running inference job is not a download.</p>
-      <button type="button" onClick={() => openPanel("downloads")}>Download status</button>
-      <button type="button" onClick={() => openPanel("installations")}>Model catalogue</button>
+    <div className="activity-unavailable"><strong>Model transfers and installations</strong>
+      <p>{demo ? "Preview · no transfer jobs" : transfersStatus} · {transfers.length} artifact transfer receipts.
+        Inference jobs remain distinct from file downloads.</p>
+      <button type="button" onClick={() => openPanel("downloads")}>Verified byte progress ↗</button>
+      <button type="button" onClick={() => openPanel("installations")}>Model installations ↗</button>
     </div>
     <DockControls id="activity" />
   </section>;

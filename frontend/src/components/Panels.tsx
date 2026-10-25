@@ -3,6 +3,8 @@
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { PanelId } from "@/lib/model";
+import { bytesLabel, validateArtifact } from "@/lib/ui-resources";
+import type { ArtifactManifest } from "@/lib/ui-resources";
 import { PANEL_TITLES } from "@/lib/layout";
 import { GraphWorkbench } from "./GraphWorkbench";
 import { useWorkspace } from "./WorkspaceContext";
@@ -178,7 +180,7 @@ export function BrowserPanel() {
 }
 
 export function PreferencesPanel() {
-  const { workspace, compact, setCompactPreference, graphView, updateGraphView, openPanel, demo, activityStatus, modelStatus } = useWorkspace();
+  const { workspace, compact, setCompactPreference, graphView, updateGraphView, openPanel, demo, activityStatus, modelStatus, remotePreferences, preferencesStatus, refreshPreferences, updateUserPreferences } = useWorkspace();
   return <section className="settings-panel panel-scroll">
     <span className="eyebrow">USER PREFERENCES</span><h2>Workspace appearance</h2>
     <div className="settings-row"><div><strong>Current workspace</strong><small>{workspace.name}</small></div><span className="status-chip">ACTIVE</span></div>
@@ -201,37 +203,79 @@ export function PreferencesPanel() {
     <h2>Activity windows</h2>
     <button type="button" className="menu-item" onClick={() => openPanel("downloads")}>Downloads and transfers <span>↗</span></button>
     <button type="button" className="menu-item" onClick={() => openPanel("installations")}>Model installations <span>↗</span></button>
+    <h2>Saved workspace preferences</h2>
+    <p role="status">{preferencesStatus}</p>
+    <button type="button" onClick={refreshPreferences} disabled={demo}>Reload saved preferences</button>
+    <label className="settings-row"><div><strong>Theme</strong><small>Saved for your principal and workspace.</small></div>
+      <select aria-label="Workspace theme" disabled={!remotePreferences} value={remotePreferences?.settings.theme ?? "system"}
+        onChange={e => updateUserPreferences({ theme: e.target.value as "system" | "dark" | "light" })}>
+        <option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option>
+      </select></label>
+    <label className="settings-row"><div><strong>Reduce motion</strong><small>Prefer fewer large panel transitions.</small></div>
+      <input type="checkbox" disabled={!remotePreferences} checked={remotePreferences?.settings.reducedMotion ?? false}
+        onChange={e => updateUserPreferences({ reducedMotion: e.target.checked })} /></label>
+    <label className="settings-row"><div><strong>Download notifications</strong><small>Enable browser-side status notifications while the UI is open.</small></div>
+      <input type="checkbox" disabled={!remotePreferences} checked={remotePreferences?.settings.downloadNotifications ?? false}
+        onChange={e => updateUserPreferences({ downloadNotifications: e.target.checked })} /></label>
+    <label className="settings-row"><div><strong>Xpra frame rate limit</strong><small>Preferred client budget; server may impose stricter limits.</small></div>
+      <select aria-label="Xpra maximum frame rate" disabled={!remotePreferences}
+        value={remotePreferences?.settings.xpraMaxFps ?? 30}
+        onChange={e => updateUserPreferences({ xpraMaxFps: Number(e.target.value) as 10 | 15 | 24 | 30 | 60 })}>
+        {[10, 15, 24, 30, 60].map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}
+      </select></label>
     <p className="muted-note">{demo ? "Preview preferences are local to this browser." :
-      "This operator session only supports local appearance settings. Account synchronization requires the backend preferences API."}
-      {" "}Transfer and model-installation progress remain unavailable until the backend supplies authenticated telemetry.</p>
+      "Saved values are workspace-scoped in PostgreSQL. Window docking/layout coordinates remain browser-local."}</p>
     <DockControls id="preferences" />
   </section>;
 }
 
 export function DownloadsPanel() {
-  const { activityStatus, openPanel } = useWorkspace();
-  return <section className="settings-panel panel-scroll">
+  const { demo, transfers, transfersStatus, refreshTransfers, cancelTransfer, openPanel } = useWorkspace();
+  const active = transfers.filter(t => ["queued", "downloading", "verifying"].includes(t.state));
+  const installed = transfers.filter(t => t.state === "installed");
+  return <section className="settings-panel panel-scroll" aria-label="Verified model downloads">
     <span className="eyebrow">USER PREFERENCES / TRANSFERS</span><h2>Downloads</h2>
-    <div className="empty-panel">
-      <p>No authenticated file-transfer progress API is connected.</p>
-      <small>Potbot currently reports job execution progress but does not report model file bytes, verified bytes, resume offsets, speed or installation checksums over HTTP.</small>
-      <p className="muted-note">Job service: {activityStatus}</p>
-      <button type="button" onClick={() => openPanel("activity")}>Open real job activity ↗</button>
-    </div>
+    <p role="status">{transfersStatus}</p>
+    <button type="button" onClick={refreshTransfers} disabled={demo}>Refresh transfers</button>
+    {!demo && <p className="muted-note">{active.length} active/queued · {installed.length} installed · only SHA-256-verified bytes count as installed.</p>}
+    {transfers.length ? <ul className="activity-jobs">
+      {transfers.map(job => <li className="activity-job" key={job.id}>
+        <strong>{job.modelId}</strong>
+        <small>{job.quantization} · {job.filename} · {job.state}{job.cancelRequested ? " · cancellation requested" : ""}</small>
+        <progress max={job.expectedBytes} value={job.downloadedBytes} aria-label={`Download progress for ${job.modelId}`} />
+        <span className="subtle">Downloaded {bytesLabel(job.downloadedBytes)} / {bytesLabel(job.expectedBytes)} · verified {bytesLabel(job.verifiedBytes)}</span>
+        {job.errorCode && <small role="alert">{job.errorCode}</small>}
+        {(["queued", "downloading", "verifying"].includes(job.state) && !job.cancelRequested) &&
+          <button type="button" onClick={() => cancelTransfer(job.id)}>Request cancellation</button>}
+      </li>)}
+    </ul> : <div className="empty-panel"><p>{demo ? "Demo mode never downloads model files." : "No transfers have been recorded for this workspace."}</p>
+      <button type="button" onClick={() => openPanel("installations")}>Browse model installations ↗</button></div>}
     <DockControls id="downloads" />
   </section>;
 }
 
 export function InstallationsPanel() {
-  const { demo, models, modelStatus, refreshModels, openPanel } = useWorkspace();
+  const { demo, models, modelStatus, refreshModels, transfers, transfersStatus,
+    refreshTransfers, queueTransfer, openPanel } = useWorkspace();
+  const [manifest, setManifest] = useState("{}");
+  const [confirm, setConfirm] = useState(false);
+  const [formStatus, setFormStatus] = useState("");
+  const requested = (() => {
+    try { return validateArtifact(JSON.parse(manifest)); } catch { return null; }
+  })();
+  function approve(event: React.FormEvent) {
+    event.preventDefault();
+    if (!requested || !confirm || demo) return;
+    queueTransfer(requested);
+    setFormStatus("Approved manifest submitted. Check Downloads for authoritative status.");
+    setConfirm(false);
+  }
   return <section className="settings-panel panel-scroll" aria-label="Model catalogue and installations">
     <span className="eyebrow">USER PREFERENCES / MODELS</span><h2>Model catalogue</h2>
     <p role="status">{modelStatus}</p>
     <button type="button" disabled={demo} onClick={() => refreshModels()}>Refresh catalogue</button>
-    <div className="activity-unavailable"><strong>Installation progress unavailable</strong>
-      <p>The backend lists advisory model profiles. It does not currently expose an authenticated installation/transfer event stream. Listed models are not necessarily installed or available to run.</p>
-      <button type="button" onClick={() => openPanel("activity")}>Workspace job activity ↗</button>
-    </div>
+    <p className="muted-note">These profiles describe candidate models, not installed weights or validated runtimes.
+      Only the immutable artifact worker can mark an installation complete after checking file size and SHA-256.</p>
     <ul className="activity-jobs" aria-label="Available model catalogue profiles">
       {models.map(model => <li className="activity-job" key={model.id}>
         <strong>{model.id}</strong><small>{model.role} · {model.responseProtocol || "Protocol unspecified"}</small>
@@ -239,6 +283,23 @@ export function InstallationsPanel() {
       </li>)}
     </ul>
     {models.length === 0 && <p className="muted-note">No model profiles reported by this workspace yet.</p>}
+    <h2>Install a pinned quantized artifact</h2>
+    <p role="status">{transfersStatus}</p>
+    <p>Supply a trusted Hugging Face artifact manifest. For GGUF, its quantization must correspond to the exact filename and revision.
+      The form cannot resolve arbitrary download URLs or guess checksums.</p>
+    <form onSubmit={approve}>
+      <label className="settings-row"><strong>Immutable artifact JSON</strong></label>
+      <textarea aria-label="Pinned model artifact JSON" rows={8} spellCheck={false} value={manifest} onChange={e => { setManifest(e.target.value); setFormStatus(""); }} />
+      <small>Required: model_id, artifact_repository, revision (40-hex commit), filename, quantization,
+        sha256 (64-hex digest), size_bytes. No credentials or source URL parameters.</small>
+      <label className="settings-row"><span>I explicitly approve this exact external download and storage use.</span>
+        <input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} disabled={demo} /></label>
+      <button type="submit" disabled={demo || !requested || !confirm}>Queue verified installation</button>
+      {formStatus && <p role="status">{formStatus}</p>}
+    </form>
+    <div className="settings-row"><span>{transfers.filter(t => t.state === "installed").length} verified installations reported</span>
+      <button type="button" onClick={() => { refreshTransfers(); openPanel("downloads"); }}>Open downloads ↗</button></div>
+    <p className="muted-note">The dedicated transfer worker must be running to process queued files; downloading weights does not qualify a model for inference.</p>
     <DockControls id="installations" />
   </section>;
 }

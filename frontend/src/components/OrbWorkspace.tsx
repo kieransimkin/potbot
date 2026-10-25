@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { DockviewApi, DockviewReadyEvent } from "dockview-react";
 import { DockviewReact } from "dockview-react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { bootWorkspaces } from "@/lib/boot";
 import { readChatStream } from "@/lib/chat-stream";
 import { DEFAULT_GRAPH_VIEW, mergeGraphTimeline, sanitizedGraphView } from "@/lib/graph-workbench";
@@ -12,6 +12,8 @@ import { RUN_ID } from "@/lib/live-schema";
 import { validXpraWindow, xpraFrameURL, validXpraControl, windowPanelId, XWINDOW_ID } from "@/lib/xpra-contract";
 import { deliverXpraFrame } from "@/lib/xpra-frames";
 import type { ActivityPage, ModelListing } from "@/lib/activity";
+import { projectPreferences, projectTransfers } from "@/lib/ui-resources";
+import type { UiPreferences, UiSettings, TransferProgress, ArtifactManifest } from "@/lib/ui-resources";
 import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import { decodeSavedLayout, layoutStorageKey, PANEL_TITLES, shouldMinimizePanel } from "@/lib/layout";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
@@ -145,6 +147,12 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const activityCursors = useRef<Record<string, number>>({});
   const activityInFlight = useRef(new Set<string>());
   const modelInFlight = useRef(new Set<string>());
+  const [remotePrefs, setRemotePrefs] = useState<Record<string, UiPreferences>>({});
+  const [preferenceStatuses, setPreferenceStatuses] = useState<Record<string, string>>({});
+  const [transferFeeds, setTransferFeeds] = useState<Record<string, TransferProgress[]>>({});
+  const [transferStatuses, setTransferStatuses] = useState<Record<string, string>>({});
+  const preferenceInFlight = useRef(new Set<string>());
+  const transferInFlight = useRef(new Set<string>());
   const sessionGeneration = useRef(0);
   const [xWindowsByWorkspace, setXWindowsByWorkspace] = useState<Record<string, XWindowInfo[]>>({});
   const [xErrorsByWorkspace, setXErrorsByWorkspace] = useState<Record<string, Record<string, string>>>({});
@@ -252,6 +260,24 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       ...(state[workspace.id] ?? DEFAULT_GRAPH_VIEW), ...patch,
     }) }));
   }, [workspace]);
+
+  useEffect(() => {
+    if (!workspace) return;
+    const theme = remotePrefs[workspace.id]?.settings.theme ?? "system";
+    const reduced = remotePrefs[workspace.id]?.settings.reducedMotion === true;
+    document.body.classList.toggle("potbot-theme-light", theme === "light");
+    document.body.classList.toggle("potbot-reduced-motion", reduced);
+    return () => { document.body.classList.remove("potbot-theme-light", "potbot-reduced-motion"); };
+  }, [workspace?.id, remotePrefs]);
+
+  useEffect(() => {
+    if (!workspace || !xAvailable || demo) return;
+    const fps = remotePrefs[workspace.id]?.settings.xpraMaxFps ?? 30;
+    xpraIframe.current?.contentWindow?.postMessage({
+      type: "potbot:xpra-control", channel: xpraChannel.current,
+      action: "set-fps", fps,
+    }, location.origin);
+  }, [workspace?.id, remotePrefs, xAvailable, demo]);
 
   const selectWorkspace = useCallback((index: number) => {
     if (index < 0 || index >= workspaces.length) return;
@@ -662,15 +688,136 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     })();
   }, [demo, gateway, workspace?.id]);
 
+  const refreshPreferences = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    if (preferenceInFlight.current.has(id)) return;
+    preferenceInFlight.current.add(id);
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/preferences", { cache: "no-store", credentials: "same-origin" });
+        if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
+        if (!response.ok) throw new Error("Workspace preferences endpoint unavailable");
+        const data = projectPreferences(await response.json(), id);
+        if (!data) throw new Error("Invalid preferences projection");
+        if (sessionGeneration.current !== generation) return;
+        setRemotePrefs(old => ({ ...old, [id]: data }));
+        if (data.settings.graphDisplay || data.settings.showGraphDiagnostics !== undefined) {
+          setGraphViews(old => ({ ...old, [id]: sanitizedGraphView({ ...(old[id] ?? DEFAULT_GRAPH_VIEW),
+            ...(data.settings.graphDisplay ? { display: data.settings.graphDisplay } : {}),
+            ...(data.settings.showGraphDiagnostics !== undefined ? { showDiagnostics: data.settings.showGraphDiagnostics } : {}),
+          }) }));
+        }
+        setPreferenceStatuses(old => ({ ...old, [id]: "Saved preferences synchronized" }));
+      } catch {
+        if (sessionGeneration.current === generation)
+          setPreferenceStatuses(old => ({ ...old, [id]: "Remote preferences unavailable; using local view settings" }));
+      } finally { preferenceInFlight.current.delete(id); }
+    })();
+  }, [demo, gateway, workspace?.id]);
+
+  const updateUserPreferences = useCallback((changes: Partial<UiSettings>) => {
+    if (!workspace) return;
+    const id = workspace.id;
+    if (demo || gateway !== "ready") return;
+    const revision = remotePrefs[id]?.revision;
+    if (revision === undefined) { setPreferenceStatuses(old => ({ ...old, [id]: "Load preferences before saving" })); return; }
+    const settings = { ...remotePrefs[id].settings, ...changes };
+    setPreferenceStatuses(old => ({ ...old, [id]: "Saving preferences…" }));
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/preferences", { method: "PUT", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision, settings }) });
+        if (!response.ok) throw new Error("Preferences revision conflict or service unavailable");
+        const next = projectPreferences(await response.json(), id);
+        if (!next) throw new Error("Invalid saved preferences");
+        if (sessionGeneration.current !== generation) return;
+        setRemotePrefs(old => ({ ...old, [id]: next }));
+        setPreferenceStatuses(old => ({ ...old, [id]: "Saved preferences synchronized" }));
+        if (next.settings.graphDisplay || next.settings.showGraphDiagnostics !== undefined) {
+          setGraphViews(old => ({ ...old, [id]: sanitizedGraphView({ ...old[id],
+            ...(next.settings.graphDisplay ? { display: next.settings.graphDisplay } : {}),
+            ...(next.settings.showGraphDiagnostics !== undefined ? { showDiagnostics: next.settings.showGraphDiagnostics } : {}),
+          }) }));
+        }
+      } catch { if (sessionGeneration.current === generation) {
+        setPreferenceStatuses(old => ({ ...old, [id]: "Save failed or changed elsewhere; reload preferences" }));
+        refreshPreferences();
+      } }
+    })();
+  }, [demo, gateway, workspace?.id, remotePrefs, refreshPreferences]);
+
+  const refreshTransfers = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    if (transferInFlight.current.has(id)) return;
+    transferInFlight.current.add(id);
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/downloads", { cache: "no-store", credentials: "same-origin" });
+        if (response.status === 401) { if (sessionGeneration.current === generation) setGateway("login"); return; }
+        if (!response.ok) throw new Error("Transfer service unavailable");
+        const data = projectTransfers(await response.json(), id);
+        if (!data) throw new Error("Invalid workspace transfer projection");
+        if (sessionGeneration.current !== generation) return;
+        setTransferFeeds(old => ({ ...old, [id]: data.items }));
+        setTransferStatuses(old => ({ ...old, [id]: "Live verified-artifact progress" }));
+      } catch {
+        if (sessionGeneration.current === generation)
+          setTransferStatuses(old => ({ ...old, [id]: "Transfer progress unavailable; retrying" }));
+      } finally { transferInFlight.current.delete(id); }
+    })();
+  }, [demo, gateway, workspace?.id]);
+
+  const queueTransfer = useCallback((artifact: ArtifactManifest) => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/downloads", { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: crypto.randomUUID(), artifact, confirm: true }) });
+        if (!response.ok) throw new Error("Transfer approval was rejected");
+        if (sessionGeneration.current === generation) {
+          setTransferStatuses(old => ({ ...old, [id]: "Pinned artifact queued; waiting for transfer worker" }));
+          refreshTransfers();
+        }
+      } catch { if (sessionGeneration.current === generation)
+        setTransferStatuses(old => ({ ...old, [id]: "Transfer request rejected; verify artifact manifest and worker" })); }
+    })();
+  }, [demo, gateway, workspace?.id, refreshTransfers]);
+
+  const cancelTransfer = useCallback((transferId: string) => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    if (!/^[0-9a-f-]{36}$/i.test(transferId)) return;
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/ui/downloads/${transferId}/cancel`, {
+          method: "POST", credentials: "same-origin" });
+        if (!response.ok) throw new Error("Cannot cancel transfer");
+        if (sessionGeneration.current === generation) refreshTransfers();
+      } catch { if (sessionGeneration.current === generation)
+        setTransferStatuses(old => ({ ...old, [id]: "Cancellation not accepted; check transfer state" })); }
+    })();
+  }, [demo, gateway, workspace?.id, refreshTransfers]);
+
   useEffect(() => {
     if (demo || gateway !== "ready" || !workspace) return;
     void refreshActivity();
     void refreshModels();
-    const interval = window.setInterval(() => { if (!document.hidden) refreshActivity(); }, 8000);
+    void refreshPreferences();
+    void refreshTransfers();
+    const interval = window.setInterval(() => { if (!document.hidden) { refreshActivity(); refreshTransfers(); } }, 6000);
     const visible = () => { if (!document.hidden) refreshActivity(); };
     document.addEventListener("visibilitychange", visible);
     return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
-  }, [demo, gateway, workspace?.id, refreshActivity, refreshModels]);
+  }, [demo, gateway, workspace?.id, refreshActivity, refreshModels, refreshPreferences, refreshTransfers]);
 
   const logout = useCallback(() => {
     sessionGeneration.current++;
@@ -681,6 +828,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       setGateway("login"); setWorkspaces([]); setMessages({}); setRunIds({}); setGraphs({});
       setGraphHealth({}); setGraphTimelines({}); setGraphViews({}); setCompactPrefs({});
       setActivityFeeds({}); setActivityStatuses({}); setModelLists({}); setModelStatuses({});
+      setRemotePrefs({}); setPreferenceStatuses({}); setTransferFeeds({}); setTransferStatuses({});
       activityCursors.current = {};
       setXAvailable(false); setXWindowsByWorkspace({}); setXTransportByWorkspace({});
       setXErrorsByWorkspace({}); setXMinimizedByWorkspace({}); setXReconnectByWorkspace({});
@@ -705,6 +853,12 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     models: modelLists[workspace.id] ?? [],
     modelStatus: demo ? "Preview mode · no catalogue" : modelStatuses[workspace.id] || "Awaiting model catalogue",
     refreshModels,
+    remotePreferences: remotePrefs[workspace.id] ?? null,
+    preferencesStatus: demo ? "Preview preferences are browser-local" : preferenceStatuses[workspace.id] ?? "Preferences not loaded",
+    refreshPreferences, updateUserPreferences,
+    transfers: transferFeeds[workspace.id] ?? [],
+    transfersStatus: demo ? "Preview · no transfers" : transferStatuses[workspace.id] ?? "Transfers not loaded",
+    refreshTransfers, queueTransfer, cancelTransfer,
     xAvailable, xTransport: xTransportByWorkspace[workspace.id] ?? null,
     xWindows: xWindowsByWorkspace[workspace.id] ?? [],
     xWindowErrors: xErrorsByWorkspace[workspace.id] ?? {},
@@ -716,6 +870,8 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     floatPanel, graphFullscreen, setGraphFullscreen }) : null,
     [workspace, demo, messages, busy, graphs, graphHealth, graphTimelines, graphViews,
       activityFeeds, activityStatuses, modelLists, modelStatuses, refreshActivity, refreshModels,
+      remotePrefs, preferenceStatuses, transferFeeds, transferStatuses, refreshPreferences, updateUserPreferences,
+      refreshTransfers, queueTransfer, cancelTransfer,
       compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
       dockPanel, floatPanel, graphFullscreen, xAvailable, xTransportByWorkspace,
       xWindowsByWorkspace, xErrorsByWorkspace, xMinimizedByWorkspace,
@@ -746,6 +902,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   </main>;
 
   return <WorkspaceProvider value={session}>
+    <MotionConfig reducedMotion={remotePrefs[workspace.id]?.settings.reducedMotion ? "always" : "user"}>
     <LayoutGroup id={`potbot-${workspace.id}`}>
     <main className="potbot-scene">
       <WorkspaceOrbit workspaces={workspaces} selected={selected} onSelect={selectWorkspace} />
@@ -782,5 +939,6 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       </AnimatePresence>
     </main>
     </LayoutGroup>
+    </MotionConfig>
   </WorkspaceProvider>;
 }

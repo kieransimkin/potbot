@@ -5,6 +5,7 @@ import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@
 import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import type { GraphView, Timeline } from "@/lib/graph-workbench";
 import type { ActivityPage, ModelListing } from "@/lib/activity";
+import type { UiPreferences, UiSettings, TransferProgress, ArtifactManifest } from "@/lib/ui-resources";
 
 type WorkspaceContextValue = {
   workspace: Workspace;
@@ -26,6 +27,15 @@ type WorkspaceContextValue = {
   models: ModelListing[];
   modelStatus: string;
   refreshModels: () => void;
+  remotePreferences: UiPreferences | null;
+  preferencesStatus: string;
+  refreshPreferences: () => void;
+  updateUserPreferences: (settings: Partial<UiSettings>) => void;
+  transfers: TransferProgress[];
+  transfersStatus: string;
+  refreshTransfers: () => void;
+  queueTransfer: (artifact: ArtifactManifest) => void;
+  cancelTransfer: (id: string) => void;
   xAvailable: boolean;
   xTransport: XWindowTransport | null;
   xWindows: XWindowInfo[];

@@ -327,3 +327,23 @@ a { color: #9cdef8; }
 .activity-unavailable { border: 1px dashed #65758a; padding: 12px; border-radius: 9px; }
 .activity-unavailable p { font-size: .8rem; line-height: 1.5; }
 @media (max-width: 600px) { .activity-pane { padding: 11px; } .activity-job { font-size: .85rem; } }
+/* Saved preference overrides: these never grant or infer backend permissions. */
+body.potbot-theme-light { color-scheme: light; --bg: #e5edf3; --surface: #f1f6fa; --line: #8696a7;
+  --text: #263d50; --muted: #536a7c; }
+body.potbot-theme-light .potbot-scene { background: #dae8f2; }
+body.potbot-theme-light .chat-surface, body.potbot-theme-light .menu-pane,
+body.potbot-theme-light .settings-panel { background: #edf4f9; color: #223a4e; }
+body.potbot-theme-light .chat-message { background: #deebf3; color: #263d50; }
+body.potbot-theme-light .chat-message.user { background: #c4e0f2; }
+body.potbot-theme-light .potbot-dockview { --dv-background-color: #dfeaf2;
+ --dv-group-view-background-color: #edf4f9; --dv-activegroup-visiblepanel-tab-background-color: #afc9db;
+ --dv-inactivegroup-hiddenpanel-tab-background-color: #c6d7e4; --dv-activegroup-visiblepanel-tab-color: #233b4e; }
+body.potbot-reduced-motion *, body.potbot-reduced-motion *::before, body.potbot-reduced-motion *::after {
+  scroll-behavior: auto !important; animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+.settings-panel textarea { width: 100%; color: var(--text); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px; font: .77rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.settings-panel select { color: var(--text); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px; max-width: 170px; }
+.settings-panel progress { width: 100%; accent-color: #4cbf95; }

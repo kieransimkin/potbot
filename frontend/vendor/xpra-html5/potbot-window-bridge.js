@@ -7,7 +7,8 @@
   "use strict";
   const channel = new URLSearchParams(location.search).get("potbot_channel") || "";
   if (!/^[a-f0-9]{32}$/.test(channel) || window.parent === window) return;
-  const MAX_W = 1920, MAX_H = 1200, FRAME_MS = 34;
+  const MAX_W = 1920, MAX_H = 1200;
+  let FRAME_MS = 34;
   let xpra = null, live = true, nextGeneration = 0;
   const states = new Map();
   const identifier = wid => Number.isSafeInteger(wid) && wid > 0 && wid <= 0xffffffff
@@ -186,6 +187,10 @@
     const command = event.data;
     if (!command || command.type !== "potbot:xpra-control" || command.channel !== channel ||
         !xpra?.connected) return;
+    if (command.action === "set-fps") {
+      if ([10, 15, 24, 30, 60].includes(command.fps)) FRAME_MS = Math.ceil(1000 / command.fps);
+      return;
+    }
     const match = /^xwin-([a-f0-9]{1,8})$/.exec(command.id || "");
     if (!match) return;
     const wid = parseInt(match[1], 16), win = xpra.id_to_window[wid];

@@ -91,7 +91,7 @@ def application(args: argparse.Namespace) -> FastAPI:
                                          log=events, reasoning_investigator=investigator)
     events.emit("server.ready", host=args.host, port=args.port,
                 content_logging=args.log_content, compatibility_api=True)
-    return create_app(
+    app = create_app(
         task_service=TaskService(database),
         job_service=JobService(database),
         authenticate=authenticate,
@@ -105,6 +105,10 @@ def application(args: argparse.Namespace) -> FastAPI:
         reasoning_budget=budget_journal,
         settings=settings,
     )
+    from potbot.api.ui_resources import register_ui_routes
+
+    register_ui_routes(app, database, authenticate, settings.allowed_origins)
+    return app
 
 
 def main(argv: Sequence[str] | None = None) -> int:
