@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'src/potbot/tools/xpra_seamless.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/isolation.py'
       - 'src/potbot/tools/x11_workspace_server.py'
       - 'frontend/**'
       - 'tests/integration/test_xpra_*'
@@ -56,6 +58,7 @@ jobs:
           uv run --locked python -m pytest -q
           tests/integration/test_xpra_native_bridge.py
           tests/integration/test_xpra_vendor_contract.py
+          tests/unit/test_xpra_application_sessions.py
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

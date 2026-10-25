@@ -8,6 +8,8 @@ import { bootWorkspaces } from "@/lib/boot";
 import { readChatStream } from "@/lib/chat-stream";
 import { conversationEntries, projectSession, projectSessionList } from "@/lib/chat-sessions";
 import type { ChatSessionSummary } from "@/lib/chat-sessions";
+import { projectAppInventory, validAppKind, appSessionId } from "@/lib/xpra-apps";
+import type { AppInventory } from "@/lib/xpra-apps";
 import { DEFAULT_GRAPH_VIEW, mergeGraphTimeline, sanitizedGraphView } from "@/lib/graph-workbench";
 import type { GraphView, Timeline, GraphEvent } from "@/lib/graph-workbench";
 import { RUN_ID } from "@/lib/live-schema";
@@ -160,6 +162,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const preferenceInFlight = useRef(new Set<string>());
   const transferInFlight = useRef(new Set<string>());
   const sessionGeneration = useRef(0);
+  const [appInventories, setAppInventories] = useState<Record<string, AppInventory>>({});
+  const [appStatuses, setAppStatuses] = useState<Record<string, string>>({});
+  const appsInFlight = useRef(new Set<string>());
   const [xWindowsByWorkspace, setXWindowsByWorkspace] = useState<Record<string, XWindowInfo[]>>({});
   const [xErrorsByWorkspace, setXErrorsByWorkspace] = useState<Record<string, Record<string, string>>>({});
   const [xMinimizedByWorkspace, setXMinimizedByWorkspace] = useState<Record<string, string[]>>({});
@@ -952,6 +957,82 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
   }, [demo, gateway, workspace?.id, refreshActivity, refreshModels, refreshPreferences, refreshTransfers]);
 
+  // Operator-approved application sessions. Xpra windows themselves still
+  // arrive via the native codec channel and are docked independently.
+  const refreshApps = useCallback(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    const id = workspace.id;
+    if (appsInFlight.current.has(id)) return;
+    appsInFlight.current.add(id);
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/xpra/apps", {
+          credentials: "same-origin", cache: "no-store", headers: scopedHeaders(id),
+        });
+        if (!response.ok) throw new Error("Application operator unavailable");
+        const projected = projectAppInventory(await response.json(), id);
+        if (!projected) throw new Error("Untrusted application inventory");
+        if (sessionGeneration.current === generation) {
+          setAppInventories(prev => ({ ...prev, [id]: projected }));
+          setAppStatuses(prev => ({ ...prev, [id]: projected.configured ? "Operator session ready" : "App launching not configured" }));
+        }
+      } catch {
+        if (sessionGeneration.current === generation)
+          setAppStatuses(prev => ({ ...prev, [id]: "Application launcher unavailable" }));
+      } finally { appsInFlight.current.delete(id); }
+    })();
+  }, [demo, gateway, workspace?.id]);
+
+  const launchApp = useCallback((kind: string) => {
+    if (demo || gateway !== "ready" || !workspace || !validAppKind(kind) ||
+        !appInventories[workspace.id]?.choices.some(choice => choice.kind === kind)) return;
+    const id = workspace.id;
+    const generation = sessionGeneration.current;
+    setAppStatuses(prev => ({ ...prev, [id]: `Launching ${kind} in sandbox…` }));
+    void (async () => {
+      try {
+        const response = await fetch("/api/ui/xpra/apps", {method:"POST", credentials:"same-origin",
+          headers:{ "Content-Type":"application/json", ...scopedHeaders(id) },
+          body:JSON.stringify({kind})});
+        if (!response.ok) throw new Error("Launch rejected");
+        if (sessionGeneration.current !== generation) return;
+        setAppStatuses(prev => ({ ...prev, [id]: `${kind} launched; Xpra window discovery in progress` }));
+        refreshApps();
+        openPanel("applications");
+      } catch {
+        if (sessionGeneration.current === generation)
+          setAppStatuses(prev => ({ ...prev, [id]: `${kind} launch rejected by workspace operator` }));
+      }
+    })();
+  }, [demo, gateway, workspace?.id, appInventories, refreshApps, openPanel]);
+
+  const appAction = useCallback((sessionId: string, action: "attach" | "detach" | "terminate") => {
+    if (demo || gateway !== "ready" || !workspace || !appSessionId(sessionId) ||
+        !appInventories[workspace.id]?.sessions.some(item => item.id === sessionId)) return;
+    if (action === "terminate" && !window.confirm("Terminate this workspace application? Closing a pane alone never does this.")) return;
+    const id = workspace.id;
+    const generation = sessionGeneration.current;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/ui/xpra/apps/${sessionId}/${action}`, {
+          method:"POST", credentials:"same-origin", headers:scopedHeaders(id), body:"" });
+        if (!response.ok) throw new Error("Application operation rejected");
+        if (sessionGeneration.current === generation) refreshApps();
+      } catch {
+        if (sessionGeneration.current === generation)
+          setAppStatuses(prev => ({ ...prev, [id]: "Application action was not accepted" }));
+      }
+    })();
+  }, [demo, gateway, workspace?.id, appInventories, refreshApps]);
+
+  useEffect(() => {
+    if (demo || gateway !== "ready" || !workspace) return;
+    refreshApps();
+    const timer = setInterval(() => { if (!document.hidden) refreshApps(); }, 4500);
+    return () => clearInterval(timer);
+  }, [demo, gateway, workspace?.id, refreshApps]);
+
   const logout = useCallback(() => {
     sessionGeneration.current++;
     for (const controller of requests.current.values()) controller.abort();
@@ -964,6 +1045,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       setActivityFeeds({}); setActivityStatuses({}); setModelLists({}); setModelStatuses({});
       setRemotePrefs({}); setPreferenceStatuses({}); setTransferFeeds({}); setTransferStatuses({});
       activityCursors.current = {};
+      setAppInventories({}); setAppStatuses({}); appsInFlight.current.clear();
       setXAvailable(false); setXWindowsByWorkspace({}); setXTransportByWorkspace({});
       setXErrorsByWorkspace({}); setXMinimizedByWorkspace({}); setXReconnectByWorkspace({});
       setXpraIframeSrc(null); xpraChannel.current = "";
@@ -996,6 +1078,9 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     transfers: transferFeeds[workspace.id] ?? [],
     transfersStatus: demo ? "Preview · no transfers" : transferStatuses[workspace.id] ?? "Transfers not loaded",
     refreshTransfers, queueTransfer, cancelTransfer,
+    appInventory: appInventories[workspace.id] ?? null,
+    appStatus: demo ? "Preview mode" : appStatuses[workspace.id] ?? "Loading application sessions",
+    refreshApps, launchApp, appAction,
     xAvailable, xTransport: xTransportByWorkspace[workspace.id] ?? null,
     xWindows: xWindowsByWorkspace[workspace.id] ?? [],
     xWindowErrors: xErrorsByWorkspace[workspace.id] ?? {},
@@ -1012,6 +1097,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
       refreshTransfers, queueTransfer, cancelTransfer,
       compactPrefs, setCompactPreference, updateGraphView, runIds, logout, sendMessage, openPanel, closePanel,
       dockPanel, floatPanel, graphFullscreen, xAvailable, xTransportByWorkspace,
+      appInventories, appStatuses, refreshApps, launchApp, appAction,
       xWindowsByWorkspace, xErrorsByWorkspace, xMinimizedByWorkspace,
       xReconnectByWorkspace, retryXpra, sendXpra,
       openXWindow, closeXWindow]);

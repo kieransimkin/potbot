@@ -105,7 +105,16 @@ def runtime_roots() -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def _seccomp_fd(*, private_loopback_ipc: bool = False) -> int:
+def _seccomp_fd(*, private_loopback_ipc: bool = False,
+                private_x11_unix: bool = False) -> int:
+    """Default deny with optional explicit, namespace-confined X11 AF_UNIX IPC.
+
+    X11 admission must also mount only the workspace socket into a private
+    Bubblewrap filesystem, unshare the network and verify its Xauthority.
+    This syscall gate alone is not an X11 capability.
+    """
+    if private_loopback_ipc and private_x11_unix:
+        raise CapabilityUnavailableError("IPC profiles must not be combined")
     library = ctypes.util.find_library("seccomp")
     if library is None or not hasattr(os, "memfd_create"):
         raise CapabilityUnavailableError("libseccomp and Linux memfd support are required")
@@ -135,9 +144,26 @@ def _seccomp_fd(*, private_loopback_ipc: bool = False) -> int:
         for name in _DENIED_SYSCALLS:
             if private_loopback_ipc and name in _PRIVATE_IPC_SYSCALLS:
                 continue
+            if private_x11_unix and name in {"socket", "socketpair", "connect", "sendto", "sendmsg"}:
+                continue
             number = lib.seccomp_syscall_resolve_name(name.encode())
             if number >= 0 and lib.seccomp_rule_add(context, 0x00050001, number, 0) != 0:
                 raise CapabilityUnavailableError("seccomp policy could not be compiled")
+        if private_x11_unix:
+            # Only AF_UNIX sockets. Bwrap's --unshare-all provides a separate
+            # network namespace; filesystem paths visible to the guest are
+            # limited to its verified rootfs, /home and the single Xpra socket.
+            for syscall in (b"socket", b"socketpair"):
+                number = lib.seccomp_syscall_resolve_name(syscall)
+                if number < 0:
+                    raise CapabilityUnavailableError("X11 AF_UNIX syscall unavailable")
+                # Context default is ALLOW: block every domain OTHER than AF_UNIX.
+                # SCMP_CMP_NE = 1. Using EQ here would accidentally reject
+                # the one Unix-socket capability we are trying to grant.
+                domain = _ArgumentComparison(0, 1, 1, 0)  # SCMP_CMP_NE AF_UNIX
+                if lib.seccomp_rule_add_array(context, 0x00050001, number, 1,
+                                              ctypes.byref(domain)) != 0:
+                    raise CapabilityUnavailableError("X11 AF_UNIX syscall policy failed")
         if private_loopback_ipc:
             # Linux AF_INET/AF_INET6 stream sockets inside --unshare-net only.
             # AF_UNIX pathname sockets remain forbidden: a shared pathname

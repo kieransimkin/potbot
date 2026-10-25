@@ -1,4 +1,4 @@
-import { xpraBridgeConfig } from "../../../../../lib/server/xpra.ts";
+import { xpraBridgeConfigForWorkspace } from "../../../../../lib/server/xpra.ts";
 import { requireOperator, safeError, validOrigin } from "../../../../../lib/server/security.ts";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export async function POST(request: Request): Promise<Response> {
   const operator = requireOperator(request);
   if (operator instanceof Response) return operator;
   if (!validOrigin(request, operator)) return safeError("Untrusted Xpra session origin.", 403);
-  const config = xpraBridgeConfig();
+  const config = xpraBridgeConfigForWorkspace(request.headers.get("x-potbot-workspace"));
   if (!config) return safeError("Workspace Xpra stream not configured.", 503);
   if (request.headers.get("x-potbot-workspace") !== null && request.headers.get("x-potbot-workspace") !== config.workspaceId)
     return safeError("Xpra is not configured for the selected workspace.", 404);

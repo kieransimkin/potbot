@@ -292,3 +292,17 @@ browser tests must run on the appropriately provisioned Linux host.
 - Still needed: controller-owned detached chat execution, paginated/deleteable
   history, native backend workspace discovery, per-workspace Xpra bridges,
   authenticated browser/terminal **creation**, and full live-host E2E/CI.
+
+### UI-11: authorized workspace Xpra application sessions
+
+The operator-only Xpra bridge now supports pinned launch recipes, session
+inventory, detach/reattach, explicit termination, and qualified Bubblewrap/X11
+socket admission. Next.js and the dockable application/terminal/browser panes
+use the same workspace-scoped service. See
+[`ui11-xpra-application-sessions.md`](ui11-xpra-application-sessions.md)
+for the host-only policy, security model and manual qualification procedure.
+The private `--apps-policy` option is required to enable launches; absent that
+file, the old read-only Xpra window viewer remains functional. Normal browser
+navigation has no newly granted network permission. Operator-process restart
+cannot yet migrate active GUI processes; process death and lease expiry are
+explicit and never silently replayed.

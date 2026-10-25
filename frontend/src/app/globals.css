@@ -357,3 +357,11 @@ body.potbot-reduced-motion *, body.potbot-reduced-motion *::before, body.potbot-
   color: #eff8ff; padding: .36rem .65rem; }
 .conversation-manager button:disabled { opacity: .5; }
 .conversation-manager .subtle { flex-basis: 100%; font-size: .68rem; }
+
+/* UI-11: operator-approved application sessions share the Xpra window manager. */
+.applications-launcher { border-bottom: 1px solid var(--border, #353b48); padding: 12px 0; }
+.applications-launcher h3 { font-size: 0.96rem; margin: 0 0 5px; }
+.applications-launch-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; }
+.applications-launch-buttons button { max-width: 100%; }
+.applications-launcher .applications-item { align-items: center; }
+.applications-launcher .applications-item button { flex-shrink: 0; }

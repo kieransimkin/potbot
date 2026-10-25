@@ -316,3 +316,18 @@ another workspace using a bearer token from a different workspace.
 See [the UI-10 implementation and security contract](../docs/ui/ui10-durable-workspace-chat.md)
 for configuration, endpoint details, persistence/recovery limits and the next
 backend milestones. Single-workspace environment variables remain supported.
+
+### UI-11 — Qualified Xpra application sessions
+
+The Xpra application manager now exposes an operator-pinned Launch menu and
+running-process sessions. Bash/xterm and browser panels may start approved
+recipes. Closing a Dockview window never terminates the application; an
+explicit Stop action does. Application sessions are scoped to the workspace and
+persist across Next.js reconnections while the Xpra operator remains running.
+Launches stay **disabled** without a pinned rootfs, live Xpra socket, qualified
+Linux Bubblewrap/AF_UNIX IPC and operator-private `--apps-policy`.
+See `docs/ui/ui11-xpra-application-sessions.md`.
+
+For multiple concurrent Xpra workspaces, set the server-only `POTBOT_UI_XPRA_BRIDGES_JSON`
+array with separate scoped bridge tokens and endpoints. Legacy single-workspace
+`POTBOT_UI_XPRA_BRIDGE_*` settings are still accepted.

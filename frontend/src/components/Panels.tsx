@@ -163,17 +163,21 @@ export function FullscreenGraph() {
 }
 
 export function TerminalPanel() {
-  const { xAvailable, xWindows, openXWindow, openPanel } = useWorkspace();
+  const { xAvailable, xWindows, openXWindow, openPanel, appInventory, launchApp, appStatus } = useWorkspace();
   const shells = xWindows.filter(item => /\b(?:xterm|terminal|bash|shell)\b/i.test(item.title)).slice(0, 20);
   return <motion.div layoutId="potbot-terminal-emergence" className="placeholder-panel terminal-placeholder">
     <div className="terminal-welcome">
       <code>$ potbot console</code>
+      {(appInventory?.choices ?? []).filter(choice => choice.kind === "terminal").map(choice =>
+        <button key={choice.kind} type="button" disabled={!xAvailable}
+          onClick={() => launchApp(choice.kind)}>Launch sandbox {choice.title} ↗</button>)}
+      <small role="status">{appStatus}</small>
       {xAvailable && shells.length ? <>
         <p>Workspace Xpra shell windows</p>
         {shells.map(item => <button type="button" key={item.id}
           onClick={() => openXWindow(item.id)}>Open {item.title} ↗</button>)}
       </> : <p>No workspace Bash session is connected.</p>}
-      <small>A real terminal can already appear as an Xpra application window when launched by the workspace executor. Creating/reattaching a PTY from the composer requires an authenticated backend terminal-session API.</small>
+      <small>Operator-approved X11 terminal sessions appear through Xpra and remain running when their Dockview pane closes. Direct PTY streaming from the composer is a separate capability.</small>
       <button type="button" onClick={() => openPanel("applications")}>Open Xpra application manager ↗</button>
     </div>
     <DockControls id="terminal" />
@@ -181,18 +185,22 @@ export function TerminalPanel() {
 }
 
 export function BrowserPanel() {
-  const { xWindows, xAvailable, openXWindow, openPanel } = useWorkspace();
+  const { xWindows, xAvailable, openXWindow, openPanel, appInventory, launchApp, appStatus } = useWorkspace();
   return <div className="placeholder-panel panel-scroll">
     <div className="browser-address"><span>◎</span><span>Workspace Xpra application viewer</span>
       <span className="subtle">{xAvailable ? "CONNECTED" : "DISCONNECTED"}</span></div>
     <div className="empty-panel"><h2>Controlled browser</h2>
+      {(appInventory?.choices ?? []).filter(choice => choice.kind === "browser").map(choice =>
+        <button key={choice.kind} type="button" disabled={!xAvailable}
+          onClick={() => launchApp(choice.kind)}>Launch sandbox {choice.title} ↗</button>)}
+      <small role="status">{appStatus}</small>
       <p>Browsers launched by the authorized workspace executor appear as individual Xpra windows, with keyboard, pointer, focus and docking routed through Xpra—not an insecure third-party iframe.</p>
       {xWindows.length > 0 ? <div className="applications-list" aria-label="Available Xpra windows">
         {xWindows.slice(0, 20).map(item => <button type="button" key={item.id}
           onClick={() => openXWindow(item.id)}>Open {item.title} ↗</button>)}
       </div> : <p>No Xpra application windows are currently reported.</p>}
       <button type="button" onClick={() => openPanel("applications")}>Manage all Xpra windows ↗</button>
-      <small>Starting a browser automatically, choosing URLs and preserving a browser session require the backend browser-launch contract. Existing Xpra applications can be controlled immediately.</small>
+      <small>Only operator-approved browser recipes can be launched. Browser navigation and keyboard/pointer controls use its Xpra window; network access remains governed by the workspace sandbox policy.</small>
     </div><DockControls id="browser" />
   </div>;
 }

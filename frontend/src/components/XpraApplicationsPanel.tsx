@@ -9,7 +9,7 @@ import { DockControls } from "./Panels";
 /** A dockable switcher for every Xpra application, including minimized panes. */
 export function XpraApplicationsPanel() {
   const { xAvailable, xWindows, xMinimizedWindows, xTransport, xReconnectAttempts,
-    retryXpra, openXWindow, closeXWindow } = useWorkspace();
+    retryXpra, openXWindow, closeXWindow, appInventory, appStatus, refreshApps, launchApp, appAction } = useWorkspace();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<WindowFilter>("all");
   const display = useMemo(() => projectXpraWindows(xWindows, xMinimizedWindows, query, filter),
@@ -25,6 +25,35 @@ export function XpraApplicationsPanel() {
       </p>
       {!xAvailable && <button type="button" onClick={retryXpra}>Reconnect Xpra</button>}
     </header>
+    <div className="applications-launcher" aria-label="Operator-approved application sessions">
+      <h3>Launch sandbox application</h3>
+      <p role="status">{appStatus}</p>
+      <div className="applications-launch-buttons">
+        {(appInventory?.choices ?? []).map(choice => <button type="button" key={choice.kind}
+          disabled={!xAvailable || !appInventory?.configured}
+          onClick={() => launchApp(choice.kind)} title={`Start ${choice.title} inside the qualified workspace`}>
+          <span aria-hidden="true">＋</span> {choice.title}
+        </button>)}
+        <button type="button" onClick={refreshApps}>Refresh sessions</button>
+      </div>
+      {(!appInventory?.configured || !appInventory.choices.length) &&
+        <p className="muted-note">No operator-approved launch recipes are available. Xpra windows can still be viewed and controlled.</p>}
+      {(appInventory?.sessions ?? []).length > 0 && <ul className="applications-list" aria-label="Workspace application processes">
+        {appInventory!.sessions.map(app => <li key={app.id} className="applications-item">
+          <span className="applications-symbol" aria-hidden="true">◈</span>
+          <span className="applications-description"><strong>{app.title}</strong>
+            <small>{app.state}{app.detached ? " · detached" : " · attached"} · {app.id.slice(0, 8)}</small>
+          </span>
+          {app.state === "running" && <>
+            <button type="button" onClick={() => appAction(app.id, app.detached ? "attach" : "detach")}>
+              {app.detached ? "Reattach" : "Detach"}
+            </button>
+            <button type="button" onClick={() => appAction(app.id, "terminate")}
+              aria-label={`Terminate ${app.title}`}>Stop</button>
+          </>}
+        </li>)}
+      </ul>}
+    </div>
     <div className="applications-search">
       <label htmlFor="xpra-app-search">Find window</label>
       <input id="xpra-app-search" type="search" value={query}
@@ -53,7 +82,7 @@ export function XpraApplicationsPanel() {
     </ul>
     {display.limited && <p role="status">Showing 256 windows. Refine the search for more.</p>}
     {!display.items.length && <p className="muted-note">{query ? "No windows match that search." : "No matching X applications."}</p>}
-    <p className="muted-note">Closing or minimizing a pane leaves the X11 application running in this workspace. Only the workspace executor may terminate its process.</p>
+    <p className="muted-note">Closing or minimizing a pane leaves the X11 application running in this workspace. Termination is an explicit, operator-authorized action above; closing a pane alone does not stop the process.</p>
     <DockControls id="applications" />
   </section>;
 }

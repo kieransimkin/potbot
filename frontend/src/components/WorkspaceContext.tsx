@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { ChatSessionSummary } from "@/lib/chat-sessions";
+import type { AppInventory } from "@/lib/xpra-apps";
 import type { ChatEntry, DockEdge, PanelId, Workspace, GraphProjection } from "@/lib/model";
 import type { XWindowInfo, XWindowTransport, XpraControl } from "@/lib/xpra-contract";
 import type { GraphView, Timeline } from "@/lib/graph-workbench";
@@ -43,6 +44,11 @@ type WorkspaceContextValue = {
   refreshTransfers: () => void;
   queueTransfer: (artifact: ArtifactManifest) => void;
   cancelTransfer: (id: string) => void;
+  appInventory: AppInventory | null;
+  appStatus: string;
+  refreshApps: () => void;
+  launchApp: (kind: string) => void;
+  appAction: (id: string, action: "attach" | "detach" | "terminate") => void;
   xAvailable: boolean;
   xTransport: XWindowTransport | null;
   xWindows: XWindowInfo[];
