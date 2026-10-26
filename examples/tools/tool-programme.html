@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Potbot tool programme receipts</title>
+<style>
+:root{color-scheme:dark;font:15px/1.4 ui-monospace,monospace;background:#111a26;color:#e8eef5}body{max-width:1040px;margin:24px auto;padding:0 18px}h1{font-size:24px;margin-bottom:4px}p{color:#b8c7d8}input,button{font:inherit;color:inherit;background:#223248;border:1px solid #62748b;padding:9px;border-radius:6px;max-width:100%}button{cursor:pointer}button:disabled{opacity:.5}section{margin:16px 0;padding:16px;background:#172334;border:1px solid #34465e;border-radius:9px}#facts,.phase,#features{display:grid;gap:8px;grid-template-columns:repeat(4,minmax(0,1fr))}#facts{grid-template-columns:repeat(3,minmax(0,1fr))}.cell,.fact{border:1px solid #4b596b;padding:8px;border-radius:5px}.passed{border-color:#58bca1;background:#153e3a}.incomplete,.disabled{border-color:#b89660;background:#393121}.phase{margin:7px 0}.phase .cell{font-size:12px}.cell strong{display:block}#features{grid-template-columns:repeat(3,minmax(0,1fr))}#events{height:135px;overflow:auto;white-space:pre-wrap;font-size:12px}#source,#error{overflow-wrap:anywhere}#error{color:#ffacac}table{width:100%;border-collapse:collapse;font-size:12px}td,th{text-align:left;padding:6px;border-bottom:1px solid #34465e;overflow-wrap:anywhere}small{color:#bbcadc}@media(max-width:600px){#facts,#features{grid-template-columns:1fr}.phase{grid-template-columns:repeat(2,minmax(0,1fr))}body{margin:12px auto}h1{font-size:21px}}
+</style>
+<h1>Potbot: calls and completion are different receipts</h1>
+<p>Load the source-bound programme report and optional transport evidence from CI. Playback inspects retained observations; it executes no tools.</p>
+<label>JSON evidence <input id="files" type="file" accept="application/json,.json" multiple></label>
+<p id="error" role="alert"></p><p id="source">Waiting for evidence.</p>
+<div id="facts"></div>
+<section><h2>Implemented feature gates</h2><div id="features"></div></section>
+<section><h2>All 48 stages</h2><div id="stages"></div><small>Green requires whole-stage acceptance. Amber stages remain incomplete even when a feature fixture passes.</small></section>
+<section><h2>Actual transport runs</h2><button id="play" disabled>Replay observations</button> <span id="position"></span><pre id="events" aria-live="polite"></pre><table><thead><tr><th>Installed operation</th><th>Terminal</th><th>Wall ms</th><th>Controller CPU ms</th></tr></thead><tbody id="runs"></tbody></table></section>
+<p><small>Loaded JSON is not independently authenticated here. Verify its CI source, artifact and gate receipts. Local services and Linux confinement do not qualify physical phones, boards or live providers. Unmeasured target CPU, memory, I/O and cost remain unavailable.</small></p>
+<script>
+let report=null,transport=null,timer=null;const $=id=>document.getElementById(id);
+function cell(parent,title,value,kind=''){const node=document.createElement('div');node.className='cell '+kind;const strong=document.createElement('strong');strong.textContent=title;node.append(strong,document.createTextNode(value));parent.append(node);}
+function render(){
+ if(!report)return;
+ if(report.stages.length!==48||new Set(report.stages.map(s=>s.stage)).size!==48)throw Error('Expected 48 distinct stage receipts');
+ $('source').textContent=`Source ${report.source.commit} · ${report.version} · ${report.mode}`;
+ $('facts').replaceChildren();cell($('facts'),'Implemented profile',report.implemented_profile_passed?'passed':'failed',report.implemented_profile_passed?'passed':'incomplete');cell($('facts'),'Full programme',report.full_programme_qualified?'qualified':'incomplete',report.full_programme_qualified?'passed':'incomplete');cell($('facts'),'Whole stages passed',`${report.stages.filter(s=>s.result==='passed').length} / 48`);
+ $('features').replaceChildren();for(const f of report.features)cell($('features'),f.feature.replaceAll('_',' '),f.result,f.result);
+ $('stages').replaceChildren();for(let p=1;p<=12;p++){const row=document.createElement('div');row.className='phase';for(const s of report.stages.filter(s=>s.stage.startsWith('T'+String(p).padStart(2,'0')+'.'))){cell(row,s.stage,s.result+' · '+s.implementation_status.replaceAll('_',' '),s.result);row.lastChild.title=s.name+' — '+s.reason;}$('stages').append(row);}
+ $('runs').replaceChildren();if(transport){if(transport.source_commit!==report.source.commit)throw Error('Transport evidence is from another source');for(const e of transport.events.filter(e=>['completed','cancelled','failed','indeterminate'].includes(e.stage))){const row=document.createElement('tr');const t=e.telemetry;for(const v of [t.implementation.operation_ref.replace('syn://thing/fixture-',''),e.stage,t.metrics.elapsed_wall_ms.value,t.metrics.controller_cpu_ms.value]){const td=document.createElement('td');td.textContent=String(v);row.append(td);}$('runs').append(row);}$('play').disabled=false;}
+ document.body.dataset.ready='true';
+}
+$('files').addEventListener('change',async e=>{clearInterval(timer);$('error').textContent='';document.body.dataset.ready='false';try{for(const f of e.target.files){if(f.size>8*1024*1024)throw Error('Evidence file exceeds 8 MiB');const data=JSON.parse(await f.text());if(Array.isArray(data.stages))report=data;else if(Array.isArray(data.events))transport=data;else throw Error('Unrecognised evidence');}render();}catch(error){$('error').textContent=error.message;}});
+$('play').addEventListener('click',()=>{clearInterval(timer);$('events').textContent='';document.body.dataset.complete='false';const events=[...transport.events].sort((a,b)=>a.sequence-b.sequence);let index=0;timer=setInterval(()=>{const e=events[index++];const text=`${String(e.sequence).padStart(3,'0')}  ${e.telemetry.work_kind.padEnd(10)} ${e.stage.padEnd(13)} ${e.telemetry.phase}\n`;$('events').append(document.createTextNode(text));$('events').scrollTop=$('events').scrollHeight;$('position').textContent=`${index} / ${events.length} observations`;if(index===events.length){clearInterval(timer);document.body.dataset.complete='true';}},85);});
+window.addEventListener('pagehide',()=>clearInterval(timer));
+</script></html>

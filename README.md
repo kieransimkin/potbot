@@ -3,7 +3,7 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev8`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev9`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -64,6 +64,12 @@ The [canonical semantic tool contracts](docs/implementation/12-canonical-tool-co
 The [execution provenance core](docs/implementation/13-execution-provenance.md) adds 17 registered work-kind Cogs and seal/replay Cogs with policy-bound causal runs, signed trace artifacts and read-only historical inspection. T01.3 remains in progress for universal production adoption, general artifact range transport and remote hardware qualification. [Shared temporary storage](docs/implementation/14-windows-temporary-storage.md) preserves inherited Windows scratch ACLs across tests, builds and workers, with actual file-lifecycle checks and explicit cleanup failures.
 
 ## Install and check
+
+The [programme acceptance guide](docs/implementation/17-tool-programme-acceptance.md)
+connects admitted API/MCP/CLI transports to monitored SYN work Cogs and reports all
+48 tool-plan stages. Passing implemented-profile fixtures never claims full-programme
+completion; missing mandatory evidence fails. Physical-device profiles remain
+disabled and unqualified until a target is available.
 
 Run the entry point for your platform from the extracted checkout:
 
