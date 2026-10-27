@@ -281,6 +281,7 @@ def create_app(
             "transport": "xpra-native-binary",
             "windowPresentation": "dockview",
             "xpraReadOnly": server.readonly_mode,
+            "agentPrivateDisplaysEnabled": bool(apps is not None and getattr(apps, "agent_displays", None) is not None),
         }
 
     @app.post("/v1/xpra/tickets")

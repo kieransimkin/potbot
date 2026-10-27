@@ -124,7 +124,8 @@ class BrowserControlService:
         try:
             reserved = self.reservations.get(session)
             if reserved is not None:
-                raw = self.apps.browser_command(session, cmd, lease_token=reserved.token)
+                raw = self.apps.browser_command(session, cmd, lease_token=reserved.token,
+                                            actor_agent_id=reserved.owner_id)
             else:
                 raw = self.apps.browser_command(session, cmd)
             if not isinstance(raw, dict):

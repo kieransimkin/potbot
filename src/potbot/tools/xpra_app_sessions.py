@@ -280,12 +280,13 @@ class _App:
         self.detached = False
         self.indeterminate = False
         self.browser_control: Any = None
+        self.agent_id: UUID | None = None
 
     def view(self) -> AppView:
         exit_code = self.process.poll()
         return AppView(
             self.id,
-            self.recipe.kind,
+            "agent-browser" if self.agent_id is not None else self.recipe.kind,
             self.recipe.title,
             "indeterminate" if self.indeterminate else "running" if exit_code is None else "exited",
             self.detached,
@@ -313,6 +314,7 @@ class XpraApplicationSupervisor:
         popen: Callable[..., subprocess.Popen[bytes]] = subprocess.Popen,
         ai_monitor: Any = None,
         browser_leases: Any = None,
+        agent_displays: Any = None,
         max_apps: int = 4,
         max_age_seconds: int = 3600,
     ) -> None:
@@ -342,6 +344,16 @@ class XpraApplicationSupervisor:
             ):
                 raise ScopeDeniedError("browser reservations differ from operator scope")
         self.browser_leases = browser_leases
+        if agent_displays is not None:
+            from potbot.tools.agent_xpra_displays import AgentXpraDisplayPool
+            if (not isinstance(agent_displays, AgentXpraDisplayPool)
+                    or agent_displays.workspace_id != workspace_id
+                    or agent_displays.principal_id != principal_id
+                    or agent_displays.backend is not backend.backend
+                    or browser_leases is None
+                    or not backend.server.readonly_mode):
+                raise ScopeDeniedError("private displays require an attached, reserved Xpra operator")
+        self.agent_displays = agent_displays
         self.max_apps, self.max_age_seconds = max_apps, max_age_seconds
         self._lock = threading.RLock()
         self._apps: dict[str, _App] = {}
@@ -378,6 +390,7 @@ class XpraApplicationSupervisor:
         if proc.poll() is not None:
             if app.browser_control is not None:
                 app.browser_control.close()
+            self._retire_agent_display(app)
             return
         try:
             os.killpg(proc.pid, signal.SIGTERM)
@@ -396,6 +409,28 @@ class XpraApplicationSupervisor:
                 app.indeterminate = True
         if app.browser_control is not None:
             app.browser_control.close()
+        self._retire_agent_display(app)
+
+    def _retire_agent_display(self, app: _App) -> None:
+        """Retire only after the application process is demonstrably stopped."""
+        if app.agent_id is None or self.agent_displays is None:
+            return
+        if app.process.poll() is None:
+            app.indeterminate = True
+            return
+        try:
+            self.agent_displays.retire(app.agent_id, process_stopped=True)
+            if self.browser_leases is not None:
+                self.browser_leases.retired(app.id, process_stopped=True)
+        except Exception:
+            app.indeterminate = True  # operator reconciliation required
+
+    def _close_agent_displays(self) -> None:
+        if self.agent_displays is None:
+            return
+        if any(a.agent_id is not None and a.process.poll() is None for a in self._apps.values()):
+            raise StateMismatchError("cannot stop private Xpra displays with live workers")
+        self.agent_displays.stop_all()
 
     def _watch(self) -> None:
         while not self._stop.wait(0.25):
@@ -403,6 +438,9 @@ class XpraApplicationSupervisor:
                 guard = self._guard
                 if guard is None:
                     continue
+                for app in self._apps.values():
+                    if app.agent_id is not None and app.process.poll() is not None:
+                        self._retire_agent_display(app)
                 expired = any(
                     app.process.poll() is None
                     and time.time() - app.started_at > self.max_age_seconds
@@ -410,14 +448,20 @@ class XpraApplicationSupervisor:
                 )
                 try:
                     self.backend.server.environment()  # crash or lost X socket => fence GUI apps
+                    if self.agent_displays is not None:
+                        for app in self._apps.values():
+                            if app.agent_id is not None and app.process.poll() is None:
+                                self.agent_displays.environment(app.agent_id)
                     lost_display = False
-                except (OSError, RuntimeError):
+                except Exception:  # a lost private-display capability is fatal
                     lost_display = True
                 lost_watcher = self.ai_monitor is not None and not self.ai_monitor.is_healthy()
                 lost_operator = (
                     self.operator_attachment is not None and not self.operator_attachment.healthy()
                 )
-                if guard.fenced or expired or lost_display or lost_watcher or lost_operator:
+                if (guard.fenced or expired or lost_display or lost_watcher
+                        or lost_operator or any(a.indeterminate and a.process.poll() is None
+                                                 for a in self._apps.values())):
                     for app in self._apps.values():
                         self._terminate(app)
                         if guard.fenced or lost_display or lost_watcher or lost_operator:
@@ -430,18 +474,30 @@ class XpraApplicationSupervisor:
             return [
                 app.view().document()
                 for app in sorted(self._apps.values(), key=lambda a: a.started_at)
+                if app.agent_id is None
             ][-100:]
 
     def choices(self) -> list[dict[str, str]]:
         return [{"kind": r.kind, "title": r.title} for r in self.recipes.values()]
 
-    def start(self, kind: str) -> dict[str, Any]:
+    def start(self, kind: str, *, agent_id: UUID | None = None) -> dict[str, Any]:
         if not isinstance(kind, str) or kind not in self.recipes:
             raise ScopeDeniedError("application kind is not on the operator allowlist")
+        if agent_id is not None and (not isinstance(agent_id, UUID)
+                                     or kind != "controlled-browser"
+                                     or self.agent_displays is None):
+            raise ScopeDeniedError("agent GUI launch requires a private display and registered identity")
         if self.operator_attachment is not None:
             self.operator_attachment.require_healthy()
         with self._lock:
             self._settle()
+            for previous in self._apps.values():
+                if previous.agent_id is not None and previous.process.poll() is not None:
+                    self._retire_agent_display(previous)
+            if agent_id is not None and any(
+                a.agent_id == agent_id and a.process.poll() is None for a in self._apps.values()
+            ):
+                raise StateMismatchError("agent already has a live private browser")
             if sum(a.process.poll() is None for a in self._apps.values()) >= self.max_apps:
                 raise StateMismatchError("workspace application capacity reached")
             first = self._guard is None
@@ -469,14 +525,19 @@ class XpraApplicationSupervisor:
             process = None
             try:
                 controlled_browser = kind == "controlled-browser"
-                launch = (
-                    self.backend.prepare(
-                        argv=self.recipes[kind].argv, status_fd=write_fd, browser_egress=True
+                if agent_id is not None:
+                    launch = self.agent_displays.prepare(
+                        agent_id, argv=self.recipes[kind].argv, status_fd=write_fd
                     )
-                    if controlled_browser
-                    and getattr(self.backend, "browser_gateway", None) is not None
-                    else self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
-                )
+                else:
+                    launch = (
+                        self.backend.prepare(
+                            argv=self.recipes[kind].argv, status_fd=write_fd, browser_egress=True
+                        )
+                        if controlled_browser
+                        and getattr(self.backend, "browser_gateway", None) is not None
+                        else self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
+                    )
                 process = self.popen(
                     launch.argv,
                     stdin=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
@@ -495,6 +556,7 @@ class XpraApplicationSupervisor:
                 if process.poll() is not None:
                     raise CapabilityUnavailableError("sandbox application exited during admission")
                 app = _App(uuid4().hex, self.recipes[kind], process, launch.identity)
+                app.agent_id = agent_id
                 if controlled_browser:
                     from potbot.tools.xpra_browser_control import BrowserControlChannel
 
@@ -517,10 +579,14 @@ class XpraApplicationSupervisor:
                     # mutated the home. Preserve an uncertain receipt even if
                     # it is now stopped; never call this successful work.
                     temporary = _App(uuid4().hex, self.recipes[kind], process, "")
+                    temporary.agent_id = agent_id
                     self._terminate(temporary)
                     temporary.indeterminate = True
                     self._apps[temporary.id] = temporary
                     self._group_ids.add(temporary.id)
+                if process is None and agent_id is not None and self.agent_displays is not None:
+                    # No worker was dispatched: release the unused Xpra session.
+                    self.agent_displays.retire(agent_id, process_stopped=True)
                 self._settle()
                 raise
             finally:
@@ -543,6 +609,7 @@ class XpraApplicationSupervisor:
                 app.recipe.kind != "controlled-browser"
                 or app.process.poll() is not None
                 or app.indeterminate
+                or app.agent_id is not None
             ):
                 raise CapabilityUnavailableError("controlled browser session unavailable")
             if self.browser_leases is None:
@@ -577,8 +644,38 @@ class XpraApplicationSupervisor:
                 raise ScopeDeniedError("operator cannot take an agent-owned reservation")
             return {"reservation": self.browser_leases.projection(identifier), "token": lease.token}
 
+    def agent_browser_reservation(
+        self, agent_id: UUID, identifier: str, action: str = "acquire",
+        token: str | None = None,
+    ) -> dict[str, Any]:
+        """Host-only: issue an agent lease; not reachable via the operator HTTP UI."""
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
+        with self._lock:
+            app = self._get(identifier)
+            if (not isinstance(agent_id, UUID) or self.browser_leases is None
+                    or self.agent_displays is None or app.agent_id != agent_id
+                    or app.recipe.kind != "controlled-browser" or app.indeterminate
+                    or app.process.poll() is not None or self._guard is None
+                    or self._guard.fenced):
+                raise ScopeDeniedError("agent cannot reserve another browser")
+            self.agent_displays.environment(agent_id)
+            if action == "acquire" and token is None:
+                lease = self.browser_leases.reserve(identifier, owner_kind="agent", owner_id=agent_id)
+            elif action == "renew" and token is not None:
+                lease = self.browser_leases.renew(identifier, token,
+                    owner_kind="agent", owner_id=agent_id)
+            elif action == "release" and token is not None:
+                self.browser_leases.release(identifier, token,
+                    owner_kind="agent", owner_id=agent_id)
+                return {"reservation": self.browser_leases.projection(identifier)}
+            else:
+                raise ScopeDeniedError("unsupported agent reservation action")
+            return {"reservation": self.browser_leases.projection(identifier), "token": lease.token}
+
     def browser_command(
-        self, identifier: str, command: object, *, lease_token: str | None = None
+        self, identifier: str, command: object, *, lease_token: str | None = None,
+        actor_agent_id: UUID | None = None
     ) -> dict[str, Any]:
         """Read/control only the Chromium belonging to an admitted app session."""
         if self.operator_attachment is not None:
@@ -594,13 +691,19 @@ class XpraApplicationSupervisor:
                 or app.browser_control is None
             ):
                 raise ScopeDeniedError("browser operation outside admitted live session")
+            if app.agent_id != actor_agent_id:
+                raise ScopeDeniedError("browser belongs to a different agent or operator")
             channel = app.browser_control
         try:
             if self.browser_leases is None:
                 return channel.call(command)  # legacy operator-only profile
             if lease_token is None:
                 raise ScopeDeniedError("browser requires its current exclusive reservation")
-            with self.browser_leases.operation(identifier, lease_token):
+            with self.browser_leases.operation(
+                identifier, lease_token,
+                owner_kind="agent" if actor_agent_id is not None else "operator",
+                owner_id=actor_agent_id or self.principal_id,
+            ):
                 return channel.call(command)
         except StateMismatchError:
             with self._lock:
@@ -623,21 +726,56 @@ class XpraApplicationSupervisor:
             self._terminate(app)
             self._settle()
 
+    def agent_sessions(self, agent_id: UUID) -> list[dict[str, Any]]:
+        """Host-only reattachment inventory; no model or public HTTP exposure."""
+        if not isinstance(agent_id, UUID) or self.agent_displays is None:
+            raise ScopeDeniedError("agent session inventory requires private Xpra authority")
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
+        with self._lock:
+            return [app.view().document() for app in self._apps.values()
+                    if app.agent_id == agent_id][-12:]
+
+    def terminate_agent_browser(self, agent_id: UUID, identifier: str) -> dict[str, Any]:
+        """Host-only clean stop, scoped to the registered owner."""
+        if not isinstance(agent_id, UUID) or self.agent_displays is None:
+            raise ScopeDeniedError("agent session termination requires private Xpra authority")
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
+        with self._lock:
+            app = self._get(identifier)
+            if app.agent_id != agent_id or app.recipe.kind != "controlled-browser":
+                raise ScopeDeniedError("cannot stop another agent's browser")
+            self._terminate(app)
+            if app.process.poll() is None:
+                app.indeterminate = True
+                if self.browser_leases is not None:
+                    self.browser_leases.fence(identifier)
+                raise StateMismatchError("agent browser process termination is unconfirmed")
+            self._settle()
+            return app.view().document()
+
     def detach(self, identifier: str) -> dict[str, Any]:
         with self._lock:
             app = self._get(identifier)
+            if app.agent_id is not None:
+                raise ScopeDeniedError("agent browser requires host-scoped management")
             app.detached = True
             return app.view().document()
 
     def attach(self, identifier: str) -> dict[str, Any]:
         with self._lock:
             app = self._get(identifier)
+            if app.agent_id is not None:
+                raise ScopeDeniedError("agent browser requires host-scoped management")
             app.detached = False
             return app.view().document()
 
     def terminate(self, identifier: str) -> dict[str, Any]:
         with self._lock:
             app = self._get(identifier)
+            if app.agent_id is not None:
+                raise ScopeDeniedError("agent browser requires host-scoped management")
             self._terminate(app)
             self._settle()
             if self.browser_leases is not None and app.recipe.kind == "controlled-browser":
@@ -666,6 +804,7 @@ class XpraApplicationSupervisor:
                     self.browser_leases.fence(app.id)
                 self._terminate(app)
             self._settle()
+            self._close_agent_displays()
         if threading.current_thread() is not self._watcher:
             self._watcher.join(timeout=2)
 
@@ -675,6 +814,7 @@ class XpraApplicationSupervisor:
             for app in self._apps.values():
                 self._terminate(app)
             self._settle()
+            self._close_agent_displays()
         self._watcher.join(timeout=2)
         if getattr(self.backend, "browser_gateway", None) is not None:
             self.backend.browser_gateway.stop()
@@ -717,7 +857,7 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
     try:
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
         allowed = {"workspaceId", "principalId", "runtime", "ledger", "recipes"}
-        optional = {"browserLeases", "strictXpraInput", "browserEgress"}
+        optional = {"browserLeases", "strictXpraInput", "browserEgress", "agentDisplays"}
         if (
             not isinstance(data, dict)
             or not allowed <= set(data)
@@ -780,6 +920,19 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         if not isinstance(raw, list) or not 1 <= len(raw) <= 12:
             raise ValueError()
         recipes = tuple(AppRecipe(row["kind"], row["title"], tuple(row["argv"])) for row in raw)
+        display_spec = data.get("agentDisplays")
+        if display_spec is not None:
+            if (not isinstance(display_spec, dict)
+                    or set(display_spec) != {"root", "workspaceName", "maxDisplays"}
+                    or not isinstance(display_spec["root"], str)
+                    or not Path(display_spec["root"]).is_absolute()
+                    or not isinstance(display_spec["workspaceName"], str)
+                    or not 1 <= len(display_spec["workspaceName"]) <= 80
+                    or type(display_spec["maxDisplays"]) is not int
+                    or not 1 <= display_spec["maxDisplays"] <= 12
+                    or not strict or data.get("browserLeases") is not True
+                    or not any(r.kind == "controlled-browser" for r in recipes)):
+                raise ValueError("agentDisplays requires the private readonly browser profile")
         egress_spec = data.get("browserEgress")
         if egress_spec is not None:
             if (
@@ -827,6 +980,19 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
             if data.get("browserLeases") is True
             else None
         )
+        pool = None
+        if display_spec is not None:
+            if backend.operator_attachment is None:
+                raise CapabilityUnavailableError("agent Xpra requires an attached operator")
+            from potbot.tools.agent_homes import AgentHomeRegistry
+            from potbot.tools.agent_xpra_displays import AgentXpraDisplayPool
+            pool = AgentXpraDisplayPool(
+                workspace_id=server.workspace_id, principal_id=principal,
+                operator_root=Path(display_spec["root"]), runtime=runtime,
+                ledger=ledger, backend=backend,
+                homes=AgentHomeRegistry(ledger, workspace_name=display_spec["workspaceName"]),
+                browser_gateway=gateway, maximum=display_spec["maxDisplays"],
+            )
         return XpraApplicationSupervisor(
             workspace_id=server.workspace_id,
             principal_id=principal,
@@ -834,6 +1000,7 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
             backend=xbackend,
             ledger=ledger,
             browser_leases=leases,
+            agent_displays=pool,
             ai_monitor=None,
         )
     except BaseException:

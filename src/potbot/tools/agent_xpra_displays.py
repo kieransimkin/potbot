@@ -157,9 +157,10 @@ class AgentXpraDisplayPool:
         if process_stopped is not True:
             raise StateMismatchError("cannot retire agent display with unconfirmed processes")
         with self._lock:
-            display = self._displays.pop(agent_id, None)
+            display = self._displays.get(agent_id)
             if display is not None:
                 display.server.stop()
+                del self._displays[agent_id]
 
     def stop_all(self) -> None:
         """Only operator shutdown after the application supervisor stops workers."""

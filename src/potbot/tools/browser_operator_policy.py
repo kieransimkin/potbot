@@ -40,6 +40,8 @@ def server_readonly_required(path: Path) -> bool:
         raise ValueError("browser leases require server-enforced readonly Xpra")
     if strict and raw.get("browserLeases") is not True:
         raise ValueError("readonly browser mode requires browser leases")
+    if "agentDisplays" in raw and (not strict or not isinstance(raw["agentDisplays"], dict)):
+        raise ValueError("agent displays require strict readonly browser reservations")
     if "browserEgress" in raw and (not strict or not isinstance(raw["browserEgress"], dict)):
         raise ValueError("browser egress requires strict Xpra input fencing")
     return strict

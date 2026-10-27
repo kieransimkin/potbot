@@ -1,0 +1,56 @@
+name: S40 agent private Xpra integration after S14 operator fencing
+
+on:
+  pull_request:
+    paths:
+      - 'src/potbot/tools/agent_xpra_displays.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'src/potbot/tools/browser_operator_policy.py'
+      - 'src/potbot/controller/browser_cogs.py'
+      - 'tests/unit/test_s40_rebased_supervisor.py'
+      - 'tests/unit/test_agent_xpra_displays_s40.py'
+      - 'tests/unit/test_xpra_application_sessions.py'
+      - 'tests/unit/test_xpra_owner_recovery_s14.py'
+      - '.github/workflows/browser-s40-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/tools/agent_xpra_displays.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'src/potbot/tools/browser_operator_policy.py'
+      - 'src/potbot/controller/browser_cogs.py'
+      - 'tests/unit/test_s40_rebased_supervisor.py'
+      - 'tests/unit/test_agent_xpra_displays_s40.py'
+      - '.github/workflows/browser-s40-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install frozen test environment
+        run: uv sync --locked --extra web --dev
+      - name: S40 private namespace, S14 owner-fence and earlier browser contracts
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_s40_rebased_supervisor.py
+          tests/unit/test_agent_xpra_displays_s40.py
+          tests/unit/test_xpra_application_sessions.py
+          tests/unit/test_browser_s38.py
+          tests/unit/test_xpra_operator_fence_s14.py
+          tests/unit/test_xpra_owner_recovery_s14.py
+          tests/unit/test_xpra_host_acceptance_s14.py
+      - name: Validate Python imports and syntax
+        run: uv run --locked python -m compileall -q src/potbot
