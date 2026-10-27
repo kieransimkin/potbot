@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import signal
@@ -14,10 +15,21 @@ from pathlib import Path
 from typing import Any
 
 from .custody import AgentTemporaryOsSigner, NativeOperatorSigner, create_agent_temporary_key
-from .hd_keys import PythonHdOperatorSigner, create_operator_identity
+from .hd_keys import (
+    PythonHdOperatorSigner, create_operator_identity, operator_recovery_words,
+    recover_operator_identity,
+)
 from .local_service import SynLocalServer, create_registry_entry, private_directory, publish_registry
 from .protocol import SynProtocolError, exact, hex_bytes, parse
 from .receipts import PublicAdoptionJournal
+
+class _RedactedArgumentParser(argparse.ArgumentParser):
+    """Never echo unrecognised CLI argument values (possibly recovery words)."""
+
+    def error(self, _message: str) -> None:
+        print("SYN command-line arguments were rejected", file=sys.stderr)
+        raise SystemExit(2)
+
 
 CONFIG_TYPE = "synny://type/syn-local-service-config-v1"
 CONFIG_V2 = "synny://type/syn-local-service-config-v2"
@@ -89,10 +101,42 @@ def _configure(path: Path, *, read_only: bool = False) -> tuple[SynLocalServer, 
     return service, Path(fields["registry"])
 
 
+def _operator_tty() -> Any:
+    """The operator's real console; never silently fall back to redirected stdin."""
+    if os.name != "posix":
+        raise SynProtocolError("SYN recovery console requires separately qualified host input")
+    try:
+        handle = open("/dev/tty", "r+", encoding="utf-8")
+    except OSError as exc:
+        raise SynProtocolError("SYN recovery requires an attached controlling terminal") from exc
+    if not handle.isatty():
+        handle.close()
+        raise SynProtocolError("SYN recovery requires a real controlling terminal")
+    return handle
+
+
+def _read_recovery_phrase(tty: Any) -> str:
+    """Never allow command-line/env/pipe/keyring password substitution."""
+    # getpass opens /dev/tty and suppresses echo; _operator_tty rejects fallback.
+    first = getpass.getpass("SYN 24-word recovery phrase (hidden): ")
+    second = getpass.getpass("Confirm recovery phrase (hidden): ")
+    import hmac
+    if not hmac.compare_digest(first, second):
+        raise SynProtocolError("SYN recovery phrase confirmation does not match")
+    return first
+
+
+def _show_recovery(phrase: str, tty: Any) -> None:
+    """Sensitive material goes to the real terminal, NEVER process stdout."""
+    tty.write("\nSYN RECOVERY WORDS — WRITE DOWN SECURELY, NEVER COPY TO LOGS:\n")
+    tty.write(phrase + "\n")
+    tty.flush()
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Standalone SYN operator/agent local service")
+    parser = _RedactedArgumentParser(description="Standalone SYN operator/agent local service")
     sub = parser.add_subparsers(dest="command", required=True)
-    for command in ("preflight", "serve", "publish-receipt"):
+    for command in ("preflight", "serve", "publish-receipt", "qualify-operator"):
         item = sub.add_parser(command)
         item.add_argument("--config", type=Path, required=True)
         if command == "publish-receipt":
@@ -105,6 +149,13 @@ def main(argv: list[str] | None = None) -> int:
     operator.add_argument("--keyring-service", required=True)
     operator.add_argument("--keyring-account", required=True)
     operator.add_argument("--lock-dir", type=Path, required=True)
+    for command in ("show-recovery", "recover-operator"):
+        recovery = sub.add_parser(command)
+        recovery.add_argument("--keyring-service", required=True)
+        recovery.add_argument("--keyring-account", required=True)
+        recovery.add_argument("--expected-base-public-key-hash", required=True)
+        if command == "recover-operator":
+            recovery.add_argument("--lock-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "new-agent-temporary-key":
@@ -118,7 +169,58 @@ def main(argv: list[str] | None = None) -> int:
                                               lock_dir=args.lock_dir)
             print(json.dumps(public, sort_keys=True))
             return 0
+        if args.command == "show-recovery":
+            with _operator_tty() as tty:
+                tty.write("Enter SHOW RECOVERY to view the operator's 24 private words: ")
+                tty.flush()
+                if tty.readline().strip() != "SHOW RECOVERY":
+                    raise SynProtocolError("SYN operator recovery confirmation denied")
+                phrase = operator_recovery_words(
+                    service=args.keyring_service, account=args.keyring_account,
+                    expected_base_public_key_hash=args.expected_base_public_key_hash,
+                )
+                _show_recovery(phrase, tty)
+            return 0
+        if args.command == "recover-operator":
+            with _operator_tty() as tty:
+                tty.write("Restore into an EMPTY SYN keystore? Type RESTORE IDENTITY: ")
+                tty.flush()
+                if tty.readline().strip() != "RESTORE IDENTITY":
+                    raise SynProtocolError("SYN operator identity restore not authorized")
+                phrase = _read_recovery_phrase(tty)
+                public = recover_operator_identity(
+                    service=args.keyring_service, account=args.keyring_account,
+                    lock_dir=args.lock_dir, words=phrase,
+                    expected_base_public_key_hash=args.expected_base_public_key_hash,
+                )
+            # Public-only output; the sensitive phrase is NEVER serialized.
+            print(json.dumps(public, sort_keys=True))
+            return 0
         server, registry = _configure(args.config, read_only=args.command == "preflight")
+        if args.command == "qualify-operator":
+            config = _private_json(args.config)
+            if config.get("schema_version") != 2 or config.get("mode") != "operator":
+                raise SynProtocolError("SYN operator qualification requires the Python HD profile")
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+            challenge = os.urandom(32)
+            signing_bytes = b"syn.operator.qualify.v1\x00" + challenge
+            signature = server.signer.sign(signing_bytes)
+            try:
+                Ed25519PublicKey.from_public_bytes(server.signer.public_key).verify(
+                    signature, signing_bytes
+                )
+            except Exception as exc:
+                raise SynProtocolError("SYN functional signature qualification failed") from exc
+            print(json.dumps({
+                "schema": "syn-operator-functional-qualification/v1",
+                "base_public_key_hash": server.master_hash.hex(),
+                "profile": "syn-icarus-ed25519-bip32-v2",
+                "functional_local_signature": "verified",
+                "qualification": "local-software-smoke-only",
+                "os_keystore_independently_certified": False,
+                "agent_adoption_authorized": False,
+            }, sort_keys=True))
+            return 0
         if args.command == "preflight":
             print(json.dumps({"schema": "syn-local-service-preflight/v1", "mode": server.mode,
                               "base_public_key_hash": server.master_hash.hex(),

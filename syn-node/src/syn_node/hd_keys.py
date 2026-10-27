@@ -8,8 +8,10 @@ claim TPM/HSM non-exportability or constant-time Python secret handling.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,20 +29,64 @@ SLOTS = ("entropy", "root_xprivate", "root_public", "root_chain",
 
 
 def _pycardano() -> tuple[type[Any], type[Any]]:
-    """Pinned Python HD implementation, never an unqualified algorithm fallback."""
+    """Pinned Python HD provider and matched CBOR versions, before imports.
+
+    PyCardano 0.19.2 imports cbor2pure by default. In CI, allowing cbor2 6.x
+    caused an import-time failure inside cbor2pure, not a key-derivation error.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    for package, expected in (("pycardano", "0.19.2"), ("cbor2", "5.8.0"),
+                              ("cbor2pure", "5.8.0")):
+        try:
+            actual = version(package)
+        except PackageNotFoundError as exc:
+            raise SynProtocolError(f"SYN requires the pinned {package} HD dependency") from exc
+        if actual != expected:
+            raise SynProtocolError(f"SYN {package} HD dependency is not pinned")
     try:
-        from importlib.metadata import PackageNotFoundError, version
         from pycardano.crypto.bip32 import HDWallet
         from pycardano.key import ExtendedSigningKey
-        try:
-            installed = version("pycardano")
-        except PackageNotFoundError as exc:
-            raise SynProtocolError("SYN Python HD provider metadata is unavailable") from exc
-    except ImportError as exc:
-        raise SynProtocolError("SYN requires the pinned pycardano HD extra") from exc
-    if installed != "0.19.2":
-        raise SynProtocolError("SYN Python HD provider revision is not pinned")
+    except (ImportError, AttributeError) as exc:
+        raise SynProtocolError("SYN Python HD provider import or ABI is incompatible") from exc
     return HDWallet, ExtendedSigningKey
+
+
+def _mnemonic() -> Any:
+    """BIP-39 English codec. The returned object never crosses a daemon IPC."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        if version("mnemonic") != "0.21":
+            raise SynProtocolError("SYN BIP-39 codec revision is not pinned")
+    except PackageNotFoundError as exc:
+        raise SynProtocolError("SYN requires a pinned BIP-39 codec") from exc
+    try:
+        from mnemonic import Mnemonic
+    except ImportError as exc:
+        raise SynProtocolError("SYN BIP-39 codec import failed") from exc
+    return Mnemonic("english")
+
+
+def _entropy_from_phrase(words: str) -> bytes:
+    """Convert a canonical 24-word BIP-39 phrase to its original 32-byte entropy.
+
+    IMPORTANT: the Icarus root takes these *entropy bytes*, NOT a BIP-39 seed.
+    No password, 25th word, path or key is inferred from untrusted input.
+    """
+    if (not isinstance(words, str) or len(words) > 512
+            or re.fullmatch(r"[a-z]+(?: [a-z]+){23}", words) is None):
+        raise SynProtocolError("SYN recovery requires exactly 24 canonical English words")
+    codec = _mnemonic()
+    try:
+        if codec.check(words) is not True:
+            raise SynProtocolError("SYN BIP-39 checksum failed")
+        entropy = bytes(codec.to_entropy(words))
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        raise SynProtocolError("SYN BIP-39 phrase was rejected") from exc
+    if len(entropy) != 32:
+        raise SynProtocolError("SYN recovery phrase must encode 256 bits")
+    return entropy
 
 
 def _derive(entropy: bytes) -> dict[str, bytes]:
@@ -112,29 +158,77 @@ def _manifest(public: dict[str, object]) -> str:
                       "profile": PROFILE}).decode("ascii")
 
 
-def create_operator_identity(*, service: str, account: str, lock_dir: Path) -> dict[str, object]:
-    """Fresh OS entropy; root/base xprv+chain+public installed in OS credential store.
+def _install_operator_entropy(
+    *, service: str, account: str, lock_dir: Path, entropy: bytes,
+    expected_base_hash: bytes | None,
+) -> dict[str, object]:
+    """Exclusive install from fresh or independently authenticated entropy.
 
-    No rollback-by-deletion: incomplete stores deliberately block reinitialising
-    with new entropy, avoiding accidental stable identity loss after a crash.
-    The manifest is written last as the completion marker.
+    Reads the entire slot set before any write, including aborted old installs.
+    The completion manifest is written last. Never auto-delete a partial store.
     """
     _entry(service, account)
-    # Bound the largest suffix before side effects.
     for name in SLOTS:
         _slot(account, name)
     with _agent_key_lock(lock_dir, service, account + ".operator"):
         backend = _native_backend()
         if any(_read(backend, service, account, name) is not None for name in SLOTS):
             raise SynProtocolError("SYN operator identity exists or installation is incomplete")
-        values = _derive(os.urandom(32))
+        values = _derive(entropy)
         public = _public(values)
+        if expected_base_hash is not None and not hmac.compare_digest(
+            bytes.fromhex(str(public["base_public_key_hash"])), expected_base_hash
+        ):
+            raise SynProtocolError("SYN recovery does not match the independently pinned identity")
         for name in SLOTS:
-            if name == "manifest":
-                continue
-            _write(backend, service, account, name, values[name].hex())
+            if name != "manifest":
+                _write(backend, service, account, name, values[name].hex())
         _write(backend, service, account, "manifest", _manifest(public))
         return public
+
+
+def create_operator_identity(*, service: str, account: str, lock_dir: Path) -> dict[str, object]:
+    """Create a new SYN operator using the real OS CSPRNG; never reuse identity."""
+    return _install_operator_entropy(
+        service=service, account=account, lock_dir=lock_dir,
+        entropy=os.urandom(32), expected_base_hash=None,
+    )
+
+
+def recover_operator_identity(
+    *, service: str, account: str, lock_dir: Path, words: str,
+    expected_base_public_key_hash: str,
+) -> dict[str, object]:
+    """Import 24-word recovery ONLY into a demonstrably EMPTY OS keystore.
+
+    The independently pinned old base hash is mandatory; a valid mnemonic
+    alone is not sufficient evidence of WHICH identity should be restored.
+    Never takes a phrase via CLI argv, environment variables, or daemon wire.
+    """
+    reference = hex_bytes(expected_base_public_key_hash, 32, "expected base key hash")
+    entropy = _entropy_from_phrase(words)
+    return _install_operator_entropy(
+        service=service, account=account, lock_dir=lock_dir,
+        entropy=entropy, expected_base_hash=reference,
+    )
+
+
+def operator_recovery_words(
+    *, service: str, account: str, expected_base_public_key_hash: str,
+) -> str:
+    """Explicit, operator-only recovery read for an already completed install.
+
+    This in-process method must ONLY be used by SYN's protected TTY command.
+    The phrase must never be included in generic JSON or IPC responses.
+    """
+    reference = hex_bytes(expected_base_public_key_hash, 32, "expected base key hash")
+    values, identity = _load_operator(service, account)
+    if not hmac.compare_digest(bytes.fromhex(str(identity["base_public_key_hash"])), reference):
+        raise SynProtocolError("SYN recovery export differs from pinned operator identity")
+    phrase = _mnemonic().to_mnemonic(values["entropy"])
+    if _entropy_from_phrase(phrase) != values["entropy"]:
+        raise SynProtocolError("SYN recovery codec did not round-trip identity entropy")
+    return phrase
 
 
 def _load_operator(service: str, account: str) -> tuple[dict[str, bytes], dict[str, object]]:

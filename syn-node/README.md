@@ -106,3 +106,27 @@ transport. Linux Secret Service, macOS Keychain and Windows Credential Manager
 must be opened through their explicit native `keyring` backend; fallback
 plaintext storage is rejected. A service process using ordinary Python memory
 cannot claim memory-locking or hardware-backed non-exportability.
+
+## Phase 45 — explicit operator recovery and qualified-provider gate
+
+Phase 45 adds a 24-word BIP-39 export/recovery workflow, pinned
+`cbor2==5.8.0` / `cbor2pure==5.8.0` / `pycardano==0.19.2` compatibility,
+and a public-only signing smoke. This does **not** add a private key export or
+signing capability to the local service socket. Use `syn-node show-recovery`
+only from a physical/private controlling terminal, with session recording off.
+`recover-operator` requires the independently pinned original base hash and
+an **empty** destination OS keystore; it cannot overwrite partial installs.
+See [`docs/implementation/45-syn-python-recovery-and-provider-qualification.md`](../docs/implementation/45-syn-python-recovery-and-provider-qualification.md).
+
+```bash
+syn-node show-recovery --keyring-service syn.operator \
+  --keyring-account operator-one --expected-base-public-key-hash "$PINNED_BASE_HASH"
+syn-node recover-operator --keyring-service syn.operator \
+  --keyring-account new-destination --lock-dir /absolute/private/syn-locks \
+  --expected-base-public-key-hash "$PINNED_BASE_HASH"
+syn-node qualify-operator --config /absolute/private/operator.json
+```
+
+A functional smoke is not independent hardware custody certification or secure
+inherited-key adoption. Do not feed recovery words into Potbot, agents, CI,
+command arguments, environment variables, files or service logs.

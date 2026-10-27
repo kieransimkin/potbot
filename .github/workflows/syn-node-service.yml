@@ -39,7 +39,11 @@ jobs:
         env:
           PYTHONPATH: syn-node/src:src
         run: |
-          uv run --locked python -m pytest -q \
+          # Linux sockaddr_un.sun_path supports only ~107 bytes. Keep the
+          # pytest fixture base outside the deeply nested GitHub worktree.
+          SHORT_BASE="$(mktemp -d /tmp/syn-ci.XXXXXXXX)"
+          trap 'rm -rf -- "$SHORT_BASE"' EXIT
+          uv run --locked python -m pytest -q --basetemp="$SHORT_BASE" \
             syn-node/tests \
             tests/unit/test_syn_local_daemon.py \
             tests/unit/test_syn_adoption.py

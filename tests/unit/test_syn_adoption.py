@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -36,6 +37,17 @@ from potbot.tools.syn_local_daemon import (
 
 CLOCK = 1792920000
 NETWORK = "phase42-local-test"
+
+
+@pytest.fixture(name="tmp_path")
+def _short_unix_socket_fixture():
+    """Owner-private socket fixture; Linux's sockaddr_un limit is ~107 bytes.
+
+    The monorepo uses a deep default pytest base path. Only these SYN wire
+    tests need a shorter directory; they never weaken socket path validation.
+    """
+    with TemporaryDirectory(prefix="syn-wire-", dir="/tmp" if os.path.isdir("/tmp") else None) as name:
+        yield Path(name)
 
 
 def raw_public(private: Ed25519PrivateKey) -> bytes:

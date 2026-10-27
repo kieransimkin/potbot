@@ -37,6 +37,9 @@ jobs:
           .venv-syn-hd/bin/python - <<'PY'
           from importlib.metadata import version
           assert version('pycardano') == '0.19.2'
+          assert version('cbor2') == '5.8.0'
+          assert version('cbor2pure') == '5.8.0'
+          assert version('mnemonic') == '0.21'
           from syn_node.hd_keys import _derive
           from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
           from pycardano.key import ExtendedSigningKey
@@ -46,7 +49,12 @@ jobs:
           msg = b'SYN Python Icarus/CIP-3 binary signature gate'
           Ed25519PublicKey.from_public_bytes(keys['base_public']).verify(signing.sign(msg), msg)
           PY
-          .venv-syn-hd/bin/python -m pytest -q syn-node/tests/test_hd_keys.py
+          .venv-syn-hd/bin/python -m pytest -q \
+            syn-node/tests/test_hd_keys.py \
+            syn-node/tests/test_operator_recovery.py
+          .venv-syn-hd/bin/python -m pytest -q \
+            syn-node/tests/test_hd_keys.py::test_fixed_entropy_real_pycardano_cross_language_vector_if_installed \
+            syn-node/tests/test_operator_recovery.py::test_real_bip39_checksum_vector
       - name: Confirm SYN operator never imports Potbot private broker
         run: |
           if grep -REn '(^from potbot\.|^import potbot|potbot\.security\.broker)' syn-node/src/syn_node; then
