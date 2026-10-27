@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/syn-agent-adoption/v1",
+  "title": "SYN selected-key custody proof and operator-signed adoption acknowledgement",
+  "description": "Public-only verification envelope. A SYN OS-keystore custody CLAIM, not independent hardware attestation or authorization to derive keys in Potbot.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt", "key_proof", "operator_public_key", "operator_signature"],
+  "properties": {
+    "receipt": {"$ref": "#/$defs/receipt"},
+    "key_proof": {"$ref": "#/$defs/signedProof"},
+    "operator_public_key": {"$ref": "#/$defs/hex32"},
+    "operator_signature": {"$ref": "#/$defs/hex64"}
+  },
+  "$defs": {
+    "hex32": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "hex64": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+    "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
+    "independence": {"type": "integer", "minimum": 1, "maximum": 8},
+    "timestamp": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+    "proof": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "offer_sha256", "master_public_key_hash",
+                   "inheritance", "independence", "selected_public_key", "challenge",
+                   "issued_at", "expires_at"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-agent-selected-key-proof-v1"},
+        "offer_sha256": {"$ref": "#/$defs/hex32"},
+        "master_public_key_hash": {"$ref": "#/$defs/hex32"},
+        "inheritance": {"$ref": "#/$defs/inheritance"},
+        "independence": {"$ref": "#/$defs/independence"},
+        "selected_public_key": {"$ref": "#/$defs/hex32"},
+        "challenge": {"$ref": "#/$defs/hex32"},
+        "issued_at": {"$ref": "#/$defs/timestamp"},
+        "expires_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "signedProof": {
+      "type": "object", "additionalProperties": false,
+      "required": ["proof", "signature"],
+      "properties": {"proof": {"$ref": "#/$defs/proof"}, "signature": {"$ref": "#/$defs/hex64"}}
+    },
+    "receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "offer_sha256", "master_public_key_hash",
+                   "inheritance", "independence", "selected_public_key_hash", "proof_sha256",
+                   "adopted_at", "agent_installation_mode", "custody_claim"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-agent-adoption-receipt-v1"},
+        "offer_sha256": {"$ref": "#/$defs/hex32"},
+        "master_public_key_hash": {"$ref": "#/$defs/hex32"},
+        "inheritance": {"$ref": "#/$defs/inheritance"},
+        "independence": {"$ref": "#/$defs/independence"},
+        "selected_public_key_hash": {"$ref": "#/$defs/hex32"},
+        "proof_sha256": {"$ref": "#/$defs/hex32"},
+        "adopted_at": {"$ref": "#/$defs/timestamp"},
+        "agent_installation_mode": {"const": "agent"},
+        "custody_claim": {"const": "syn-os-keystore"}
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=70,<84"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "syn-node-service"
+version = "0.1.0a1"
+description = "Standalone SYN local identity service and public adoption-receipt responder"
+requires-python = ">=3.12"
+dependencies = ["cryptography>=44,<47", "keyring>=25.7,<26"]
+
+[project.scripts]
+syn-node = "syn_node.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]

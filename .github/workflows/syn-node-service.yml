@@ -1,0 +1,51 @@
+name: SYN independently installable local service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - syn-node/**
+      - src/potbot/domain/syn_adoption.py
+      - src/potbot/tools/syn_local_daemon.py
+      - .github/workflows/syn-node-service.yml
+  pull_request:
+    paths:
+      - syn-node/**
+      - src/potbot/domain/syn_adoption.py
+      - src/potbot/tools/syn_local_daemon.py
+      - .github/workflows/syn-node-service.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-protocol-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install locked development and public-signature dependencies
+        run: uv sync --locked --dev --extra security
+      - name: Compile independent SYN service and Potbot wire client
+        run: |
+          uv run --locked python -m compileall -q syn-node/src/syn_node \
+            src/potbot/domain/syn_adoption.py src/potbot/tools/syn_local_daemon.py
+      - name: Exercise real Unix-socket service and Phase 42 interoperability
+        env:
+          PYTHONPATH: syn-node/src:src
+        run: |
+          uv run --locked python -m pytest -q \
+            syn-node/tests \
+            tests/unit/test_syn_local_daemon.py \
+            tests/unit/test_syn_adoption.py
+      - name: Check no Potbot key broker import in independent SYN runtime
+        run: |
+          if grep -REn '(^from potbot\.|^import potbot|potbot\.security\.broker)' syn-node/src/syn_node; then
+            echo 'SYN runtime imports Potbot private authority' >&2
+            exit 1
+          fi

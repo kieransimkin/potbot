@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/syn-local-daemon/v1",
+  "title": "Operator-pinned SYN local Unix socket discovery and public receipt reads",
+  "description": "Proposed independent SYN interface; NO private key, seed, plaintext hardware ID or signing operation is accepted.",
+  "oneOf": [
+    {"$ref": "#/$defs/registry"},
+    {"$ref": "#/$defs/hello"},
+    {"$ref": "#/$defs/signedAttestation"},
+    {"$ref": "#/$defs/read"},
+    {"$ref": "#/$defs/signedReadResponse"}
+  ],
+  "$defs": {
+    "hash32": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sig64": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+    "uuid": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "mode": {"enum": ["operator", "agent"]},
+    "registry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "installations"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-local-installation-registry-v1"},
+        "installations": {
+          "type": "array", "maxItems": 16,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["socket", "mode", "base_public_key_hash", "owner_uid"],
+            "properties": {
+              "socket": {"type": "string", "minLength": 2, "maxLength": 4096},
+              "mode": {"$ref": "#/$defs/mode"},
+              "base_public_key_hash": {"$ref": "#/$defs/hash32"},
+              "owner_uid": {"type": "integer", "minimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "hello": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "request_id", "challenge", "expected_base_public_key_hash", "mode"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-local-challenge-v1"},
+        "request_id": {"$ref": "#/$defs/uuid"},
+        "challenge": {"$ref": "#/$defs/hash32"},
+        "expected_base_public_key_hash": {"$ref": "#/$defs/hash32"},
+        "mode": {"$ref": "#/$defs/mode"}
+      }
+    },
+    "attestation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "request_id", "challenge", "mode", "base_public_key", "capabilities"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-local-attestation-v1"},
+        "request_id": {"$ref": "#/$defs/uuid"},
+        "challenge": {"$ref": "#/$defs/hash32"},
+        "mode": {"$ref": "#/$defs/mode"},
+        "base_public_key": {"$ref": "#/$defs/hash32"},
+        "capabilities": {"type": "array", "uniqueItems": true, "maxItems": 16, "items": {"type": "string", "maxLength": 64}}
+      }
+    },
+    "signedAttestation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["attestation", "signature"],
+      "properties": {"attestation": {"$ref": "#/$defs/attestation"}, "signature": {"$ref": "#/$defs/sig64"}}
+    },
+    "read": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "method", "request_id", "session_challenge", "offer_sha256"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-local-read-v1"},
+        "method": {"const": "adoption_receipt.get"},
+        "request_id": {"$ref": "#/$defs/uuid"},
+        "session_challenge": {"$ref": "#/$defs/hash32"},
+        "offer_sha256": {"$ref": "#/$defs/hash32"}
+      }
+    },
+    "readResponse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "type_ref", "method", "request_id", "session_challenge", "offer_sha256", "state", "receipt"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-local-response-v1"},
+        "method": {"const": "adoption_receipt.get"},
+        "request_id": {"$ref": "#/$defs/uuid"},
+        "session_challenge": {"$ref": "#/$defs/hash32"},
+        "offer_sha256": {"$ref": "#/$defs/hash32"},
+        "state": {"enum": ["pending", "confirmed", "denied"]},
+        "receipt": {"type": ["object", "null"]}
+      }
+    },
+    "signedReadResponse": {
+      "type": "object", "additionalProperties": false,
+      "required": ["response", "signature"],
+      "properties": {"response": {"$ref": "#/$defs/readResponse"}, "signature": {"$ref": "#/$defs/sig64"}}
+    }
+  }
+}
