@@ -26,24 +26,19 @@ REQUIRED = (
 
 
 def run_command(argv: list[str], *, timeout: int, success_field: str = "qualified") -> dict[str, object]:
+    """Require an explicit machine-readable attestation; exit zero is insufficient."""
     started = time.monotonic()
     try:
         process = subprocess.run(argv, capture_output=True, text=True,
                                  timeout=timeout, check=False)
-        output = process.stdout.strip().splitlines()
-        # The child may output PIDs and other sensitive details; never emit raw
-        # stdout/stderr through the qualification report.
-        qualified = process.returncode == 0
-        if output:
-            try:
-                report = json.loads(output[-1])
-                if not isinstance(report, dict) or report.get(success_field) is not True:
-                    qualified = False
-            except json.JSONDecodeError:
-                pass
+        # Never print child output: it may contain private process/file details.
+        lines = process.stdout.strip().splitlines()
+        report = json.loads(lines[-1]) if len(lines) == 1 else None
+        qualified = (process.returncode == 0 and type(report) is dict
+                     and report.get(success_field) is True)
         return {"passed": qualified, "exit_code": process.returncode,
                 "elapsed_ms": int((time.monotonic() - started) * 1000)}
-    except (OSError, subprocess.TimeoutExpired) as error:
+    except (OSError, subprocess.TimeoutExpired, ValueError) as error:
         return {"passed": False, "error": type(error).__name__}
 
 
@@ -65,6 +60,12 @@ def main() -> int:
     args = parser.parse_args()
     if not 5 <= args.timeout <= 3600:
         parser.error("timeout must be between 5 and 3600 seconds")
+    # The report is operator-private evidence, never an artefact in guest /home.
+    home, report = Path(args.home).resolve(), Path(args.report).resolve()
+    if report.is_relative_to(home):
+        parser.error("report must be outside the sandbox home")
+    if not report.parent.is_dir() or report.parent.is_symlink():
+        parser.error("report parent must be an existing operator-owned directory")
     checks: dict[str, dict[str, object]] = {"host": inspect_host()}
     if checks["host"]["passed"]:
         checks["taskstats"] = run_command(
@@ -85,8 +86,20 @@ def main() -> int:
                 timeout=args.timeout, success_field="qualified_smoke")
     qualified = all(check.get("passed") is True for check in checks.values()) and (
         set(checks) == {"host", "taskstats", "sandbox_integration"})
-    print(json.dumps({"schema": 1, "qualified": qualified, "checks": checks},
-                     sort_keys=True))
+    final = {"schema": 1, "qualified": qualified, "checks": checks}
+    # Persist only a summary and refuse unsafe pre-existing paths. A separate
+    # Phase 35 full report is written by the existing worker qualification.
+    summary = report.with_name(report.stem + ".operator-summary.json")
+    try:
+        fd = os.open(summary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(final, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError:
+        final["qualified"] = False
+        qualified = False
+    print(json.dumps(final, sort_keys=True))
     return 0 if qualified else 1
 
 
