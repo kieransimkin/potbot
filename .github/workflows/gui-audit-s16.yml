@@ -1,0 +1,22 @@
+name: S16 GUI audit evidence integrity
+on:
+  push:
+    paths:
+      - 'src/potbot/tools/gui_audit_verification.py'
+      - 'scripts/qualify_gui_audit_s16.py'
+      - 'scripts/audit_gui_recovery_s16.py'
+      - 'tests/unit/test_gui_audit_verification_s16.py'
+      - '.github/workflows/gui-audit-s16.yml'
+  pull_request:
+  workflow_dispatch:
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev
+      - run: uv run --locked --dev python -m pytest -q tests/unit/test_gui_audit_verification_s16.py
+      - run: uv run --locked --dev python -m compileall -q src/potbot/tools/gui_audit_verification.py scripts/qualify_gui_audit_s16.py scripts/audit_gui_recovery_s16.py
