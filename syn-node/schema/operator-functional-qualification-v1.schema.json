@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/syn-operator-functional-qualification/v1",
+  "title": "SYN operator public-only local signing smoke",
+  "description": "Never a production or OS keystore qualification, and never an agent adoption grant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "base_public_key_hash", "profile", "functional_local_signature",
+    "qualification", "os_keystore_independently_certified", "agent_adoption_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "syn-operator-functional-qualification/v1"},
+    "base_public_key_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profile": {"const": "syn-icarus-ed25519-bip32-v2"},
+    "functional_local_signature": {"const": "verified"},
+    "qualification": {"const": "local-software-smoke-only"},
+    "os_keystore_independently_certified": {"const": false},
+    "agent_adoption_authorized": {"const": false}
+  }
+}

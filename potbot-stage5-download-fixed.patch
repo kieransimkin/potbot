@@ -1,0 +1,656 @@
+diff --git a/src/potbot/context/service.py b/src/potbot/context/service.py
+--- a/src/potbot/context/service.py
++++ b/src/potbot/context/service.py
+@@ -84,1 +84,24 @@
++    def read_triple(self, context: WorkspaceContext, kind: str,
++                    name: str) -> dict[str, dict[str, Any]]:
++        """Read exactly three documents in one PostgreSQL statement/snapshot."""
++        from potbot.context.model import ROLES
++
++        _identity(context)
++        validate_identity(kind, name)
++        with self.database.transaction(context) as conn:
++            object_id = self._get_object(conn, context, kind, name)
++            rows = conn.execute(
++                "SELECT role,content,revision,sha256 FROM workspace_context_documents "
++                "WHERE workspace_id=%s AND object_id=%s",
++                (context.workspace_id, object_id),
++            ).fetchall()
++        docs = {row["role"]: dict(row) for row in rows}
++        if set(docs) != set(ROLES):
++            raise ScopeDeniedError("Context object does not have a complete document triple")
++        for role, row in docs.items():
++            validate_identity(kind, name, role)
++            if sha256(row["content"]) != row["sha256"]:
++                raise RevisionConflictError("Stored context digest is inconsistent")
++        return docs
++
+     def update(self, context: WorkspaceContext, kind: str, name: str, role: str,
+diff --git a/sandbox/image/Dockerfile b/sandbox/image/Dockerfile
+--- a/sandbox/image/Dockerfile
++++ b/sandbox/image/Dockerfile
+@@ -14,2 +14,4 @@
+-    && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /etc/ai /etc/ai-past /etc/skel/.cache /etc/skel/.ollama \
++    && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /usr/local/skills /etc/ai /etc/ai-past /etc/skel/.cache /etc/skel/.ollama \
++    && touch /AGENTS.md /MODEL.md /MEMORY.md \
++    && chmod 0444 /AGENTS.md /MODEL.md /MEMORY.md \
+     && chmod 2775 /usr/local/tools /etc/ai \
+diff --git a/src/potbot/tools/shared_workspace_isolation.py b/src/potbot/tools/shared_workspace_isolation.py
+--- a/src/potbot/tools/shared_workspace_isolation.py
++++ b/src/potbot/tools/shared_workspace_isolation.py
+@@ -19,2 +19,4 @@
++from potbot.context.model import ROLES
++from potbot.context.projection import ContextProjection
+ from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
+ from potbot.domain.serialization import content_hash
+@@ -84,4 +86,6 @@
+     ai_config_dir: Path | None = None
+     ai_history_dir: Path | None = None
++    context_projection: ContextProjection | None = None
++    shared_skills: Path | None = None
+ 
+     def __post_init__(self) -> None:
+@@ -231,4 +235,34 @@
+                 # This is a live, mount-bound remote operator assertion; the
+                 # private socket itself is NEVER made visible inside the guest.
+                 self.operator_attachment.require_healthy()
++        skills: Path | None = None
++        if self.runtime.shared_skills is not None:
++            source = Path(self.runtime.shared_skills)
++            if not source.is_absolute() or source.is_symlink():
++                raise ScopeDeniedError("shared skill source must be an absolute real directory")
++            try:
++                skills = source.resolve(strict=True)
++            except OSError as exc:
++                raise CapabilityUnavailableError("shared skills have not been provisioned") from exc
++            target = rootfs / "usr/local/skills"
++            if not skills.is_dir() or target.is_symlink() or not target.is_dir():
++                raise CapabilityUnavailableError("shared skills require an image mount target")
++            if skills.stat().st_mode & 0o022:
++                raise ScopeDeniedError("shared skills require an operator-controlled read-only source")
++            boundaries = (*sources, *(x for x in (config_ai, history_ai) if x is not None))
++            if any(skills == x or skills.is_relative_to(x) or x.is_relative_to(skills)
++                   for x in boundaries):
++                raise ScopeDeniedError("shared skills overlap a sandbox mount")
++        context_files: tuple[Path, ...] = ()
++        if self.runtime.context_projection is not None:
++            projection = self.runtime.context_projection
++            if not isinstance(projection, ContextProjection):
++                raise InvalidInputError("context projection must be operator-owned")
++            for role in ROLES:
++                target = rootfs / role
++                if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
++                    raise CapabilityUnavailableError("rootfs has no safe context file placeholder")
++            context_files = projection.inspect(excluded_roots=(
++                *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
++            ))
+         # Guest executable must be present inside immutable image; no host executable bind.
+@@ -316,4 +350,7 @@
+                     "/usr/local/tools/" + self.tool_write_grant.slug)
+                    if tool_write_source is not None else () ),
+                 "--ro-bind", str(library), "/opt/potbot/models",
++                *( ("--ro-bind", str(skills), "/usr/local/skills") if skills else () ),
++                *[item for role, source in zip(ROLES, context_files, strict=True)
++                  for item in ("--ro-bind", str(source), "/" + role)],
+                 *( ("--bind", str(config_ai), "/etc/ai",
+@@ -335,4 +372,7 @@
+                 "network": "private-denied", "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-ro/models-ro/proc/dev",
+                 "model_staging": str(staging), "shared_models": str(library),
+                 "shared_tools": str(tools),
++                "shared_skills": str(skills) if skills is not None else None,
++                "context_revisions": self.runtime.context_projection.revisions if context_files else None,
++                "context_digests": self.runtime.context_projection.digests if context_files else None,
+                 "ai_mount_policy": "rw-config/ro-history/journaled-v1" if ai_enabled else "legacy-none",
+diff --git a/src/potbot/tools/ai_workspace_operator.py b/src/potbot/tools/ai_workspace_operator.py
+--- a/src/potbot/tools/ai_workspace_operator.py
++++ b/src/potbot/tools/ai_workspace_operator.py
+@@ -11,3 +11,4 @@
+ import threading
+ from collections.abc import Callable
++from dataclasses import replace
+ from pathlib import Path
+@@ -17,2 +18,3 @@
+-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, StateMismatchError
++from potbot.context.projection import ContextProjectionManager
++from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
+ from potbot.tools.ai_config_history import AiConfigHistoryMonitor
+@@ -94,4 +96,5 @@
+         self, *, workspace_id: UUID, ledger: WorkspaceLeaseLedger,
+         runtime: SharedWorkspaceRuntime,
+         monitor_interval_seconds: float = 0.15,
++        context_manager: ContextProjectionManager | None = None,
+     ) -> None:
+@@ -104,2 +107,5 @@
+         self.workspace_id, self.ledger, self.runtime = workspace_id, ledger, runtime
++        if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
++            raise InvalidInputError("context manager must be a trusted operator instance")
++        self._context_manager = context_manager
+         self._interval = monitor_interval_seconds
+@@ -123,13 +129,47 @@
+             validate_runtime_pin(self.ledger, self.runtime, self.workspace_id)
++            if self._context_manager is not None:
++                if self._context_manager.principal.workspace_id != self.workspace_id:
++                    raise ScopeDeniedError("operator context belongs to another workspace")
++                if self.runtime.context_projection is not None:
++                    raise InvalidInputError("operator context projection was already supplied")
++                from potbot.context.model import ROLES
++
++                for role in ROLES:
++                    target = self.runtime.rootfs / role
++                    if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
++                        raise CapabilityUnavailableError("image has no safe root context placeholder")
++                guest_mounts = (
++                    self.runtime.rootfs, self.runtime.home, self.runtime.model_staging,
++                    self.runtime.shared_models, self.runtime.shared_tools,
++                    self.runtime.ai_config_dir, self.runtime.ai_history_dir,
++                    self.runtime.shared_skills,
++                )
++                for mount in guest_mounts:
++                    if mount is None:
++                        continue
++                    path = Path(mount).resolve(strict=True)
++                    parent = self._context_manager.parent
++                    if path == parent or path.is_relative_to(parent) or parent.is_relative_to(path):
++                        raise ScopeDeniedError("operator context storage overlaps a guest mount")
++                try:
++                    projection = self._context_manager.capture()
++                except BaseException:
++                    self._context_manager.close()
++                    raise
++                self.runtime = replace(self.runtime, context_projection=projection)
+             config, past = self._sources()
+-            monitor = AiConfigHistoryMonitor(
+-                config_dir=config, past_dir=past,
+-                interval_seconds=self._interval,
+-            )
+-            monitor.start()  # Full persisted replay audit runs before any mount.
++            monitor: AiConfigHistoryMonitor | None = None
+             try:
++                monitor = AiConfigHistoryMonitor(
++                    config_dir=config, past_dir=past,
++                    interval_seconds=self._interval,
++                )
++                monitor.start()  # Full persisted replay audit runs before any mount.
+                 backend = SharedWorkspaceBubblewrapBackend(self.runtime, ai_monitor=monitor)
+                 supervisor = AiManagedProcessSupervisor(backend, monitor)
+             except BaseException:
+-                monitor.stop()
++                if monitor is not None:
++                    monitor.stop()
++                if self._context_manager is not None:
++                    self._context_manager.close()
+                 raise
+@@ -229,5 +269,7 @@
+             finally:
+                 self._monitor.stop()
+                 self._closed = True
++                if self._context_manager is not None:
++                    self._context_manager.close()
+ 
+     def __enter__(self) -> AiWorkspaceOperator:
+diff --git a/src/potbot/context/projection.py b/src/potbot/context/projection.py
+new file mode 100644
+--- /dev/null
++++ b/src/potbot/context/projection.py
+@@ -0,0 +1,162 @@
++"""Operator-owned, revision-pinned, read-only snapshots of context documents.
++
++Snapshots are outside every guest mount. Guests can read them through individual
++Bubblewrap read-only file binds; updates go through the authenticated DB service.
++"""
++from __future__ import annotations
++
++import hashlib
++import os
++import stat
++import tempfile
++from dataclasses import dataclass
++from pathlib import Path
++from typing import TYPE_CHECKING
++from uuid import UUID
++
++from potbot.context.model import ROLES, sha256, validate_content
++from potbot.domain.auth import WorkspaceContext
++from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
++
++if TYPE_CHECKING:
++    from potbot.context.service import WorkspaceContextService
++
++
++@dataclass(frozen=True, slots=True)
++class ContextProjection:
++    workspace_id: UUID
++    directory: Path
++    revisions: tuple[int, int, int]
++    digests: tuple[str, str, str]
++
++    def inspect(self, *, excluded_roots: tuple[Path, ...] = ()) -> tuple[Path, Path, Path]:
++        """Revalidate source bytes and filesystem boundaries before each launch."""
++        base = Path(self.directory)
++        if not base.is_absolute() or base.is_symlink():
++            raise ScopeDeniedError("Context snapshot must be an absolute real directory")
++        try:
++            root = base.resolve(strict=True)
++            meta = os.stat(root, follow_symlinks=False)
++        except OSError as exc:
++            raise ScopeDeniedError("Context snapshot is unavailable") from exc
++        if not stat.S_ISDIR(meta.st_mode) or meta.st_mode & 0o022:
++            raise ScopeDeniedError("Context snapshot directory must not be guest writable")
++        if not isinstance(self.workspace_id, UUID) or len(self.revisions) != 3 or len(self.digests) != 3:
++            raise InvalidInputError("Context snapshot metadata is malformed")
++        for excluded in excluded_roots:
++            resolved = Path(excluded).resolve(strict=True)
++            if root == resolved or root.is_relative_to(resolved) or resolved.is_relative_to(root):
++                raise ScopeDeniedError("Context snapshot overlaps a sandbox mount")
++        files: list[Path] = []
++        for role, revision, expected in zip(ROLES, self.revisions, self.digests, strict=True):
++            if type(revision) is not int or revision < 1 or not isinstance(expected, str):
++                raise InvalidInputError("Context snapshot revision/digest is invalid")
++            path = root / role
++            fd = -1
++            try:
++                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
++                info = os.fstat(fd)
++                if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
++                        or info.st_mode & 0o222 or info.st_size > 1_048_576):
++                    raise ScopeDeniedError("Context source must be a read-only regular file")
++                data = bytearray()
++                while len(data) <= 1_048_576:
++                    block = os.read(fd, min(65536, 1_048_577 - len(data)))
++                    if not block:
++                        break
++                    data.extend(block)
++                if len(data) != info.st_size or hashlib.sha256(data).hexdigest() != expected:
++                    raise StateMismatchError("Context snapshot differs from the database revision")
++            except OSError as exc:
++                raise ScopeDeniedError("Context snapshot contains unsafe file") from exc
++            finally:
++                if fd >= 0:
++                    os.close(fd)
++            files.append(path)
++        return files[0], files[1], files[2]
++
++
++class ContextProjectionManager:
++    """Operator-side snapshot generation and lifetime management.
++
++    Capture is one database snapshot query, never three independent reads. The
++    manager must remain open until all guests mounting its snapshots have exited.
++    """
++
++    def __init__(self, *, service: WorkspaceContextService, principal: WorkspaceContext,
++                 parent: Path) -> None:
++        if not isinstance(principal, WorkspaceContext):
++            raise ScopeDeniedError("Context snapshot needs an authenticated principal")
++        directory = Path(parent)
++        if not directory.is_absolute() or directory.is_symlink():
++            raise InvalidInputError("Snapshot parent must be an existing real absolute path")
++        try:
++            details = directory.stat(follow_symlinks=False)
++        except OSError as exc:
++            raise ScopeDeniedError("Snapshot parent is unavailable") from exc
++        if not stat.S_ISDIR(details.st_mode) or details.st_mode & 0o022:
++            raise ScopeDeniedError("Snapshot parent cannot be group/world writable")
++        self.service = service
++        self.principal = principal
++        self.parent = directory.resolve(strict=True)
++        self._owned: list[Path] = []
++        self._closed = False
++
++    def capture(self) -> ContextProjection:
++        if self._closed:
++            raise StateMismatchError("Snapshot manager is closed")
++        rows = self.service.read_triple(self.principal, "sandbox", str(self.principal.workspace_id))
++        directory = Path(tempfile.mkdtemp(prefix="potbot-context-", dir=self.parent))
++        self._owned.append(directory)  # Track even a partial write for later cleanup.
++        revisions: list[int] = []
++        hashes: list[str] = []
++        for role in ROLES:
++            item = rows[role]
++            content = item["content"]
++            validate_content(content)
++            checksum = sha256(content)
++            if (checksum != item["sha256"] or type(item["revision"]) is not int
++                    or item["revision"] < 1):
++                raise StateMismatchError("Context database digest or revision is inconsistent")
++            data = content.encode("utf-8")
++            fd = os.open(directory / role, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
++                         os.O_NOFOLLOW | os.O_CLOEXEC, 0o400)
++            try:
++                with os.fdopen(fd, "wb", closefd=False) as output:
++                    output.write(data)
++                    output.flush()
++                os.fchmod(fd, 0o444)
++                os.fsync(fd)
++            finally:
++                os.close(fd)
++            revisions.append(item["revision"])
++            hashes.append(checksum)
++        rootfd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
++        try:
++            os.fsync(rootfd)
++        finally:
++            os.close(rootfd)
++        projection = ContextProjection(
++            self.principal.workspace_id, directory,
++            (revisions[0], revisions[1], revisions[2]),
++            (hashes[0], hashes[1], hashes[2]),
++        )
++        projection.inspect()
++        return projection
++
++    def close(self) -> None:
++        """Called only after the operator confirms all guest processes exited."""
++        if self._closed:
++            return
++        for directory in reversed(self._owned):
++            if directory.is_symlink():
++                raise ScopeDeniedError("Snapshot directory was redirected")
++            for role in ROLES:
++                path = directory / role
++                if path.is_symlink():
++                    raise ScopeDeniedError("Snapshot file was redirected")
++                if path.exists():
++                    path.unlink()
++            directory.rmdir()
++        self._owned.clear()
++        self._closed = True
+diff --git a/tests/test_context_projection.py b/tests/test_context_projection.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_context_projection.py
+@@ -0,0 +1,152 @@
++"""Operator context snapshot tests; no PostgreSQL required for these checks."""
++from __future__ import annotations
++
++import hashlib
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++
++from potbot.context.model import ROLES
++from potbot.context.projection import ContextProjectionManager
++from potbot.domain.auth import WorkspaceContext
++from potbot.domain.errors import ScopeDeniedError, StateMismatchError
++
++
++class FakeService:
++    def __init__(self) -> None:
++        self.calls = 0
++        self.data = {role: {"content": f"# {role}\n", "revision": 1,
++                            "sha256": hashlib.sha256(f"# {role}\n".encode()).hexdigest()}
++                     for role in ROLES}
++
++    def read_triple(self, principal: WorkspaceContext, kind: str, name: str) -> dict:
++        assert kind == "sandbox" and name == str(principal.workspace_id)
++        self.calls += 1
++        return self.data
++
++
++def test_snapshot_contains_complete_pinned_triple(tmp_path: Path) -> None:
++    parent = tmp_path / "operator"
++    parent.mkdir(mode=0o700)
++    principal = WorkspaceContext(uuid4(), uuid4())
++    service = FakeService()
++    manager = ContextProjectionManager(service=service, principal=principal, parent=parent)
++    snapshot = manager.capture()
++    assert service.calls == 1
++    assert snapshot.workspace_id == principal.workspace_id
++    assert snapshot.revisions == (1, 1, 1)
++    assert [item.name for item in snapshot.inspect()] == list(ROLES)
++    for path in snapshot.inspect():
++        assert not path.stat().st_mode & 0o222
++    manager.close()
++    assert not snapshot.directory.exists()
++
++
++def test_disallows_guest_writable_parent(tmp_path: Path) -> None:
++    directory = tmp_path / "insecure"
++    directory.mkdir(mode=0o777)
++    directory.chmod(0o777)
++    with pytest.raises(ScopeDeniedError):
++        ContextProjectionManager(service=FakeService(),
++                                 principal=WorkspaceContext(uuid4(), uuid4()), parent=directory)
++
++
++def test_corrupted_snapshot_fails_closed(tmp_path: Path) -> None:
++    parent = tmp_path / "operator"
++    parent.mkdir(mode=0o700)
++    manager = ContextProjectionManager(service=FakeService(),
++                                       principal=WorkspaceContext(uuid4(), uuid4()), parent=parent)
++    snapshot = manager.capture()
++    target = snapshot.directory / "MODEL.md"
++    target.chmod(0o600)
++    target.write_text("tampered", encoding="utf-8")
++    target.chmod(0o444)
++    with pytest.raises(StateMismatchError):
++        snapshot.inspect()
++    manager.close()
++
++
++def test_symlink_and_overlapping_guest_mount_rejected(tmp_path: Path) -> None:
++    parent = tmp_path / "operator"
++    parent.mkdir(mode=0o700)
++    manager = ContextProjectionManager(service=FakeService(),
++                                       principal=WorkspaceContext(uuid4(), uuid4()), parent=parent)
++    snapshot = manager.capture()
++    with pytest.raises(ScopeDeniedError):
++        snapshot.inspect(excluded_roots=(parent,))
++    model = snapshot.directory / "MODEL.md"
++    model.unlink()
++    model.symlink_to(snapshot.directory / "AGENTS.md")
++    with pytest.raises(ScopeDeniedError):
++        snapshot.inspect()
++    # Intentionally don't follow the redirected symlink during cleanup.
++    with pytest.raises(ScopeDeniedError):
++        manager.close()
++    model.unlink()
++    manager.close()
++
++
++def test_broken_database_digest_and_partial_snapshot(tmp_path: Path) -> None:
++    parent = tmp_path / "operator"
++    parent.mkdir(mode=0o700)
++    service = FakeService()
++    service.data["MODEL.md"]["sha256"] = "0" * 64
++    manager = ContextProjectionManager(service=service,
++                                       principal=WorkspaceContext(uuid4(), uuid4()), parent=parent)
++    with pytest.raises(StateMismatchError):
++        manager.capture()
++    manager.close()
++    assert not list(parent.iterdir())
++
++
++def test_read_triple_uses_single_document_select() -> None:
++    from contextlib import contextmanager
++    from potbot.context.service import WorkspaceContextService
++
++    class Connection:
++        def __init__(self) -> None:
++            self.queries = []
++
++        def execute(self, query: str, params: tuple):
++            self.queries.append((query, params))
++            if "workspace_context_objects" in query:
++                return self
++            return self
++
++        def fetchone(self):
++            return {"id": uuid4()}
++
++        def fetchall(self):
++            return [{"role": role, **item} for role, item in FakeService().data.items()]
++
++    class Database:
++        def __init__(self): self.connection = Connection()
++
++        @contextmanager
++        def transaction(self, context):
++            yield self.connection
++
++    db = Database()
++    context = WorkspaceContext(uuid4(), uuid4())
++    result = WorkspaceContextService(db).read_triple(context, "sandbox", str(context.workspace_id))
++    assert set(result) == set(ROLES)
++    assert len(db.connection.queries) == 2  # object lookup + ONE consistent document SELECT
++
++
++def test_read_triple_rejects_missing_document() -> None:
++    from contextlib import contextmanager
++    from potbot.context.service import WorkspaceContextService
++
++    class Connection:
++        def execute(self, query, _params): return self
++        def fetchone(self): return {"id": uuid4()}
++        def fetchall(self): return [{"role": "MODEL.md", **FakeService().data["MODEL.md"]}]
++
++    class Database:
++        @contextmanager
++        def transaction(self, context): yield Connection()
++
++    context = WorkspaceContext(uuid4(), uuid4())
++    with pytest.raises(ScopeDeniedError):
++        WorkspaceContextService(Database()).read_triple(context, "sandbox", str(context.workspace_id))
+diff --git a/docs/implementation/43-model-md-operator-projections.md b/docs/implementation/43-model-md-operator-projections.md
+new file mode 100644
+--- /dev/null
++++ b/docs/implementation/43-model-md-operator-projections.md
+@@ -0,0 +1,61 @@
++# Stage 5 — Operator-owned MODEL.md filesystem projections
++
++This stage adds a **read-only, point-in-time** projection of the PostgreSQL
++context triple into a Linux/WSL2 Bubblewrap workspace. It does **not** expose
++PostgreSQL credentials, unlock guest writes, or claim real-time document updates.
++
++## Runtime wiring
++
++The operator constructs `WorkspaceContextService` with Potbot's existing
++restricted `Database` login and a `WorkspaceContext` obtained from the trusted
++host's authenticated principal. The projection manager captures all three
++sandbox documents with one database SELECT and verifies each SHA-256 digest.
++
++```python
++manager = ContextProjectionManager(
++    service=WorkspaceContextService(database),
++    principal=trusted_workspace_context,
++    parent=Path('/run/potbot/context-snapshots'),  # host-private, mode 0700
++)
++operator = AiWorkspaceOperator(workspace_id=trusted_workspace_context.workspace_id,
++                               ledger=ledger, runtime=runtime,
++                               context_manager=manager)
++```
++
++The optional host operator CLI can enable projections with
++`--context-principal-id UUID --context-parent /run/potbot/context-snapshots`
++and a host-only `POTBOT_DSN` environment variable. The existing database
++transaction verifies that principal UUID against the restricted login and
++workspace membership; it cannot be self-asserted by the guest.
++
++The immutable sandbox image must have **regular-file placeholders** at
++`/AGENTS.md`, `/MODEL.md` and `/MEMORY.md`. Rebuild/publish the new image before
++activating projection on a workspace. Older images continue with their existing
++mount contract until explicitly upgraded. New builds also contain an
++`/usr/local/skills` directory, which can be bound read-only to a trusted shared
++skill repository via `SharedWorkspaceRuntime.shared_skills`.
++
++The operator-owned snapshot directory is **not** beneath the guest's writable
++`/home`, `/var/ai`, `/etc/ai` or shared tools. Every launch checks the source
++files' type, length, mode, link count and digest and refuses overlapping mounts.
++Guest paths are individually `--ro-bind` mounted and cannot be written directly.
++
++## Snapshot freshness and follow-up
++
++The projection is a **pinned snapshot for the lifetime of the operator**.
++Context edits made via the PostgreSQL service after operator startup will be
++reflected after the next safe operator restart. In-place automatic refresh
++requires a coordinated no-live-execution boundary and is a separate stage.
++Do not claim write-through or instantaneous updates.
++
++Remaining work: lease-scoped agent context mutation tools (not general DB
++access), per-agent triples and private mounts, concurrency-managed shared skill
++publishing, operator-driven refresh/watching, tool and primitive context
++provisioning, and Syn classification.
++
++## Validation
++
++`uv run pytest -q tests/test_context_projection.py` runs the host-only unit
++suite. With a disposable PostgreSQL fixture, the Stage 4 integration suite
++remains mandatory. Actual Bubblewrap image qualification and read-only mount
++verification must run on a supported Linux/WSL2 host before production use.
+diff --git a/src/potbot/tools/operator_cli.py b/src/potbot/tools/operator_cli.py
+--- a/src/potbot/tools/operator_cli.py
++++ b/src/potbot/tools/operator_cli.py
+@@ -12,10 +12,11 @@
+ import argparse
+ import json
+-from contextlib import ExitStack
++import os
+ import re
+ import signal
+ import sys
+ import threading
+ import time
+ from collections.abc import Callable
++from contextlib import ExitStack
+ from dataclasses import dataclass
+@@ -28,2 +29,3 @@
+ if TYPE_CHECKING:
++    from potbot.context.projection import ContextProjectionManager
+     from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
+@@ -117,4 +119,6 @@
+ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
+                  pulse: Callable[[dict[str, object]], None] | None = None,
+-                 socket_path: Path | None = None) -> None:
++                 socket_path: Path | None = None,
++                 context_manager: ContextProjectionManager | None = None,
++                 shared_skills: Path | None = None) -> None:
+     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
+@@ -124,4 +128,12 @@
++    from dataclasses import replace
++    from potbot.context.projection import ContextProjectionManager
++
++    if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
++        raise InvalidInputError("context manager requires the trusted host type")
+     ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
++    runtime = paths.runtime()
++    if shared_skills is not None:
++        runtime = replace(runtime, shared_skills=shared_skills)
+     with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
+-                             runtime=paths.runtime()) as operator, ExitStack() as resources:
++                             runtime=runtime, context_manager=context_manager) as operator, ExitStack() as resources:
+         # The history watcher owns the singleton lock BEFORE the socket appears.
+@@ -163,5 +175,28 @@
+                         help="host-private Linux operator health socket (never guest-mounted)")
++    parser.add_argument("--context-principal-id", type=UUID, default=None,
++                        help="trusted PostgreSQL workspace principal for MODEL.md projections")
++    parser.add_argument("--context-parent", type=Path, default=None,
++                        help="operator-private 0700 snapshot directory outside guest mounts")
++    parser.add_argument("--shared-skills", type=Path, default=None,
++                        help="trusted host shared skills directory (mounted read-only)")
+     args = parser.parse_args(argv)
+     try:
+         paths = parse_manifest(args.manifest)
++        if (args.context_principal_id is None) != (args.context_parent is None):
++            raise InvalidInputError("context projection needs both principal and parent")
++        manager = None
++        if args.context_principal_id is not None:
++            from potbot.context.projection import ContextProjectionManager
++            from potbot.context.service import WorkspaceContextService
++            from potbot.domain.auth import WorkspaceContext
++            from potbot.persistence.database import Database
++
++            dsn = os.environ.get("POTBOT_DSN")
++            if not dsn:
++                raise InvalidInputError("POTBOT_DSN is required for context projection")
++            manager = ContextProjectionManager(
++                service=WorkspaceContextService(Database(dsn)),
++                principal=WorkspaceContext(paths.workspace_id, args.context_principal_id),
++                parent=args.context_parent,
++            )
+         stopped = threading.Event()
+@@ -171,2 +206,3 @@
+-        run_operator(paths, stop=stopped, socket_path=args.socket_path)
++        run_operator(paths, stop=stopped, socket_path=args.socket_path,
++                     context_manager=manager, shared_skills=args.shared_skills)
+         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
