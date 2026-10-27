@@ -280,6 +280,8 @@ class _App:
         self.detached = False
         self.indeterminate = False
         self.browser_control: Any = None
+        self.audit: Any = None
+        self.audit_complete: bool | None = None
         self.agent_id: UUID | None = None
 
     def view(self) -> AppView:
@@ -315,6 +317,7 @@ class XpraApplicationSupervisor:
         ai_monitor: Any = None,
         browser_leases: Any = None,
         agent_displays: Any = None,
+        gui_audit_factory: Callable[..., Any] | None = None,
         max_apps: int = 4,
         max_age_seconds: int = 3600,
     ) -> None:
@@ -331,6 +334,7 @@ class XpraApplicationSupervisor:
         self.recipes = {r.kind: r for r in recipes}
         self.backend, self.ledger, self.popen = backend, ledger, popen
         self.ai_monitor = ai_monitor
+        self.gui_audit_factory = gui_audit_factory
         self.operator_attachment = getattr(
             getattr(backend, "backend", None), "operator_attachment", None
         )
@@ -367,9 +371,20 @@ class XpraApplicationSupervisor:
 
     def _settle(self) -> None:
         """Called under lock. Never release lease for an unconfirmed process tree."""
-        if self._guard is None or any(
-            self._apps[identifier].process.poll() is None for identifier in self._group_ids
-        ):
+        if self._guard is None:
+            return
+        # Finalize stopped tracees before releasing the shared workspace lease.
+        for identifier in self._group_ids:
+            app = self._apps[identifier]
+            if app.audit is None or app.audit_complete is not None or app.process.poll() is None:
+                continue
+            try:
+                app.audit_complete = bool(app.audit.finish(confirmed_stopped=True))
+            except Exception:
+                app.audit_complete = False
+            if not app.audit_complete:
+                app.indeterminate = True
+        if any(self._apps[identifier].process.poll() is None for identifier in self._group_ids):
             return
         group = tuple(self._group_ids)
         self._group_ids.clear()
@@ -418,6 +433,14 @@ class XpraApplicationSupervisor:
         if app.process.poll() is None:
             app.indeterminate = True
             return
+        if app.audit is not None and app.audit_complete is None:
+            try:
+                app.audit_complete = bool(app.audit.finish(confirmed_stopped=True))
+            except Exception:
+                app.audit_complete = False
+        if app.audit is not None and app.audit_complete is not True:
+            app.indeterminate = True
+            return
         try:
             self.agent_displays.retire(app.agent_id, process_stopped=True)
             if self.browser_leases is not None:
@@ -459,13 +482,19 @@ class XpraApplicationSupervisor:
                 lost_operator = (
                     self.operator_attachment is not None and not self.operator_attachment.healthy()
                 )
+                lost_audit = any(
+                    a.audit is not None and a.process.poll() is None and not a.audit.healthy
+                    for a in self._apps.values()
+                )
                 if (guard.fenced or expired or lost_display or lost_watcher
-                        or lost_operator or any(a.indeterminate and a.process.poll() is None
-                                                 for a in self._apps.values())):
+                        or lost_operator or lost_audit or any(a.indeterminate and a.process.poll() is None
+                                                               for a in self._apps.values())):
                     for app in self._apps.values():
-                        self._terminate(app)
-                        if guard.fenced or lost_display or lost_watcher or lost_operator:
+                        if guard.fenced or lost_display or lost_watcher or lost_operator or lost_audit:
                             app.indeterminate = True
+                        if (lost_operator or lost_audit) and self.browser_leases is not None and app.recipe.kind == "controlled-browser":
+                            self.browser_leases.fence(app.id)
+                        self._terminate(app)
                 self._settle()
 
     def list_sessions(self) -> list[dict[str, Any]]:
@@ -523,6 +552,8 @@ class XpraApplicationSupervisor:
             write_fd = os.open(os.devnull, os.O_WRONLY)
             launch = None
             process = None
+            audit = None
+            session_id = uuid4()
             try:
                 controlled_browser = kind == "controlled-browser"
                 if agent_id is not None:
@@ -538,8 +569,19 @@ class XpraApplicationSupervisor:
                         and getattr(self.backend, "browser_gateway", None) is not None
                         else self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
                     )
+                argv = launch.argv
+                if self.gui_audit_factory is not None:
+                    if agent_id is not None:
+                        # S40 already verified this identity through AgentHomeRegistry.
+                        audit = self.gui_audit_factory(
+                            launch.identity, session_id, agent_id=agent_id,
+                            agent_registry=self.agent_displays.homes,
+                        )
+                    else:
+                        audit = self.gui_audit_factory(launch.identity, session_id)
+                    argv = audit.command(argv)  # Register task exits before spawning.
                 process = self.popen(
-                    launch.argv,
+                    argv,
                     stdin=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
                     stdout=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -549,14 +591,17 @@ class XpraApplicationSupervisor:
                     pass_fds=launch.pass_fds,
                     start_new_session=True,
                 )
+                if audit is not None:
+                    audit.started(process.pid)
                 os.close(write_fd)
                 write_fd = -1
                 # Bwrap writes its small JSON status to /dev/null, not a pipe
                 # whose undrained buffer could stall a long-lived process.
                 if process.poll() is not None:
                     raise CapabilityUnavailableError("sandbox application exited during admission")
-                app = _App(uuid4().hex, self.recipes[kind], process, launch.identity)
+                app = _App(session_id.hex, self.recipes[kind], process, launch.identity)
                 app.agent_id = agent_id
+                app.audit = audit
                 if controlled_browser:
                     from potbot.tools.xpra_browser_control import BrowserControlChannel
 
@@ -578,12 +623,15 @@ class XpraApplicationSupervisor:
                     # A child that exited during admission may already have
                     # mutated the home. Preserve an uncertain receipt even if
                     # it is now stopped; never call this successful work.
-                    temporary = _App(uuid4().hex, self.recipes[kind], process, "")
+                    temporary = _App(session_id.hex, self.recipes[kind], process, "")
                     temporary.agent_id = agent_id
-                    self._terminate(temporary)
+                    temporary.audit = audit
                     temporary.indeterminate = True
+                    self._terminate(temporary)
                     self._apps[temporary.id] = temporary
                     self._group_ids.add(temporary.id)
+                elif audit is not None:
+                    audit.finish(confirmed_stopped=False)
                 if process is None and agent_id is not None and self.agent_displays is not None:
                     # No worker was dispatched: release the unused Xpra session.
                     self.agent_displays.retire(agent_id, process_stopped=True)
@@ -780,7 +828,9 @@ class XpraApplicationSupervisor:
             self._settle()
             if self.browser_leases is not None and app.recipe.kind == "controlled-browser":
                 self.browser_leases.retired(
-                    identifier, process_stopped=app.process.poll() is not None
+                    identifier,
+                    process_stopped=(app.process.poll() is not None
+                                     and (app.audit is None or app.audit_complete is True)),
                 )
             return app.view().document()
 
@@ -956,6 +1006,16 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         if ai_config is None or ai_past is None or backend.operator_attachment is None:
             raise CapabilityUnavailableError("managed Xpra needs the live workspace operator")
         backend.operator_attachment.require_healthy()
+    gui_audit_factory = None
+    if backend.operator_attachment is not None:
+        from potbot.tools.gui_resource_audit import GuiAuditFactory
+
+        gui_audit_factory = GuiAuditFactory.from_environment(
+            runtime=runtime, workspace_id=server.workspace_id, principal_id=principal
+        )
+    elif os.environ.get("POTBOT_GUI_AUDIT_REQUIRED") == "1":
+        raise CapabilityUnavailableError("GUI kernel telemetry is required but unavailable")
+    server.gui_audit_factory = gui_audit_factory
     gateway = None
     if egress_spec is not None:
         from potbot.tools.browser_connect_gateway import BrowserConnectGateway, ConnectPolicy
@@ -992,6 +1052,7 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
                 ledger=ledger, backend=backend,
                 homes=AgentHomeRegistry(ledger, workspace_name=display_spec["workspaceName"]),
                 browser_gateway=gateway, maximum=display_spec["maxDisplays"],
+                gui_audit_factory=gui_audit_factory,
             )
         return XpraApplicationSupervisor(
             workspace_id=server.workspace_id,
@@ -1001,6 +1062,7 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
             ledger=ledger,
             browser_leases=leases,
             agent_displays=pool,
+            gui_audit_factory=gui_audit_factory,
             ai_monitor=None,
         )
     except BaseException:

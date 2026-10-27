@@ -68,7 +68,8 @@ class AgentXpraDisplayPool:
     def __init__(self, *, workspace_id: UUID, principal_id: UUID, operator_root: Path,
                  runtime: Any, ledger: Any, homes: Any, backend: Any,
                  server_factory: Callable[..., Any] | None = None,
-                 browser_gateway: Any = None, maximum: int = _MAX_DISPLAYS) -> None:
+                 browser_gateway: Any = None, maximum: int = _MAX_DISPLAYS,
+                 gui_audit_factory: Callable[..., Any] | None = None) -> None:
         from potbot.tools.agent_homes import AgentHomeRegistry
         from potbot.tools.shared_workspace_isolation import (SharedWorkspaceBubblewrapBackend,
                                                              SharedWorkspaceRuntime)
@@ -97,6 +98,7 @@ class AgentXpraDisplayPool:
             if not isinstance(browser_gateway, BrowserConnectGateway):
                 raise ScopeDeniedError("agent display egress requires the operator-owned broker")
         self.browser_gateway = browser_gateway
+        self.gui_audit_factory = gui_audit_factory
         self.root, self.maximum, self.server_factory = root, maximum, server_factory
         self._lock = threading.RLock()
         self._displays: dict[UUID, AgentXpraDisplay] = {}
@@ -136,6 +138,10 @@ class AgentXpraDisplayPool:
             # Display root is operator-owned, **not** under /home. Therefore a
             # different agent cannot read even the Xauthority cookie pathname.
             server = self.server_factory(self.workspace_id, folder, readonly_mode=True)
+            if self.gui_audit_factory is not None:
+                server.gui_audit_factory = lambda identity, run_id: self.gui_audit_factory(
+                    identity, run_id, agent_id=agent_id, agent_registry=self.homes
+                )
             try:
                 server.start()
                 server.environment()

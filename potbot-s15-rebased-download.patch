@@ -1,0 +1,1272 @@
+diff --git a/src/potbot/tools/xpra_seamless.py b/src/potbot/tools/xpra_seamless.py
+--- a/src/potbot/tools/xpra_seamless.py
++++ b/src/potbot/tools/xpra_seamless.py
+@@ -11,2 +11,3 @@
+ import os
++import re
+ import shutil
+@@ -17,3 +18,4 @@
+ from pathlib import Path
+-from typing import BinaryIO
++from typing import Any, BinaryIO, Callable
++from uuid import UUID, uuid4
+ 
+@@ -27,3 +29,4 @@
+                  binary: str = "xpra", startup_timeout: float = 20.0,
+-                 readonly_mode: bool = False) -> None:
++                 readonly_mode: bool = False,
++                 gui_audit_factory: Callable[[str, UUID], Any] | None = None) -> None:
+         if not root.is_absolute() or not root.is_dir() or root.is_symlink():
+@@ -43,2 +46,5 @@
+         self.binary, self.startup_timeout = binary, startup_timeout
++        self.gui_audit_factory = gui_audit_factory
++        self._gui_audit: Any = None
++        self._gui_audit_faulted = False
+         suffix = hashlib.sha256
+@@ -60,3 +66,4 @@
+     def running(self) -> bool:
+-        return self._process is not None and self._process.poll() is None
++        return (self._process is not None and self._process.poll() is None
++                and (self._gui_audit is None or self._gui_audit.healthy))
+ 
+@@ -130,4 +137,4 @@
+     def start(self) -> None:
+-        if self._process is not None:
+-            raise XpraSessionError("Xpra session already started")
++        if self._process is not None or self._gui_audit_faulted:
++            raise XpraSessionError("Xpra session unavailable until operator reconciliation")
+         executable = shutil.which(self.binary)
+@@ -135,2 +142,11 @@
+             raise XpraSessionError("Xpra executable unavailable")
++        if self.gui_audit_factory is not None:
++            expected = os.environ.get("POTBOT_XPRA_SHA256", "")
++            candidate = Path(executable)
++            if (not re.fullmatch(r"[0-9a-f]{64}", expected)
++                    or candidate.is_symlink() or candidate.stat().st_mode & 0o022):
++                raise XpraSessionError("host Xpra executable is not operator pinned")
++            with candidate.open("rb") as src:
++                if hashlib.file_digest(src, "sha256").hexdigest() != expected:
++                    raise XpraSessionError("host Xpra executable differs from operator pin")
+         for directory in (self.host_runtime_root, self.socket_dir.parent,
+@@ -160,7 +176,16 @@
+         try:
++            argv = (executable, *self.command()[1:])
++            if self.gui_audit_factory is not None:
++                # Principal attribution: the graphical display is operator
++                # infrastructure, not an unverified agent's personal heat bar.
++                identity = hashlib.sha256(repr(argv).encode("utf-8")).hexdigest()
++                self._gui_audit = self.gui_audit_factory(identity, uuid4())
++                argv = self._gui_audit.command(argv)
+             self._process = subprocess.Popen(
+-                (executable, *self.command()[1:]), cwd=self.root,
+-                env=self._environment(), stdin=subprocess.DEVNULL,
+-                stdout=self._log, stderr=subprocess.STDOUT, start_new_session=True,
++                argv, cwd=self.root, env=self._environment(),
++                stdin=subprocess.DEVNULL, stdout=self._log,
++                stderr=subprocess.STDOUT, start_new_session=True,
+             )
++            if self._gui_audit is not None:
++                self._gui_audit.started(self._process.pid)
+             deadline = time.monotonic() + self.startup_timeout
+@@ -184,2 +209,3 @@
+         self._process = None
++        audit, self._gui_audit = self._gui_audit, None
+         if process is not None and process.poll() is None:
+@@ -222,3 +248,13 @@
+         # never treat unknown files or changed socket inodes as owned resources.
+-        self._stopped_cleanly = process is not None and process.poll() is not None
++        audit_complete = True
++        if audit is not None:
++            try:
++                audit_complete = bool(audit.finish(
++                    confirmed_stopped=(process is not None and process.poll() is not None)))
++            except Exception:
++                audit_complete = False
++        if audit is not None and not audit_complete:
++            self._gui_audit_faulted = True
++        self._stopped_cleanly = (process is not None and process.poll() is not None
++                                 and audit_complete)
+         # The subprocess owns its X11 and protocol sockets. Never delete unknown
+diff --git a/src/potbot/tools/x11_workspace_server.py b/src/potbot/tools/x11_workspace_server.py
+index 230464d..0000000 100644
+--- a/src/potbot/tools/x11_workspace_server.py
++++ b/src/potbot/tools/x11_workspace_server.py
+@@ -62,6 +62,7 @@
+         self.auth_file = root / ".potbot" / "x11" / "Xauthority"
+         self.session_file = root / ".potbot" / "x11" / "session.json"
+         self._xpra: XpraSeamlessSession | None = None
++        self.gui_audit_factory = None  # Operator-owned; selected by private policy.
+         self._runtime_lock: int | None = None
+         self._display_lock: int | None = None
+         self._owned_session = False
+@@ -150,6 +151,7 @@
+                 self.auth_file,
+                 binary=self.xpra_executable,
+                 readonly_mode=self.readonly_mode,
++                gui_audit_factory=self.gui_audit_factory,
+             )
+             self._xpra.start()
+             payload = json.dumps(
+@@ -568,6 +570,7 @@
+             raise XpraBridgeError("managed Xpra requires a pinned applications policy")
+         server.start()
+         if operator_fence is not None:
++            operator_fence.display_started()
+             operator_fence.require_healthy()
+         app = create_app(server, token, args.browser_origin, apps, operator_fence)
+         print(
+diff --git a/src/potbot/tools/xpra_operator_fence_s14.py b/src/potbot/tools/xpra_operator_fence_s14.py
+--- a/src/potbot/tools/xpra_operator_fence_s14.py
++++ b/src/potbot/tools/xpra_operator_fence_s14.py
+@@ -54,2 +54,3 @@
+         self._started = False
++        self._display_ready = threading.Event()
+         self._lock = threading.RLock()
+@@ -71,2 +72,8 @@
+             raise CapabilityUnavailableError("Xpra operator attachment is fenced")
++        if self._display_ready.is_set():
++            try:
++                self.display.environment()
++            except Exception:
++                self._fence()
++                raise CapabilityUnavailableError("Xpra GUI resource audit is unavailable") from None
+         return status
+@@ -91,2 +98,8 @@
+         return self
++
++    def display_started(self) -> None:
++        """Arm display audit only after the first Xpra startup completed."""
++        if self._closed.is_set() or self._fenced.is_set():
++            raise CapabilityUnavailableError("Xpra owner is already fenced")
++        self._display_ready.set()
+ 
+diff --git a/src/potbot/tools/xpra_app_sessions.py b/src/potbot/tools/xpra_app_sessions.py
+index 480aba7..0000000 100644
+--- a/src/potbot/tools/xpra_app_sessions.py
++++ b/src/potbot/tools/xpra_app_sessions.py
+@@ -280,6 +280,8 @@
+         self.detached = False
+         self.indeterminate = False
+         self.browser_control: Any = None
++        self.audit: Any = None
++        self.audit_complete: bool | None = None
+         self.agent_id: UUID | None = None
+ 
+     def view(self) -> AppView:
+@@ -315,6 +317,7 @@
+         ai_monitor: Any = None,
+         browser_leases: Any = None,
+         agent_displays: Any = None,
++        gui_audit_factory: Callable[..., Any] | None = None,
+         max_apps: int = 4,
+         max_age_seconds: int = 3600,
+     ) -> None:
+@@ -331,6 +334,7 @@
+         self.recipes = {r.kind: r for r in recipes}
+         self.backend, self.ledger, self.popen = backend, ledger, popen
+         self.ai_monitor = ai_monitor
++        self.gui_audit_factory = gui_audit_factory
+         self.operator_attachment = getattr(
+             getattr(backend, "backend", None), "operator_attachment", None
+         )
+@@ -367,10 +371,21 @@
+ 
+     def _settle(self) -> None:
+         """Called under lock. Never release lease for unconfirmed process tree."""
+-        if self._guard is None or any(
+-            self._apps[identifier].process.poll() is None for identifier in self._group_ids
+-        ):
++        if self._guard is None:
+             return
++        # Finalize stopped tracees before releasing the shared workspace lease.
++        for identifier in self._group_ids:
++            app = self._apps[identifier]
++            if app.audit is None or app.audit_complete is not None or app.process.poll() is None:
++                continue
++            try:
++                app.audit_complete = bool(app.audit.finish(confirmed_stopped=True))
++            except Exception:
++                app.audit_complete = False
++            if not app.audit_complete:
++                app.indeterminate = True
++        if any(self._apps[identifier].process.poll() is None for identifier in self._group_ids):
++            return
+         group = tuple(self._group_ids)
+         self._group_ids.clear()
+         guard, self._guard = self._guard, None
+@@ -418,6 +433,14 @@
+         if app.process.poll() is None:
+             app.indeterminate = True
+             return
++        if app.audit is not None and app.audit_complete is None:
++            try:
++                app.audit_complete = bool(app.audit.finish(confirmed_stopped=True))
++            except Exception:
++                app.audit_complete = False
++        if app.audit is not None and app.audit_complete is not True:
++            app.indeterminate = True
++            return
+         try:
+             self.agent_displays.retire(app.agent_id, process_stopped=True)
+             if self.browser_leases is not None:
+@@ -459,13 +482,19 @@
+                 lost_operator = (
+                     self.operator_attachment is not None and not self.operator_attachment.healthy()
+                 )
++                lost_audit = any(
++                    a.audit is not None and a.process.poll() is None and not a.audit.healthy
++                    for a in self._apps.values()
++                )
+                 if (guard.fenced or expired or lost_display or lost_watcher
+-                        or lost_operator or any(a.indeterminate and a.process.poll() is None
+-                                                 for a in self._apps.values())):
++                        or lost_operator or lost_audit or any(a.indeterminate and a.process.poll() is None
++                                                               for a in self._apps.values())):
+                     for app in self._apps.values():
+-                        self._terminate(app)
+-                        if guard.fenced or lost_display or lost_watcher or lost_operator:
++                        if guard.fenced or lost_display or lost_watcher or lost_operator or lost_audit:
+                             app.indeterminate = True
++                        if (lost_operator or lost_audit) and self.browser_leases is not None and app.recipe.kind == "controlled-browser":
++                            self.browser_leases.fence(app.id)
++                        self._terminate(app)
+                 self._settle()
+ 
+     def list_sessions(self) -> list[dict[str, Any]]:
+@@ -523,6 +552,8 @@
+             write_fd = os.open(os.devnull, os.O_WRONLY)
+             launch = None
+             process = None
++            audit = None
++            session_id = uuid4()
+             try:
+                 controlled_browser = kind == "controlled-browser"
+                 if agent_id is not None:
+@@ -538,8 +569,19 @@
+                         and getattr(self.backend, "browser_gateway", None) is not None
+                         else self.backend.prepare(argv=self.recipes[kind].argv, status_fd=write_fd)
+                     )
++                argv = launch.argv
++                if self.gui_audit_factory is not None:
++                    if agent_id is not None:
++                        # S40 already verified this identity through AgentHomeRegistry.
++                        audit = self.gui_audit_factory(
++                            launch.identity, session_id, agent_id=agent_id,
++                            agent_registry=self.agent_displays.homes,
++                        )
++                    else:
++                        audit = self.gui_audit_factory(launch.identity, session_id)
++                    argv = audit.command(argv)  # Register task exits before spawning.
+                 process = self.popen(
+-                    launch.argv,
++                    argv,
+                     stdin=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
+                     stdout=subprocess.PIPE if controlled_browser else subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL,
+@@ -549,14 +591,17 @@
+                     pass_fds=launch.pass_fds,
+                     start_new_session=True,
+                 )
++                if audit is not None:
++                    audit.started(process.pid)
+                 os.close(write_fd)
+                 write_fd = -1
+                 # Bwrap writes its small JSON status to /dev/null, not a pipe
+                 # whose undrained buffer could stall a long-lived process.
+                 if process.poll() is not None:
+                     raise CapabilityUnavailableError("sandbox application exited during admission")
+-                app = _App(uuid4().hex, self.recipes[kind], process, launch.identity)
++                app = _App(session_id.hex, self.recipes[kind], process, launch.identity)
+                 app.agent_id = agent_id
++                app.audit = audit
+                 if controlled_browser:
+                     from potbot.tools.xpra_browser_control import BrowserControlChannel
+ 
+@@ -578,12 +623,15 @@
+                     # A child that exited during admission may already have
+                     # mutated the home. Preserve an uncertain receipt even if
+                     # it is now stopped; never call this successful work.
+-                    temporary = _App(uuid4().hex, self.recipes[kind], process, "")
++                    temporary = _App(session_id.hex, self.recipes[kind], process, "")
+                     temporary.agent_id = agent_id
+-                    self._terminate(temporary)
++                    temporary.audit = audit
+                     temporary.indeterminate = True
++                    self._terminate(temporary)
+                     self._apps[temporary.id] = temporary
+                     self._group_ids.add(temporary.id)
++                elif audit is not None:
++                    audit.finish(confirmed_stopped=False)
+                 if process is None and agent_id is not None and self.agent_displays is not None:
+                     # No worker was dispatched: release the unused Xpra session.
+                     self.agent_displays.retire(agent_id, process_stopped=True)
+@@ -780,7 +828,9 @@
+             self._settle()
+             if self.browser_leases is not None and app.recipe.kind == "controlled-browser":
+                 self.browser_leases.retired(
+-                    identifier, process_stopped=app.process.poll() is not None
++                    identifier,
++                    process_stopped=(app.process.poll() is not None
++                                     and (app.audit is None or app.audit_complete is True)),
+                 )
+             return app.view().document()
+ 
+@@ -956,6 +1006,16 @@
+         if ai_config is None or ai_past is None or backend.operator_attachment is None:
+             raise CapabilityUnavailableError("managed Xpra needs the live workspace operator")
+         backend.operator_attachment.require_healthy()
++    gui_audit_factory = None
++    if backend.operator_attachment is not None:
++        from potbot.tools.gui_resource_audit import GuiAuditFactory
++
++        gui_audit_factory = GuiAuditFactory.from_environment(
++            runtime=runtime, workspace_id=server.workspace_id, principal_id=principal
++        )
++    elif os.environ.get("POTBOT_GUI_AUDIT_REQUIRED") == "1":
++        raise CapabilityUnavailableError("GUI kernel telemetry is required but unavailable")
++    server.gui_audit_factory = gui_audit_factory
+     gateway = None
+     if egress_spec is not None:
+         from potbot.tools.browser_connect_gateway import BrowserConnectGateway, ConnectPolicy
+@@ -988,6 +1048,7 @@
+                 ledger=ledger, backend=backend,
+                 homes=AgentHomeRegistry(ledger, workspace_name=display_spec["workspaceName"]),
+-                browser_gateway=gateway, maximum=display_spec["maxDisplays"],
++                browser_gateway=gateway, maximum=display_spec["maxDisplays"],
++                gui_audit_factory=gui_audit_factory,
+             )
+         return XpraApplicationSupervisor(
+             workspace_id=server.workspace_id,
+@@ -1001,6 +1061,7 @@
+             ledger=ledger,
+             browser_leases=leases,
+             agent_displays=pool,
++            gui_audit_factory=gui_audit_factory,
+             ai_monitor=None,
+         )
+     except BaseException:
+diff --git a/src/potbot/tools/agent_xpra_displays.py b/src/potbot/tools/agent_xpra_displays.py
+index 48d1f89..0000000 100644
+--- a/src/potbot/tools/agent_xpra_displays.py
++++ b/src/potbot/tools/agent_xpra_displays.py
+@@ -68,7 +68,8 @@
+     def __init__(self, *, workspace_id: UUID, principal_id: UUID, operator_root: Path,
+                  runtime: Any, ledger: Any, homes: Any, backend: Any,
+                  server_factory: Callable[..., Any] | None = None,
+-                 browser_gateway: Any = None, maximum: int = _MAX_DISPLAYS) -> None:
++                 browser_gateway: Any = None, maximum: int = _MAX_DISPLAYS,
++                 gui_audit_factory: Callable[..., Any] | None = None) -> None:
+         from potbot.tools.agent_homes import AgentHomeRegistry
+         from potbot.tools.shared_workspace_isolation import (SharedWorkspaceBubblewrapBackend,
+                                                              SharedWorkspaceRuntime)
+@@ -97,6 +98,7 @@
+             if not isinstance(browser_gateway, BrowserConnectGateway):
+                 raise ScopeDeniedError("agent display egress requires the operator-owned broker")
+         self.browser_gateway = browser_gateway
++        self.gui_audit_factory = gui_audit_factory
+         self.root, self.maximum, self.server_factory = root, maximum, server_factory
+         self._lock = threading.RLock()
+         self._displays: dict[UUID, AgentXpraDisplay] = {}
+@@ -136,6 +138,10 @@
+             # Display root is operator-owned, **not** under /home. Therefore a
+             # different agent cannot read even the Xauthority cookie pathname.
+             server = self.server_factory(self.workspace_id, folder, readonly_mode=True)
++            if self.gui_audit_factory is not None:
++                server.gui_audit_factory = lambda identity, run_id: self.gui_audit_factory(
++                    identity, run_id, agent_id=agent_id, agent_registry=self.homes
++                )
+             try:
+                 server.start()
+                 server.environment()
+diff --git a/.github/workflows/gui-kernel-audit-s15.yml b/.github/workflows/gui-kernel-audit-s15.yml
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/.github/workflows/gui-kernel-audit-s15.yml
+@@ -0,0 +1,28 @@
++name: S15 GUI process-tree and file-access audit
++on:
++  push:
++    paths:
++      - 'src/potbot/tools/gui_resource_audit.py'
++      - 'src/potbot/tools/xpra_app_sessions.py'
++      - 'src/potbot/tools/xpra_seamless.py'
++      - 'src/potbot/tools/x11_workspace_server.py'
++      - 'src/potbot/tools/xpra_operator_fence_s14.py'
++      - 'scripts/qualify_gui_telemetry_s15.py'
++      - 'tests/unit/test_gui_resource_audit_s15.py'
++      - 'tests/unit/test_gui_agent_attribution_s15.py'
++      - 'tests/unit/test_gui_resource_integration_s15.py'
++      - 'tests/unit/test_gui_audit_qualification_s15.py'
++      - '.github/workflows/gui-kernel-audit-s15.yml'
++  pull_request:
++  workflow_dispatch:
++jobs:
++  offline:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++      - uses: astral-sh/setup-uv@v6
++      - run: uv sync --locked --group dev --extra web
++      - run: uv run --locked --dev python -m pytest -q tests/unit/test_gui_resource_audit_s15.py tests/unit/test_gui_resource_integration_s15.py tests/unit/test_gui_agent_attribution_s15.py tests/unit/test_gui_audit_qualification_s15.py tests/unit/test_xpra_application_sessions.py tests/unit/test_xpra_operator_fence_s14.py
++      - run: uv run --locked --dev python -m compileall -q src/potbot/tools/gui_resource_audit.py src/potbot/tools/xpra_app_sessions.py src/potbot/tools/xpra_seamless.py scripts/qualify_gui_telemetry_s15.py
+diff --git a/docs/implementation/s15-gui-kernel-auditing.md b/docs/implementation/s15-gui-kernel-auditing.md
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/docs/implementation/s15-gui-kernel-auditing.md
+@@ -0,0 +1,112 @@
++# S15 — Kernel-accounted Xpra and controlled-browser process trees
++
++**Base commit:** `ba8e413d2740282f9dd1712a8eb583b09cf89cb2` (27 October 2026).
++**Mode:** host-only opt-in; mandatory if the running Xpra backend attaches to S13's
++managed operator. Not a new browser executable, sandbox, telemetry format, or
++an exception to S14 owner fencing.
++
++## Scope
++
++Every managed Xpra display, graphical application, and controlled-browser
++subprocess is launched through Potbot's **existing** `WorkerMonitorSession`:
++
++- An operator-pinned `cgroup_join` helper places the wrapper into a delegated
++  cgroup-v2 leaf before it can spawn `strace` or any Xpra/Chromium child.
++- `TaskstatsExitStream` subscribes to kernel exit events *before* launch.
++- `strace -f -ff -ttt -T -yy` accounts for forked child processes and per-PID
++  file-related syscalls, including opening modes and observed failures.
++- The private host audit has cgroup CPU/IO/memory totals, process-tree index,
++  per-PID syscall lifetime and file-access index with SHA-256 checksums.
++- On every supervised exit, the app lease remains held until the audit has
++  finalized. Unconfirmed descendants, missing exits, trace overflow, bad
++  hashes or an unhealthy collector make the GUI operation **indeterminate**.
++  The controller must reconcile it; no retry or clean lease completion.
++- Browser lease tokens and S39's strict Xpra input/egress policy remain unchanged.
++  Raw audit paths, shell arguments, CDP content and filenames stay outside UI.
++
++Operator GUI and the shared Xpra display are recorded as `identity_kind=principal`.
++For S40 private agent browsers and their separate displays, attribution is
++`identity_kind=agent` **only after** `AgentHomeRegistry.lookup` verifies the
++agent's enrolled workspace identity. Unverified agent IDs cannot contribute to
++agent utilisation. Each agent display is independently monitored; it does not
++share an audit cgroup with the browser launched within it.
++
++## Operator prerequisites
++
++On the qualified Linux/WSL2 host, configure these existing host-only settings:
++
++```sh
++POTBOT_OPERATOR_AUDIT_ROOT=/host/private/gui-audit
++POTBOT_OPERATOR_CGROUP_ROOT=/sys/fs/cgroup/potbot
++POTBOT_OPERATOR_STRACE=/usr/bin/strace
++POTBOT_OPERATOR_CGROUP_JOIN=/host/operator/bin/potbot-cgroup-join
++POTBOT_OPERATOR_STRACE_SHA256=EXACT_HEX_SHA256
++POTBOT_OPERATOR_CGROUP_JOIN_SHA256=EXACT_HEX_SHA256
++POTBOT_XPRA_SHA256=EXACT_HOST_XPRA_EXECUTABLE_SHA256
++```
++
++The audit root must be 0700, the cgroup subtree delegated exclusively to the
++controller, and all listed executable hashes approved by the operator. The
++sandbox must not mount those paths. A managed Xpra service **fails closed** when
++these prerequisites, the S13 operator socket, or kernel TASKSTATS are missing.
++
++The existing private Xpra application policy retains its pinned workspace,
++principal, rootfs, AI config/history, strict input and allowed browser CONNECT
++hosts. Only the registered S40 agent-display path supplies per-agent audit
++identity; no extra agent credentials or secret route is introduced.
++
++## Acceptance on the real host
++
++First start the managed operator and Xpra with real qualified cgroup/strace
++settings. Launch an approved graphical application and a controlled browser,
++confirm an interactive browser action, and terminate both through their
++existing API endpoints. Observe that the browser and its descendant tasks
++leave a private `lifetime.json` record with `audit_complete=true`.
++
++For each completed app, supply its Xpra application session ID as run ID:
++
++```sh
++PYTHONPATH=src python scripts/qualify_gui_telemetry_s15.py \
++  --audit-root /host/private/gui-audit \
++  --workspace-id WORKSPACE_UUID \
++  --run-id APP_SESSION_UUID \
++  --report /host/private/s15-app-qualification.json
++```
++
++A separate Xpra host/display worker has its own UUID in the private identity
++record. Do not mistake the display process for one of the app session IDs.
++The qualification script verifies the real private index SHA-256 hashes,
++TASKSTATS coverage, a complete process tree and cgroup totals; it reports
++only bounded counts and totals. No raw file paths are exported.
++
++Also deliberately break the operator socket on a *disposable* workspace,
++trigger trace overflow and interrupt the monitored process. All such tests must
++fence active browser commands, terminate associated child process trees,
++produce an incomplete/indeterminate receipt and prevent a clean GUI lease.
++
++## Known limitations and future gates
++
++This increment is a **prepared backend implementation**. It has not yet been
++qualified on this session's actual host, and no real Xpra/WSL2 task accounting
++was executed here. It does not prove process isolation from Windows, cover
++other WSL hosts, or provide cluster-wide operator fencing. Host Xpra's current
++log path under the workspace must be redirected to the approved log mount in a
++follow-up; kernel trace and file indexes in this increment remain host-private.
++
++The GUI support code does not elevate the existing syscall trace to a filesystem
++mediation policy. It observes access; authorization and system-write isolation
++continue to come from existing Bubblewrap and the S13 operator controls.
++
++## Implementation/checks
++
++```sh
++PYTHONPATH=src uv run --locked python -m pytest -q \
++  tests/unit/test_gui_resource_audit_s15.py \
++  tests/unit/test_gui_resource_integration_s15.py \
++  tests/unit/test_gui_agent_attribution_s15.py \
++  tests/unit/test_gui_audit_qualification_s15.py \
++  tests/unit/test_xpra_application_sessions.py \
++  tests/unit/test_xpra_operator_fence_s14.py
++```
++
++Run host CI and standalone Xpra socket/network/WSL2 qualifications separately.
+diff --git a/scripts/qualify_gui_telemetry_s15.py b/scripts/qualify_gui_telemetry_s15.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/scripts/qualify_gui_telemetry_s15.py
+@@ -0,0 +1,129 @@
++#!/usr/bin/env python3
++"""Read-only host acceptance for one completed S15 GUI cgroup/syscall audit.
++
++No secrets, raw paths, trace contents, or argv leave the private operator store.
++The run ID of an Xpra application equals its API session ID. Run this only on
++an operator host after that process has stopped.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import re
++import stat
++import sys
++from pathlib import Path
++from uuid import UUID
++
++_HEX = re.compile(r"[0-9a-f]{64}\Z")
++
++
++def private_dir(path: Path) -> Path:
++    if (not path.is_absolute() or path.is_symlink() or not path.is_dir()
++            or path.resolve(strict=True) != path or path.stat().st_uid != os.getuid()
++            or path.stat().st_mode & 0o077):
++        raise ValueError("private operator directory unavailable")
++    return path
++
++
++def record(path: Path, limit: int = 1024 * 1024) -> dict:
++    if (path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077
++            or path.stat().st_size > limit):
++        raise ValueError("private audit record invalid")
++    data = json.loads(path.read_bytes())
++    if not isinstance(data, dict):
++        raise ValueError("invalid audit JSON record")
++    return data
++
++
++def verified_hash(path: Path, expected: str) -> None:
++    if (not isinstance(expected, str) or not _HEX.fullmatch(expected)
++            or path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077
++            or path.stat().st_size > 256 * 1024 * 1024):
++        raise ValueError("private audit index invalid")
++    digest = hashlib.sha256()
++    with path.open("rb") as source:
++        while chunk := source.read(1024 * 1024):
++            digest.update(chunk)
++    if digest.hexdigest() != expected:
++        raise ValueError("GUI audit index hash mismatch")
++
++
++def qualify(audit_root: Path, workspace_id: UUID, run_id: UUID) -> dict[str, object]:
++    workspace = private_dir(private_dir(audit_root) / str(workspace_id))
++    candidates = []
++    for child in workspace.iterdir():
++        if child.name.startswith("."):
++            continue
++        private_dir(child)
++        try:
++            if str(UUID(child.name)) != child.name:
++                raise ValueError
++        except ValueError:
++            raise ValueError("unexpected worker audit directory") from None
++        identity = record(child / "identity.json", 65536)
++        if identity.get("run_id") == str(run_id):
++            candidates.append((child, identity))
++        if len(candidates) > 1:
++            raise ValueError("ambiguous GUI audit identity")
++    if len(candidates) != 1:
++        raise ValueError("GUI run not present")
++    child, identity = candidates[0]
++    receipt = record(child / "lifetime.json")
++    if (identity.get("workspace_id") != str(workspace_id)
++            or identity.get("identity_kind") != "principal"
++            or receipt.get("agent_id") != identity.get("agent_id")
++            or receipt.get("worker_id") != identity.get("worker_id")
++            or receipt.get("run_id") != str(run_id)
++            or receipt.get("identity_kind") != "principal"
++            or receipt.get("audit_complete") is not True
++            or receipt.get("audit_failure") is not None
++            or receipt.get("trace_integrity") != {}
++            or receipt.get("taskstats_missing_exit_events") != 0
++            or receipt.get("per_pid_kernel_exit_accounting") is not True):
++        raise ValueError("kernel accounting not complete")
++    tree, files = receipt.get("process_tree"), receipt.get("file_index")
++    if (not isinstance(tree, dict) or not isinstance(files, dict)
++            or tree.get("tree_complete") is not True
++            or tree.get("expected_untraced_count") != 0
++            or tree.get("fork_conflicts") != 0
++            or not isinstance(tree.get("nodes"), int) or tree["nodes"] < 1
++            or receipt.get("traced_pid_count") != receipt.get("per_pid_kernel_exit_count")):
++        raise ValueError("descendant coverage incomplete")
++    verified_hash(child / "process-tree.jsonl", tree.get("sha256"))
++    verified_hash(child / "file-index.jsonl", files.get("sha256"))
++    usage = receipt.get("cgroup_usage")
++    keys = ("cpu_usec", "read_bytes", "write_bytes", "memory_peak_bytes")
++    if not isinstance(usage, dict) or any(type(usage.get(k)) is not int or usage[k] < 0 for k in keys):
++        raise ValueError("kernel resource totals unavailable")
++    return {"schema": "potbot-gui-kernel-audit-s15/v1", "workspaceId": str(workspace_id),
++            "runId": str(run_id), "qualified": True, "tracedProcesses": tree["nodes"],
++            "fileKeys": files["file_keys"], "cpuUsec": usage["cpu_usec"],
++            "readBytes": usage["read_bytes"], "writeBytes": usage["write_bytes"],
++            "peakMemoryBytes": usage["memory_peak_bytes"]}
++
++
++def main() -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    for name in ("audit-root", "workspace-id", "run-id", "report"):
++        p.add_argument("--" + name, required=True)
++    a = p.parse_args()
++    try:
++        result = qualify(Path(a.audit_root), UUID(a.workspace_id), UUID(a.run_id))
++        path = Path(a.report)
++        if not path.is_absolute() or path.exists() or path.is_symlink():
++            raise ValueError("report must be new and absolute")
++        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_WRONLY, 0o600)
++        with os.fdopen(fd, "w", encoding="utf-8") as f:
++            json.dump(result, f, sort_keys=True)
++            f.write("\n"); f.flush(); os.fsync(f.fileno())
++        print(json.dumps({"qualified": True, "reportSha256": hashlib.sha256(path.read_bytes()).hexdigest()}))
++        return 0
++    except (OSError, ValueError, KeyError, TypeError):
++        print('{"qualified":false,"error":"gui_audit_unavailable"}', file=sys.stderr)
++        return 1
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/src/potbot/tools/gui_resource_audit.py b/src/potbot/tools/gui_resource_audit.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/src/potbot/tools/gui_resource_audit.py
+@@ -0,0 +1,148 @@
++"""S15: host-owned kernel accounting for Xpra and controlled-browser processes.
++
++Reuse WorkerMonitorSession's cgroup-v2, strace, TASKSTATS and file-index format;
++never duplicate a weaker /proc polling implementation or place raw paths in UI.
++The audited identity is the operator *principal*, not an invented agent UID.
++"""
++
++from __future__ import annotations
++
++import re
++import threading
++from pathlib import Path
++from typing import TYPE_CHECKING, Callable
++from uuid import UUID
++
++from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
++from potbot.tools.worker_telemetry import WorkerMonitorConfig, WorkerMonitorSession
++
++if TYPE_CHECKING:
++    from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
++
++_SHA = re.compile(r"[0-9a-f]{64}\Z")
++
++
++class GuiAuditHandle:
++    """One checked process group; its outcome is never inferred from parent exit.
++
++    command() registers TASKSTATS before the first child can spawn. started()
++    begins cgroup sampling immediately after launch. finish() audits every traced
++    descendant and returns False on *any* missing kernel coverage, trace overflow,
++    lost monitor, or unconfirmed process-tree shutdown. No audit raw data is
++    returned through this interface.
++    """
++
++    def __init__(self, session: WorkerMonitorSession) -> None:
++        self._session = session
++        self._lock = threading.RLock()
++        self._prepared = False
++        self._started = False
++        self._finished: bool | None = None
++
++    def command(self, argv: tuple[str, ...]) -> tuple[str, ...]:
++        if (not isinstance(argv, tuple) or not argv or not all(
++            isinstance(value, str) and value and "\x00" not in value for value in argv
++        )):
++            raise InvalidInputError("GUI monitor needs a bounded pinned child command")
++        with self._lock:
++            if self._prepared or self._finished is not None:
++                raise InvalidInputError("GUI monitor command already prepared")
++            self._prepared = True
++            return self._session.command(argv)
++
++    def started(self, pid: int) -> None:
++        with self._lock:
++            if (not self._prepared or self._started or self._finished is not None
++                    or type(pid) is not int or not 0 < pid < 2**31):
++                raise InvalidInputError("GUI monitor start must match one spawned process")
++            self._started = True
++            self._session.start(pid)
++
++    @property
++    def healthy(self) -> bool:
++        with self._lock:
++            return bool(self._started and self._finished is None and self._session.healthy)
++
++    def finish(self, *, confirmed_stopped: bool) -> bool:
++        """Finalize once; an unconfirmed parent can NEVER earn a clean receipt."""
++        with self._lock:
++            if self._finished is not None:
++                return self._finished
++            if not self._prepared:
++                self._finished = False
++                return False
++            try:
++                complete = bool(self._session.finish(confirmed_stopped=confirmed_stopped))
++            except BaseException:
++                # The operator retains the private fault/cgroup for reconciliation.
++                complete = False
++            self._finished = bool(self._started and confirmed_stopped and complete)
++            return self._finished
++
++
++class GuiAuditFactory:
++    """An operator-pinned audit factory shared by Xpra and child application runs.
++
++    Monitoring infrastructure is *never* exposed through /home, /etc/ai,
++    /etc/ai-past, a model cache, the rootfs or the shared tools mount.
++    """
++
++    def __init__(
++        self, *, config: WorkerMonitorConfig, runtime: SharedWorkspaceRuntime,
++        workspace_id: UUID, principal_id: UUID,
++        session_factory: Callable[..., WorkerMonitorSession] = WorkerMonitorSession,
++    ) -> None:
++        if not isinstance(workspace_id, UUID) or not isinstance(principal_id, UUID):
++            raise InvalidInputError("GUI telemetry requires an authenticated principal")
++        if not isinstance(config, WorkerMonitorConfig):
++            raise CapabilityUnavailableError("GUI telemetry requires qualified kernel collection")
++        if not callable(session_factory):
++            raise InvalidInputError("GUI monitor factory must be host-supplied")
++        guest_roots = (runtime.rootfs, runtime.home, runtime.model_staging,
++                       runtime.shared_models, runtime.shared_tools,
++                       runtime.ai_config_dir, runtime.ai_history_dir)
++        selected = [Path(root).resolve(strict=True) for root in guest_roots if root is not None]
++        assets = (config.audit_root, config.cgroup_root, config.strace, config.cgroup_join)
++        for asset in assets:
++            path = Path(asset).resolve(strict=True)
++            if any(path == root or path.is_relative_to(root) for root in selected):
++                raise ScopeDeniedError("GUI audit infrastructure overlaps a guest mount")
++        self.config = config
++        self.workspace_id = workspace_id
++        self.principal_id = principal_id
++        self.session_factory = session_factory
++
++    @classmethod
++    def from_environment(
++        cls, *, runtime: SharedWorkspaceRuntime, workspace_id: UUID, principal_id: UUID,
++    ) -> GuiAuditFactory:
++        # Host-only environment chosen by the service manager, not guest input.
++        return cls(config=WorkerMonitorConfig.from_environment(), runtime=runtime,
++                   workspace_id=workspace_id, principal_id=principal_id)
++
++    def __call__(
++        self, isolation_identity: str, run_id: UUID, *,
++        agent_id: UUID | None = None, agent_registry: object | None = None,
++    ) -> GuiAuditHandle:
++        if not isinstance(isolation_identity, str) or not _SHA.fullmatch(isolation_identity):
++            raise InvalidInputError("GUI audit needs a pinned isolation hash")
++        if not isinstance(run_id, UUID):
++            raise InvalidInputError("GUI audit needs an immutable run identifier")
++        subject, kind = self.principal_id, "principal"
++        if agent_id is not None:
++            # Only the controller-owned S40 registry may establish that a
++            # browser really belongs to a specific enrolled agent.
++            from potbot.tools.agent_homes import AgentHomeRegistry
++            if not isinstance(agent_id, UUID) or not isinstance(agent_registry, AgentHomeRegistry):
++                raise ScopeDeniedError("GUI attribution requires an admitted agent registry")
++            identity = agent_registry.lookup(self.workspace_id, agent_id)
++            if identity is None or identity.workspace_id != self.workspace_id or identity.agent_id != agent_id:
++                raise ScopeDeniedError("GUI agent identity is not registered")
++            subject, kind = agent_id, "agent"
++        elif agent_registry is not None:
++            raise ScopeDeniedError("GUI attribution must not accept an unused agent registry")
++        session = self.session_factory(
++            self.config, self.workspace_id, subject, isolation_identity,
++            identity_kind=kind, run_id=run_id,
++        )
++        return GuiAuditHandle(session)
+diff --git a/tests/unit/test_gui_audit_qualification_s15.py b/tests/unit/test_gui_audit_qualification_s15.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/unit/test_gui_audit_qualification_s15.py
+@@ -0,0 +1,81 @@
++"""Offline end-to-end acceptance of the private GUI kernel-audit receipt."""
++from __future__ import annotations
++
++import hashlib
++import json
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++
++from scripts.qualify_gui_telemetry_s15 import qualify
++
++
++def write_json(path: Path, value: dict) -> None:
++    path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
++    path.chmod(0o600)
++
++
++def fixture(tmp_path: Path):
++    root = tmp_path / "audit"
++    workspace_id, run_id, principal = uuid4(), uuid4(), uuid4()
++    session = root / str(workspace_id) / str(uuid4())
++    session.mkdir(parents=True)
++    root.chmod(0o700)
++    session.parent.chmod(0o700)
++    session.chmod(0o700)
++    for name in ("process-tree.jsonl", "file-index.jsonl"):
++        (session / name).write_bytes(b"{}\n")
++        (session / name).chmod(0o600)
++    digest = hashlib.sha256(b"{}\n").hexdigest()
++    identity = {"workspace_id": str(workspace_id), "agent_id": str(principal),
++                "worker_id": session.name, "run_id": str(run_id),
++                "identity_kind": "principal"}
++    receipt = {**identity, "audit_complete": True, "audit_failure": None,
++               "trace_integrity": {}, "taskstats_missing_exit_events": 0,
++               "per_pid_kernel_exit_accounting": True,
++               "traced_pid_count": 3, "per_pid_kernel_exit_count": 3,
++               "process_tree": {"sha256": digest, "nodes": 3, "tree_complete": True,
++                                "expected_untraced_count": 0, "fork_conflicts": 0},
++               "file_index": {"sha256": digest, "file_keys": 8},
++               "cgroup_usage": {"cpu_usec": 123, "read_bytes": 1000,
++                                "write_bytes": 9, "memory_peak_bytes": 65536}}
++    write_json(session / "identity.json", identity)
++    write_json(session / "lifetime.json", receipt)
++    return root, workspace_id, run_id, session, receipt
++
++
++def test_valid_gui_audit_qualifies_without_exposing_private_paths(tmp_path):
++    root, ws, run, session, receipt = fixture(tmp_path)
++    result = qualify(root, ws, run)
++    assert result["qualified"] is True
++    assert result["fileKeys"] == 8
++    assert "path" not in json.dumps(result).lower()
++    assert str(root) not in json.dumps(result)
++
++
++def test_missing_descendant_or_exit_event_fails(tmp_path):
++    root, ws, run, session, receipt = fixture(tmp_path)
++    for field, value in (("per_pid_kernel_exit_count", 2),
++                         ("taskstats_missing_exit_events", 1),
++                         ("audit_complete", False)):
++        broken = {**receipt, field: value}
++        write_json(session / "lifetime.json", broken)
++        with pytest.raises(ValueError):
++            qualify(root, ws, run)
++
++
++def test_tampered_file_access_index_fails(tmp_path):
++    root, ws, run, session, receipt = fixture(tmp_path)
++    with (session / "file-index.jsonl").open("ab") as f:
++        f.write(b"secret path\n")
++    with pytest.raises(ValueError):
++        qualify(root, ws, run)
++
++
++def test_untrusted_symlink_directory_fails(tmp_path):
++    root, ws, run, session, receipt = fixture(tmp_path)
++    alias = session.parent / str(uuid4())
++    alias.symlink_to(session, target_is_directory=True)
++    with pytest.raises(ValueError):
++        qualify(root, ws, run)
+diff --git a/tests/unit/test_gui_resource_audit_s15.py b/tests/unit/test_gui_resource_audit_s15.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/unit/test_gui_resource_audit_s15.py
+@@ -0,0 +1,154 @@
++"""S15 cgroup/strace GUI monitor: fail-closed lifecycle and source isolation."""
++
++from __future__ import annotations
++
++from pathlib import Path
++from types import SimpleNamespace
++from uuid import uuid4
++
++import pytest
++
++from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
++from potbot.tools.gui_resource_audit import GuiAuditFactory, GuiAuditHandle
++from potbot.tools.worker_telemetry import WorkerMonitorConfig
++
++
++class FakeMonitor:
++    def __init__(self, *args, **kwargs):
++        self.arguments = args
++        self.keywords = kwargs
++        self.calls = []
++        self.healthy = True
++        self.complete = True
++
++    def command(self, argv):
++        self.calls.append(("command", argv))
++        return ("/operator/strace", *argv)
++
++    def start(self, pid):
++        self.calls.append(("start", pid))
++
++    def finish(self, *, confirmed_stopped):
++        self.calls.append(("finish", confirmed_stopped))
++        return self.complete
++
++
++def test_monitor_starts_before_process_and_finishes_once():
++    worker = FakeMonitor()
++    owner = GuiAuditHandle(worker)
++    assert not owner.healthy
++    argv = ("/bin/true", "--test")
++    assert owner.command(argv) == ("/operator/strace", *argv)
++    with pytest.raises(InvalidInputError):
++        owner.command(argv)
++    owner.started(1133)
++    assert owner.healthy
++    assert owner.finish(confirmed_stopped=True)
++    assert owner.finish(confirmed_stopped=True)
++    assert worker.calls == [("command", argv), ("start", 1133), ("finish", True)]
++    assert not owner.healthy
++
++
++def test_unconfirmed_tree_cannot_have_clean_audit():
++    worker = FakeMonitor()
++    handle = GuiAuditHandle(worker)
++    handle.command(("/bin/true",))
++    handle.started(333)
++    assert not handle.finish(confirmed_stopped=False)
++
++
++def test_missing_task_exit_coverage_never_converts_to_success():
++    worker = FakeMonitor()
++    worker.complete = False
++    handle = GuiAuditHandle(worker)
++    handle.command(("/bin/true",))
++    handle.started(333)
++    assert not handle.finish(confirmed_stopped=True)
++
++
++def test_failed_audit_finalize_never_returns_complete():
++    worker = FakeMonitor()
++    def broken(*, confirmed_stopped):
++        raise RuntimeError("private trace path must not surface")
++    worker.finish = broken
++    handle = GuiAuditHandle(worker)
++    handle.command(("/bin/true",))
++    handle.started(33)
++    assert not handle.finish(confirmed_stopped=True)
++
++
++def test_unstarted_monitor_cannot_claim_clean_audit():
++    worker = FakeMonitor()
++    handle = GuiAuditHandle(worker)
++    handle.command(("/bin/true",))
++    assert not handle.finish(confirmed_stopped=True)
++    with pytest.raises(InvalidInputError):
++        handle.started(44)
++
++
++def test_gui_identity_is_operator_principal_not_fabricated_agent(tmp_path, monkeypatch):
++    # Construct the real validation surface without requiring a delegated cgroup.
++    from potbot.tools import gui_resource_audit as module
++
++    for name in ("rootfs", "home", "tools", "models", "ai", "past", "scratch", "audit", "cgroup"):
++        (tmp_path / name).mkdir()
++    (tmp_path / "strace").write_text("exe")
++    (tmp_path / "join").write_text("exe")
++    monkeypatch.setattr(module, "WorkerMonitorConfig", DummyConfig)
++    config = DummyConfig(tmp_path / "audit", tmp_path / "cgroup", tmp_path / "strace", tmp_path / "join")
++    workspace, principal = uuid4(), uuid4()
++    sessions = []
++    def factory(*a, **kw):
++        session = FakeMonitor(*a, **kw)
++        sessions.append(session)
++        return session
++    runtime = SimpleNamespace(rootfs=tmp_path / "rootfs", home=tmp_path / "home",
++        model_staging=tmp_path / "scratch", shared_tools=tmp_path / "tools",
++        shared_models=tmp_path / "models", ai_config_dir=tmp_path / "ai",
++        ai_history_dir=tmp_path / "past")
++    owner = GuiAuditFactory(config=config, runtime=runtime,
++                            workspace_id=workspace, principal_id=principal,
++                            session_factory=factory)
++    run = uuid4()
++    handle = owner("a" * 64, run)
++    assert isinstance(handle, GuiAuditHandle)
++    assert sessions[0].arguments[1:3] == (workspace, principal)
++    assert sessions[0].keywords == {"identity_kind": "principal", "run_id": run}
++    for key, name in (("audit_root", "audit"), ("cgroup_root", "cgroup"),
++                      ("strace", "strace"), ("cgroup_join", "join")):
++        intruder = tmp_path / "home" / name
++        if key in {"audit_root", "cgroup_root"}:
++            intruder.mkdir()
++        else:
++            intruder.write_bytes(b"fake")
++        values = {field: getattr(config, field)
++                  for field in ("audit_root", "cgroup_root", "strace", "cgroup_join")}
++        values[key] = intruder
++        with pytest.raises(ScopeDeniedError):
++            GuiAuditFactory(config=DummyConfig(**values), runtime=runtime,
++                            workspace_id=workspace, principal_id=principal,
++                            session_factory=factory)
++
++
++class DummyConfig:
++    def __init__(self, audit_root, cgroup_root, strace, cgroup_join):
++        self.audit_root, self.cgroup_root = audit_root, cgroup_root
++        self.strace, self.cgroup_join = strace, cgroup_join
++
++
++def test_invalid_process_identity_is_rejected(tmp_path, monkeypatch):
++    from potbot.tools import gui_resource_audit as module
++    monkeypatch.setattr(module, "WorkerMonitorConfig", DummyConfig)
++    for name in ("rootfs", "home", "audit", "cgroup"):
++        (tmp_path/name).mkdir()
++    for name in ("strace", "join"):
++        (tmp_path/name).write_bytes(b"X")
++    runtime = SimpleNamespace(rootfs=tmp_path/"rootfs", home=tmp_path/"home",
++        shared_tools=None, model_staging=None, shared_models=None,
++        ai_config_dir=None, ai_history_dir=None)
++    owner = GuiAuditFactory(config=DummyConfig(tmp_path/"audit",tmp_path/"cgroup",tmp_path/"strace",tmp_path/"join"),
++                            runtime=runtime, workspace_id=uuid4(), principal_id=uuid4(),
++                            session_factory=FakeMonitor)
++    for wrong in ("abc", "z"*64, "a"*63):
++        with pytest.raises(InvalidInputError):
++            owner(wrong, uuid4())
+diff --git a/tests/unit/test_gui_resource_integration_s15.py b/tests/unit/test_gui_resource_integration_s15.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/unit/test_gui_resource_integration_s15.py
+@@ -0,0 +1,152 @@
++"""S15 integration: Xpra and Chromium are accounted as principal-owned workers.
++
++These tests use fake launchers; they validate wiring, not a real kernel sandbox.
++The accompanying live host acceptance must qualify cgroup/taskstats/strace.
++"""
++from __future__ import annotations
++
++import sys
++import types
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++
++from potbot.domain.errors import CapabilityUnavailableError
++from potbot.tools.isolation import IsolationLaunch
++from potbot.tools.xpra_app_sessions import AppRecipe, XpraApplicationSupervisor
++
++
++class FakeAudit:
++    def __init__(self, identity, run_id):
++        self.identity = identity
++        self.run_id = run_id
++        self.events = []
++        self.healthy = True
++        self.complete = True
++
++    def command(self, argv):
++        self.events.append("command")
++        return ("/operator/pinned-cgroup-join", *argv)
++
++    def started(self, pid):
++        assert self.events == ["command"]
++        self.events.append(("start", pid))
++
++    def finish(self, *, confirmed_stopped):
++        self.events.append(("finish", confirmed_stopped))
++        return self.complete and confirmed_stopped
++
++
++class FakeProcess:
++    def __init__(self):
++        self.pid = 928172
++        self.exit_code = None
++
++    def poll(self):
++        return self.exit_code
++
++
++def test_gui_launch_is_wrapped_and_lease_waits_for_kernel_audit(monkeypatch):
++    workspace, principal = uuid4(), uuid4()
++    processes, monitors, leases = [], [], []
++
++    class Guard:
++        fenced = False
++        def start(self): leases.append("start")
++        def ensure_live(self): pass
++        def finish(self, *, evidence_sha256, uncertain=False):
++            leases.append(("finish", uncertain))
++        def abandon(self): leases.append("abandon")
++
++    fake_supervision = types.SimpleNamespace(
++        WorkspaceLeaseGuard=types.SimpleNamespace(exclusive_home=lambda *a, **k: Guard()),
++        WorkspaceExecutorIdentity=lambda *a: a,
++        admission_digest=lambda x: "f" * 64,
++    )
++    monkeypatch.setitem(sys.modules, "potbot.tools.workspace_supervision", fake_supervision)
++
++    class Backend:
++        server = types.SimpleNamespace(workspace_id=workspace,
++                                        environment=lambda: {"DISPLAY": ":412"})
++        runtime = types.SimpleNamespace(image_digest="a" * 64)
++        def prepare(self, *, argv, status_fd):
++            return IsolationLaunch(("/operator/bwrap", *argv), (status_fd,), "b" * 64)
++
++    def launch(*args, **kwargs):
++        assert args[0][0] == "/operator/pinned-cgroup-join"
++        assert kwargs["start_new_session"] is True
++        child = FakeProcess()
++        processes.append(child)
++        return child
++
++    def audit(identity, run_id):
++        monitor = FakeAudit(identity, run_id)
++        monitors.append(monitor)
++        return monitor
++
++    apps = XpraApplicationSupervisor(
++        workspace_id=workspace, principal_id=principal,
++        recipes=(AppRecipe("terminal", "Terminal", ("/usr/bin/xterm",)),),
++        backend=Backend(), ledger=object(), popen=launch,
++        gui_audit_factory=audit,
++    )
++    try:
++        view = apps.start("terminal")
++        assert len(monitors) == 1
++        assert monitors[0].events == ["command", ("start", processes[0].pid)]
++        assert leases == ["start"]
++        # No ledger completion while the child is active.
++        assert apps.list_sessions()[0]["id"] == view["id"]
++        assert leases == ["start"]
++        monkeypatch.setattr(apps, "_terminate", lambda app: setattr(app.process, "exit_code", 0))
++        apps.terminate(view["id"])
++        assert monitors[0].events[-1] == ("finish", True)
++        assert leases[-1] == ("finish", False)
++    finally:
++        apps.shutdown()
++
++
++def test_failed_gui_audit_cannot_be_reported_as_clean(monkeypatch):
++    workspace, principal = uuid4(), uuid4()
++    receipts = []
++
++    class Guard:
++        fenced = False
++        def start(self): pass
++        def finish(self, *, evidence_sha256, uncertain=False): receipts.append(uncertain)
++        def abandon(self): receipts.append(True)
++
++    monkeypatch.setitem(sys.modules, "potbot.tools.workspace_supervision", types.SimpleNamespace(
++        WorkspaceLeaseGuard=types.SimpleNamespace(exclusive_home=lambda *a, **k: Guard()),
++        WorkspaceExecutorIdentity=lambda *a: a,
++        admission_digest=lambda x: "a" * 64,
++    ))
++
++    class Backend:
++        server = types.SimpleNamespace(workspace_id=workspace,
++                                       environment=lambda: {"DISPLAY": ":412"})
++        runtime = types.SimpleNamespace(image_digest="a" * 64)
++        def prepare(self, *, argv, status_fd):
++            return IsolationLaunch(("/operator/bwrap", *argv), (status_fd,), "b" * 64)
++
++    proc = FakeProcess()
++    def audit(identity, run_id):
++        m = FakeAudit(identity, run_id)
++        m.complete = False
++        return m
++
++    apps = XpraApplicationSupervisor(
++        workspace_id=workspace, principal_id=principal,
++        recipes=(AppRecipe("terminal", "Terminal", ("/usr/bin/xterm",)),),
++        backend=Backend(), ledger=object(), popen=lambda *a, **k: proc,
++        gui_audit_factory=audit,
++    )
++    try:
++        view = apps.start("terminal")
++        monkeypatch.setattr(apps, "_terminate", lambda app: setattr(app.process, "exit_code", 0))
++        apps.terminate(view["id"])
++        assert receipts[-1] is True
++        assert apps.list_sessions()[0]["state"] == "indeterminate"
++    finally:
++        apps.shutdown()
+diff --git a/tests/unit/test_gui_agent_attribution_s15.py b/tests/unit/test_gui_agent_attribution_s15.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/tests/unit/test_gui_agent_attribution_s15.py
+@@ -0,0 +1,40 @@
++"""S15 + S40: only a real registered agent can own a private GUI audit."""
++from pathlib import Path
++from types import SimpleNamespace
++from uuid import uuid4
++import pytest
++from potbot.domain.errors import ScopeDeniedError
++from potbot.tools.agent_homes import AgentHomeRegistry
++from potbot.tools.gui_resource_audit import GuiAuditFactory
++
++
++def test_agent_identity_must_be_verified(monkeypatch, tmp_path):
++    from potbot.tools import gui_resource_audit as module
++    for name in ("rootfs", "home", "audit", "cgroup"):
++        (tmp_path / name).mkdir()
++    for name in ("strace", "join"):
++        (tmp_path / name).write_bytes(b"bin")
++    class Config:
++        def __init__(self):
++            for k in ("audit_root", "cgroup_root", "strace", "cgroup_join"):
++                setattr(self, k, tmp_path / k.removesuffix("_root"))
++    monkeypatch.setattr(module, "WorkerMonitorConfig", Config)
++    runtime=SimpleNamespace(rootfs=tmp_path/"rootfs", home=tmp_path/"home",
++        model_staging=None, shared_models=None, shared_tools=None,
++        ai_config_dir=None, ai_history_dir=None)
++    workspace, principal, agent=uuid4(), uuid4(), uuid4()
++    seen=[]
++    class FakeMonitor:
++        def __init__(self, *args, **kwargs):
++            seen.append((args, kwargs))
++    audit=GuiAuditFactory(config=Config(), runtime=runtime,
++        workspace_id=workspace, principal_id=principal, session_factory=FakeMonitor)
++    registry=AgentHomeRegistry.__new__(AgentHomeRegistry)
++    monkeypatch.setattr(AgentHomeRegistry, "lookup", lambda self, ws, uid: (
++        SimpleNamespace(workspace_id=ws, agent_id=uid) if uid==agent else None))
++    audit("a"*64, uuid4(), agent_id=agent, agent_registry=registry)
++    assert seen[0][0][2] == agent and seen[0][1]["identity_kind"] == "agent"
++    with pytest.raises(ScopeDeniedError):
++        audit("a"*64, uuid4(), agent_id=uuid4(), agent_registry=registry)
++    with pytest.raises(ScopeDeniedError):
++        audit("a"*64, uuid4(), agent_id=agent, agent_registry=object())

@@ -52,6 +52,7 @@ class XpraOperatorFence:
         self._closed = threading.Event()
         self._fenced = threading.Event()
         self._started = False
+        self._display_ready = threading.Event()
         self._lock = threading.RLock()
         self._thread: threading.Thread | None = None
 
@@ -69,6 +70,12 @@ class XpraOperatorFence:
             raise CapabilityUnavailableError("Xpra operator attachment is unavailable") from None
         if self._fenced.is_set() or self._closed.is_set():
             raise CapabilityUnavailableError("Xpra operator attachment is fenced")
+        if self._display_ready.is_set():
+            try:
+                self.display.environment()
+            except Exception:
+                self._fence()
+                raise CapabilityUnavailableError("Xpra GUI resource audit is unavailable") from None
         return status
 
     def healthy(self) -> bool:
@@ -89,6 +96,12 @@ class XpraOperatorFence:
             )
             self._thread.start()
         return self
+
+    def display_started(self) -> None:
+        """Arm display audit only after the first Xpra startup completed."""
+        if self._closed.is_set() or self._fenced.is_set():
+            raise CapabilityUnavailableError("Xpra owner is already fenced")
+        self._display_ready.set()
 
     def _watch(self) -> None:
         while not self._closed.wait(self.interval):

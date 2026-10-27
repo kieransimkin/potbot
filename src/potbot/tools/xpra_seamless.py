@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import signal
 import stat
 import subprocess
 import time
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO, Callable
+from uuid import UUID, uuid4
 
 
 class XpraSessionError(RuntimeError):
@@ -25,7 +27,8 @@ class XpraSessionError(RuntimeError):
 class XpraSeamlessSession:
     def __init__(self, root: Path, display: str, authority: Path, *,
                  binary: str = "xpra", startup_timeout: float = 20.0,
-                 readonly_mode: bool = False) -> None:
+                 readonly_mode: bool = False,
+                 gui_audit_factory: Callable[[str, UUID], Any] | None = None) -> None:
         if not root.is_absolute() or not root.is_dir() or root.is_symlink():
             raise ValueError("Xpra requires an existing absolute workspace root")
         if not display.startswith(":") or not display[1:].isdigit() or not 100 <= int(display[1:]) <= 999:
@@ -41,6 +44,9 @@ class XpraSeamlessSession:
             raise ValueError("readonly Xpra mode must be set by the operator")
         self.readonly_mode = readonly_mode
         self.binary, self.startup_timeout = binary, startup_timeout
+        self.gui_audit_factory = gui_audit_factory
+        self._gui_audit: Any = None
+        self._gui_audit_faulted = False
         suffix = hashlib.sha256(os.fsencode(root.resolve())).hexdigest()[:16]
         self.host_runtime_root = Path(f"/tmp/potbot-xpra-u{os.getuid()}")
         private = self.host_runtime_root / suffix
@@ -58,7 +64,8 @@ class XpraSeamlessSession:
 
     @property
     def running(self) -> bool:
-        return self._process is not None and self._process.poll() is None
+        return (self._process is not None and self._process.poll() is None
+                and (self._gui_audit is None or self._gui_audit.healthy))
 
     @property
     def x_socket(self) -> Path:
@@ -128,11 +135,20 @@ class XpraSeamlessSession:
             raise XpraSessionError("Xpra network policy could not be verified") from None
 
     def start(self) -> None:
-        if self._process is not None:
-            raise XpraSessionError("Xpra session already started")
+        if self._process is not None or self._gui_audit_faulted:
+            raise XpraSessionError("Xpra session unavailable until operator reconciliation")
         executable = shutil.which(self.binary)
         if executable is None:
             raise XpraSessionError("Xpra executable unavailable")
+        if self.gui_audit_factory is not None:
+            expected = os.environ.get("POTBOT_XPRA_SHA256", "")
+            candidate = Path(executable)
+            if (not re.fullmatch(r"[0-9a-f]{64}", expected)
+                    or candidate.is_symlink() or candidate.stat().st_mode & 0o022):
+                raise XpraSessionError("host Xpra executable is not operator pinned")
+            with candidate.open("rb") as src:
+                if hashlib.file_digest(src, "sha256").hexdigest() != expected:
+                    raise XpraSessionError("host Xpra executable differs from operator pin")
         for directory in (self.host_runtime_root, self.socket_dir.parent,
                           self.socket_dir, self.runtime_dir):
             if directory.is_symlink():
@@ -158,11 +174,20 @@ class XpraSeamlessSession:
         self._log = os.fdopen(fd, "wb")
         self._log_owned = True
         try:
+            argv = (executable, *self.command()[1:])
+            if self.gui_audit_factory is not None:
+                # Principal attribution: the graphical display is operator
+                # infrastructure, not an unverified agent's personal heat bar.
+                identity = hashlib.sha256(repr(argv).encode("utf-8")).hexdigest()
+                self._gui_audit = self.gui_audit_factory(identity, uuid4())
+                argv = self._gui_audit.command(argv)
             self._process = subprocess.Popen(
-                (executable, *self.command()[1:]), cwd=self.root,
-                env=self._environment(), stdin=subprocess.DEVNULL,
-                stdout=self._log, stderr=subprocess.STDOUT, start_new_session=True,
+                argv, cwd=self.root, env=self._environment(),
+                stdin=subprocess.DEVNULL, stdout=self._log,
+                stderr=subprocess.STDOUT, start_new_session=True,
             )
+            if self._gui_audit is not None:
+                self._gui_audit.started(self._process.pid)
             deadline = time.monotonic() + self.startup_timeout
             while time.monotonic() < deadline:
                 if not self.running:
@@ -182,6 +207,7 @@ class XpraSeamlessSession:
     def stop(self) -> None:
         process = self._process
         self._process = None
+        audit, self._gui_audit = self._gui_audit, None
         if process is not None and process.poll() is None:
             try:
                 os.killpg(process.pid, signal.SIGTERM)
@@ -220,7 +246,17 @@ class XpraSeamlessSession:
             self._log_owned = False
         # Remember successful termination for a later same-object restart, but
         # never treat unknown files or changed socket inodes as owned resources.
-        self._stopped_cleanly = process is not None and process.poll() is not None
+        audit_complete = True
+        if audit is not None:
+            try:
+                audit_complete = bool(audit.finish(
+                    confirmed_stopped=(process is not None and process.poll() is not None)))
+            except Exception:
+                audit_complete = False
+        if audit is not None and not audit_complete:
+            self._gui_audit_faulted = True
+        self._stopped_cleanly = (process is not None and process.poll() is not None
+                                 and audit_complete)
         # The subprocess owns its X11 and protocol sockets. Never delete unknown
         # sockets or restart on top of an ambiguous leftover display.
         for folder in (self.socket_dir, self.runtime_dir, self.socket_dir.parent):

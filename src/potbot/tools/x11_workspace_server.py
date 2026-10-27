@@ -62,6 +62,7 @@ class WorkspaceXServer:
         self.auth_file = root / ".potbot" / "x11" / "Xauthority"
         self.session_file = root / ".potbot" / "x11" / "session.json"
         self._xpra: XpraSeamlessSession | None = None
+        self.gui_audit_factory = None  # Operator-owned; selected by private policy.
         self._runtime_lock: int | None = None
         self._display_lock: int | None = None
         self._owned_session = False
@@ -150,6 +151,7 @@ class WorkspaceXServer:
                 self.auth_file,
                 binary=self.xpra_executable,
                 readonly_mode=self.readonly_mode,
+                gui_audit_factory=self.gui_audit_factory,
             )
             self._xpra.start()
             payload = json.dumps(
@@ -568,6 +570,7 @@ def main(argv: list[str] | None = None) -> int:
             raise XpraBridgeError("managed Xpra requires a pinned applications policy")
         server.start()
         if operator_fence is not None:
+            operator_fence.display_started()
             operator_fence.require_healthy()
         app = create_app(server, token, args.browser_origin, apps, operator_fence)
         print(
