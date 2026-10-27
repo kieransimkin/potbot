@@ -49,12 +49,22 @@ jobs:
           msg = b'SYN Python Icarus/CIP-3 binary signature gate'
           Ed25519PublicKey.from_public_bytes(keys['base_public']).verify(signing.sign(msg), msg)
           PY
+          # The dedicated SYN environment intentionally does NOT install Potbot.
+          # Explicitly cut the conftest search at syn-node/tests; otherwise
+          # pytest imports Potbot's root conftest.py and fails before any tests.
+          # A short temporary base also avoids Linux AF_UNIX pathname limits.
+          SHORT_BASE="$(mktemp -d /tmp/syn-hd.XXXXXXXX)"
+          trap 'rm -rf -- "$SHORT_BASE"' EXIT
           .venv-syn-hd/bin/python -m pytest -q \
+            --confcutdir=syn-node/tests --basetemp="$SHORT_BASE/general" \
             syn-node/tests/test_hd_keys.py \
-            syn-node/tests/test_operator_recovery.py
+            syn-node/tests/test_operator_recovery.py \
+            syn-node/tests/test_hd_live_qualification.py
           .venv-syn-hd/bin/python -m pytest -q \
+            --confcutdir=syn-node/tests --basetemp="$SHORT_BASE/mandatory" \
             syn-node/tests/test_hd_keys.py::test_fixed_entropy_real_pycardano_cross_language_vector_if_installed \
-            syn-node/tests/test_operator_recovery.py::test_real_bip39_checksum_vector
+            syn-node/tests/test_operator_recovery.py::test_real_bip39_checksum_vector \
+            syn-node/tests/test_hd_live_qualification.py::test_eight_independent_hd_leaf_signatures
       - name: Confirm SYN operator never imports Potbot private broker
         run: |
           if grep -REn '(^from potbot\.|^import potbot|potbot\.security\.broker)' syn-node/src/syn_node; then
