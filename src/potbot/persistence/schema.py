@@ -149,6 +149,7 @@ def application_migrations(*, lineage: str = "main") -> tuple[SchemaMigration, .
         (26, "ui_resources_schema"),
         (27, "ui_chat_schema"),
         (28, "tool_upgrade_approval_schema"),
+        (29, "context_schema"),
     ):
         module = import_module(f"potbot.persistence.{module_name}")
         migrations.append(

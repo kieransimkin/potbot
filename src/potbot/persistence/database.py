@@ -349,6 +349,13 @@ def migrate(
         if len(selected) >= 4:
             for workspace in connection.execute("SELECT id FROM workspaces").fetchall():
                 _seed_catalog(connection, workspace["id"])
+        if len(selected) >= 29:
+            from potbot.context.bootstrap import seed_sandbox_context
+
+            for sandbox_row in connection.execute(
+                "SELECT workspace_id FROM workspace_sandboxes"
+            ).fetchall():
+                seed_sandbox_context(connection, sandbox_row["workspace_id"])
         for row in connection.execute("SELECT database_role FROM principals").fetchall():
             _grant(connection, schema, row["database_role"], selected)
     return tuple(item.version for item in selected)
@@ -410,6 +417,13 @@ def provision_workspace(
                 "VALUES (%s,%s,%s,%s)",
                 (identity, str(sandbox.root), sandbox.key, sandbox.policy_version),
             )
+        context_table = connection.execute(
+            "SELECT to_regclass('workspace_context_objects') AS relation"
+        ).fetchone()
+        if sandbox is not None and context_table and context_table["relation"] is not None:
+            from potbot.context.bootstrap import seed_sandbox_context
+
+            seed_sandbox_context(connection, identity)
         catalog = connection.execute("SELECT to_regclass('model_catalog') AS relation").fetchone()
         if catalog is not None and catalog["relation"] is not None:
             _seed_catalog(connection, identity)
@@ -434,6 +448,13 @@ def configure_workspace_sandbox(
             "VALUES (%s,%s,%s,%s)",
             (workspace_id, str(sandbox.root), sandbox.key, sandbox.policy_version),
         )
+        context_table = connection.execute(
+            "SELECT to_regclass('workspace_context_objects') AS relation"
+        ).fetchone()
+        if context_table and context_table["relation"] is not None:
+            from potbot.context.bootstrap import seed_sandbox_context
+
+            seed_sandbox_context(connection, workspace_id)
     return sandbox_record(sandbox)
 
 

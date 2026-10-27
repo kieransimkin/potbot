@@ -24,7 +24,7 @@ class PostgresContextStore:
 
     @staticmethod
     def _check_content(content):
-        if not isinstance(content, str) or "\\x00" in content or len(content.encode("utf-8")) > MAX_BYTES:
+        if not isinstance(content, str) or "\x00" in content or len(content.encode("utf-8")) > MAX_BYTES:
             raise InvalidContext("invalid document content")
 
     def read(self, kind, name, role):
