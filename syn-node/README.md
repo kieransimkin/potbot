@@ -1,4 +1,4 @@
-# SYN standalone local node — Phase 43 development increment
+# SYN standalone local node — Phase 43 service + Phase 44 Python HD authority
 
 This is an **independently installable** `syn-node-service` Python package. It is
 not imported by Potbot. It implements the **real Linux Unix-socket transport**
@@ -7,17 +7,40 @@ Ed25519 public attestation, and adoption-receipt retrieval. It also implements
 OS-CSPRNG creation and **OS credential store** custody of *temporary agent
 Ed25519 keys* (when a verified native OS keyring backend is available).
 
-**Not a production identity issuer.** Operator root/base keys are the distinct
+**Phase 44 Python operator profile.** SYN now includes an optional **Python**
+CIP-3/Ed25519-BIP32 V2 operator key-store implementation using pinned
+`pycardano==0.19.2`, true OS CSPRNG installation entropy and the native
+OS credential backend. It derives root `m/6969'/420'`, base
+`m/6969'/420'/0'/0/0`, and eight root-derived candidate public keys.
+See `docs/implementation/44-syn-python-hd-operator-keystore.md`.
+
+**Still not a production identity issuer without real-host qualification.**
+Operator root/base keys are the distinct
 Ed25519-BIP32 V2 derivatives `m/6969'/420'` and
 `m/6969'/420'/0'/0/0`. A raw 32-byte Ed25519 seed cannot replace an
-Ed25519-BIP32 extended private key. The node therefore does **not** generate
-operator keys or derive inheritance candidates. Its operator signing dependency
-is a **pinned external native SYN HD-key signer**, with a deliberately explicit
-`v1` protocol (specified below). Until that signer has actually been built and
-qualified for CIP-3, OS custody and trust, no production operator can start.
+Ed25519-BIP32 extended private key. The Python v2 profile can now create keys and
+derive public candidates when
+its pinned optional library and OS keyring are installed. The v1 native-signer
+configuration remains available for previous deployments. A provider preflight
+without a real cross-language vector and OS-keystore qualification is not
+permission to activate an agent or use production keys.
 There is no fallback to Potbot's legacy encrypted file vault.
 
 ## Install and run
+
+For new operator installations use the SYN-owned Python HD profile:
+
+```bash
+python -m pip install -e './syn-node[hd]'
+syn-node new-operator --keyring-service syn.operator --keyring-account operator-1 \
+  --lock-dir /absolute/private/syn-locks
+```
+
+Then create a version-2 private daemon config with `keyring_service`,
+`keyring_account`, the returned `expected_base_public_key_hash`, `socket`,
+`registry`, `receipt_db` and `mode: "operator"`. See the Phase 44 document for
+an exact example. The old v1 `native_signer_executable` config below is
+**legacy/optional**, not required for new Python SYN operator installations.
 
 Install separately into a SYN-owned environment, with the packages required in
 `pyproject.toml`. Do not import from a Potbot sandbox. The operator provisions

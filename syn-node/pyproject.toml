@@ -4,10 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "syn-node-service"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Standalone SYN local identity service and public adoption-receipt responder"
 requires-python = ">=3.12"
 dependencies = ["cryptography>=44,<47", "keyring>=25.7,<26"]
+
+[project.optional-dependencies]
+hd = ["pycardano==0.19.2"]
 
 [project.scripts]
 syn-node = "syn_node.cli:main"

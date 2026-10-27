@@ -1,0 +1,55 @@
+name: SYN Python Icarus HD provider compatibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - syn-node/**
+      - .github/workflows/syn-python-hd.yml
+  pull_request:
+    paths:
+      - syn-node/**
+      - .github/workflows/syn-python-hd.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-hd-library-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install pinned Python CIP-3 provider in isolated SYN environment
+        run: |
+          uv venv .venv-syn-hd --python python3.12
+          uv pip install --python .venv-syn-hd/bin/python \
+            -e './syn-node[hd]' 'pytest==9.0.2' 'jsonschema==4.25.1'
+      - name: Real HD derivation and signature check — no skip allowed
+        env:
+          PYTHONPATH: syn-node/src
+        run: |
+          .venv-syn-hd/bin/python - <<'PY'
+          from importlib.metadata import version
+          assert version('pycardano') == '0.19.2'
+          from syn_node.hd_keys import _derive
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+          from pycardano.key import ExtendedSigningKey
+          keys = _derive(bytes(range(32)))
+          assert keys['root_public'] != keys['base_public']
+          signing = ExtendedSigningKey(keys['base_xprivate'] + keys['base_public'] + keys['base_chain'])
+          msg = b'SYN Python Icarus/CIP-3 binary signature gate'
+          Ed25519PublicKey.from_public_bytes(keys['base_public']).verify(signing.sign(msg), msg)
+          PY
+          .venv-syn-hd/bin/python -m pytest -q syn-node/tests/test_hd_keys.py
+      - name: Confirm SYN operator never imports Potbot private broker
+        run: |
+          if grep -REn '(^from potbot\.|^import potbot|potbot\.security\.broker)' syn-node/src/syn_node; then
+            echo 'SYN must not import Potbot-owned cryptographic authority' >&2
+            exit 1
+          fi
