@@ -16,6 +16,8 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+from potbot.context.model import ROLES
+from potbot.context.projection import ContextProjection
 from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
 from potbot.domain.serialization import content_hash
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
@@ -83,6 +85,8 @@ class SharedWorkspaceRuntime:
     tool_entrypoints: tuple[tuple[str, str], ...] = ()
     ai_config_dir: Path | None = None
     ai_history_dir: Path | None = None
+    context_projection: ContextProjection | None = None
+    shared_skills: Path | None = None
 
     def __post_init__(self) -> None:
         import re
@@ -231,6 +235,36 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 # This is a live, mount-bound remote operator assertion; the
                 # private socket itself is NEVER made visible inside the guest.
                 self.operator_attachment.require_healthy()
+        skills: Path | None = None
+        if self.runtime.shared_skills is not None:
+            source = Path(self.runtime.shared_skills)
+            if not source.is_absolute() or source.is_symlink():
+                raise ScopeDeniedError("shared skill source must be an absolute real directory")
+            try:
+                skills = source.resolve(strict=True)
+            except OSError as exc:
+                raise CapabilityUnavailableError("shared skills have not been provisioned") from exc
+            target = rootfs / "usr/local/skills"
+            if not skills.is_dir() or target.is_symlink() or not target.is_dir():
+                raise CapabilityUnavailableError("shared skills require an image mount target")
+            if skills.stat().st_mode & 0o022:
+                raise ScopeDeniedError("shared skills require an operator-controlled read-only source")
+            boundaries = (*sources, *(x for x in (config_ai, history_ai) if x is not None))
+            if any(skills == x or skills.is_relative_to(x) or x.is_relative_to(skills)
+                   for x in boundaries):
+                raise ScopeDeniedError("shared skills overlap a sandbox mount")
+        context_files: tuple[Path, ...] = ()
+        if self.runtime.context_projection is not None:
+            projection = self.runtime.context_projection
+            if not isinstance(projection, ContextProjection):
+                raise InvalidInputError("context projection must be operator-owned")
+            for role in ROLES:
+                target = rootfs / role
+                if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
+                    raise CapabilityUnavailableError("rootfs has no safe context file placeholder")
+            context_files = projection.inspect(excluded_roots=(
+                *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
+            ))
         # Guest executable must be present inside immutable image; no host executable bind.
         if not argv or not argv[0].startswith("/"):
             raise InvalidInputError("guest command must use an absolute path")
@@ -314,6 +348,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     "/usr/local/tools/" + self.tool_write_grant.slug)
                    if tool_write_source is not None else () ),
                 "--ro-bind", str(library), "/opt/potbot/models",
+                *( ("--ro-bind", str(skills), "/usr/local/skills") if skills else () ),
+                *[item for role, source in zip(ROLES, context_files, strict=True)
+                  for item in ("--ro-bind", str(source), "/" + role)],
                 *(("--bind", str(config_ai), "/etc/ai",
                    "--ro-bind", str(history_ai), "/etc/ai-past") if ai_enabled else ()),
                 "--proc", "/proc", "--dev", "/dev",
@@ -335,6 +372,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 "network": "private-denied", "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-ro/models-ro/proc/dev",
                 "model_staging": str(staging), "shared_models": str(library),
                 "shared_tools": str(tools),
+                "shared_skills": str(skills) if skills is not None else None,
+                "context_revisions": self.runtime.context_projection.revisions if context_files else None,
+                "context_digests": self.runtime.context_projection.digests if context_files else None,
                 "ai_mount_policy": "rw-config/ro-history/journaled-v1" if ai_enabled else "legacy-none",
                 "ai_config": str(config_ai) if ai_enabled else None,
                 "ai_history": str(history_ai) if ai_enabled else None,

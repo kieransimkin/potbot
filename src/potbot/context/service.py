@@ -81,6 +81,29 @@ class WorkspaceContextService:
                 raise ScopeDeniedError(_DENIED)
         return {"object_id": str(object_id), "role": role, **dict(row)}
 
+    def read_triple(self, context: WorkspaceContext, kind: str,
+                    name: str) -> dict[str, dict[str, Any]]:
+        """Read exactly three documents in one PostgreSQL statement/snapshot."""
+        from potbot.context.model import ROLES
+
+        _identity(context)
+        validate_identity(kind, name)
+        with self.database.transaction(context) as conn:
+            object_id = self._get_object(conn, context, kind, name)
+            rows = conn.execute(
+                "SELECT role,content,revision,sha256 FROM workspace_context_documents "
+                "WHERE workspace_id=%s AND object_id=%s",
+                (context.workspace_id, object_id),
+            ).fetchall()
+        docs = {row["role"]: dict(row) for row in rows}
+        if set(docs) != set(ROLES):
+            raise ScopeDeniedError("Context object does not have a complete document triple")
+        for role, row in docs.items():
+            validate_identity(kind, name, role)
+            if sha256(row["content"]) != row["sha256"]:
+                raise RevisionConflictError("Stored context digest is inconsistent")
+        return docs
+
     def update(self, context: WorkspaceContext, kind: str, name: str, role: str,
                *, content: str, expected_revision: int, idempotency_key: str,
                reason: str = "") -> dict[str, Any]:

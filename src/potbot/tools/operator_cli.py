@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import argparse
 import json
-from contextlib import ExitStack
+import os
 import re
 import signal
 import sys
 import threading
 import time
 from collections.abc import Callable
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
@@ -26,6 +27,7 @@ from uuid import UUID
 from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
 
 if TYPE_CHECKING:
+    from potbot.context.projection import ContextProjectionManager
     from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
 
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
@@ -116,14 +118,24 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
 
 def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                  pulse: Callable[[dict[str, object]], None] | None = None,
-                 socket_path: Path | None = None) -> None:
+                 socket_path: Path | None = None,
+                 context_manager: ContextProjectionManager | None = None,
+                 shared_skills: Path | None = None) -> None:
     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
     from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
 
+    from dataclasses import replace
+    from potbot.context.projection import ContextProjectionManager
+
+    if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
+        raise InvalidInputError("context manager requires the trusted host type")
     ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
+    runtime = paths.runtime()
+    if shared_skills is not None:
+        runtime = replace(runtime, shared_skills=shared_skills)
     with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
-                             runtime=paths.runtime()) as operator, ExitStack() as resources:
+                             runtime=runtime, context_manager=context_manager) as operator, ExitStack() as resources:
         # The history watcher owns the singleton lock BEFORE the socket appears.
         # Stop offering new admissions BEFORE the watcher can be shut down.
         if socket_path is not None:
@@ -161,14 +173,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--socket-path", type=Path, default=None,
                         help="host-private Linux operator health socket (never guest-mounted)")
+    parser.add_argument("--context-principal-id", type=UUID, default=None,
+                        help="trusted PostgreSQL workspace principal for MODEL.md projections")
+    parser.add_argument("--context-parent", type=Path, default=None,
+                        help="operator-private 0700 snapshot directory outside guest mounts")
+    parser.add_argument("--shared-skills", type=Path, default=None,
+                        help="trusted host shared skills directory (mounted read-only)")
     args = parser.parse_args(argv)
     try:
         paths = parse_manifest(args.manifest)
+        if (args.context_principal_id is None) != (args.context_parent is None):
+            raise InvalidInputError("context projection needs both principal and parent")
+        manager = None
+        if args.context_principal_id is not None:
+            from potbot.context.projection import ContextProjectionManager
+            from potbot.context.service import WorkspaceContextService
+            from potbot.domain.auth import WorkspaceContext
+            from potbot.persistence.database import Database
+
+            dsn = os.environ.get("POTBOT_DSN")
+            if not dsn:
+                raise InvalidInputError("POTBOT_DSN is required for context projection")
+            manager = ContextProjectionManager(
+                service=WorkspaceContextService(Database(dsn)),
+                principal=WorkspaceContext(paths.workspace_id, args.context_principal_id),
+                parent=args.context_parent,
+            )
         stopped = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             if sig is not None:
                 signal.signal(sig, lambda _sig, _frame: stopped.set())
-        run_operator(paths, stop=stopped, socket_path=args.socket_path)
+        run_operator(paths, stop=stopped, socket_path=args.socket_path,
+                     context_manager=manager, shared_skills=args.shared_skills)
         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
         return 0
     except (CapabilityUnavailableError, InvalidInputError, ScopeDeniedError) as error:

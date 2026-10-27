@@ -11,7 +11,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
         python3 python3-venv chromium fonts-liberation \
         figlet fortune-mod fortunes-min lolcat \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /etc/ai /etc/ai-past /etc/skel/.cache /etc/skel/.ollama \
+    && mkdir -p /home /var/ai /opt/potbot/models /usr/local/tools /usr/local/skills /etc/ai /etc/ai-past /etc/skel/.cache /etc/skel/.ollama \
+    && touch /AGENTS.md /MODEL.md /MEMORY.md \
+    && chmod 0444 /AGENTS.md /MODEL.md /MEMORY.md \
     && chmod 2775 /usr/local/tools /etc/ai \
     && ln -s /usr/local/tools /etc/skel/Tools \
     && ln -s /var/ai/cache/huggingface /etc/skel/.cache/huggingface \

@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, StateMismatchError
+from potbot.context.projection import ContextProjectionManager
+from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
@@ -94,6 +96,7 @@ class AiWorkspaceOperator:
         self, *, workspace_id: UUID, ledger: WorkspaceLeaseLedger,
         runtime: SharedWorkspaceRuntime,
         monitor_interval_seconds: float = 0.15,
+        context_manager: ContextProjectionManager | None = None,
     ) -> None:
         if not isinstance(workspace_id, UUID) or not isinstance(ledger, WorkspaceLeaseLedger):
             raise InvalidInputError("operator owner needs a registered workspace and lease ledger")
@@ -102,6 +105,9 @@ class AiWorkspaceOperator:
         if runtime.ai_config_dir is None or runtime.ai_history_dir is None:
             raise CapabilityUnavailableError("modern workspace requires both AI configuration mounts")
         self.workspace_id, self.ledger, self.runtime = workspace_id, ledger, runtime
+        if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
+            raise InvalidInputError("context manager must be a trusted operator instance")
+        self._context_manager = context_manager
         self._interval = monitor_interval_seconds
         self._monitor: AiConfigHistoryMonitor | None = None
         self._backend: SharedWorkspaceBubblewrapBackend | None = None
@@ -121,17 +127,51 @@ class AiWorkspaceOperator:
             if self._started or self._closed:
                 raise StateMismatchError("AI workspace operator cannot be started twice")
             validate_runtime_pin(self.ledger, self.runtime, self.workspace_id)
+            if self._context_manager is not None:
+                if self._context_manager.principal.workspace_id != self.workspace_id:
+                    raise ScopeDeniedError("operator context belongs to another workspace")
+                if self.runtime.context_projection is not None:
+                    raise InvalidInputError("operator context projection was already supplied")
+                from potbot.context.model import ROLES
+
+                for role in ROLES:
+                    target = self.runtime.rootfs / role
+                    if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
+                        raise CapabilityUnavailableError("image has no safe root context placeholder")
+                guest_mounts = (
+                    self.runtime.rootfs, self.runtime.home, self.runtime.model_staging,
+                    self.runtime.shared_models, self.runtime.shared_tools,
+                    self.runtime.ai_config_dir, self.runtime.ai_history_dir,
+                    self.runtime.shared_skills,
+                )
+                for mount in guest_mounts:
+                    if mount is None:
+                        continue
+                    path = Path(mount).resolve(strict=True)
+                    parent = self._context_manager.parent
+                    if path == parent or path.is_relative_to(parent) or parent.is_relative_to(path):
+                        raise ScopeDeniedError("operator context storage overlaps a guest mount")
+                try:
+                    projection = self._context_manager.capture()
+                except BaseException:
+                    self._context_manager.close()
+                    raise
+                self.runtime = replace(self.runtime, context_projection=projection)
             config, past = self._sources()
-            monitor = AiConfigHistoryMonitor(
-                config_dir=config, past_dir=past,
-                interval_seconds=self._interval,
-            )
-            monitor.start()  # Full persisted replay audit runs before any mount.
+            monitor: AiConfigHistoryMonitor | None = None
             try:
+                monitor = AiConfigHistoryMonitor(
+                    config_dir=config, past_dir=past,
+                    interval_seconds=self._interval,
+                )
+                monitor.start()  # Full persisted replay audit runs before any mount.
                 backend = SharedWorkspaceBubblewrapBackend(self.runtime, ai_monitor=monitor)
                 supervisor = AiManagedProcessSupervisor(backend, monitor)
             except BaseException:
-                monitor.stop()
+                if monitor is not None:
+                    monitor.stop()
+                if self._context_manager is not None:
+                    self._context_manager.close()
                 raise
             self._monitor = monitor
             self._backend = backend
@@ -229,6 +269,8 @@ class AiWorkspaceOperator:
             finally:
                 self._monitor.stop()
                 self._closed = True
+                if self._context_manager is not None:
+                    self._context_manager.close()
 
     def __enter__(self) -> AiWorkspaceOperator:
         return self.start()
