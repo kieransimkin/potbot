@@ -120,7 +120,8 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                  pulse: Callable[[dict[str, object]], None] | None = None,
                  socket_path: Path | None = None,
                  context_manager: ContextProjectionManager | None = None,
-                 shared_skills: Path | None = None) -> None:
+                 shared_skills: Path | None = None,
+                 project_agent_context: bool = False) -> None:
     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
     from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
@@ -135,7 +136,8 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
     if shared_skills is not None:
         runtime = replace(runtime, shared_skills=shared_skills)
     with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
-                             runtime=runtime, context_manager=context_manager) as operator, ExitStack() as resources:
+                             runtime=runtime, context_manager=context_manager,
+                             project_agent_context=project_agent_context) as operator, ExitStack() as resources:
         # The history watcher owns the singleton lock BEFORE the socket appears.
         # Stop offering new admissions BEFORE the watcher can be shut down.
         if socket_path is not None:
@@ -179,11 +181,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="operator-private 0700 snapshot directory outside guest mounts")
     parser.add_argument("--shared-skills", type=Path, default=None,
                         help="trusted host shared skills directory (mounted read-only)")
+    parser.add_argument("--project-agent-context", action="store_true",
+                        help="mount registered per-agent context triples (requires migration)")
     args = parser.parse_args(argv)
     try:
         paths = parse_manifest(args.manifest)
         if (args.context_principal_id is None) != (args.context_parent is None):
             raise InvalidInputError("context projection needs both principal and parent")
+        if args.project_agent_context and args.context_principal_id is None:
+            raise InvalidInputError("agent projections require authenticated root context")
         manager = None
         if args.context_principal_id is not None:
             from potbot.context.projection import ContextProjectionManager
@@ -204,7 +210,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if sig is not None:
                 signal.signal(sig, lambda _sig, _frame: stopped.set())
         run_operator(paths, stop=stopped, socket_path=args.socket_path,
-                     context_manager=manager, shared_skills=args.shared_skills)
+                     context_manager=manager, shared_skills=args.shared_skills,
+                     project_agent_context=args.project_agent_context)
         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
         return 0
     except (CapabilityUnavailableError, InvalidInputError, ScopeDeniedError) as error:

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from potbot.context.model import ROLES
-from potbot.context.projection import ContextProjection
+from potbot.context.projection import AgentContextProjection, ContextProjection
 from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
 from potbot.domain.serialization import content_hash
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
@@ -87,6 +87,7 @@ class SharedWorkspaceRuntime:
     ai_history_dir: Path | None = None
     context_projection: ContextProjection | None = None
     shared_skills: Path | None = None
+    agent_context_projections: tuple[AgentContextProjection, ...] = ()
 
     def __post_init__(self) -> None:
         import re
@@ -265,6 +266,33 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             context_files = projection.inspect(excluded_roots=(
                 *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
             ))
+        # Root context and per-agent context are different PostgreSQL objects.
+        # Each agent file is mounted read-only into its own registered home;
+        # a writable /home must never become an authority for these documents.
+        agent_files: tuple[Path, ...] = ()
+        agent_binding: AgentContextProjection | None = None
+        current_guest_cwd = _guest_cwd(home, cwd)
+        guest_pieces = current_guest_cwd.split("/")
+        agent_directory = guest_pieces[2] if len(guest_pieces) > 2 else None
+        if self.runtime.agent_context_projections:
+            seen: set[str] = set()
+            for binding in self.runtime.agent_context_projections:
+                if (not isinstance(binding, AgentContextProjection)
+                        or binding.directory in seen):
+                    raise InvalidInputError("Duplicate or untrusted agent context projection")
+                seen.add(binding.directory)
+                if self.runtime.context_projection is not None and (
+                    binding.projection.workspace_id != self.runtime.context_projection.workspace_id
+                ):
+                    raise ScopeDeniedError("Agent context belongs to another workspace")
+                if binding.directory == agent_directory:
+                    agent_binding = binding
+            if agent_directory is not None and agent_binding is None:
+                raise ScopeDeniedError("Named agent is missing operator context projection")
+        if agent_binding is not None:
+            agent_files = agent_binding.inspect(home=home, excluded_roots=(
+                *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
+            ))
         # Guest executable must be present inside immutable image; no host executable bind.
         if not argv or not argv[0].startswith("/"):
             raise InvalidInputError("guest command must use an absolute path")
@@ -351,6 +379,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 *( ("--ro-bind", str(skills), "/usr/local/skills") if skills else () ),
                 *[item for role, source in zip(ROLES, context_files, strict=True)
                   for item in ("--ro-bind", str(source), "/" + role)],
+                *[item for role, source in zip(ROLES, agent_files, strict=True)
+                  for item in ("--ro-bind", str(source),
+                               "/home/" + agent_binding.directory + "/" + role)],
                 *(("--bind", str(config_ai), "/etc/ai",
                    "--ro-bind", str(history_ai), "/etc/ai-past") if ai_enabled else ()),
                 "--proc", "/proc", "--dev", "/dev",
@@ -375,6 +406,12 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 "shared_skills": str(skills) if skills is not None else None,
                 "context_revisions": self.runtime.context_projection.revisions if context_files else None,
                 "context_digests": self.runtime.context_projection.digests if context_files else None,
+                "agent_context_id": str(agent_binding.agent_id) if agent_binding else None,
+                "agent_context_directory": agent_binding.directory if agent_binding else None,
+                "agent_context_revisions": (agent_binding.projection.revisions
+                                            if agent_binding else None),
+                "agent_context_digests": (agent_binding.projection.digests
+                                          if agent_binding else None),
                 "ai_mount_policy": "rw-config/ro-history/journaled-v1" if ai_enabled else "legacy-none",
                 "ai_config": str(config_ai) if ai_enabled else None,
                 "ai_history": str(history_ai) if ai_enabled else None,

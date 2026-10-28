@@ -97,6 +97,7 @@ class AiWorkspaceOperator:
         runtime: SharedWorkspaceRuntime,
         monitor_interval_seconds: float = 0.15,
         context_manager: ContextProjectionManager | None = None,
+        project_agent_context: bool = False,
     ) -> None:
         if not isinstance(workspace_id, UUID) or not isinstance(ledger, WorkspaceLeaseLedger):
             raise InvalidInputError("operator owner needs a registered workspace and lease ledger")
@@ -108,6 +109,9 @@ class AiWorkspaceOperator:
         if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
             raise InvalidInputError("context manager must be a trusted operator instance")
         self._context_manager = context_manager
+        if type(project_agent_context) is not bool or (project_agent_context and context_manager is None):
+            raise InvalidInputError("agent projections require a managed root context")
+        self._project_agent_context = project_agent_context
         self._interval = monitor_interval_seconds
         self._monitor: AiConfigHistoryMonitor | None = None
         self._backend: SharedWorkspaceBubblewrapBackend | None = None
@@ -156,7 +160,34 @@ class AiWorkspaceOperator:
                 except BaseException:
                     self._context_manager.close()
                     raise
-                self.runtime = replace(self.runtime, context_projection=projection)
+                agent_bindings = ()
+                if self._project_agent_context:
+                    from potbot.context.projection import AgentContextProjection
+                    # The host-only agent-home registry is an existing controller
+                    # lease ledger, not the authoritative context datastore.
+                    try:
+                        with self.ledger._connect() as db:
+                            exists = db.execute(
+                                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_homes'"
+                            ).fetchone()
+                            homes = (db.execute(
+                                "SELECT agent_id,directory FROM agent_homes "
+                                "WHERE workspace_id=? ORDER BY agent_id",
+                                (str(self.workspace_id),),
+                            ).fetchall() if exists is not None else ())
+                        bound = []
+                        for home in homes:
+                            agent_id = UUID(home["agent_id"])
+                            snapshot = self._context_manager.capture_object("agent", str(agent_id))
+                            bound.append(AgentContextProjection(agent_id, home["directory"], snapshot))
+                        agent_bindings = tuple(bound)
+                    except BaseException:
+                        self._context_manager.close()
+                        raise
+                self.runtime = replace(
+                    self.runtime, context_projection=projection,
+                    agent_context_projections=agent_bindings,
+                )
             config, past = self._sources()
             monitor: AiConfigHistoryMonitor | None = None
             try:

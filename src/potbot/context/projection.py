@@ -103,9 +103,20 @@ class ContextProjectionManager:
         self._closed = False
 
     def capture(self) -> ContextProjection:
+        """Backward-compatible root sandbox snapshot."""
+        return self.capture_object("sandbox", str(self.principal.workspace_id))
+
+    def capture_object(self, kind: str, name: str) -> ContextProjection:
+        """Capture an agent, tool, skill, or other registered object's triple.
+
+        Use the same authenticated principal and one database read per object;
+        guests never get to choose the object identity or snapshot parent.
+        """
+        from potbot.context.model import validate_identity
+        validate_identity(kind, name)
         if self._closed:
             raise StateMismatchError("Snapshot manager is closed")
-        rows = self.service.read_triple(self.principal, "sandbox", str(self.principal.workspace_id))
+        rows = self.service.read_triple(self.principal, kind, name)
         directory = Path(tempfile.mkdtemp(prefix="potbot-context-", dir=self.parent))
         self._owned.append(directory)  # Track even a partial write for later cleanup.
         revisions: list[int] = []
@@ -160,3 +171,39 @@ class ContextProjectionManager:
             directory.rmdir()
         self._owned.clear()
         self._closed = True
+
+
+@dataclass(frozen=True, slots=True)
+class AgentContextProjection:
+    """Operator-verified binding of one immutable agent identity to a guest home."""
+
+    agent_id: UUID
+    directory: str
+    projection: ContextProjection
+
+    def inspect(self, *, home: Path,
+                excluded_roots: tuple[Path, ...] = ()) -> tuple[Path, Path, Path]:
+        import re
+
+        if (not isinstance(self.agent_id, UUID) or not isinstance(self.directory, str)
+                or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,127}", self.directory)):
+            raise InvalidInputError("Invalid agent context directory or identity")
+        base = Path(home)
+        if base.is_symlink() or not base.is_dir():
+            raise ScopeDeniedError("Workspace home is not a real directory")
+        directory = base / self.directory
+        if directory.is_symlink() or not directory.is_dir():
+            raise ScopeDeniedError("Agent home is not a real registered directory")
+        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
+                     os.O_CLOEXEC)
+        try:
+            for role in ROLES:
+                meta = os.stat(role, dir_fd=fd, follow_symlinks=False)
+                if (not stat.S_ISREG(meta.st_mode) or meta.st_size != 0
+                        or meta.st_nlink != 1 or meta.st_mode & 0o222):
+                    raise ScopeDeniedError("Agent context target must be a safe empty placeholder")
+        except OSError as exc:
+            raise ScopeDeniedError("Agent context target is unavailable") from exc
+        finally:
+            os.close(fd)
+        return self.projection.inspect(excluded_roots=(*excluded_roots, home))

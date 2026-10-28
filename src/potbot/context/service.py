@@ -134,12 +134,14 @@ class WorkspaceContextService:
                 if row["revision"] != expected_revision:
                     raise RevisionConflictError("Context document revision is stale.")
                 next_revision = expected_revision + 1
-                conn.execute(
+                changed = conn.execute(
                     "UPDATE workspace_context_documents SET content=%s, revision=%s, "
                     "sha256=%s, updated_at=clock_timestamp() "
                     "WHERE workspace_id=%s AND object_id=%s AND role=%s",
                     (content, next_revision, checksum, context.workspace_id, object_id, role),
                 )
+                if changed.rowcount != 1:
+                    raise ScopeDeniedError("Context document is not writable by this principal.")
                 actor = f"principal:{context.principal_id}"
                 conn.execute(
                     "INSERT INTO workspace_context_revisions "

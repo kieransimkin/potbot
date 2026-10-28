@@ -7,13 +7,21 @@ from uuid import uuid4
 
 import pytest
 
+from potbot.context.bootstrap import grant_shared_context_writer
 from potbot.context.model import sandbox_object_id
 from potbot.context.service import WorkspaceContextService
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import RevisionConflictError, ScopeDeniedError
-from potbot.persistence.database import provision_principal
+from potbot.persistence.database import admin_connection, provision_principal
 
 pytestmark = pytest.mark.postgres
+
+
+def _grant_test_writer(app_env, role):
+    ctx = app_env.context
+    with admin_connection(app_env.admin_dsn, app_env.schema) as conn:
+        grant_shared_context_writer(conn, ctx.workspace_id, sandbox_object_id(ctx.workspace_id),
+                                    ctx.principal_id, (role,))
 
 
 def test_sandbox_is_seeded_in_same_workspace_registration(app_env):
@@ -32,6 +40,7 @@ def test_atomic_cas_replay_and_event_history(app_env):
     context = app_env.context
     service = WorkspaceContextService(app_env.db)
     name = str(context.workspace_id)
+    _grant_test_writer(app_env, "MODEL.md")
     before = service.read(context, "sandbox", name, "MODEL.md")
     args = dict(content="# State\n\nReady.\n", expected_revision=before["revision"],
                 idempotency_key=uuid4().hex, reason="verified observation")
@@ -55,6 +64,7 @@ def test_concurrent_updates_do_not_lose_writes(app_env):
     svc = WorkspaceContextService(app_env.db)
     ctx = app_env.context
     name = str(ctx.workspace_id)
+    _grant_test_writer(app_env, "MEMORY.md")
     revision = svc.read(ctx, "sandbox", name, "MEMORY.md")["revision"]
 
     def write(i):
