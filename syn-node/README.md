@@ -130,3 +130,26 @@ syn-node qualify-operator --config /absolute/private/operator.json
 A functional smoke is not independent hardware custody certification or secure
 inherited-key adoption. Do not feed recovery words into Potbot, agents, CI,
 command arguments, environment variables, files or service logs.
+
+## Phase 48 — Python SYN signed LAN discovery and encrypted pledges
+
+`0.1.0a5` adds `syn-p2p` (not a Potbot executable). The operator broadcasts
+Ed25519-BIP32-signed pulses over an explicitly approved RFC1918 IPv4 LAN.
+An agent verifies a separately pinned operator base hash, negotiates a
+transcript-bound ephemeral X25519/AES-256-GCM channel, and sends its v2
+hardware-identity pledge **only inside the encrypted TCP session**.
+
+`operator-init` provisions an independent, OS-keyring-protected random AES
+inbox key and a private, replay-fenced encrypted SQLite pledge journal.
+`operator-serve` sends signed pulses and accepts confidential pledges;
+`operator-list` exposes only offer hashes, not hardware IDs. `agent-pledge`
+reads an owner-private binary device-ID source only after successful signed
+operator discovery. The hardware ID is a claim, not proof of physical
+uniqueness. Its temporary key remains a separate OS-CSPRNG key.
+
+The only network success means **pending operator review**, never permission to
+issue inherited keys or activate an agent. The Phase 41 selection authority,
+Phase 47 adoption and actual device attestation remain separate trusted
+operator work. No public command exports private keys or raw hardware IDs.
+
+See [Phase 48 commands, wire contracts and qualification](../docs/implementation/48-syn-p2p-lan-discovery-and-encrypted-pledges.md).

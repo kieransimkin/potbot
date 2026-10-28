@@ -1,0 +1,63 @@
+name: SYN encrypted LAN pulses and pledge inbox
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - syn-node/**
+      - docs/implementation/48-syn-p2p-lan-discovery-and-encrypted-pledges.md
+      - .github/workflows/syn-p2p-lan.yml
+  pull_request:
+    paths:
+      - syn-node/**
+      - docs/implementation/48-syn-p2p-lan-discovery-and-encrypted-pledges.md
+      - .github/workflows/syn-p2p-lan.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-lan-and-confidential-inbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install isolated SYN Python HD provider
+        run: |
+          uv venv .venv-syn-p2p --python python3.12
+          uv pip install --python .venv-syn-p2p/bin/python \
+            -e './syn-node[hd]' 'pytest==9.0.2' 'jsonschema==4.25.1'
+      - name: Validate schemas, compile, and enforce standalone boundary
+        run: |
+          .venv-syn-p2p/bin/python -m compileall -q syn-node/src/syn_node
+          .venv-syn-p2p/bin/python - <<'PY'
+          import json
+          from jsonschema import Draft202012Validator
+          with open('syn-node/schema/syn-p2p-lan-v1.schema.json', encoding='utf-8') as source:
+              Draft202012Validator.check_schema(json.load(source))
+          from syn_node.hd_keys import _pycardano
+          _pycardano()  # A missing/invalid real Ed25519-BIP32 V2 provider fails CI.
+          PY
+          if grep -REn '(^from potbot\.|^import potbot|potbot\.security\.broker)' syn-node/src/syn_node; then
+            echo 'SYN independent runtime must not import the Potbot identity broker' >&2
+            exit 1
+          fi
+        env:
+          PYTHONPATH: syn-node/src
+      - name: Real socket discovery, encrypted pledge and anti-replay acceptance
+        env:
+          PYTHONPATH: syn-node/src
+        run: |
+          SHORT_BASE="$(mktemp -d /tmp/syn-p2p.XXXXXXXX)"
+          trap 'rm -rf -- "$SHORT_BASE"' EXIT
+          .venv-syn-p2p/bin/python -m pytest -q \
+            --confcutdir=syn-node/tests --basetemp="$SHORT_BASE/offline" \
+            syn-node/tests/test_p2p.py
+          .venv-syn-p2p/bin/python -m pytest -q \
+            --confcutdir=syn-node/tests --basetemp="$SHORT_BASE/real" \
+            syn-node/tests/test_p2p_live.py
