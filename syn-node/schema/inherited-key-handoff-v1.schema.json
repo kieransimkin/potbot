@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "synny://schema/syn-inherited-key-handoff/v1",
+  "title": "SYN signed encrypted inherited-key handoff, public wire only",
+  "description": "SYN-owned private-key custody. Plaintext extended keys MUST NEVER be serialized into public responses or journals. This schema does not authorize agent creation.",
+  "oneOf": [
+    {"$ref": "#/$defs/signedGrant"},
+    {"$ref": "#/$defs/signedRequest"},
+    {"$ref": "#/$defs/sealedEnvelope"}
+  ],
+  "$defs": {
+    "hash32": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+    "grant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version","type_ref","offer_sha256","master_public_key_hash",
+        "temporary_public_key","inheritance","independence","selected_public_key_hash",
+        "selection_sha256","challenge","issued_at","expires_at"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "type_ref": {"const": "synny://type/syn-inherited-key-grant-v1"},
+        "offer_sha256": {"$ref": "#/$defs/hash32"},
+        "master_public_key_hash": {"$ref": "#/$defs/hash32"},
+        "temporary_public_key": {"$ref": "#/$defs/hash32"},
+        "inheritance": {"type": "integer", "minimum": 0, "maximum": 16777215},
+        "independence": {"type": "integer", "minimum": 1, "maximum": 8},
+        "selected_public_key_hash": {"$ref": "#/$defs/hash32"},
+        "selection_sha256": {"$ref": "#/$defs/hash32"},
+        "challenge": {"$ref": "#/$defs/hash32"},
+        "issued_at": {"type": "integer", "minimum": 1},
+        "expires_at": {"type": "integer", "minimum": 1}
+      }
+    },
+    "signedGrant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["grant","operator_public_key","signature"],
+      "properties": {"grant":{"$ref":"#/$defs/grant"},
+        "operator_public_key":{"$ref":"#/$defs/hash32"},
+        "signature":{"$ref":"#/$defs/signature"}}
+    },
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version","type_ref","grant_sha256","transfer_public_key","request_nonce","requested_at"],
+      "properties": {"schema_version":{"const":1},
+        "type_ref":{"const":"synny://type/syn-inherited-key-request-v1"},
+        "grant_sha256":{"$ref":"#/$defs/hash32"},
+        "transfer_public_key":{"$ref":"#/$defs/hash32"},
+        "request_nonce":{"$ref":"#/$defs/hash32"},
+        "requested_at":{"type":"integer","minimum":1}}
+    },
+    "signedRequest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request","temporary_signature"],
+      "properties": {"request":{"$ref":"#/$defs/request"},
+        "temporary_signature":{"$ref":"#/$defs/signature"}}
+    },
+    "header": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version","type_ref","grant_sha256","request_sha256",
+        "operator_transfer_public_key","salt","nonce","expires_at"],
+      "properties": {"schema_version":{"const":1},
+        "type_ref":{"const":"synny://type/syn-inherited-key-envelope-v1"},
+        "grant_sha256":{"$ref":"#/$defs/hash32"},
+        "request_sha256":{"$ref":"#/$defs/hash32"},
+        "operator_transfer_public_key":{"$ref":"#/$defs/hash32"},
+        "salt":{"$ref":"#/$defs/hash32"},
+        "nonce":{"type":"string","pattern":"^[0-9a-f]{24}$"},
+        "expires_at":{"type":"integer","minimum":1}}
+    },
+    "sealedEnvelope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["header","ciphertext","operator_signature"],
+      "properties": {"header":{"$ref":"#/$defs/header"},
+        "ciphertext":{"type":"string","pattern":"^(?:[0-9a-f]{2}){1,1024}$"},
+        "operator_signature":{"$ref":"#/$defs/signature"}}
+    }
+  }
+}

@@ -1,0 +1,69 @@
+name: SYN confidential inherited-key adoption
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - syn-node/**
+      - docs/implementation/47-syn-selected-key-adoption.md
+      - .github/workflows/syn-inherited-adoption.yml
+  pull_request:
+    paths:
+      - syn-node/**
+      - docs/implementation/47-syn-selected-key-adoption.md
+      - .github/workflows/syn-inherited-adoption.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adoption-public-and-custody-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Offline signatures, real encryption, anti-replay, journal and partial-OS-keystore tests
+        run: |
+          uv sync --locked --dev --extra security
+          SHORT_BASE="$(mktemp -d /tmp/syn-adoption.XXXXXXXX)"
+          trap 'rm -rf -- "$SHORT_BASE"' EXIT
+          PYTHONPATH=syn-node/src uv run --locked python -m pytest -q \
+            --confcutdir=syn-node/tests --basetemp="$SHORT_BASE/offline" \
+            syn-node/tests/test_inherited_adoption.py
+      - name: Verify native Python HD provider and real inherited-key custody protocol
+        run: |
+          uv venv .venv-syn-adoption --python python3.12
+          uv pip install --python .venv-syn-adoption/bin/python \
+            -e './syn-node[hd]' 'pytest==9.0.2' 'jsonschema==4.25.1'
+          SHORT_BASE="$(mktemp -d /tmp/syn-adopt-live.XXXXXXXX)"
+          trap 'rm -rf -- "$SHORT_BASE"' EXIT
+          PYTHONPATH=syn-node/src .venv-syn-adoption/bin/python -m pytest -q \
+            --confcutdir=syn-node/tests --basetemp="$SHORT_BASE/live" \
+            syn-node/tests/test_inherited_adoption_live.py
+          # Mandatory public-only proof of at least three distinct true
+          # Ed25519-BIP32 V2 leaves. An unavailable provider FAILS the job.
+          .venv-syn-adoption/bin/python - <<'PY'
+          from syn_node.hd_keys import _pycardano
+          from importlib.metadata import version
+          assert version('pycardano') == '0.19.2'
+          assert version('cbor2') == '5.8.0'
+          assert version('cbor2pure') == '5.8.0'
+          _pycardano()
+          PY
+      - name: Guard SYN independent package and public schema
+        run: |
+          if grep -REn '(^from potbot\.|^import potbot|potbot\.security\.broker)' syn-node/src/syn_node; then
+            echo 'Standalone SYN must never depend on Potbot private authority' >&2
+            exit 1
+          fi
+          uv run --locked python - <<'PY'
+          import json
+          from jsonschema import Draft202012Validator
+          path = 'syn-node/schema/inherited-key-handoff-v1.schema.json'
+          Draft202012Validator.check_schema(json.load(open(path, encoding='utf-8')))
+          PY
