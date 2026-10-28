@@ -159,6 +159,16 @@ class AgentXpraDisplayPool:
                 raise CapabilityUnavailableError("agent Xpra display was not started")
             return display.server.environment()
 
+    # S41: do not create or reassign a display for a viewing request.
+    def protocol_socket(self, agent_id: UUID) -> Path:
+        self._agent(agent_id)
+        with self._lock:
+            display = self._displays.get(agent_id)
+            if display is None or display.server.readonly_mode is not True:
+                raise CapabilityUnavailableError("private readonly Xpra display is unavailable")
+            display.server.environment()
+            return display.server.xpra_protocol_socket
+
     def retire(self, agent_id: UUID, *, process_stopped: bool) -> None:
         if process_stopped is not True:
             raise StateMismatchError("cannot retire agent display with unconfirmed processes")

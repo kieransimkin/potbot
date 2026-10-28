@@ -5,6 +5,7 @@ import { projectXpraWindows } from "@/lib/xpra-window-manager";
 import type { WindowFilter } from "@/lib/xpra-window-manager";
 import { useWorkspace } from "./WorkspaceContext";
 import { DockControls } from "./Panels";
+import { AgentXpraApplications } from "./AgentXpraStreams";
 
 /** A dockable switcher for every Xpra application, including minimized panes. */
 export function XpraApplicationsPanel() {
@@ -54,6 +55,7 @@ export function XpraApplicationsPanel() {
         </li>)}
       </ul>}
     </div>
+    <AgentXpraApplications />
     <div className="applications-search">
       <label htmlFor="xpra-app-search">Find window</label>
       <input id="xpra-app-search" type="search" value={query}

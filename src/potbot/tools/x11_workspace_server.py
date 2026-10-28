@@ -320,6 +320,11 @@ def create_app(
         return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
 
     from potbot.domain.errors import DomainError
+    # S41 operator-only read-only agent-view admission.
+    agent_streams = None
+    if apps is not None and getattr(apps, "agent_displays", None) is not None:
+        from potbot.tools.agent_xpra_streams import AgentXpraTicketAuthority
+        agent_streams = AgentXpraTicketAuthority(server, apps)
 
     @app.post("/v1/xpra/apps")
     async def launch_app(
@@ -447,6 +452,113 @@ def create_app(
             {"workspaceId": str(server.workspace_id), "session": result},
             headers={"Cache-Control": "private, no-store"},
         )
+
+    # S41: these endpoints never expose agent browser RPC or session tokens.
+    @app.get("/v1/xpra/agent-sessions")
+    def agent_xpra_inventory(authorization: str | None = Header(default=None)) -> JSONResponse:
+        authenticate(authorization)
+        if agent_streams is None:
+            result = {"workspaceId": str(server.workspace_id), "viewOnly": True, "sessions": []}
+        else:
+            try:
+                result = agent_streams.inventory()
+            except (OSError, RuntimeError, DomainError):
+                raise HTTPException(503, "agent display inventory unavailable") from None
+        return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
+
+    @app.post("/v1/xpra/agent-sessions/{agent_id}/{session_id}/ticket")
+    async def agent_xpra_ticket(agent_id: str, session_id: str, request: Request,
+                                authorization: str | None = Header(default=None)) -> JSONResponse:
+        authenticate(authorization)
+        if agent_streams is None:
+            raise HTTPException(503, "agent stream admission is not enabled")
+        # Refuse arbitrary request bodies and hidden control parameters.
+        if request.query_params:
+            raise HTTPException(400, "agent stream tickets accept no query parameters")
+        async for chunk in request.stream():
+            if chunk:
+                raise HTTPException(400, "agent stream tickets accept no request payload")
+        try:
+            agent_uuid = UUID(agent_id)
+            if str(agent_uuid) != agent_id:
+                raise ValueError()
+            result = agent_streams.issue(agent_uuid, session_id)
+        except (ValueError, RuntimeError, DomainError, OSError):
+            raise HTTPException(404, "agent browser is unavailable") from None
+        return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
+
+    @app.websocket("/v1/xpra/agent/ws")
+    async def agent_xpra_websocket(ws: WebSocket) -> None:
+        # S42: only an exact single agent-stream ticket is admitted.
+        if (len(ws.query_params.multi_items()) != 1 or
+                ws.query_params.multi_items()[0][0] != "ticket"):
+            await ws.close(code=4403)
+            return
+        if ws.headers.get("origin") != allowed_origin or agent_streams is None or (
+            operator_fence is not None and not operator_fence.healthy()
+        ):
+            await ws.close(code=4403)
+            return
+        try:
+            ticket = agent_streams.consume(ws.query_params.get("ticket", ""))
+            upstream = await websockets.unix_connect(
+                str(ticket.socket), uri="ws://localhost/", open_timeout=5,
+                max_size=8 * 1024 * 1024, max_queue=4, compression=None,
+            )
+        except (OSError, RuntimeError, TimeoutError, DomainError):
+            await ws.close(code=4403)
+            return
+        # Recheck after the connect syscall as well as before; the pathname
+        # must not have been rebound during WebSocket handshaking.
+        if not agent_streams.still_live(ticket):
+            await upstream.close()
+            await ws.close(code=4403)
+            return
+        await ws.accept()
+
+        async def native_to_agent() -> None:
+            while True:
+                message = await ws.receive()
+                if message["type"] == "websocket.disconnect":
+                    return
+                data = message.get("bytes")
+                if not isinstance(data, bytes) or len(data) > 8 * 1024 * 1024:
+                    return
+                await upstream.send(data)
+
+        async def agent_to_native() -> None:
+            async for packet in upstream:
+                if not isinstance(packet, bytes) or len(packet) > 8 * 1024 * 1024:
+                    return
+                await ws.send_bytes(packet)
+
+        async def check_owner() -> None:
+            # Tickets expire after admission; active relays also stop on agent
+            # process retirement, private socket replacement, or operator loss.
+            while True:
+                await asyncio.sleep(0.25)
+                if operator_fence is not None and not await asyncio.to_thread(operator_fence.healthy):
+                    return
+                if not await asyncio.to_thread(agent_streams.still_live, ticket):
+                    return
+
+        tasks = [asyncio.create_task(native_to_agent()),
+                 asyncio.create_task(agent_to_native()), asyncio.create_task(check_owner())]
+        try:
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in done:
+                task.exception()
+        except (WebSocketDisconnect, OSError, RuntimeError):
+            pass
+        finally:
+            await upstream.close()
+            try:
+                await ws.close()
+            except RuntimeError:
+                pass
 
     @app.websocket("/v1/xpra/ws")
     async def websocket_bridge(ws: WebSocket) -> None:

@@ -774,6 +774,42 @@ class XpraApplicationSupervisor:
             self._terminate(app)
             self._settle()
 
+    # S41: host/operator display inventory, never a model browser control port.
+    def agent_display_inventory(self) -> list[dict[str, Any]]:
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
+        if (self.agent_displays is None or self.browser_leases is None or not self.backend.server.readonly_mode
+                or self._guard is None or self._guard.fenced):
+            return []
+        with self._lock:
+            sessions = []
+            for app in self._apps.values():
+                if (app.agent_id is None or app.recipe.kind != "controlled-browser"
+                        or app.process.poll() is not None or app.indeterminate):
+                    continue
+                # A failed display-health check must not appear as a live view.
+                try:
+                    self.agent_displays.environment(app.agent_id)
+                except (OSError, RuntimeError):
+                    continue
+                sessions.append({"id": app.id, "agentId": str(app.agent_id),
+                                 "title": app.recipe.title, "state": "running",
+                                 "startedAt": app.started_at, "viewOnly": True})
+            return sessions[-12:]
+
+    def agent_stream_socket(self, agent_id: UUID, identifier: str) -> Path:
+        if not isinstance(agent_id, UUID) or self.agent_displays is None or self.browser_leases is None:
+            raise ScopeDeniedError("agent Xpra stream not configured")
+        if self.operator_attachment is not None:
+            self.operator_attachment.require_healthy()
+        with self._lock:
+            app = self._get(identifier)
+            if (app.agent_id != agent_id or app.recipe.kind != "controlled-browser"
+                    or app.indeterminate or app.process.poll() is not None
+                    or self._guard is None or self._guard.fenced):
+                raise ScopeDeniedError("agent display/session binding is not live")
+            return self.agent_displays.protocol_socket(agent_id)
+
     def agent_sessions(self, agent_id: UUID) -> list[dict[str, Any]]:
         """Host-only reattachment inventory; no model or public HTTP exposure."""
         if not isinstance(agent_id, UUID) or self.agent_displays is None:

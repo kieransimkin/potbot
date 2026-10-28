@@ -62,7 +62,7 @@ export function xpraFrameURL(websocketURL: string, channel: string): string {
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(ws.hostname);
   if (!(ws.protocol === "ws:" || ws.protocol === "wss:") ||
       (ws.protocol !== "wss:" && !local) || ws.username || ws.password ||
-      ws.pathname !== "/v1/xpra/ws" || ws.searchParams.size !== 1 ||
+      !["/v1/xpra/ws", "/v1/xpra/agent/ws"].includes(ws.pathname) || ws.searchParams.size !== 1 ||
       !/^[A-Za-z0-9_-]{43}$/.test(ws.searchParams.get("ticket") || ""))
     throw new Error("Invalid Xpra WebSocket ticket endpoint");
   const params = new URLSearchParams({

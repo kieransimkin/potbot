@@ -25,6 +25,8 @@ import { WorkspaceOrbit } from "./WorkspaceOrbit";
 import { WorkspaceProvider } from "./WorkspaceContext";
 import { XpraWindowPanel } from "./XpraWindowPanel";
 import { XpraApplicationsPanel } from "./XpraApplicationsPanel";
+import { AgentXpraHub } from "@/lib/agent-xpra-hub";
+import { AgentXpraProvider, AgentXpraStreamHost, AgentXpraWindowPanel, useAgentXpra } from "./AgentXpraStreams";
 import { ActivityPanel } from "./ActivityPanel";
 import { BrowserPanel, ChatPanel, DownloadsPanel, FullscreenGraph, GraphPanel, InstallationsPanel, MenuPanel, PreferencesPanel, TerminalPanel } from "./Panels";
 
@@ -32,6 +34,7 @@ const COMPONENTS = {
   chat: ChatPanel, graph: GraphPanel, menu: MenuPanel, terminal: TerminalPanel,
   browser: BrowserPanel, preferences: PreferencesPanel, downloads: DownloadsPanel,
   installations: InstallationsPanel, applications: XpraApplicationsPanel, activity: ActivityPanel, xwindow: XpraWindowPanel,
+  "agent-xwindow": AgentXpraWindowPanel,
 };
 
 function floatingDefaults(panel: PanelId) {
@@ -65,6 +68,7 @@ function DockedScene({ workspace, onGraphMinimized, onXWindowHidden }: {
   onXWindowHidden: (windowId: string) => void;
 }) {
   const apiRef = useDockApi();
+  const agentHub = useAgentXpra();
   useEffect(() => () => { apiRef.current = null; }, [apiRef]);
   const onReady = useCallback(({ api }: DockviewReadyEvent) => {
     apiRef.current = api;
@@ -105,6 +109,7 @@ function DockedScene({ workspace, onGraphMinimized, onXWindowHidden }: {
         if (panel.id === "graph") onGraphMinimized(true);
         if (panel.id.startsWith("x11:") && XWINDOW_ID.test(panel.id.slice(4)))
           onXWindowHidden(panel.id.slice(4));
+        if (panel.id.startsWith("agentx11:")) agentHub.manuallyHidden(panel.id);
       });
     });
     const maximized = api.onDidMaximizedGroupChange(() => {
@@ -112,9 +117,10 @@ function DockedScene({ workspace, onGraphMinimized, onXWindowHidden }: {
       if (api.getPanel("menu")?.api.isMaximized() || api.getPanel("chat")?.api.isMaximized()) api.exitMaximizedGroup();
     });
     onGraphMinimized(!api.getPanel("graph"));
+    agentHub.openActiveWindows();
     // Cleanup is handled when workspace-specific Dockview unmounts.
     cleanupRef.current = () => { clearTimeout(debounce); persist(); changed.dispose(); removed.dispose(); maximized.dispose(); };
-  }, [apiRef, workspace.id, onGraphMinimized, onXWindowHidden]);
+  }, [apiRef, workspace.id, onGraphMinimized, onXWindowHidden, agentHub]);
   const cleanupRef = useRef<() => void>(() => {});
   useEffect(() => () => cleanupRef.current(), []);
   return <DockviewReact className="dockview-theme-dark potbot-dockview" onReady={onReady}
@@ -189,6 +195,8 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   const [graphFullscreen, setGraphFullscreen] = useState(false);
   const apiRef = useRef<DockviewApi | null>(null);
   const workspace = workspaces[selected];
+  // S41: the agent window registry is scoped to one active workspace.
+  const agentHub = useMemo(() => new AgentXpraHub(workspace?.id ?? ""), [workspace?.id]);
   const scopedHeaders = (id: string) => ({ "X-Potbot-Workspace": id });
 
   const loadLive = useCallback(async () => {
@@ -1126,6 +1134,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
   </main>;
 
   return <WorkspaceProvider value={session}>
+    <AgentXpraProvider value={agentHub}>
     <MotionConfig reducedMotion={remotePrefs[workspace.id]?.settings.reducedMotion ? "always" : "user"}>
     <LayoutGroup id={`potbot-${workspace.id}`}>
     <main className="potbot-scene">
@@ -1151,6 +1160,7 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
         title="Workspace Xpra protocol and decoding engine" className="xpra-protocol-frame"
         aria-hidden="true" tabIndex={-1} sandbox="allow-scripts allow-same-origin" />}
       <DockApiContext.Provider value={apiRef}>
+        {!demo && <AgentXpraStreamHost workspaceId={workspace.id} enabled={gateway === "ready"} apiRef={apiRef}/>}
         <div className="dock-root" key={workspace.id}>
           <DockedScene workspace={workspace} onGraphMinimized={setGraphMinimized}
             onXWindowHidden={onXWindowHidden} />
@@ -1164,5 +1174,6 @@ export function OrbWorkspace({ demo }: { demo: boolean }) {
     </main>
     </LayoutGroup>
     </MotionConfig>
+    </AgentXpraProvider>
   </WorkspaceProvider>;
 }

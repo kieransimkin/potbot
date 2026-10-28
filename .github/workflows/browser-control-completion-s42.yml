@@ -1,0 +1,75 @@
+name: Browser control S41-S42 final source gate
+on:
+  pull_request:
+    paths:
+      - 'src/potbot/tools/*browser*'
+      - 'src/potbot/tools/xpra*'
+      - 'src/potbot/tools/agent_xpra*'
+      - 'src/potbot/controller/browser_cogs.py'
+      - 'frontend/src/components/AgentXpraStreams.tsx'
+      - 'frontend/src/lib/agent-xpra*'
+      - 'frontend/src/lib/xpra*'
+      - 'frontend/vendor/xpra-html5/**'
+      - 'frontend/tests/*xpra*'
+      - 'tests/unit/test_browser*'
+      - 'tests/unit/test_agent_xpra*'
+      - 'scripts/check_browser_control_s42.py'
+      - '.github/workflows/browser-control-completion-s42.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/tools/*browser*'
+      - 'src/potbot/tools/xpra*'
+      - 'src/potbot/tools/agent_xpra*'
+      - 'src/potbot/controller/browser_cogs.py'
+      - 'frontend/src/components/AgentXpraStreams.tsx'
+      - 'frontend/src/lib/agent-xpra*'
+      - 'frontend/src/lib/xpra*'
+      - 'frontend/tests/*xpra*'
+      - 'tests/unit/test_browser*'
+      - 'tests/unit/test_agent_xpra*'
+      - 'scripts/check_browser_control_s42.py'
+      - '.github/workflows/browser-control-completion-s42.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install locked Python dependencies
+        run: uv sync --locked --extra web --dev
+      - name: Browser source admission
+        run: uv run --locked python scripts/check_browser_control_s42.py --root .
+      - name: Browser/agent/Patchright/CDP tests
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_browser_cogs_s37.py
+          tests/unit/test_browser_s38.py
+          tests/unit/test_browser_s39.py
+          tests/unit/test_xpra_browser_control.py
+          tests/unit/test_xpra_browser_worker.py
+          tests/unit/test_agent_xpra_displays_s40.py
+          tests/unit/test_agent_xpra_streams_s41.py
+          tests/unit/test_browser_control_completion_s42.py
+          tests/unit/test_xpra_application_sessions.py
+          tests/integration/test_xpra_native_bridge.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frontend dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Full frontend contracts, tests, build
+        working-directory: frontend
+        run: |
+          npm run typecheck
+          npm test
+          npm run build

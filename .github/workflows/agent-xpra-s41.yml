@@ -1,0 +1,57 @@
+name: S41 read-only private agent browser Xpra streams
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/tools/agent_xpra_displays.py'
+      - 'src/potbot/tools/agent_xpra_streams.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'frontend/**'
+      - 'tests/unit/test_agent_xpra_streams_s41.py'
+      - '.github/workflows/agent-xpra-s41.yml'
+  pull_request:
+    paths:
+      - 'src/potbot/tools/agent_xpra_displays.py'
+      - 'src/potbot/tools/agent_xpra_streams.py'
+      - 'src/potbot/tools/xpra_app_sessions.py'
+      - 'src/potbot/tools/x11_workspace_server.py'
+      - 'frontend/**'
+      - 'tests/unit/test_agent_xpra_streams_s41.py'
+      - '.github/workflows/agent-xpra-s41.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install locked dependencies
+        run: uv sync --locked --extra web --dev
+      - name: Private browser Xpra ticket and S40 integration regression
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_agent_xpra_streams_s41.py
+          tests/unit/test_agent_xpra_displays_s40.py
+          tests/unit/test_xpra_application_sessions.py
+          tests/unit/test_xpra_operator_fence_s14.py
+          tests/integration/test_xpra_native_bridge.py
+      - name: Backend compilation
+        run: uv run --locked python -m compileall -q src/potbot
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frontend tests, typecheck and production build
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
