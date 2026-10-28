@@ -1,0 +1,14 @@
+{
+  "schema": "potbot-context-file-roles/v1",
+  "release": "1.0.0-candidate",
+  "status": "candidate_not_merged_into_pinned_syn_catalog",
+  "source_vocabulary": "urn:agent-sem:data-types:0.1.0",
+  "classification_contract": "exact-checked-basename-only",
+  "does_not_imply": ["markdown_validity", "trust", "authority", "instruction_applicability"],
+  "types": [
+    {"basename": "AGENTS.md", "type_ref": "synny://type/potbot-data-file-agents-md", "rule": "filename-agents-md-exact-v1", "existing_alias": true},
+    {"basename": "MODEL.md", "type_ref": "synny://type/potbot-context-file-model-md-v1", "rule": "filename-model-md-exact-v1", "existing_alias": false, "parent": "synny://type/potbot-data-file"},
+    {"basename": "MEMORY.md", "type_ref": "synny://type/potbot-context-file-memory-md-v1", "rule": "filename-memory-md-exact-v1", "existing_alias": false, "parent": "synny://type/potbot-data-file"},
+    {"basename": "SKILL.md", "type_ref": "synny://type/potbot-context-file-skill-md-v1", "rule": "filename-skill-md-exact-v1", "existing_alias": false, "parent": "synny://type/potbot-data-file"}
+  ]
+}
