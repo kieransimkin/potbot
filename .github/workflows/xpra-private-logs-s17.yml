@@ -1,0 +1,24 @@
+name: S17 private Xpra logs and host evidence
+on:
+  push:
+    paths:
+      - 'src/potbot/tools/xpra_log_policy_s17.py'
+      - 'src/potbot/tools/xpra_seamless.py'
+      - 'scripts/qualify_xpra_logs_s17.py'
+      - 'scripts/qualify_gui_host_s17.py'
+      - 'tests/unit/test_xpra_log_policy_s17.py'
+      - 'tests/unit/test_gui_host_qualification_s17.py'
+      - '.github/workflows/xpra-private-logs-s17.yml'
+  pull_request:
+  workflow_dispatch:
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --group dev --extra web
+      - run: uv run --locked --dev python -m pytest -q tests/unit/test_xpra_log_policy_s17.py tests/unit/test_gui_host_qualification_s17.py tests/unit/test_xpra_application_sessions.py tests/unit/test_gui_resource_audit_s15.py tests/unit/test_gui_audit_verification_s16.py
+      - run: uv run --locked --dev python -m compileall -q src/potbot/tools/xpra_log_policy_s17.py scripts/qualify_xpra_logs_s17.py scripts/qualify_gui_host_s17.py

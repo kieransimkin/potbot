@@ -52,7 +52,16 @@ class XpraSeamlessSession:
         private = self.host_runtime_root / suffix
         self.socket_dir = private / "sock"
         self.runtime_dir = private / "run"
-        self.log_path = root / ".potbot" / "x11" / "xpra.log"
+        # Host Xpra output is never part of the guest's shared /home tree.
+        # The operator provisions a private log root, normally /var/logs/ai/operator.
+        self._log_custody = None
+        if gui_audit_factory is not None:
+            from potbot.tools.xpra_log_policy_s17 import XpraLogCustody
+
+            self._log_custody = XpraLogCustody.from_environment(root)
+            self.log_path = self._log_custody.live_path
+        else:
+            self.log_path = root / ".potbot" / "x11" / "xpra.log"
         self._process: subprocess.Popen[bytes] | None = None
         self._log: BinaryIO | None = None
         self._log_owned = False
@@ -65,7 +74,8 @@ class XpraSeamlessSession:
     @property
     def running(self) -> bool:
         return (self._process is not None and self._process.poll() is None
-                and (self._gui_audit is None or self._gui_audit.healthy))
+                and (self._gui_audit is None or self._gui_audit.healthy)
+                and (self._log_custody is None or self._log_custody.healthy))
 
     @property
     def x_socket(self) -> Path:
@@ -170,8 +180,11 @@ class XpraSeamlessSession:
         self._stopped_cleanly = False
         if list(self.socket_dir.iterdir()) or self.log_path.exists() or self.log_path.is_symlink():
             raise XpraSessionError("stale Xpra session needs operator reconciliation")
-        fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-        self._log = os.fdopen(fd, "wb")
+        if self._log_custody is not None:
+            self._log = self._log_custody.open()
+        else:
+            fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            self._log = os.fdopen(fd, "wb")
         self._log_owned = True
         try:
             argv = (executable, *self.command()[1:])
@@ -235,14 +248,22 @@ class XpraSeamlessSession:
                 except FileNotFoundError:
                     pass
         if self._log is not None:
-            self._log.close()
+            if self._log_custody is not None:
+                try:
+                    self._log_custody.close(self._log)
+                except BaseException:
+                    # Preserve the private log and mark the display indeterminate.
+                    self._gui_audit_faulted = True
+            else:
+                self._log.close()
             self._log = None
         if self._log_owned:
-            # Preserve audit logs without confusing a later clean restart with
-            # an abandoned live process. Unique archival names never overwrite.
-            if self.log_path.is_file() and not self.log_path.is_symlink():
-                archived = self.log_path.with_name(f"xpra-{time.time_ns()}.log")
-                self.log_path.rename(archived)
+            if self._log_custody is None:
+                # Legacy standalone Xpra remains unchanged, but managed Xpra
+                # never writes to the shared workspace home.
+                if self.log_path.is_file() and not self.log_path.is_symlink():
+                    archived = self.log_path.with_name(f"xpra-{time.time_ns()}.log")
+                    self.log_path.rename(archived)
             self._log_owned = False
         # Remember successful termination for a later same-object restart, but
         # never treat unknown files or changed socket inodes as owned resources.
@@ -256,7 +277,7 @@ class XpraSeamlessSession:
         if audit is not None and not audit_complete:
             self._gui_audit_faulted = True
         self._stopped_cleanly = (process is not None and process.poll() is not None
-                                 and audit_complete)
+                                 and audit_complete and not self._gui_audit_faulted)
         # The subprocess owns its X11 and protocol sockets. Never delete unknown
         # sockets or restart on top of an ambiguous leftover display.
         for folder in (self.socket_dir, self.runtime_dir, self.socket_dir.parent):

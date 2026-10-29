@@ -1,0 +1,714 @@
+diff --git a/.github/workflows/xpra-private-logs-s17.yml b/.github/workflows/xpra-private-logs-s17.yml
+new file mode 100644
+index 0000000..817e603
+--- /dev/null
++++ b/.github/workflows/xpra-private-logs-s17.yml
+@@ -0,0 +1,24 @@
++name: S17 private Xpra logs and host evidence
++on:
++  push:
++    paths:
++      - 'src/potbot/tools/xpra_log_policy_s17.py'
++      - 'src/potbot/tools/xpra_seamless.py'
++      - 'scripts/qualify_xpra_logs_s17.py'
++      - 'scripts/qualify_gui_host_s17.py'
++      - 'tests/unit/test_xpra_log_policy_s17.py'
++      - 'tests/unit/test_gui_host_qualification_s17.py'
++      - '.github/workflows/xpra-private-logs-s17.yml'
++  pull_request:
++  workflow_dispatch:
++jobs:
++  offline:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++      - uses: astral-sh/setup-uv@v6
++      - run: uv sync --locked --group dev --extra web
++      - run: uv run --locked --dev python -m pytest -q tests/unit/test_xpra_log_policy_s17.py tests/unit/test_gui_host_qualification_s17.py tests/unit/test_xpra_application_sessions.py tests/unit/test_gui_resource_audit_s15.py tests/unit/test_gui_audit_verification_s16.py
++      - run: uv run --locked --dev python -m compileall -q src/potbot/tools/xpra_log_policy_s17.py scripts/qualify_xpra_logs_s17.py scripts/qualify_gui_host_s17.py
+diff --git a/docs/implementation/47-s17-host-xpra-logs-and-qualification.md b/docs/implementation/47-s17-host-xpra-logs-and-qualification.md
+new file mode 100644
+index 0000000..ab26b08
+--- /dev/null
++++ b/docs/implementation/47-s17-host-xpra-logs-and-qualification.md
+@@ -0,0 +1,45 @@
++# S17 — Host-private Xpra log custody and GUI acceptance
++
++**Baseline:** Potbot main `844eba3` (S16 merged). **Status:** offline tested; live Linux/WSL2 qualification remains a host-specific gate.
++
++## Production change
++
++Xpra's host daemon previously wrote its own log under the shared workspace home (`/home/.potbot/x11/xpra.log` or its per-agent display root). In a **managed** GUI session (one with an S15 kernel audit factory), this log now goes under a separately provisioned operator-only directory. This is distinct from agent-created sandbox logs in `/var/logs/ai` and is **not mounted into the sandbox**.
++
++Provision the host directory, as the service owner on the Linux/WSL2 operator host:
++
++```sh
++install -d -m 0700 /var/logs/ai/operator
++export POTBOT_XPRA_LOG_ROOT=/var/logs/ai/operator
++```
++
++The service needs the same S15 `POTBOT_OPERATOR_AUDIT_ROOT`, `POTBOT_OPERATOR_CGROUP_ROOT`, pinned strace/join helper and exact `POTBOT_XPRA_SHA256` settings. A managed process fails to start if the log root is absent, shared, symlinked, or intersects its display root. The selected log root is an operator environment setting, **never** a client-supplied path.
++
++Each display uses a SHA-256-derived namespace (no guest names, raw paths or IDs in the pathname). One active `xpra.log` is exclusively created per namespace with mode 0600. On shutdown, the owned log is preserved under a unique archive name with a separate fsync'd receipt recording only its SHA-256 and byte count. Archive receipts are revalidated before any new process starts; unpaired archives, stale active logs, symlinks, oversized logs and tampering require operator reconciliation. There is deliberately no automatic cleanup of forensic data.
++
++The managed display checks its active log during health polling; log tampering or reaching the 64 MiB ceiling fences new admission. Legacy non-managed standalone Xpra logging is unchanged to preserve existing deployments until they opt into kernel accounting.
++
++## Acceptance and recovery
++
++Run the qualified S13/S14 operator, launch and stop an actual monitored Xpra display and controlled browser, and verify an S16 audit for an exact completed GUI run. The following tools are read-only with respect to existing evidence:
++
++```sh
++PYTHONPATH=src python scripts/qualify_xpra_logs_s17.py \
++  --log-root /var/logs/ai/operator \
++  --report /var/logs/ai/operator-log-report.json
++
++PYTHONPATH=src python scripts/qualify_gui_host_s17.py \
++  --audit-root /path/to/private/audit-root \
++  --log-root /var/logs/ai/operator \
++  --workspace-id WORKSPACE_UUID --run-id COMPLETED_GUI_RUN_UUID \
++  --identity-kind principal --subject-id OPERATOR_PRINCIPAL_UUID \
++  --report /var/logs/ai/verified-gui-report.json
++```
++
++The combined gate rejects any unreconciled S16 history and any active/orphaned Xpra logfile. It requires at least one archived host log and a fully valid S16 process/syscall audit for the specified run. Its report never includes raw file paths or captured output. For an S40 agent browser, explicitly choose `--identity-kind agent --subject-id REGISTERED_AGENT_UUID` using the host's admitted identity.
++
++**Failure drills required on the actual host:** kill the operator, stop the Xpra process mid-write, trigger a trace-size overrun, corrupt a *disposable* archive receipt, and make an agent browser spawn a short-lived child. Each failure must leave a fenced or indeterminate lease, preserving private audit data; no automatic repin, lease release, log deletion or process relaunch occurs.
++
++## Further environment-specific work
++
++S17 cannot attest that a specific Windows/WSL2 system supports nested seccomp, delegated cgroup v2, kernel taskstats, Xpra Xdummy, or that all kernel descendants exit as expected. Those properties require a live operator host with privileges and real processes. The S16 recovery inventory remains read-only, so a separate reviewed, host-authorized reconciliation workflow must still prove empty cgroups and lease ownership before releasing retained indeterminate records. Also verify that the host-local `/var/logs/ai/operator` directory is backed up/archived under the deployment's retention policy; this patch does not silently delete logs.
+diff --git a/scripts/qualify_gui_host_s17.py b/scripts/qualify_gui_host_s17.py
+new file mode 100644
+index 0000000..939d52f
+--- /dev/null
++++ b/scripts/qualify_gui_host_s17.py
+@@ -0,0 +1,69 @@
++#!/usr/bin/env python3
++"""Operator-only S17 *read-only* evidence gate for a completed real GUI run.
++
++This is not a synthetic WSL2 qualification or process launcher. It refuses
++missing kernel audit evidence, any unreconciled GUI jobs or unarchived Xpra logs.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import sys
++from pathlib import Path
++from uuid import UUID
++
++from potbot.tools.gui_audit_verification import inspect_recovery, verify_gui_run
++from potbot.tools.xpra_log_policy_s17 import XpraLogError, inspect_xpra_logs
++
++
++def qualify(audit_root: Path, log_root: Path, workspace_id: UUID, run_id: UUID,
++            *, identity_kind: str = "principal", subject_id: UUID | None = None) -> dict[str, object]:
++    evidence = verify_gui_run(audit_root, workspace_id, run_id,
++                              identity_kind=identity_kind, subject_id=subject_id)
++    outstanding = inspect_recovery(audit_root, workspace_id)
++    logs = inspect_xpra_logs(log_root)
++    if outstanding["requiresReconciliation"] or logs["requiresReconciliation"]:
++        raise ValueError("unreconciled operator GUI evidence")
++    archived = sum(instance["archived"] for instance in logs["instances"])
++    if archived < 1:
++        raise ValueError("host Xpra never produced an archived log")
++    return {"schema": "potbot-gui-live-host-s17/v1", "qualified": True,
++            "workspaceId": str(workspace_id), "runId": str(run_id),
++            "identityKind": identity_kind, "tracedProcesses": evidence["tracedProcesses"],
++            "fileEvents": evidence["fileEvents"], "archivedHostLogs": archived,
++            "auditedRuns": outstanding["total"]}
++
++
++def main(argv: list[str] | None = None) -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument("--audit-root", required=True, type=Path)
++    p.add_argument("--log-root", required=True, type=Path)
++    p.add_argument("--workspace-id", required=True, type=UUID)
++    p.add_argument("--run-id", required=True, type=UUID)
++    p.add_argument("--identity-kind", choices=("principal", "agent"), default="principal")
++    p.add_argument("--subject-id", type=UUID)
++    p.add_argument("--report", type=Path, required=True)
++    args = p.parse_args(argv)
++    try:
++        data = qualify(args.audit_root, args.log_root, args.workspace_id, args.run_id,
++                       identity_kind=args.identity_kind, subject_id=args.subject_id)
++        if args.report.exists() or args.report.is_symlink() or not args.report.is_absolute():
++            raise ValueError("report must be a new absolute file")
++        fd = os.open(args.report, os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_WRONLY, 0o600)
++        with os.fdopen(fd, "w", encoding="utf-8") as output:
++            json.dump(data, output, sort_keys=True)
++            output.write("\n")
++            output.flush()
++            os.fsync(output.fileno())
++        print(json.dumps({"qualified": True,
++                          "reportSha256": hashlib.sha256(args.report.read_bytes()).hexdigest()}))
++        return 0
++    except (ValueError, KeyError, TypeError, OSError, XpraLogError):
++        print('{"qualified":false,"error":"gui_host_evidence_unavailable"}', file=sys.stderr)
++        return 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/qualify_xpra_logs_s17.py b/scripts/qualify_xpra_logs_s17.py
+new file mode 100644
+index 0000000..bdba44d
+--- /dev/null
++++ b/scripts/qualify_xpra_logs_s17.py
+@@ -0,0 +1,42 @@
++#!/usr/bin/env python3
++"""Operator-only, read-only Xpra log inventory; no contents or host paths in report."""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import sys
++from pathlib import Path
++
++from potbot.tools.xpra_log_policy_s17 import XpraLogError, inspect_xpra_logs
++
++
++def main(argv: list[str] | None = None) -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--log-root", type=Path, required=True)
++    parser.add_argument("--report", type=Path, required=True)
++    args = parser.parse_args(argv)
++    try:
++        result = inspect_xpra_logs(args.log_root)
++        if args.report.exists() or args.report.is_symlink() or not args.report.is_absolute():
++            raise XpraLogError("log inventory report must be a new absolute file")
++        # Report is private because it contains forensic run counts and hashes.
++        fd = os.open(args.report, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
++        with os.fdopen(fd, "w", encoding="utf-8") as output:
++            json.dump(result, output, sort_keys=True)
++            output.write("\n")
++            output.flush()
++            os.fsync(output.fileno())
++        digest = hashlib.sha256(args.report.read_bytes()).hexdigest()
++        print(json.dumps({"qualified": not result["requiresReconciliation"],
++                          "recoveryRequired": result["requiresReconciliation"],
++                          "reportSha256": digest}, sort_keys=True))
++        return 2 if result["requiresReconciliation"] else 0
++    except (OSError, TypeError, ValueError, XpraLogError):
++        print('{"qualified":false,"error":"xpra_log_inventory_unavailable"}', file=sys.stderr)
++        return 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/src/potbot/tools/xpra_log_policy_s17.py b/src/potbot/tools/xpra_log_policy_s17.py
+new file mode 100644
+index 0000000..4e0ef2a
+--- /dev/null
++++ b/src/potbot/tools/xpra_log_policy_s17.py
+@@ -0,0 +1,229 @@
++"""S17: operator-private Xpra log custody, independent of every guest mount.
++
++Normal guest/agent logs use the workspace's managed /var/logs/ai overlay.  Host
++Xpra stdout can contain private internal details, so it is never placed under
++shared /home or exposed through any guest, browser or public API.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++import stat
++import time
++from pathlib import Path
++from typing import BinaryIO
++from uuid import uuid4
++
++
++_MAX_ACTIVE = 64 * 1024 * 1024
++_ARCHIVE = re.compile(r"xpra-([0-9]{10,20})-([0-9a-f]{32})\.log\Z")
++_INSTANCE = re.compile(r"[0-9a-f]{32}\Z")
++
++
++class XpraLogError(RuntimeError):
++    """Fail-closed log custody error; never includes private host paths."""
++
++
++def _private_dir(path: Path) -> Path:
++    if not path.is_absolute() or path.is_symlink() or not path.is_dir():
++        raise XpraLogError("operator log directory is not qualified")
++    try:
++        info = path.stat(follow_symlinks=False)
++        if (path.resolve(strict=True) != path or not stat.S_ISDIR(info.st_mode)
++                or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077):
++            raise XpraLogError("operator log directory has unsafe permissions")
++    except OSError as exc:
++        raise XpraLogError("operator log directory is unavailable") from exc
++    return path
++
++
++def _document(path: Path, max_bytes: int = 2048) -> dict[str, object]:
++    if path.is_symlink() or not path.is_file():
++        raise XpraLogError("operator log receipt is invalid")
++    meta = path.stat(follow_symlinks=False)
++    if not stat.S_ISREG(meta.st_mode) or meta.st_uid != os.getuid() or (
++        stat.S_IMODE(meta.st_mode) & 0o077) or not 0 < meta.st_size <= max_bytes:
++        raise XpraLogError("operator log receipt is unqualified")
++    try:
++        def pairs(items: list[tuple[str, object]]) -> dict[str, object]:
++            out: dict[str, object] = {}
++            for key, value in items:
++                if key in out:
++                    raise ValueError("duplicate receipt key")
++                out[key] = value
++            return out
++        data = json.loads(path.read_bytes(), object_pairs_hook=pairs)
++        if not isinstance(data, dict):
++            raise ValueError("invalid JSON")
++        return data
++    except (OSError, ValueError, UnicodeError) as exc:
++        raise XpraLogError("operator log receipt is corrupt") from exc
++
++
++def _digest(path: Path, *, max_bytes: int = _MAX_ACTIVE) -> tuple[str, int]:
++    if path.is_symlink() or not path.is_file():
++        raise XpraLogError("Xpra log is not a regular file")
++    meta = path.stat(follow_symlinks=False)
++    if (not stat.S_ISREG(meta.st_mode) or meta.st_uid != os.getuid()
++            or stat.S_IMODE(meta.st_mode) & 0o077 or meta.st_size > max_bytes):
++        raise XpraLogError("Xpra log exceeds custody bounds")
++    sha = hashlib.sha256()
++    with path.open("rb") as source:
++        while block := source.read(1024 * 1024):
++            sha.update(block)
++    return sha.hexdigest(), meta.st_size
++
++
++class XpraLogCustody:
++    """One workspace/display's bounded operator-only log and immutable archives.
++
++    Unrecognized active logs or incomplete archive receipts are *not* cleaned
++    automatically.  Exclusive per-display Xpra session locking stays upstream.
++    """
++
++    def __init__(self, operator_root: Path, display_root: Path) -> None:
++        base = _private_dir(Path(operator_root))
++        guest = Path(display_root).resolve(strict=True)
++        if not guest.is_dir() or base == guest or base.is_relative_to(guest) or guest.is_relative_to(base):
++            raise XpraLogError("operator logs overlap the display's filesystem")
++        identifier = hashlib.sha256(os.fsencode(guest)).hexdigest()[:32]
++        self.operator_root = base
++        self.instance_dir = base / identifier
++        if self.instance_dir.is_symlink():
++            raise XpraLogError("Xpra instance logs were redirected")
++        self.instance_dir.mkdir(mode=0o700, exist_ok=True)
++        _private_dir(self.instance_dir)
++        self.live_path = self.instance_dir / "xpra.log"
++        self._inode: tuple[int, int] | None = None
++        self._started = False
++        self._faulted = False
++
++    @classmethod
++    def from_environment(cls, display_root: Path) -> XpraLogCustody:
++        # Operator service controls environment. Production root should be a
++        # private subtree of /var/logs/ai on the Linux/WSL2 operator host.
++        name = os.environ.get("POTBOT_XPRA_LOG_ROOT", "/var/logs/ai/operator")
++        return cls(Path(name), display_root)
++
++    def open(self) -> BinaryIO:
++        if self._started or self._faulted:
++            raise XpraLogError("Xpra log custody cannot be reused")
++        _private_dir(self.instance_dir)
++        # Do not let a previous crash's orphaned archive or tampered receipt
++        # disappear behind a new session, even though its live filename is gone.
++        inventory = inspect_xpra_logs(self.operator_root, limit=4096)
++        selected = next((item for item in inventory["instances"]
++                         if item["namespace"] == self.instance_dir.name), None)
++        if (selected is None or selected["requiresReconciliation"]
++                or self.live_path.exists() or self.live_path.is_symlink()):
++            raise XpraLogError("stale Xpra log requires operator reconciliation")
++        fd = os.open(self.live_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
++        stat_result = os.fstat(fd)
++        self._inode = stat_result.st_dev, stat_result.st_ino
++        self._started = True
++        return os.fdopen(fd, "wb")
++
++    @property
++    def healthy(self) -> bool:
++        if not self._started or self._faulted or self._inode is None:
++            return False
++        try:
++            meta = self.live_path.stat(follow_symlinks=False)
++            return (stat.S_ISREG(meta.st_mode) and (meta.st_dev, meta.st_ino) == self._inode
++                    and meta.st_uid == os.getuid() and not meta.st_mode & 0o077
++                    and meta.st_size <= _MAX_ACTIVE)
++        except OSError:
++            return False
++
++    def close(self, output: BinaryIO) -> None:
++        """Archive exactly the owned inode; preserve all records after a fault."""
++        if not self._started or self._inode is None:
++            raise XpraLogError("Xpra log was not opened by this owner")
++        if self._faulted:
++            raise XpraLogError("Xpra log custody already faulted")
++        try:
++            output.flush()
++            os.fsync(output.fileno())
++            output.close()
++            if not self.healthy:
++                raise XpraLogError("Xpra log changed or exceeded the byte limit")
++            sha, size = _digest(self.live_path)
++            archive = f"xpra-{time.time_ns()}-{uuid4().hex}.log"
++            dest = self.instance_dir / archive
++            if dest.exists() or dest.is_symlink():
++                raise XpraLogError("Xpra archive already exists")
++            os.rename(self.live_path, dest)
++            receipt_path = self.instance_dir / (archive + ".json")
++            record = {"schema": "potbot-xpra-log/v1", "archive": archive,
++                      "sha256": sha, "size": size}
++            encoded = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode()
++            fd = os.open(receipt_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
++            with os.fdopen(fd, "wb") as receipt:
++                receipt.write(encoded)
++                receipt.flush()
++                os.fsync(receipt.fileno())
++            dfd = os.open(self.instance_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
++            try:
++                os.fsync(dfd)
++            finally:
++                os.close(dfd)
++            self._started = False
++        except BaseException:
++            self._faulted = True
++            try:
++                output.close()
++            except OSError:
++                pass
++            raise
++
++
++def inspect_xpra_logs(operator_root: Path, *, limit: int = 256) -> dict[str, object]:
++    """Read-only host recovery index; never returns paths, raw contents or secrets."""
++    if type(limit) is not int or not 1 <= limit <= 4096:
++        raise XpraLogError("invalid log inventory limit")
++    root = _private_dir(Path(operator_root))
++    result: list[dict[str, object]] = []
++    for folder in sorted(root.iterdir(), key=lambda p: p.name):
++        if len(result) >= limit:
++            raise XpraLogError("operator log inventory bound exceeded")
++        if not _INSTANCE.fullmatch(folder.name):
++            raise XpraLogError("unexpected operator log namespace")
++        _private_dir(folder)
++        files = list(folder.iterdir())
++        if len(files) > 1024:
++            raise XpraLogError("operator log archive bound exceeded")
++        live = "xpra.log" in {item.name for item in files}
++        orphan = 0
++        archived = 0
++        known: set[str] = set()
++        for entry in files:
++            if entry.name == "xpra.log":
++                _digest(entry)  # A leftover live log always needs reconciliation.
++                continue
++            if entry.name.endswith(".json"):
++                archive = entry.name[:-5]
++                if not _ARCHIVE.fullmatch(archive):
++                    raise XpraLogError("unexpected archive receipt")
++                receipt = _document(entry)
++                if (set(receipt) != {"schema", "archive", "sha256", "size"}
++                        or receipt["schema"] != "potbot-xpra-log/v1"
++                        or receipt["archive"] != archive
++                        or type(receipt["size"]) is not int or not 0 <= receipt["size"] <= _MAX_ACTIVE
++                        or not isinstance(receipt["sha256"], str)
++                        or not re.fullmatch(r"[0-9a-f]{64}", receipt["sha256"])):
++                    raise XpraLogError("operator archive receipt is inconsistent")
++                digest, size = _digest(folder / archive)
++                if (digest != receipt["sha256"] or size != receipt["size"]):
++                    raise XpraLogError("operator archive content differs from receipt")
++                known.add(archive)
++                archived += 1
++            elif not _ARCHIVE.fullmatch(entry.name):
++                raise XpraLogError("unexpected operator log file")
++        orphan = sum(1 for p in files if _ARCHIVE.fullmatch(p.name) and p.name not in known)
++        result.append({"namespace": folder.name, "archived": archived,
++                       "orphanedArchives": orphan, "active": live,
++                       "requiresReconciliation": live or orphan > 0})
++    return {"schema": "potbot-xpra-logs-s17/v1", "instances": result,
++            "requiresReconciliation": any(x["requiresReconciliation"] for x in result)}
+diff --git a/tests/unit/test_gui_host_qualification_s17.py b/tests/unit/test_gui_host_qualification_s17.py
+new file mode 100644
+index 0000000..9f297da
+--- /dev/null
++++ b/tests/unit/test_gui_host_qualification_s17.py
+@@ -0,0 +1,47 @@
++"""S17 host-evidence policy tests without claiming a real host was qualified."""
++from __future__ import annotations
++
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++from potbot.tools.xpra_log_policy_s17 import XpraLogCustody
++from scripts import qualify_gui_host_s17 as gate
++
++
++def test_combined_gate_requires_a_completed_run_and_archived_logs(tmp_path: Path, monkeypatch):
++    logs = tmp_path / "logs"
++    guest = tmp_path / "guest"
++    logs.mkdir(mode=0o700)
++    guest.mkdir(mode=0o700)
++    owner = XpraLogCustody(logs, guest)
++    out = owner.open()
++    out.write(b"s17 log")
++    owner.close(out)
++    ws, run = uuid4(), uuid4()
++    monkeypatch.setattr(gate, "verify_gui_run", lambda *a, **k: {
++        "tracedProcesses": 4, "fileEvents": 32,
++    })
++    monkeypatch.setattr(gate, "inspect_recovery", lambda *a, **k: {
++        "requiresReconciliation": False, "total": 1,
++    })
++    report = gate.qualify(tmp_path / "audit", logs, ws, run)
++    assert report["qualified"]
++    assert report["archivedHostLogs"] == 1
++    assert report["fileEvents"] == 32
++    assert "guest" not in str(report)
++
++
++def test_combined_gate_refuses_unsettled_other_runs(tmp_path: Path, monkeypatch):
++    ws, run = uuid4(), uuid4()
++    monkeypatch.setattr(gate, "verify_gui_run", lambda *a, **k: {
++        "tracedProcesses": 1, "fileEvents": 1,
++    })
++    monkeypatch.setattr(gate, "inspect_recovery", lambda *a, **k: {
++        "requiresReconciliation": True, "total": 1,
++    })
++    monkeypatch.setattr(gate, "inspect_xpra_logs", lambda *a, **k: {
++        "requiresReconciliation": False, "instances": [{"archived": 1}],
++    })
++    with pytest.raises(ValueError):
++        gate.qualify(tmp_path / "audit", tmp_path / "logs", ws, run)
+diff --git a/tests/unit/test_xpra_log_policy_s17.py b/tests/unit/test_xpra_log_policy_s17.py
+new file mode 100644
+index 0000000..0d01a9a
+--- /dev/null
++++ b/tests/unit/test_xpra_log_policy_s17.py
+@@ -0,0 +1,133 @@
++"""Host-only Xpra log custody regression tests; never runs an Xpra daemon."""
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++
++import pytest
++
++from potbot.tools.xpra_log_policy_s17 import XpraLogCustody, XpraLogError, inspect_xpra_logs
++
++
++def fixture(tmp_path: Path):
++    root, guest = tmp_path / "operator", tmp_path / "guest"
++    root.mkdir(mode=0o700)
++    guest.mkdir(mode=0o700)
++    return root, guest
++
++
++def test_operator_log_archived_with_digest_and_no_guest_file(tmp_path):
++    root, guest = fixture(tmp_path)
++    policy = XpraLogCustody(root, guest)
++    out = policy.open()
++    out.write(b"private-data-never-exposed-to-UI\n")
++    assert policy.healthy
++    policy.close(out)
++    assert not policy.live_path.exists()
++    doc = inspect_xpra_logs(root)
++    assert doc["requiresReconciliation"] is False
++    assert doc["instances"][0]["archived"] == 1
++    assert "private-data" not in json.dumps(doc)
++    assert list(guest.iterdir()) == []
++
++
++def test_unexpected_stale_live_log_fences_start(tmp_path):
++    root, guest = fixture(tmp_path)
++    owner = XpraLogCustody(root, guest)
++    owner.open().write(b"crash-before-finalize")
++    assert inspect_xpra_logs(root)["requiresReconciliation"]
++    with pytest.raises(XpraLogError):
++        XpraLogCustody(root, guest).open()
++
++
++def test_incomplete_archive_receipt_requires_reconciliation(tmp_path):
++    root, guest = fixture(tmp_path)
++    owner = XpraLogCustody(root, guest)
++    out = owner.open()
++    out.write(b"evidence")
++    owner.close(out)
++    receipt = next(owner.instance_dir.glob("*.json"))
++    receipt.unlink()
++    doc = inspect_xpra_logs(root)
++    assert doc["requiresReconciliation"] is True
++    assert doc["instances"][0]["orphanedArchives"] == 1
++
++
++def test_archive_tamper_and_suspicious_files_fail_closed(tmp_path):
++    root, guest = fixture(tmp_path)
++    owner = XpraLogCustody(root, guest)
++    out = owner.open()
++    out.write(b"ok")
++    owner.close(out)
++    archive = next(owner.instance_dir.glob("*.log"))
++    archive.write_bytes(b"not-the-same")
++    with pytest.raises(XpraLogError):
++        inspect_xpra_logs(root)
++
++
++def test_symlink_and_accessible_log_root_rejected(tmp_path):
++    root, guest = fixture(tmp_path)
++    root.chmod(0o755)
++    with pytest.raises(XpraLogError):
++        XpraLogCustody(root, guest)
++    root.chmod(0o700)
++    link = tmp_path / "link"
++    link.symlink_to(root, target_is_directory=True)
++    with pytest.raises(XpraLogError):
++        XpraLogCustody(link, guest)
++    with pytest.raises(XpraLogError):
++        XpraLogCustody(guest, guest)
++
++
++def test_log_limit_fault_does_not_destroy_evidence(tmp_path, monkeypatch):
++    from potbot.tools import xpra_log_policy_s17 as module
++    root, guest = fixture(tmp_path)
++    monkeypatch.setattr(module, "_MAX_ACTIVE", 4)
++    owner = XpraLogCustody(root, guest)
++    output = owner.open()
++    output.write(b"exceeded")
++    output.flush()
++    assert not owner.healthy
++    with pytest.raises(XpraLogError):
++        owner.close(output)
++    assert owner.live_path.exists()
++    with pytest.raises(XpraLogError):
++        owner.open()
++
++
++def test_qualifier_does_not_follow_symlinked_archive(tmp_path):
++    root, guest = fixture(tmp_path)
++    owner = XpraLogCustody(root, guest)
++    out = owner.open()
++    out.write(b"ok")
++    owner.close(out)
++    archive = next(owner.instance_dir.glob("*.log"))
++    archive.unlink()
++    archive.symlink_to("/etc/passwd")
++    with pytest.raises(XpraLogError):
++        inspect_xpra_logs(root)
++
++
++def test_orphaned_archive_fences_new_start(tmp_path):
++    root, guest = fixture(tmp_path)
++    owner = XpraLogCustody(root, guest)
++    handle = owner.open()
++    handle.write(b"log")
++    owner.close(handle)
++    next(owner.instance_dir.glob("*.json")).unlink()
++    with pytest.raises(XpraLogError):
++        XpraLogCustody(root, guest).open()
++
++
++def test_qualifier_creates_private_no_content_report(tmp_path):
++    from scripts.qualify_xpra_logs_s17 import main
++    root, guest = fixture(tmp_path)
++    owner = XpraLogCustody(root, guest)
++    handle = owner.open()
++    handle.write(b"secret-no-disclosure")
++    owner.close(handle)
++    report = tmp_path / "report.json"
++    assert main(["--log-root", str(root), "--report", str(report)]) == 0
++    assert "secret-no-disclosure" not in report.read_text()
++    assert report.stat().st_mode & 0o077 == 0
+diff --git a/src/potbot/tools/xpra_seamless.py b/src/potbot/tools/xpra_seamless.py
+--- a/src/potbot/tools/xpra_seamless.py
++++ b/src/potbot/tools/xpra_seamless.py
+@@ -52,7 +52,16 @@
+         private = self.host_runtime_root / suffix
+         self.socket_dir = private / "sock"
+         self.runtime_dir = private / "run"
+-        self.log_path = root / ".potbot" / "x11" / "xpra.log"
++        # Host Xpra output is never part of the guest's shared /home tree.
++        # The operator provisions a private log root, normally /var/logs/ai/operator.
++        self._log_custody = None
++        if gui_audit_factory is not None:
++            from potbot.tools.xpra_log_policy_s17 import XpraLogCustody
++
++            self._log_custody = XpraLogCustody.from_environment(root)
++            self.log_path = self._log_custody.live_path
++        else:
++            self.log_path = root / ".potbot" / "x11" / "xpra.log"
+         self._process: subprocess.Popen[bytes] | None = None
+         self._log: BinaryIO | None = None
+         self._log_owned = False
+@@ -65,7 +74,8 @@
+     @property
+     def running(self) -> bool:
+         return (self._process is not None and self._process.poll() is None
+-                and (self._gui_audit is None or self._gui_audit.healthy))
++                and (self._gui_audit is None or self._gui_audit.healthy)
++                and (self._log_custody is None or self._log_custody.healthy))
+ 
+     @property
+     def x_socket(self) -> Path:
+@@ -170,8 +180,11 @@
+         self._stopped_cleanly = False
+         if list(self.socket_dir.iterdir()) or self.log_path.exists() or self.log_path.is_symlink():
+             raise XpraSessionError("stale Xpra session needs operator reconciliation")
+-        fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+-        self._log = os.fdopen(fd, "wb")
++        if self._log_custody is not None:
++            self._log = self._log_custody.open()
++        else:
++            fd = os.open(self.log_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
++            self._log = os.fdopen(fd, "wb")
+         self._log_owned = True
+         try:
+             argv = (executable, *self.command()[1:])
+@@ -235,14 +248,22 @@
+                 except FileNotFoundError:
+                     pass
+         if self._log is not None:
+-            self._log.close()
++            if self._log_custody is not None:
++                try:
++                    self._log_custody.close(self._log)
++                except BaseException:
++                    # Preserve the private log and mark the display indeterminate.
++                    self._gui_audit_faulted = True
++            else:
++                self._log.close()
+             self._log = None
+         if self._log_owned:
+-            # Preserve audit logs without confusing a later clean restart with
+-            # an abandoned live process. Unique archival names never overwrite.
+-            if self.log_path.is_file() and not self.log_path.is_symlink():
+-                archived = self.log_path.with_name(f"xpra-{time.time_ns()}.log")
+-                self.log_path.rename(archived)
++            if self._log_custody is None:
++                # Legacy standalone Xpra remains unchanged, but managed Xpra
++                # never writes to the shared workspace home.
++                if self.log_path.is_file() and not self.log_path.is_symlink():
++                    archived = self.log_path.with_name(f"xpra-{time.time_ns()}.log")
++                    self.log_path.rename(archived)
+             self._log_owned = False
+         # Remember successful termination for a later same-object restart, but
+         # never treat unknown files or changed socket inodes as owned resources.
+@@ -256,7 +277,7 @@
+         if audit is not None and not audit_complete:
+             self._gui_audit_faulted = True
+         self._stopped_cleanly = (process is not None and process.poll() is not None
+-                                 and audit_complete)
++                                 and audit_complete and not self._gui_audit_faulted)
+         # The subprocess owns its X11 and protocol sockets. Never delete unknown
+         # sockets or restart on top of an ambiguous leftover display.
+         for folder in (self.socket_dir, self.runtime_dir, self.socket_dir.parent):
