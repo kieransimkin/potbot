@@ -15,8 +15,9 @@ export class AgentXpraHub {
   private windows = new Map<string, AgentWindowInfo>();
   private canvases = new Map<string, Canvas>();
   private streams = new Map<string, { publisher: Publisher; epoch: number }>();
-  // Monotonic across disconnects, even before the first X window appears.
-  private epochs = new Map<string, number>();
+  // A hub-wide epoch cannot be reused when a session disappears and returns.
+  // In particular, an old decoder must never match a new browser's first frame.
+  private nextEpoch = 0;
   private listeners = new Set<() => void>();
   private dock: (() => DockviewApi | null) | null = null;
   private hidden = new Set<string>();
@@ -32,14 +33,16 @@ export class AgentXpraHub {
   setDock(get: () => DockviewApi | null): void { this.dock = get; }
   setStatus(status: string): void { if (this.view.status !== status) { this.view = {...this.view, status}; this.changed(); } }
   setSessions(sessions: AgentXpraSession[]): void {
-    const oldBySession = new Map(this.view.sessions.map(x => [x.id, x.agentId]));
-    for (const replacement of sessions) {
-      if (oldBySession.has(replacement.id) && oldBySession.get(replacement.id) !== replacement.agentId)
-        this.removeSession(replacement.id); // A browser can never transfer live profile ownership.
-    }
-    const live = new Set(sessions.map(x => x.id));
-    for (const sessionId of new Set([...this.windows.values()].map(w => w.sessionId))) {
-      if (!live.has(sessionId)) this.removeSession(sessionId);
+    const previous = new Map(this.view.sessions.map(x => [x.id, x.agentId]));
+    const live = new Map(sessions.map(x => [x.id, x.agentId]));
+    // Some sessions have a connected decoder but no X windows yet. Enumerating
+    // just windows leaves those publishers alive after the session is revoked.
+    const known = new Set([...previous.keys(), ...this.streams.keys(),
+      ...[...this.windows.values()].map(w => w.sessionId)]);
+    for (const sessionId of known) {
+      if (!live.has(sessionId) || (previous.has(sessionId) &&
+          previous.get(sessionId) !== live.get(sessionId)))
+        this.removeSession(sessionId);
     }
     this.view = {...this.view, sessions: [...sessions]};
     this.changed();
@@ -54,12 +57,16 @@ export class AgentXpraHub {
   removeSession(sessionId: string): void {
     for (const [key, w] of this.windows) if (w.sessionId === sessionId) this.removeKey(key);
     this.streams.delete(sessionId);
-    this.epochs.delete(sessionId);
+    // Keep nextEpoch: a retired and then recreated session cannot reuse an
+    // epoch that belongs to a late iframe or its already-transferred bitmaps.
     this.changed();
   }
   disconnected(sessionId: string, epoch?: number): void {
-    // A stale iframe must never disconnect a newer connection for this session.
-    if (epoch !== undefined && this.streams.get(sessionId)?.epoch !== epoch) return;
+    // A failed, not-yet-ready iframe has no epoch. It cannot disconnect a
+    // healthy stream established by another iframe or reconnect attempt.
+    const current = this.streams.get(sessionId);
+    if ((current && (epoch === undefined || current.epoch !== epoch)) ||
+        (!current && epoch !== undefined)) return;
     this.streams.delete(sessionId);
     for (const [key, window] of this.windows) if (window.sessionId === sessionId)
       this.windows.set(key, {...window, connected: false});
@@ -68,8 +75,9 @@ export class AgentXpraHub {
   attachedStream(sessionId: string, publisher: Publisher): number {
     if (!this.view.sessions.some(s => s.id === sessionId))
       throw Error("Agent stream is no longer present in this workspace");
-    const epoch = (this.epochs.get(sessionId) ?? 0) + 1;
-    this.epochs.set(sessionId, epoch);
+    if (this.nextEpoch >= 0x7fffffff)
+      throw Error("Agent Xpra stream epoch budget exhausted; restart the viewer");
+    const epoch = ++this.nextEpoch;
     this.streams.set(sessionId, {publisher, epoch});
     return epoch;
   }
@@ -164,7 +172,8 @@ export class AgentXpraHub {
   }
   reset(): void {
     for (const key of [...this.windows.keys()]) this.removeKey(key);
-    this.streams.clear(); this.epochs.clear(); this.canvases.clear(); this.hidden.clear(); this.dock = null;
+    this.streams.clear(); this.canvases.clear(); this.hidden.clear(); this.dock = null;
+    // Do not reset nextEpoch while stale MessageEvents might still be queued.
     this.view = {sessions:[],windows:[],status:"Private agent displays disconnected"};
     for (const fn of this.listeners) fn();
   }

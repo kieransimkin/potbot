@@ -80,3 +80,50 @@ test('generation and epoch both fence stale bitmaps after reconnection', () => {
   assert.equal(paints,0,'old canvas is never painted by new or old stream');
   assert.equal(closes,2,'every transferred image buffer is released');
 });
+
+test('inventory removal revokes a connected decoder even before its first X window', () => {
+  const {hub} = hubWithDock();
+  const original = hub.attachedStream(session, () => {});
+  assert.equal(hub.snapshot().windows.length, 0);
+  hub.setSessions([]);
+  assert.throws(() => hub.attachedStream(session, () => {}), /no longer present/);
+  hub.setSessions([entry]);
+  const replacement = hub.attachedStream(session, () => {});
+  assert.ok(replacement > original, 'retired stream epoch must never be reused');
+  hub.observe(entry, window, original);
+  assert.equal(hub.snapshot().windows.length, 0, 'late decoder cannot resurrect old pane');
+  hub.observe(entry, window, replacement);
+  assert.equal(hub.snapshot().windows.length, 1);
+});
+
+test('a pre-ready stale disconnect cannot evict a newer connected decoder', () => {
+  const {hub} = hubWithDock();
+  const original = hub.attachedStream(session, () => {});
+  hub.disconnected(session, original);
+  const replacement = hub.attachedStream(session, () => {});
+  hub.disconnected(session); // stale connection never became ready
+  hub.disconnected(session, original); // retired iframe from the previous epoch
+  hub.observe(entry, window, replacement);
+  assert.equal(hub.snapshot().windows[0].connected, true);
+});
+
+test('reset preserves stream epoch monotonicity across late browser events', () => {
+  const {hub} = hubWithDock();
+  const old = hub.attachedStream(session, () => {});
+  hub.reset();
+  hub.setSessions([entry]);
+  const next = hub.attachedStream(session, () => {});
+  assert.ok(next > old, 'new viewer lifetime must not reuse an in-flight epoch');
+});
+
+test('concurrent agent inventory requests apply only the newest response', async () => {
+  const {AgentXpraInventoryGuard} = await import('../src/lib/agent-xpra-inventory.ts');
+  const guard = new AgentXpraInventoryGuard();
+  const earlier = guard.begin();
+  const later = guard.begin();
+  assert.equal(guard.accepts(earlier), false);
+  assert.equal(guard.accepts(later), true);
+  guard.stop();
+  assert.equal(guard.accepts(later), false, 'response after unmount is stale');
+  assert.equal(guard.begin(), 0, 'no new poll can start after shutdown');
+});

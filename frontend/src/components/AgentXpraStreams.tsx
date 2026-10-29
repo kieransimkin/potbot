@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, useSyncExternal
 import type { MutableRefObject } from "react";
 import type { DockviewApi } from "dockview-react";
 import { AgentXpraHub } from "@/lib/agent-xpra-hub";
+import { AgentXpraInventoryGuard } from "@/lib/agent-xpra-inventory";
 import type { AgentXpraSession } from "@/lib/agent-xpra-contract";
 import { agentXpraSessions, parseAgentWindowKey } from "@/lib/agent-xpra-contract";
 import { validXpraWindow, xpraFrameURL } from "@/lib/xpra-contract";
@@ -60,16 +61,20 @@ function PrivateStream({session, hub, workspaceId}: {session: AgentXpraSession;
       finally { connecting = false; }
     };
     const message = (event: MessageEvent) => {
-      if (!alive || event.origin !== location.origin || event.source !== iframe.current?.contentWindow) return;
       const data = event.data as Record<string, unknown> | null;
-      if (!data || data.type !== "potbot:xpra") return;
-      if (data.channel !== channel.current) {
-        // The former decoder can race a reconnect; discard its transferred bitmap.
-        if (data.action === "frame" && typeof ImageBitmap !== "undefined" &&
-            data.bitmap instanceof ImageBitmap) data.bitmap.close();
+      const abandonedFrame = data && data.action === "frame" &&
+        typeof ImageBitmap !== "undefined" && data.bitmap instanceof ImageBitmap
+        ? data.bitmap : null;
+      // Even an obsolete iframe/source can transfer ownership of a bitmap.
+      // Always close it rather than leaking GPU-backed memory on rejection.
+      if (!alive || event.origin !== location.origin ||
+          event.source !== iframe.current?.contentWindow || !data ||
+          data.type !== "potbot:xpra" || data.channel !== channel.current) {
+        abandonedFrame?.close();
         return;
       }
       if (data.action === "ready") {
+        if (epoch !== 0) return; // Duplicate ready cannot silently replace the stream epoch.
         clearTimeout(readyWatchdog);
         attempts = 0;
         // View-only agent streams are deliberately bandwidth-capped separately
@@ -117,8 +122,11 @@ export function AgentXpraStreamHost({workspaceId, enabled, apiRef}: {workspaceId
     setSessions([]);
     hub.setSessions([]);
     if (!enabled) { hub.reset(); return; }
-    let live = true;
+    // A later poll wins even when HTTP responses arrive out of order.
+    const inventoryGuard = new AgentXpraInventoryGuard();
     const fetchInventory = async () => {
+      const revision = inventoryGuard.begin();
+      if (!revision) return;
       try {
         const response = await fetch("/api/ui/xpra/agent-sessions", {method:"GET", cache:"no-store",
           credentials:"same-origin",headers:{"x-potbot-workspace":workspaceId}});
@@ -126,12 +134,12 @@ export function AgentXpraStreamHost({workspaceId, enabled, apiRef}: {workspaceId
         const document = await response.json();
         const result = agentXpraSessions(document, workspaceId);
         if (result === null) throw Error("Invalid display inventory");
-        if (!live) return;
+        if (!inventoryGuard.accepts(revision)) return;
         setSessions(result);
         hub.setSessions(result);
         hub.setStatus(`${result.length} read-only agent browser${result.length === 1 ? "" : "s"}`);
       } catch {
-        if (live) {
+        if (inventoryGuard.accepts(revision)) {
           hub.setStatus("Agent display service unavailable");
           setSessions([]); hub.setSessions([]);
         }
@@ -139,7 +147,7 @@ export function AgentXpraStreamHost({workspaceId, enabled, apiRef}: {workspaceId
     };
     void fetchInventory();
     const poll = setInterval(() => void fetchInventory(), 7000);
-    return () => { live = false; clearInterval(poll); hub.reset(); };
+    return () => { inventoryGuard.stop(); clearInterval(poll); hub.reset(); };
   }, [workspaceId, enabled, hub, apiRef]);
   return <>{sessions.map(session => <PrivateStream key={`${workspaceId}:${session.id}`}
     workspaceId={workspaceId} session={session} hub={hub}/>)}</>;
