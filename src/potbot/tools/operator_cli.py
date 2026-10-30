@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 from uuid import UUID
 
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
+from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
 
 if TYPE_CHECKING:
     from potbot.context.projection import ContextProjectionManager
@@ -121,7 +121,8 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                  socket_path: Path | None = None,
                  context_manager: ContextProjectionManager | None = None,
                  shared_skills: Path | None = None,
-                 project_agent_context: bool = False) -> None:
+                 project_agent_context: bool = False,
+                 context_refresh_seconds: int = 10) -> None:
     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
     from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
@@ -155,10 +156,26 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                 mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
                 status=operator.status,
             ))
+        refresh_checked = 0.0
         while True:
             status = operator.status()
             if not status["history_healthy"]:
                 raise CapabilityUnavailableError("AI history monitor faulted; guest execution fenced")
+            if context_manager is not None and context_refresh_seconds > 0:
+                now = time.monotonic()
+                if now - refresh_checked >= context_refresh_seconds:
+                    refresh_checked = now
+                    from potbot.context.refresh import context_is_stale
+
+                    if context_is_stale(
+                        context_manager, operator.runtime, ledger,
+                        include_agents=operator._project_agent_context,
+                    ):
+                        try:
+                            operator.refresh_context()
+                        except StateMismatchError:
+                            # Live worker/lease: do not interrupt, retry later.
+                            pass
             if pulse is not None:
                 pulse(status)
             # A termination signal requests quiescence but is NOT authorization

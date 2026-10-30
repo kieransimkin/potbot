@@ -61,6 +61,22 @@ class AgentContextLifecycle:
         )
         return home
 
+    def reconcile_existing(self, identity: ContextIdentity) -> AgentHome:
+        """Idempotent context repair for a previously registered agent home.
+
+        Never creates a new agent identity or adopts a directory found on disk;
+        only AgentHomeRegistry's database-backed mapping can designate a home.
+        """
+        home = self.registry.lookup(identity.principal.workspace_id, identity.agent_id)
+        if home is None:
+            raise ScopeDeniedError("Agent context reconciliation needs a registered home")
+        self.ensure_placeholders(identity, home)
+        self.service.provision_private(
+            identity.principal, "agent", str(identity.agent_id),
+            idempotency_key="agent-reconcile-" + identity.agent_id.hex,
+        )
+        return home
+
     def ensure_placeholders(self, identity: ContextIdentity, home: AgentHome) -> None:
         """Create-only 0444 guest targets, guarded by a workspace-wide host lease.
 
@@ -207,3 +223,45 @@ def context_instruction_packet(bundle: dict[str, Any], *, max_bytes: int = 262_1
     if len(packet.encode("utf-8")) > max_bytes:
         raise InvalidInputError("Assembled context exceeds bounded packet size")
     return packet
+
+
+def reconcile_registered_agents(
+    service: WorkspaceContextService, principal: WorkspaceContext,
+    ledger: WorkspaceLeaseLedger,
+) -> tuple[UUID, ...]:
+    """Host-only bootstrap for all registered workspace agents.
+
+    The operator must run this before exposing context mounts, while the agent
+    homes are fenced by the existing ledger. This is deliberately not an
+    untrusted guest request or a directory enumeration of /home.
+    """
+    from potbot.tools.agent_homes import AgentHomeRegistry
+
+    with service.database.transaction(principal) as conn:
+        row = conn.execute(
+            "SELECT name FROM workspaces WHERE id=%s", (principal.workspace_id,)
+        ).fetchone()
+    if row is None:
+        raise ScopeDeniedError("Workspace cannot be reconciled")
+    registry = AgentHomeRegistry(ledger, workspace_name=row["name"])
+    lifecycle = AgentContextLifecycle(service, registry)
+    with ledger._connect() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_homes'"
+        ).fetchone()
+        agents = (
+            conn.execute("SELECT agent_id FROM agent_homes "
+                         "WHERE workspace_id=? ORDER BY agent_id",
+                         (str(principal.workspace_id),)).fetchall()
+            if exists is not None else ()
+        )
+    # A bounded pass prevents unexpectedly huge stale host-ledger inventories
+    # from holding the operator startup gate indefinitely.
+    if len(agents) > 256:
+        raise StateMismatchError("Too many agents for one bounded context reconciliation")
+    result = []
+    for row in agents:
+        identity = ContextIdentity(principal, UUID(row["agent_id"]))
+        lifecycle.reconcile_existing(identity)
+        result.append(identity.agent_id)
+    return tuple(result)

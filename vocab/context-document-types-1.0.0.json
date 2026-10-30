@@ -1,0 +1,14 @@
+{
+  "schema": "potbot-context-syn-types/v1",
+  "release": "potbot-context-document-roles/1.0.0",
+  "status": "published_opt_in_not_installed_as_default_catalog",
+  "compatibility": "immutable synny://type/potbot-data-file parent from 0.1.0",
+  "classification": "exact_checked_basename_only",
+  "properties_not_implied": ["markdown_validity", "trust", "authority", "instruction_applicability"],
+  "existing_alias": {"basename": "AGENTS.md", "ref": "synny://type/potbot-data-file-agents-md"},
+  "types": [
+    {"basename": "MODEL.md", "ref": "synny://type/potbot-context-file-model-md-v1", "parent": "synny://type/potbot-data-file"},
+    {"basename": "MEMORY.md", "ref": "synny://type/potbot-context-file-memory-md-v1", "parent": "synny://type/potbot-data-file"},
+    {"basename": "SKILL.md", "ref": "synny://type/potbot-context-file-skill-md-v1", "parent": "synny://type/potbot-data-file"}
+  ]
+}

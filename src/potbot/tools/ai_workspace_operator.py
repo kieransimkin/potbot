@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -47,6 +48,7 @@ class AiManagedProcessSupervisor(ProcessSupervisor):
         self._gate = threading.Condition()
         self._closing = threading.Event()
         self._active = 0
+        self._refreshing = False
 
     @property
     def active_runs(self) -> int:
@@ -59,8 +61,8 @@ class AiManagedProcessSupervisor(ProcessSupervisor):
         redactor: CaptureRedactor | None = None,
     ) -> ProcessResult:
         with self._gate:
-            if self._closing.is_set():
-                raise CapabilityUnavailableError("AI workspace operator is shutting down")
+            if self._closing.is_set() or self._refreshing:
+                raise CapabilityUnavailableError("AI workspace operator is shutting down or refreshing context")
             self._monitor.require_active()
             self._active += 1
         try:
@@ -72,6 +74,23 @@ class AiManagedProcessSupervisor(ProcessSupervisor):
         finally:
             with self._gate:
                 self._active -= 1
+                self._gate.notify_all()
+
+    @contextmanager
+    def pause_context(self):
+        """Fence all local dispatch while refreshing next-launch bindings.
+
+        The caller must ALSO claim an exclusive cross-process workspace lease.
+        """
+        with self._gate:
+            if self._closing.is_set() or self._refreshing or self._active:
+                raise StateMismatchError("Active execution prevents context refresh")
+            self._refreshing = True
+        try:
+            yield
+        finally:
+            with self._gate:
+                self._refreshing = False
                 self._gate.notify_all()
 
     def quiesce(self, *, timeout_seconds: float = 10.0) -> None:
@@ -155,6 +174,14 @@ class AiWorkspaceOperator:
                     parent = self._context_manager.parent
                     if path == parent or path.is_relative_to(parent) or parent.is_relative_to(path):
                         raise ScopeDeniedError("operator context storage overlaps a guest mount")
+                if self._project_agent_context:
+                    from potbot.context.agent import reconcile_registered_agents
+
+                    reconcile_registered_agents(
+                        self._context_manager.service,
+                        self._context_manager.principal,
+                        self.ledger,
+                    )
                 try:
                     projection = self._context_manager.capture()
                 except BaseException:
@@ -240,6 +267,53 @@ class AiWorkspaceOperator:
         return SharedWorkspaceBubblewrapBackend(
             self.runtime, ai_monitor=self.monitor, tool_write_grant=grant,
         )
+
+    def refresh_context(self) -> dict[str, object]:
+        """Publish a new immutable snapshot for future launches only.
+
+        Cross-process admissions are fenced by a workspace lease, local runs
+        are fenced by the supervisor gate, and prior projection files stay
+        alive until operator shutdown. Running agents are never remounted.
+        """
+        from potbot.context.refresh import (
+            collect_agent_projections,
+            exclusive_context_refresh,
+        )
+
+        with self._lifecycle:
+            self._require_live()
+            manager = self._context_manager
+            supervisor = self._supervisor
+            if manager is None or supervisor is None:
+                raise CapabilityUnavailableError("Context projections are not configured")
+            with supervisor.pause_context():
+                if self._project_agent_context:
+                    from potbot.context.agent import reconcile_registered_agents
+
+                    reconcile_registered_agents(manager.service, manager.principal, self.ledger)
+                with exclusive_context_refresh(self.ledger, manager.principal):
+                    root = manager.capture()
+                    agents = (collect_agent_projections(manager, self.ledger, self.workspace_id)
+                              if self._project_agent_context else ())
+                    candidates = replace(
+                        self.runtime, context_projection=root,
+                        agent_context_projections=agents,
+                    )
+                    new_backend = SharedWorkspaceBubblewrapBackend(
+                        candidates, ai_monitor=self.monitor,
+                    )
+                    # Preserve the same supervisor object: existing gateway
+                    # references immediately use the next-launch runtime.
+                    supervisor.backend = new_backend
+                    self._backend = new_backend
+                    self.runtime = candidates
+                    return {
+                        "schema": "potbot-context-refresh/v1",
+                        "workspace_id": str(self.workspace_id),
+                        "root_revisions": root.revisions,
+                        "agent_count": len(agents),
+                        "binding": "next-launch-only",
+                    }
 
     def gateway_parameters(self) -> dict[str, Any]:
         """Pass these to ToolGateway alongside its ordinary controller services."""
