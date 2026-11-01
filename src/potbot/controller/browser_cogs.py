@@ -21,8 +21,8 @@ from potbot.domain.errors import (
 )
 from potbot.tools.browser_cog_contracts import SESSION_ID, validate_request
 from potbot.tools.browser_evidence import BrowserEvidenceRecorder, BrowserEvidenceScope
-from potbot.tools.browser_session_leases import BrowserLease
 from potbot.tools.browser_gallery import BrowserEvidenceGallery
+from potbot.tools.browser_session_leases import BrowserLease
 from potbot.tools.execution_contracts import ExecutionPolicy
 from potbot.tools.xpra_app_sessions import XpraApplicationSupervisor
 
@@ -69,7 +69,10 @@ class BrowserControlService:
         self.reservations = {v.session_id: v for v in reservations}
         self.artifacts = artifacts
         self._lock = threading.RLock()
-        self._seen: set[UUID] = set()
+        # The bounded invocation map survives evidence/journal failures. It is
+        # also the only source of session identity for post-dispatch fencing.
+        self._seen: dict[UUID, str] = {}
+        self._fenced: set[str] = set()
 
     def _authorize(self, actor: WorkspaceContext, session: str, invocation_id: UUID) -> None:
         if actor != self.actor or not isinstance(invocation_id, UUID) or (
@@ -77,15 +80,35 @@ class BrowserControlService:
         ):
             raise ScopeDeniedError("browser session is not approved for this controller scope")
         with self._lock:
+            if session in self._fenced:
+                raise StateMismatchError("browser session is fenced; operator reconciliation required")
             if len(self._seen) >= 4096 or invocation_id in self._seen:
                 raise StateMismatchError("browser invocation is duplicate or capacity reached")
-            self._seen.add(invocation_id)
+            self._seen[invocation_id] = session
 
     def fence(self, session: str) -> None:
         """Operator-only; terminate an uncertain browser, never silently replay."""
         if session not in self.approved_sessions:
             raise ScopeDeniedError("cannot fence a foreign browser")
+        # Deny new dispatch BEFORE asking the operator to stop its process.
+        # A failed termination RPC must never reopen this service's capability.
+        with self._lock:
+            self._fenced.add(session)
         self.apps.fence_browser(session)
+
+    def fence_invocation(self, invocation_id: UUID) -> None:
+        """Fence an admitted dispatch after a later controller/journal failure.
+
+        The runtime supplies the one-use invocation ID, not a model-selected
+        session. Admission failures that never reached this service do nothing.
+        This does not claim that the operator confirmed process termination.
+        """
+        if not isinstance(invocation_id, UUID):
+            raise ScopeDeniedError("browser fencing requires a controller invocation UUID")
+        with self._lock:
+            session = self._seen.get(invocation_id)
+        if session is not None:
+            self.fence(session)
 
     @staticmethod
     def _preview(group: str, raw: dict[str, Any]) -> dict[str, Any] | None:

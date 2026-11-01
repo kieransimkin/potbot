@@ -1,0 +1,110 @@
+name: S48 browser controller provenance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/cogs/**'
+      - 'src/potbot/controller/**'
+      - 'src/potbot/domain/**'
+      - 'src/potbot/persistence/**'
+      - 'src/potbot/semantics/**'
+      - 'src/potbot/tools/browser*.py'
+      - 'src/potbot/tools/execution*.py'
+      - 'src/potbot/tools/xpra*.py'
+      - 'tests/unit/test_browser*'
+      - 'tests/integration/test_browser_controller_provenance.py'
+      - 'tests/integration/test_repository_states.py'
+      - 'tests/integration/conftest.py'
+      - 'conftest.py'
+      - 'compose.yaml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/browser-controller-s48.yml'
+  pull_request:
+    paths:
+      - 'src/potbot/**'
+      - 'tests/**'
+      - 'conftest.py'
+      - 'compose.yaml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/browser-controller-s48.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controller-postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      UV_PYTHON: '3.12'
+      # Disposable controller fixture only, never a production database.
+      POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
+      COMPOSE_PROJECT_NAME: potbot-browser-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install the locked application and test dependencies
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --extra debugger --dev
+      - name: Verify browser contracts and retain worker isolation checks
+        run: |
+          mkdir -p artifacts/browser-controller-s48
+          uv run --locked python -m pytest -q tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py --junitxml=artifacts/browser-controller-s48/unit.xml
+      - name: Start disposable PostgreSQL
+        run: docker compose up --detach --wait --wait-timeout 90
+      - name: Exercise real controller journals and private artifacts
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/integration/test_browser_controller_provenance.py
+          --junitxml=artifacts/browser-controller-s48/postgresql.xml
+      - name: Reject skipped acceptance and record the exact checked-out source
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          report = Path('artifacts/browser-controller-s48')
+          cases = list(ElementTree.parse(report / 'postgresql.xml').iter('testcase'))
+          if len(cases) != 6 or any(case.find(tag) is not None for case in cases
+                                   for tag in ('skipped', 'failure', 'error')):
+              raise SystemExit('All six PostgreSQL controller acceptance tests must pass without skips')
+          files = (
+              'src/potbot/controller/execution_cogs.py',
+              'src/potbot/controller/execution_journal.py',
+              'src/potbot/controller/browser_cogs.py',
+              'src/potbot/cogs/browser.py',
+              'src/potbot/tools/browser_evidence.py',
+              'tests/integration/test_browser_controller_provenance.py',
+          )
+          evidence = {
+              'schema_version': 1,
+              'scope': 'postgresql-controller-with-scripted-browser-transport',
+              'controller_acceptance_passed': True,
+              'live_browser_qualified': False,
+              'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'test_count': len(cases),
+              'source_sha256': {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in files},
+          }
+          (report / 'controller-result.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          PY
+      - name: Remove only this job's disposable database
+        if: always()
+        run: docker compose down --volumes --remove-orphans --timeout 10
+      - name: Retain controller-only evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-controller-s48-evidence
+          path: artifacts/browser-controller-s48/
+          if-no-files-found: warn
+          retention-days: 14

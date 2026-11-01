@@ -264,6 +264,7 @@ class ExecutionCogRuntime:
         for op in (*operations, *self._direct_operations.values()):
             self.catalog.schema_hash(op.binding.input_type_ref)
             self.catalog.schema_hash(op.binding.output_type_ref)
+        self.browser_service = browser_service
         self._seen: set[UUID] = set()
         self._live: dict[UUID, ExecutionCall] = {}
         self._poisoned = False
@@ -476,6 +477,22 @@ class ExecutionCogRuntime:
         except BaseException as error:
             uncertain = dispatched and binding.effect_class != "read_only"
             self._poisoned |= uncertain
+            if (
+                uncertain
+                and binding.kind == "browser"
+                and signature in self._direct_operations
+                and self.browser_service is not None
+            ):
+                # The command can succeed before post-admission, result
+                # validation or durable completion fails. Poisoning just this
+                # runtime would leave its browser open to another caller.
+                # Only the service's admitted invocation map selects a session.
+                try:
+                    self.browser_service.fence_invocation(context.invocation_id)
+                except Exception:
+                    # Preserve the original failure and durable indeterminate
+                    # status; never imply that process shutdown was confirmed.
+                    pass
             try:
                 if not work.terminal:
                     work.fail(

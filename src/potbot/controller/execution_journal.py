@@ -34,6 +34,7 @@ class PinnedExecutionJournal:
     ) -> None:
         from potbot.cogs.artifact_ranges import RANGE_COGS, artifact_range_snapshot
         from potbot.cogs.artifact_uploads import UPLOAD_COGS, artifact_upload_snapshot
+        from potbot.cogs.browser import BROWSER_COGS, browser_cog_snapshot
         from potbot.cogs.execution import EXECUTION_COGS, execution_cog_snapshot
 
         allowed: tuple[CogSignature, ...] = EXECUTION_COGS
@@ -44,6 +45,11 @@ class PinnedExecutionJournal:
         if context.cog_snapshot_hash != expected_catalog:
             expected_catalog = artifact_upload_snapshot().fingerprint
             allowed = (*EXECUTION_COGS, *RANGE_COGS, *UPLOAD_COGS)
+        if context.cog_snapshot_hash != expected_catalog:
+            # Browser and artifact profiles are separate sealed catalogues.
+            # Do not union their direct operators or admit a caller's snapshot.
+            expected_catalog = browser_cog_snapshot().fingerprint
+            allowed = (*EXECUTION_COGS, *BROWSER_COGS)
 
         if (
             signature not in allowed
