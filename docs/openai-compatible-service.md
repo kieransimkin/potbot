@@ -4,6 +4,14 @@ This feature extends the existing Potbot hosted-provider system. It is an **opt-
 operator-policy-bound interactive inference API**, not an alternative source of
 PostgreSQL authority or a replacement for Potbot's durable task/job operations.
 
+**Current integration reading guide, 2026-11-01:** R3/R4 tree mode, R5 critique
+and [R6 PostgreSQL coordination](implementation/20-postgres-reasoning-and-model-providers.md)
+extend the original fixed proposal/critique/synthesis path. [R6.1 accounting](implementation/21-reasoning-task-budgets-and-live-provider-qualification.md)
+adds an explicit task-bound mode. Read these increments together; the initial
+fixed-mode implementation and its former integration gaps do not describe every
+current server configuration. These are documented source capabilities, with
+deployment qualification still required.
+
 ## Features and capability boundaries
 
 - `GET /v1/models`: OpenAI-style `object=list` with policy-enabled text models,
@@ -30,17 +38,29 @@ available for hosted text inference. Local default reasoning/coding profiles are
 
 ## The virtual `potbot` model
 
-`model="potbot"` selects up to two configured, policy-enabled reasoning models.
-It performs a **bounded three-call proposal → critique → synthesis** workflow,
-using provider-native transports and output limits, and returns only the final
-synthesis. It is suitable for interactive reasoning queries, not a claim that
-the unfinished Phase-7 autonomous reasoning-tree controller is active. In
-particular it does not submit a verified coding artifact, inspect repositories,
-run tools, populate SYN graph records, or expose hidden chain-of-thought. The
-separate durable job API retains the application's authoritative task budget,
-invocation records, cancellation and reconciliation lifecycle. Interactive API
-usage is **not durable task-budgeted**; operators must set conservative provider
-rates, call limits and concurrency controls at their own deployment boundary.
+`model="potbot"` uses only configured, policy-enabled reasoning models. The
+standard server's **tree mode** builds on independent structured hypotheses,
+registered evidence Cogs, R5 critique and bounded R6 adaptive expansion. With
+the provisioned PostgreSQL backend, migration 24 stores workspace-scoped runs,
+fenced checkpoints, steering and events; a local JSON snapshot is supplemental
+diagnostic data. The normal bounded configuration does not establish distributed
+parallel branch execution or a fully qualified autonomous coding workflow.
+
+`--reasoning-mode fixed` retains the **bounded three-call proposal → critique →
+synthesis** fallback for providers unable to meet structured tree contracts.
+Neither mode exposes hidden chain-of-thought. Standard `serve` does not install
+live evidence-tool grants: absent channels are reported unavailable, and model
+proposals cannot authorize tools. A final text synthesis does not by itself
+constitute a verified coding artifact.
+
+Ordinary interactive requests remain **outside durable task-budget accounting**.
+R6.1 permits a trusted caller to bind a virtual-tree request to an existing
+running task using `potbot_task_id`, a Potbot extension. Migration 25 then binds
+predispatch reservations and invocation receipts to the task/run/node and
+settles observed usage through the existing budget ledger. It does not turn
+arbitrary direct-model calls into jobs. Workspace authentication/RLS, task
+contract and run-lease checks remain mandatory. Expired or uncertain charged
+calls require reconciliation; they must not be silently reissued.
 
 The API rejects unsupported tool/function calling, multimodal input, file
 attachments, unsupported sampling/JSON modes, and unknown parameters rather
@@ -165,18 +185,25 @@ The pure endpoint tests use an injected fake provider: they do **not** make paid
 provider calls. The service-manager tests isolate native manager registration.
 To qualify a deployment, separately check a real PostgreSQL principal, a usable
 OS vault, systemd/launchd/Task Scheduler lifecycle, provider credentials and
-real model calls. The existing Phase-7 controller/graph integration and durable
-interactive-task budget accounting remain further work rather than hidden
-implementation claims.
+real model calls. Also run the applicable R6/R6.1 migration/RLS/lease, task-budget
+and provider qualification suites. Remaining work includes parallel branch
+workers, admitted live evidence tools, complete API conformance and target-host
+qualification. Preserve the distinction between ordinary interactive use and
+the explicitly task-bound accounting path described above.
 
-## Model-aware R3/R4 tree mode (new)
+## Reasoning increment history and current authority
 
-By default `serve` connects the virtual `potbot` model to two independent
-structured hypothesis-generator calls, bounded evidence searches via registered
-Cogs, and one final synthesis invocation. It records tree snapshots privately
-under `.potbot/reasoning/<workspace-id>/<run-id>.json`. Disable with
-`--reasoning-mode fixed` when qualifying providers unable to emit the strict
-proposal JSON. `--reasoning-root` selects an operator-trusted storage root.
-The standard server does not have live evidence-tool grants; absent channels are
-explicitly unavailable. See [the R3/R4 guide](implementation/18-model-prompts-r3-r4.md)
-for scope, model prompt profiles, admission boundaries and verification.
+The [R3/R4 guide](implementation/18-model-prompts-r3-r4.md) defines model-specific
+prompt profiles, independent hypotheses and registered evidence admission.
+[R2.5/R5](implementation/19-live-steering-r5-api-capabilities.md) adds steering
+decisions and critique. [R6](implementation/20-postgres-reasoning-and-model-providers.md)
+adds PostgreSQL coordination and bounded adaptive expansion; [R6.1](implementation/21-reasoning-task-budgets-and-live-provider-qualification.md)
+adds task-bound accounting. Later increments supersede earlier statements that
+these particular integrations remain future work.
+
+`--reasoning-root` selects the operator-trusted diagnostic snapshot location,
+including `.potbot/reasoning/<workspace-id>/<run-id>.json` under the default
+layout. It does not replace configured PostgreSQL authority. Native outbound
+OpenAI/Gemini transports do not establish full inbound OpenAI/Gemini server
+compatibility; retain the explicit [capability matrix](implementation/19-live-steering-r5-api-capabilities.md)
+and [remaining conformance requirements](implementation/recent-potbot-development-reconciliation.md).
