@@ -15,11 +15,14 @@ sandbox documents with one database SELECT and verifies each SHA-256 digest.
 manager = ContextProjectionManager(
     service=WorkspaceContextService(database),
     principal=trusted_workspace_context,
-    parent=Path('/run/potbot/context-snapshots'),  # host-private, mode 0700
+    parent=Path("/run/potbot/context-snapshots"),  # host-private, mode 0700
 )
-operator = AiWorkspaceOperator(workspace_id=trusted_workspace_context.workspace_id,
-                               ledger=ledger, runtime=runtime,
-                               context_manager=manager)
+operator = AiWorkspaceOperator(
+    workspace_id=trusted_workspace_context.workspace_id,
+    ledger=ledger,
+    runtime=runtime,
+    context_manager=manager,
+)
 ```
 
 The optional host operator CLI can enable projections with

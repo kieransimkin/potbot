@@ -85,9 +85,13 @@ objects = client.list_objects(limit=25)
 selected = objects["objects"][0]
 current = client.read("object", "MODEL.md", object_id=selected["id"])
 receipt = client.update(
-    "object", "MODEL.md", "# Working model\n\nVerified observation.\n",
-    object_id=selected["id"], expected_revision=current["revision"],
-    request_id=retained_request_uuid, reason="verified observation",
+    "object",
+    "MODEL.md",
+    "# Working model\n\nVerified observation.\n",
+    object_id=selected["id"],
+    expected_revision=current["revision"],
+    request_id=retained_request_uuid,
+    reason="verified observation",
 )
 ```
 
@@ -152,6 +156,7 @@ A compatible guest worker uses the rebuilt image's stdlib client:
 ```python
 import sys
 from uuid import uuid4
+
 sys.path.insert(0, "/opt/potbot")
 from context_client import ContextClient
 

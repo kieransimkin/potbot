@@ -20,8 +20,9 @@ with ConnectionPool(conninfo=operator_database_url) as pool:
     store = PostgresContextStore(pool)
     store.migrate()  # operator startup/migration job only
     service = OperatorContextService(store)
-    operator = Principal("operator:primary",
-                         frozenset({"context:read","context:write","context:provision"}))
+    operator = Principal(
+        "operator:primary", frozenset({"context:read", "context:write", "context:provision"})
+    )
     service.provision_sandbox(operator, "sandbox-123")
 ```
 

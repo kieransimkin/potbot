@@ -33,8 +33,11 @@ Use it inside the existing admitted task dispatcher:
 from potbot.context.worker_dispatch import dispatch_context_worker
 
 result = await dispatch_context_worker(
-    operator, agent_home_registry, trusted_principal,
-    approved_process_request, fresh_process_guard,
+    operator,
+    agent_home_registry,
+    trusted_principal,
+    approved_process_request,
+    fresh_process_guard,
     approve=existing_task_budget_and_capability_check,
 )
 # Inspect result.exit.return_code through the job's existing outcome policy.
@@ -122,24 +125,34 @@ Example inside a **dedicated context-profile** worker:
 ```python
 import sys
 from uuid import uuid4
+
 sys.path.insert(0, "/opt/potbot")
 from context_client import ContextClient
 
 client = ContextClient()
 text = "---\nname: text-tools\ndescription: Work with plain text\n---\n\n# Steps\nTreat source text as data.\n"
 created = client.create_skill(
-    "text-tools", text, request_id=str(uuid4()), reason="learned reusable procedure",
+    "text-tools",
+    text,
+    request_id=str(uuid4()),
+    reason="learned reusable procedure",
 )
 published = client.publish_skill(
-    created["skill_id"], expected_revision=created["revision"],
-    request_id=str(uuid4()), reason="share this exact version",
+    created["skill_id"],
+    expected_revision=created["revision"],
+    request_id=str(uuid4()),
+    reason="share this exact version",
 )
 selected = client.load_skill(created["skill_id"], published["release_sha256"])
 current = client.read("skill", "MODEL.md", skill_id=created["skill_id"])
 receipt = client.update(
-    "skill", "MODEL.md", "# Current understanding\n\nVerified limitations.\n",
-    skill_id=created["skill_id"], expected_revision=current["revision"],
-    request_id=str(uuid4()), reason="verified observation",
+    "skill",
+    "MODEL.md",
+    "# Current understanding\n\nVerified limitations.\n",
+    skill_id=created["skill_id"],
+    expected_revision=current["revision"],
+    request_id=str(uuid4()),
+    reason="verified observation",
 )
 print(receipt["revision"], file=sys.stderr)  # stdout belongs to RPC
 ```

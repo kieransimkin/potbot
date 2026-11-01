@@ -30,9 +30,12 @@ gallery = BrowserEvidenceGallery(
 )
 # The operator must create /var/lib/potbot/operators/workspace-A with mode 0700.
 service = BrowserControlService(
-    actor=authenticated_workspace_context, apps=owned_xpra_supervisor,
-    artifacts=existing_artifact_store, policy=admitted_execution_policy,
-    approved_sessions=(session_id,), gallery=gallery,
+    actor=authenticated_workspace_context,
+    apps=owned_xpra_supervisor,
+    artifacts=existing_artifact_store,
+    policy=admitted_execution_policy,
+    approved_sessions=(session_id,),
+    gallery=gallery,
     reservations=(agent_browser_lease,),  # optional for legacy operator-only mode
 )
 # Supply browser_gallery=gallery to potbot.api.server.create_app(...).

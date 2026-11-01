@@ -128,11 +128,15 @@ try:
     )
     result = await channel.serve(process)
     # channel.serve refuses a successful result without confirmed shutdown.
-    admitted_process_guard.finish(evidence_sha256=content_hash({
-        "context_session_id": str(result.session_id),
-        "isolation_identity": result.exit.isolation_identity,
-        "requests": result.channel.requests,
-    }))
+    admitted_process_guard.finish(
+        evidence_sha256=content_hash(
+            {
+                "context_session_id": str(result.session_id),
+                "isolation_identity": result.exit.isolation_identity,
+                "requests": result.channel.requests,
+            }
+        )
+    )
 except BaseException:
     admitted_process_guard.abandon()  # retain the existing reconciliation boundary
     raise
@@ -151,6 +155,7 @@ client. Rebuild and qualify the image before using that path. A worker may use:
 ```python
 import sys
 from uuid import uuid4
+
 sys.path.insert(0, "/opt/potbot")
 from context_client import ContextClient
 
@@ -158,8 +163,11 @@ client = ContextClient()
 current = client.read("agent", "MODEL.md")
 request_id = str(uuid4())  # retain before sending; reuse only for an identical retry
 receipt = client.update(
-    "agent", "MODEL.md", "# Working model\n\nVerified environment observations.\n",
-    expected_revision=current["revision"], request_id=request_id,
+    "agent",
+    "MODEL.md",
+    "# Working model\n\nVerified environment observations.\n",
+    expected_revision=current["revision"],
+    request_id=request_id,
     reason="verified observation",
 )
 print(f"Committed revision {receipt['revision']}", file=sys.stderr)

@@ -28,12 +28,16 @@ from potbot.context.service import WorkspaceContextService
 
 service = WorkspaceContextService(database)
 name = str(authenticated_context.workspace_id)
-doc = service.read(authenticated_context, 'sandbox', name, 'MODEL.md')
+doc = service.read(authenticated_context, "sandbox", name, "MODEL.md")
 updated = service.update(
-    authenticated_context, 'sandbox', name, 'MODEL.md',
-    content=doc['content'] + '\n## Latest discovery\n\nObserved.\n',
-    expected_revision=doc['revision'], idempotency_key=uuid4().hex,
-    reason='reconciled observation',
+    authenticated_context,
+    "sandbox",
+    name,
+    "MODEL.md",
+    content=doc["content"] + "\n## Latest discovery\n\nObserved.\n",
+    expected_revision=doc["revision"],
+    idempotency_key=uuid4().hex,
+    reason="reconciled observation",
 )
 ```
 
