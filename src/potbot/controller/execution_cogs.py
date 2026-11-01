@@ -264,6 +264,10 @@ class ExecutionCogRuntime:
         for op in (*operations, *self._direct_operations.values()):
             self.catalog.schema_hash(op.binding.input_type_ref)
             self.catalog.schema_hash(op.binding.output_type_ref)
+        if operations:
+            # Bind the ordinary execution path, not an opt-in helper left to callers.
+            assert self.sandbox_executor is not None
+            self.sandbox_executor.bind_context(database, actor, operations)
         self.browser_service = browser_service
         self._seen: set[UUID] = set()
         self._live: dict[UUID, ExecutionCall] = {}

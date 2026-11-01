@@ -11,9 +11,15 @@ on:
       - 'tests/unit/test_context_agent_rpc.py'
       - 'tests/unit/test_context_skill_lifecycle.py'
       - 'tests/unit/test_context_worker_dispatch.py'
+      - 'tests/unit/test_context_integration.py'
+      - 'tests/unit/test_context_execution_path.py'
+      - 'tests/unit/test_context_operator_defaults.py'
+      - 'src/potbot/tools/sandbox_cog_worker.py'
+      - 'src/potbot/controller/execution_cogs.py'
       - 'src/potbot/tools/operator_cli.py'
       - 'tests/integration/test_context_sessions.py'
       - 'tests/integration/test_context_skills.py'
+      - 'tests/integration/test_context_lifecycle.py'
       - '.github/workflows/context-agent-rpc.yml'
   pull_request:
   workflow_dispatch:
@@ -44,6 +50,9 @@ jobs:
           tests/unit/test_context_agent_rpc.py
           tests/unit/test_context_skill_lifecycle.py
           tests/unit/test_context_worker_dispatch.py
+          tests/unit/test_context_integration.py
+          tests/unit/test_context_execution_path.py
+          tests/unit/test_context_operator_defaults.py
           tests/test_workspace_context_contract.py
           tests/test_context_inspection.py
       - name: Start disposable PostgreSQL
@@ -53,10 +62,43 @@ jobs:
           uv run --locked python -m pytest -q
           tests/integration/test_context_sessions.py
           tests/integration/test_context_skills.py
+          tests/integration/test_context_lifecycle.py
           tests/integration/test_workspace_context.py
           tests/integration/test_context_acl.py
           tests/integration/test_context_inspection.py
           tests/integration/test_context_refresh.py
+          --junitxml=artifacts/context-integration/acceptance.xml
+      - name: Require executed lifecycle acceptance and retain source identity
+        run: |
+          uv run --locked python - <<'PYCODE'
+          import json
+          import subprocess
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          output = Path("artifacts/context-integration")
+          cases = list(ElementTree.parse(output / "acceptance.xml").iter("testcase"))
+          lifecycle = [case for case in cases if case.get("classname", "").endswith("test_context_lifecycle")]
+          if len(lifecycle) < 11 or any(case.find(tag) is not None for case in cases
+                                      for tag in ("skipped", "failure", "error")):
+              raise SystemExit("All PostgreSQL context acceptance must run without skips")
+          report = {
+              "schema": "potbot-context-integration-acceptance/v1",
+              "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "postgresql_tests": len(cases),
+              "lifecycle_tests": len(lifecycle),
+              "scope": "genuine-postgresql-context-lifecycle",
+              "live_sandbox_qualified": False,
+          }
+          (output / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
+          PYCODE
+      - name: Retain successful database acceptance summary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: context-integration-database-summary
+          path: artifacts/context-integration/summary.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Remove disposable database
         if: always()
         run: docker compose down --volumes --remove-orphans --timeout 10

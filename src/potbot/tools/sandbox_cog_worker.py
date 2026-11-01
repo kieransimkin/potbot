@@ -53,8 +53,11 @@ class SandboxedCogOperation:
     binding: WorkBinding
     argv: tuple[str, ...]
     executable_sha256: str
+    protocol: str = "typed-json/v1"
 
     def __post_init__(self) -> None:
+        if self.protocol not in {"typed-json/v1", "context-rpc/v1"}:
+            raise InvalidInputError("Unknown installed worker protocol")
         if self.binding.kind not in WORK_KINDS:
             raise ScopeDeniedError("sandbox Cog requires an installed work kind")
         if not isinstance(self.argv, tuple) or not 1 <= len(self.argv) <= 32 or any(
@@ -110,6 +113,19 @@ class SandboxedCogExecutor:
             raise ScopeDeniedError("Cog runner requires the qualified pinned host sandbox")
         self.runtime, self.ledger, self.homes, self.supervisor = runtime, ledger, homes, supervisor
         self.syn_mesh = syn_mesh
+        self._context_binding = None
+
+    def bind_context(self, database: Any, actor: WorkspaceContext,
+                     operations: tuple[SandboxedCogOperation, ...]) -> None:
+        """Called by the trusted controller after its ordinary installation checks."""
+        from potbot.context.runtime_integration import ContextExecutionBinding
+
+        prior = self._context_binding
+        if prior is not None and (prior.database is not database or prior.principal != actor):
+            raise ScopeDeniedError("A context executor cannot be rebound across principals")
+        selected = prior or ContextExecutionBinding(database, actor)
+        selected.install(operations)
+        self._context_binding = selected
 
     def _executable(self, op: SandboxedCogOperation) -> None:
         guest = op.argv[0]
@@ -161,9 +177,16 @@ class SandboxedCogExecutor:
             self.ledger, identity, operation="cog.sandbox.execute",
             idempotency_key="cog-" + cog_context.invocation_id.hex,
         )
-        guard.start()
+        projections = None
+        selected_supervisor = self.supervisor
+        if self._context_binding is not None:
+            projections = self._context_binding.prepare(self, actor, agent_id, cog_context.invocation_id)
+            selected_supervisor = ProcessSupervisor(projections.backend)
+            selected_supervisor.monitor_config = self.supervisor.monitor_config
+        stopped = False
         dispatched = False
         try:
+            guard.start()
             request = ProcessRequest(
                 argv=op.argv, workspace_root=self.runtime.home, sandbox_root=self.runtime.home,
                 cwd=cwd, guest_uid=home.uid, guest_gid=home.gid,
@@ -175,11 +198,13 @@ class SandboxedCogExecutor:
                 telemetry_identity_kind="agent", telemetry_run_id=cog_context.invocation_id,
             )
             dispatched = True
-            result = self.supervisor.run(
+            result = selected_supervisor.run(
                 request, cancelled=lambda: cancel.is_set() or guard.fenced
-                or (syn_fault is not None and syn_fault.is_set()),
+                or (syn_fault is not None and syn_fault.is_set())
+                or (self._context_binding is not None and not self._context_live(actor)),
             )
-            if not result.processes_stopped or result.outcome == "inconclusive":
+            stopped = result.processes_stopped is True
+            if not stopped or result.outcome == "inconclusive":
                 raise IndeterminateExecutionError("sandbox Cog process tree or audit is not confirmed stopped")
             if result.outcome != "completed" or result.exit_code != 0 or result.stdout_truncated:
                 raise StateMismatchError("sandbox Cog did not return an admitted typed result")
@@ -206,6 +231,16 @@ class SandboxedCogExecutor:
             except Exception:
                 guard.abandon()
             raise
+        finally:
+            if projections is not None and (not dispatched or stopped):
+                projections.close()
+
+    def _context_live(self, actor: WorkspaceContext) -> bool:
+        try:
+            self._context_binding.check(self, actor)
+            return True
+        except Exception:
+            return False
 
     async def execute(self, op: SandboxedCogOperation, source: TypedCogValue,
                       cog_context: CogRunContext, actor: WorkspaceContext,
@@ -221,10 +256,16 @@ class SandboxedCogExecutor:
             raise CapabilityUnavailableError("worker SYN node relay must be configured")
         cancelled = threading.Event()
         async with self.syn_mesh.node(actor.workspace_id, agent_id, cog_context.invocation_id) as node:
-            job = asyncio.create_task(asyncio.to_thread(
-                self._run_sync, op, source, cog_context, actor, agent_id,
-                cancelled, node.fault_event,
-            ))
+            if op.protocol == "context-rpc/v1":
+                from potbot.context.runtime_integration import execute_context_operation
+
+                job = asyncio.create_task(execute_context_operation(
+                    self, op, source, cog_context, actor, agent_id, cancelled, node.fault_event))
+            else:
+                job = asyncio.create_task(asyncio.to_thread(
+                    self._run_sync, op, source, cog_context, actor, agent_id,
+                    cancelled, node.fault_event,
+                ))
             try:
                 return await asyncio.shield(job)
             except asyncio.CancelledError:

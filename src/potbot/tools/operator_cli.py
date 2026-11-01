@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import signal
 import sys
@@ -122,7 +121,8 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                  context_manager: ContextProjectionManager | None = None,
                  shared_skills: Path | None = None,
                  project_agent_context: bool | None = None,
-                 context_refresh_seconds: int = 10) -> None:
+                 context_refresh_seconds: int = 10,
+                 without_context: bool = False) -> None:
     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
     from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
@@ -130,6 +130,12 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
     from dataclasses import replace
     from potbot.context.projection import ContextProjectionManager
 
+    if type(without_context) is not bool or (without_context and context_manager is not None):
+        raise InvalidInputError("Invalid operator context migration mode")
+    if context_manager is None and not without_context:
+        from potbot.context.operator_bootstrap import default_context_manager
+
+        context_manager = default_context_manager(paths, shared_skills=shared_skills)
     if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
         raise InvalidInputError("context manager requires the trusted host type")
     from potbot.context.skill_projection import (
@@ -153,12 +159,22 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                 raise ScopeDeniedError("Skill projection storage overlaps another guest mount")
         if shared_skills is None:
             shared_skills = prepare_skill_root(paths.controller_ledger.parent, paths.workspace_id)
+    ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
+    if context_manager is not None:
+        from potbot.context.catalogue import reconcile_installed_tools
+
+        reconcile_installed_tools(context_manager.service, context_manager.principal, ledger)
     projector = (SkillLibraryProjector(shared_skills)
                  if context_manager is not None and shared_skills is not None else None)
+    from potbot.context.object_projection import ObjectContextProjector
+
+    objects = ObjectContextProjector(shared_skills) if projector is not None else None
+    if objects is not None:
+        assert context_manager is not None
+        objects.sync(context_manager.service, context_manager.principal)
     if projector is not None:
         assert context_manager is not None
         projector.sync(context_manager.service, context_manager.principal)
-    ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
     runtime = paths.runtime()
     if shared_skills is not None:
         runtime = replace(runtime, shared_skills=shared_skills)
@@ -195,7 +211,10 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
 
                     if projector is not None:
                         try:
+                            reconcile_installed_tools(context_manager.service, context_manager.principal, ledger)
                             projector.sync(context_manager.service, context_manager.principal)
+                            assert objects is not None
+                            objects.sync(context_manager.service, context_manager.principal)
                         except SkillProjectionBusy:
                             # Only lock contention is retryable here. Corrupt files or
                             # an oversized inventory remain explicit operator failures.
@@ -234,35 +253,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="trusted host shared skills directory (mounted read-only)")
     parser.add_argument("--project-agent-context", action=argparse.BooleanOptionalAction, default=None,
                         help="per-agent triples default on when context is configured; explicit opt-out for legacy hosts")
+    parser.add_argument("--context-schema", default=None,
+                        help="restricted application schema; defaults to service scope or POTBOT_CONTEXT_SCHEMA")
+    parser.add_argument("--without-context", action="store_true",
+                        help="explicit legacy migration mode; does not qualify MODEL.md integration")
     args = parser.parse_args(argv)
     try:
         paths = parse_manifest(args.manifest)
-        if (args.context_principal_id is None) != (args.context_parent is None):
-            raise InvalidInputError("context projection needs both principal and parent")
-        if args.project_agent_context and args.context_principal_id is None:
-            raise InvalidInputError("agent projections require authenticated root context")
         manager = None
-        if args.context_principal_id is not None:
-            from potbot.context.projection import ContextProjectionManager
-            from potbot.context.service import WorkspaceContextService
-            from potbot.domain.auth import WorkspaceContext
-            from potbot.persistence.database import Database
+        if args.without_context:
+            if any((args.context_principal_id, args.context_parent, args.context_schema,
+                    args.project_agent_context)):
+                raise InvalidInputError("Legacy mode conflicts with context configuration")
+        else:
+            from potbot.context.operator_bootstrap import default_context_manager
 
-            dsn = os.environ.get("POTBOT_DSN")
-            if not dsn:
-                raise InvalidInputError("POTBOT_DSN is required for context projection")
-            manager = ContextProjectionManager(
-                service=WorkspaceContextService(Database(dsn)),
-                principal=WorkspaceContext(paths.workspace_id, args.context_principal_id),
-                parent=args.context_parent,
-            )
+            manager = default_context_manager(paths, principal_id=args.context_principal_id,
+                parent=args.context_parent, schema=args.context_schema, shared_skills=args.shared_skills)
         stopped = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             if sig is not None:
                 signal.signal(sig, lambda _sig, _frame: stopped.set())
         run_operator(paths, stop=stopped, socket_path=args.socket_path,
                      context_manager=manager, shared_skills=args.shared_skills,
-                     project_agent_context=args.project_agent_context)
+                     project_agent_context=args.project_agent_context,
+                     without_context=args.without_context)
         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
         return 0
     except (CapabilityUnavailableError, InvalidInputError, ScopeDeniedError) as error:

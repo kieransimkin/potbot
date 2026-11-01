@@ -71,7 +71,7 @@ class ContextClient:
                 code = "internal_error"
             raise ContextRPCError(code, request_id)
         result = reply.get("result")
-        if not isinstance(result, dict) or (request["method"] != "skills.list"
+        if not isinstance(result, dict) or (request["method"] not in {"skills.list", "objects.list"}
                 and type(result.get("revision")) is not int):
             raise ContextRPCError("invalid_response", request_id)
         if "content" in result and (
@@ -90,21 +90,25 @@ class ContextClient:
         return result
 
     def read(self, scope: str, role: str = "MODEL.md", *,
-             skill_id: str | None = None) -> dict[str, Any]:
+             skill_id: str | None = None, object_id: str | None = None) -> dict[str, Any]:
         request = {"schema": SCHEMA, "request_id": str(uuid4()),
                    "method": "context.read", "scope": scope, "role": role}
         if skill_id is not None:
             request["skill_id"] = skill_id
+        if object_id is not None:
+            request["object_id"] = object_id
         return self._exchange(request)
 
     def update(self, scope: str, role: str, content: str, *, expected_revision: int,
-               request_id: str, reason: str = "", skill_id: str | None = None) -> dict[str, Any]:
+               request_id: str, reason: str = "", skill_id: str | None = None, object_id: str | None = None) -> dict[str, Any]:
         """Retain request_id BEFORE sending; reuse only for the identical retry."""
         request = {"schema": SCHEMA, "request_id": request_id, "method": "context.update",
                    "scope": scope, "role": role, "content": content,
                    "expected_revision": expected_revision, "reason": reason}
         if skill_id is not None:
             request["skill_id"] = skill_id
+        if object_id is not None:
+            request["object_id"] = object_id
         return self._exchange(request)
 
     def create_skill(self, name: str, content: str, *, request_id: str,
@@ -138,3 +142,20 @@ class ContextClient:
         """Load selected text, not execute it or promote it to system policy."""
         return self._exchange({"schema": SCHEMA, "request_id": str(uuid4()),
             "method": "skills.load", "skill_id": skill_id, "release_sha256": release_sha256})
+
+    def list_objects(self, *, limit: int = 25, after: str | None = None) -> dict[str, Any]:
+        return self._exchange({"schema": SCHEMA, "request_id": str(uuid4()),
+            "method": "objects.list", "limit": limit, "after": after})
+
+    def work_input(self) -> dict[str, Any]:
+        """Only available in an installed context-capable typed Cog worker."""
+        result = self._exchange({"schema": SCHEMA, "request_id": str(uuid4()), "method": "work.input"})
+        work = result.get("work")
+        if not isinstance(work, dict):
+            raise ContextRPCError("invalid_response", "work.input")
+        return work
+
+    def finish_work(self, type_ref: str, value: Any, *, request_id: str) -> dict[str, Any]:
+        """Persist a final result; do not mutate context after this succeeds."""
+        return self._exchange({"schema": SCHEMA, "request_id": request_id,
+            "method": "work.result", "result": {"schema_version": 1, "type_ref": type_ref, "value": value}})

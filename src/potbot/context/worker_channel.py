@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import UUID
 
-from potbot.context.rpc_contract import OperationRequest
+from potbot.context.rpc_contract import OperationRequest, WorkRequest
+from potbot.context.work_exchange import ContextWorkExchange
 from potbot.context.rpc_transport import ChannelResult, serve_context_streams
 from potbot.context.sessions import ContextSession, ContextSessionStore
 from potbot.domain.auth import WorkspaceContext
@@ -52,15 +53,20 @@ class ContextWorkerResult:
     session_id: UUID
     channel: ChannelResult
     exit: InteractiveExit
+    output: dict[str, Any] | None = None
 
 
 class ContextWorkerChannel:
     def __init__(self, *, store: ContextSessionStore, principal: WorkspaceContext,
                  agent_id: UUID, guard: WorkspaceLeaseGuard, registry: AgentHomeRegistry,
-                 check_operator: Callable[[], None]) -> None:
+                 check_operator: Callable[[], None],
+                 work_exchange: ContextWorkExchange | None = None) -> None:
         if (not isinstance(principal, WorkspaceContext) or not isinstance(agent_id, UUID)
                 or not callable(check_operator)):
             raise ScopeDeniedError("Context channel requires trusted host admission")
+        if work_exchange is not None and not isinstance(work_exchange, ContextWorkExchange):
+            raise ScopeDeniedError("Work exchange must be host-bound")
+        self.work_exchange = work_exchange
         self.store, self.principal, self.agent_id = store, principal, agent_id
         self.guard, self.registry, self.check_operator = guard, registry, check_operator
         self.exit_receipt: InteractiveExit | None = None
@@ -116,6 +122,12 @@ class ContextWorkerChannel:
 
             def execute(request: OperationRequest) -> dict[str, Any]:
                 self._authorize()
+                if self.work_exchange is not None:
+                    self.work_exchange.admit(request)
+                if isinstance(request, WorkRequest):
+                    if self.work_exchange is None:
+                        raise ScopeDeniedError("This worker has no installed typed work port")
+                    return self.work_exchange.execute(self.store, bound, request)
                 return self.store.execute(bound, request)
 
             async def renew() -> None:
@@ -179,7 +191,8 @@ class ContextWorkerChannel:
                 "Context cleanup needs host reconciliation; do not release the lease"
             ) from None
         assert grant is not None and result is not None and self.exit_receipt is not None
-        return ContextWorkerResult(grant.session_id, result, self.exit_receipt)
+        return ContextWorkerResult(grant.session_id, result, self.exit_receipt,
+                                   self.work_exchange.result if self.work_exchange is not None else None)
 
 
 def validate_worker_binding(request: Any, home: Any, root: Path,

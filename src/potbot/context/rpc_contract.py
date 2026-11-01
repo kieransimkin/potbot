@@ -41,16 +41,21 @@ class ContextRequest:
     expected_revision: int | None = None
     reason: str = ""
     skill_id: UUID | None = None
+    object_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if (not isinstance(self.request_id, UUID)
                 or self.method not in ("context.read", "context.update")
-                or self.scope not in ("agent", "sandbox", "worker", "skill") or self.role not in ROLES):
+                or self.scope not in ("agent", "sandbox", "worker", "skill", "object") or self.role not in ROLES):
             raise InvalidInputError("Invalid context operation")
         if (self.scope == "skill") != isinstance(self.skill_id, UUID):
             raise InvalidInputError("A skill scope requires exactly one canonical skill ID")
         if self.scope != "skill" and self.skill_id is not None:
             raise InvalidInputError("Unexpected skill selector")
+        if (self.scope == "object") != isinstance(self.object_id, UUID):
+            raise InvalidInputError("Object scope requires exactly one object ID")
+        if self.scope != "object" and self.object_id is not None:
+            raise InvalidInputError("Unexpected object selector")
         if self.method == "context.read":
             if self.content is not None or self.expected_revision is not None or self.reason != "":
                 raise InvalidInputError("Read request contains mutation fields")
@@ -73,6 +78,8 @@ class ContextRequest:
                     self.expected_revision, self.reason]
         if self.skill_id is not None:
             material.append(str(self.skill_id))
+        if self.object_id is not None:
+            material.extend(("object", str(self.object_id)))
         raw = json.dumps(material, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(raw).hexdigest()
 
@@ -168,7 +175,56 @@ class SkillRequest:
         return hashlib.sha256(raw).hexdigest()
 
 
-OperationRequest = ContextRequest | SkillRequest
+@dataclass(frozen=True, slots=True)
+class CatalogueRequest:
+    request_id: UUID
+    method: str = "objects.list"
+    limit: int = 25
+    after: UUID | None = None
+
+    def __post_init__(self) -> None:
+        if (not isinstance(self.request_id, UUID) or self.method != "objects.list"
+                or type(self.limit) is not int or not 1 <= self.limit <= 50
+                or (self.after is not None and not isinstance(self.after, UUID))):
+            raise InvalidInputError("Invalid object discovery bounds")
+
+    @property
+    def fingerprint(self) -> str:
+        return hashlib.sha256(json.dumps([self.method, self.limit, str(self.after)],
+                             separators=(",", ":")).encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class WorkRequest:
+    request_id: UUID
+    method: str
+    result: dict[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.request_id, UUID) or self.method not in ("work.input", "work.result"):
+            raise InvalidInputError("Invalid typed work method")
+        if self.method == "work.input" and self.result is not None:
+            raise InvalidInputError("Work input cannot select a payload")
+        if self.method == "work.result":
+            if not isinstance(self.result, dict):
+                raise InvalidInputError("Typed work result is required")
+            try:
+                raw = json.dumps(self.result, allow_nan=False, ensure_ascii=False,
+                                 sort_keys=True, separators=(",", ":")).encode("utf-8")
+            except (ValueError, TypeError, UnicodeError, RecursionError):
+                raise InvalidInputError("Malformed typed work result") from None
+            if not 1 <= len(raw) <= 16 * 1024:
+                raise InvalidInputError("Typed result exceeds its bound")
+            # Snapshot mutable caller data before it becomes a receipt hash.
+            object.__setattr__(self, "result", json.loads(raw))
+
+    @property
+    def fingerprint(self) -> str:
+        return hashlib.sha256(json.dumps([self.method, self.result], allow_nan=False,
+            ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+OperationRequest = ContextRequest | SkillRequest | CatalogueRequest | WorkRequest
 
 
 def parse_request(data: bytes) -> OperationRequest:
@@ -182,6 +238,18 @@ def parse_request(data: bytes) -> OperationRequest:
         method = value.get("method")
         if not isinstance(method, str):
             raise InvalidInputError("Invalid context method")
+        if method in ("work.input", "work.result"):
+            expected = {"schema", "request_id", "method"}
+            if method == "work.result":
+                expected.add("result")
+            if set(value) != expected:
+                raise InvalidInputError("Unexpected typed work fields")
+            return WorkRequest(request_id, method, value.get("result"))
+        if method == "objects.list":
+            if set(value) != {"schema", "request_id", "method", "limit", "after"}:
+                raise InvalidInputError("Unexpected object discovery fields")
+            return CatalogueRequest(request_id, method, value["limit"],
+                                    canonical_uuid(value["after"]) if value["after"] is not None else None)
         if method in _SKILL_FIELDS:
             if set(value) != {"schema", "request_id", "method"} | _SKILL_FIELDS[method]:
                 raise InvalidInputError("Unexpected skill fields")
@@ -193,6 +261,8 @@ def parse_request(data: bytes) -> OperationRequest:
         common = {"schema", "request_id", "method", "scope", "role"}
         if value.get("scope") == "skill":
             common.add("skill_id")
+        if value.get("scope") == "object":
+            common.add("object_id")
         fields = common | {"content", "expected_revision", "reason"} if (
             method == "context.update"
         ) else common
@@ -200,7 +270,8 @@ def parse_request(data: bytes) -> OperationRequest:
             raise InvalidInputError("Unexpected context fields")
         return ContextRequest(request_id, method, value["scope"], value["role"],
             value.get("content"), value.get("expected_revision"), value.get("reason", ""),
-            canonical_uuid(value["skill_id"]) if "skill_id" in value else None)
+            canonical_uuid(value["skill_id"]) if "skill_id" in value else None,
+            canonical_uuid(value["object_id"]) if "object_id" in value else None)
     except (UnicodeError, ValueError, TypeError, KeyError, RecursionError) as exc:
         if isinstance(exc, InvalidInputError):
             raise

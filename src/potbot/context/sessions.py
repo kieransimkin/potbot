@@ -7,6 +7,7 @@ Session authentication, CAS, journal and RPC receipt share ONE transaction.
 from __future__ import annotations
 
 import hashlib
+import json
 import hmac
 import re
 import secrets
@@ -18,7 +19,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from potbot.context.model import sandbox_object_id, sha256
-from potbot.context.rpc_contract import ContextRequest, OperationRequest, SkillRequest
+from potbot.context.rpc_contract import CatalogueRequest, ContextRequest, OperationRequest, SkillRequest, WorkRequest
 from potbot.context.service import WorkspaceContextService
 from potbot.context.transactions import ContextDatabase
 from potbot.domain.auth import WorkspaceContext
@@ -117,7 +118,7 @@ class ContextSessionStore:
             )
         return ContextSession(principal, session_id, agent_id, run_id, 1, secret)
 
-    def _lock(self, conn: Any, grant: ContextSession, *, live: bool = True) -> dict[str, Any]:
+    def _lock(self, conn: Any, grant: ContextSession, *, live: bool = True, allow_result: bool = False) -> dict[str, Any]:
         if not isinstance(grant, ContextSession):
             raise ScopeDeniedError(_DENIED)
         row = conn.execute(
@@ -132,6 +133,8 @@ class ContextSessionStore:
         if live and (row["state"] != "active" or row["generation"] != grant.generation
                      or row["expires_at"] <= self._now(conn)):
             raise ScopeDeniedError(_DENIED)
+        if live and not allow_result and row.get("result_request_id") is not None:
+            raise ScopeDeniedError("Context session has completed its work")
         return dict(row)
 
     def renew(self, grant: ContextSession, *, lease_seconds: int = 60) -> None:
@@ -139,7 +142,7 @@ class ContextSessionStore:
             raise ScopeDeniedError(_DENIED)
         duration = _seconds(lease_seconds)
         with self.database.transaction(grant.principal) as conn:
-            self._lock(conn, grant)
+            self._lock(conn, grant, allow_result=True)
             conn.execute(
                 "UPDATE workspace_context_sessions SET expires_at=LEAST(deadline_at,"
                 "pg_catalog.clock_timestamp()+%s*interval '1 second') WHERE workspace_id=%s AND id=%s",
@@ -162,6 +165,67 @@ class ContextSessionStore:
                 (grant.principal.workspace_id, grant.session_id),
             )
 
+    def admit_work_read(self, grant: ContextSession) -> None:
+        """A host-bound input disclosure consumes the same live session budget."""
+        with self.database.transaction(grant.principal) as conn:
+            session = self._lock(conn, grant)
+            if session["request_count"] >= session["request_limit"]:
+                raise ScopeDeniedError("Context session request budget exhausted")
+            self._check_expiry(conn, session)
+            conn.execute("UPDATE workspace_context_sessions SET request_count=request_count+1 "
+                         "WHERE workspace_id=%s AND id=%s",
+                         (grant.principal.workspace_id, grant.session_id))
+
+    def complete_work(self, grant: ContextSession, request: WorkRequest) -> dict[str, Any]:
+        """Persist one final result, then fence subsequent context mutations.
+
+        A receipt only acknowledges storage. The controller still requires a
+        zero exit code and independent process-tree/audit shutdown evidence.
+        """
+        if not isinstance(grant, ContextSession) or not isinstance(request, WorkRequest) or request.method != "work.result":
+            raise ScopeDeniedError(_DENIED)
+        request = WorkRequest(request.request_id, request.method, request.result)
+        raw = json.dumps(request.result, ensure_ascii=False, allow_nan=False,
+                         sort_keys=True, separators=(",", ":"))
+        checksum = hashlib.sha256(raw.encode()).hexdigest()
+        context = grant.principal
+        with self.database.transaction(context) as conn:
+            session = self._lock(conn, grant, allow_result=True)
+            previous = conn.execute(
+                "SELECT request_id,request_sha256,result_sha256 FROM workspace_context_work_results "
+                "WHERE workspace_id=%s AND session_id=%s",
+                (context.workspace_id, grant.session_id),
+            ).fetchone()
+            if previous is not None:
+                if previous["request_id"] != request.request_id or previous["request_sha256"] != request.fingerprint:
+                    raise RevisionConflictError("Work already has a different result")
+                self._check_expiry(conn, session)
+                return {"revision": 1, "sha256": previous["result_sha256"]}
+            reused = conn.execute(
+                "SELECT 1 FROM workspace_context_session_receipts WHERE workspace_id=%s AND session_id=%s AND request_id=%s "
+                "UNION ALL SELECT 1 FROM workspace_context_skill_receipts WHERE workspace_id=%s AND session_id=%s AND request_id=%s",
+                (context.workspace_id, grant.session_id, request.request_id,
+                 context.workspace_id, grant.session_id, request.request_id),
+            ).fetchone()
+            if reused is not None:
+                raise RevisionConflictError("Request ID was used for another operation")
+            if session["request_count"] >= session["request_limit"]:
+                raise ScopeDeniedError("Context session request budget exhausted")
+            conn.execute(
+                "INSERT INTO workspace_context_work_results "
+                "(workspace_id,session_id,request_id,request_sha256,result_json,result_sha256) "
+                "VALUES (%s,%s,%s,%s,%s,%s)",
+                (context.workspace_id, grant.session_id, request.request_id,
+                 request.fingerprint, raw, checksum),
+            )
+            conn.execute(
+                "UPDATE workspace_context_sessions SET result_request_id=%s,request_count=request_count+1 "
+                "WHERE workspace_id=%s AND id=%s",
+                (request.request_id, context.workspace_id, grant.session_id),
+            )
+            self._check_expiry(conn, session)
+            return {"revision": 1, "sha256": checksum}
+
     def ensure_agent_context(self, principal: WorkspaceContext, agent_id: UUID) -> None:
         """Host lifecycle hook; caller MUST first validate a registered home/run.
 
@@ -178,7 +242,7 @@ class ContextSessionStore:
         """Session, ownership, CAS, skill lifecycle and receipts share one commit."""
         from potbot.context.skill_catalogue import SessionSkillCatalogue
 
-        if not isinstance(grant, ContextSession) or not isinstance(request, (ContextRequest, SkillRequest)):
+        if not isinstance(grant, ContextSession) or not isinstance(request, (ContextRequest, SkillRequest, CatalogueRequest)):
             raise ScopeDeniedError(_DENIED)
         context = grant.principal
         with self.database.transaction(context) as conn:
@@ -188,9 +252,17 @@ class ContextSessionStore:
             mutates = request.mutates if isinstance(request, SkillRequest) else request.method == "context.update"
             if isinstance(request, SkillRequest):
                 skills.authorize(request)
+            elif isinstance(request, CatalogueRequest):
+                pass
             else:
                 kind = request.scope
-                if kind == "skill":
+                if kind == "object":
+                    from potbot.context.catalogue import object_target
+
+                    assert request.object_id is not None
+                    kind, name = object_target(conn, context, request.object_id, request.role, write=mutates)
+                    object_id = request.object_id
+                elif kind == "skill":
                     assert request.skill_id is not None
                     name, object_id = skills.context_target(request.skill_id, write=mutates)
                 elif kind == "worker":
@@ -227,7 +299,11 @@ class ContextSessionStore:
                 return dict(replays[0]["result"])
             if session["request_count"] >= session["request_limit"]:
                 raise ScopeDeniedError("Context session request budget exhausted")
-            if isinstance(request, SkillRequest):
+            if isinstance(request, CatalogueRequest):
+                from potbot.context.catalogue import list_objects
+
+                result = list_objects(conn, context, after=request.after, limit=request.limit)
+            elif isinstance(request, SkillRequest):
                 result = skills.execute(request)
                 if mutates:
                     from psycopg.types.json import Jsonb
