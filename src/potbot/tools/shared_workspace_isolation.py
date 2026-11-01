@@ -255,6 +255,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                    for x in boundaries):
                 raise ScopeDeniedError("shared skills overlap a sandbox mount")
         context_files: tuple[Path, ...] = ()
+        context_mounts: list[str] = []
         if self.runtime.context_projection is not None:
             projection = self.runtime.context_projection
             if not isinstance(projection, ContextProjection):
@@ -266,10 +267,17 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             context_files = projection.inspect(excluded_roots=(
                 *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
             ))
+            # Absence is optional; a configured projection is never partial.
+            # Validate before allocating the seccomp descriptor.
+            if len(context_files) != len(ROLES):
+                raise InvalidInputError("Root context projection must contain all three documents")
+            for role, source in zip(ROLES, context_files, strict=True):
+                context_mounts.extend(("--ro-bind", str(source), "/" + role))
         # Root context and per-agent context are different PostgreSQL objects.
         # Each agent file is mounted read-only into its own registered home;
         # a writable /home must never become an authority for these documents.
         agent_files: tuple[Path, ...] = ()
+        agent_mounts: list[str] = []
         agent_binding: AgentContextProjection | None = None
         current_guest_cwd = _guest_cwd(home, cwd)
         guest_pieces = current_guest_cwd.split("/")
@@ -293,6 +301,12 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             agent_files = agent_binding.inspect(home=home, excluded_roots=(
                 *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
             ))
+            if len(agent_files) != len(ROLES):
+                raise InvalidInputError("Agent context projection must contain all three documents")
+            for role, source in zip(ROLES, agent_files, strict=True):
+                agent_mounts.extend((
+                    "--ro-bind", str(source), "/home/" + agent_binding.directory + "/" + role,
+                ))
         # Guest executable must be present inside immutable image; no host executable bind.
         if not argv or not argv[0].startswith("/"):
             raise InvalidInputError("guest command must use an absolute path")
@@ -377,11 +391,8 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                    if tool_write_source is not None else () ),
                 "--ro-bind", str(library), "/opt/potbot/models",
                 *( ("--ro-bind", str(skills), "/usr/local/skills") if skills else () ),
-                *[item for role, source in zip(ROLES, context_files, strict=True)
-                  for item in ("--ro-bind", str(source), "/" + role)],
-                *[item for role, source in zip(ROLES, agent_files, strict=True)
-                  for item in ("--ro-bind", str(source),
-                               "/home/" + agent_binding.directory + "/" + role)],
+                *context_mounts,
+                *agent_mounts,
                 *(("--bind", str(config_ai), "/etc/ai",
                    "--ro-bind", str(history_ai), "/etc/ai-past") if ai_enabled else ()),
                 "--proc", "/proc", "--dev", "/dev",

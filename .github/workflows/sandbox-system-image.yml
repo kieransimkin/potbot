@@ -22,6 +22,12 @@ on:
       - tests/unit/test_model_cache_routes.py
       - src/potbot/tools/workspace_concurrency.py
       - src/potbot/tools/shared_workspace_isolation.py
+      - src/potbot/context/model.py
+      - src/potbot/context/projection.py
+      - src/potbot/tools/supervisor.py
+      - src/potbot/tools/worker_telemetry.py
+      - src/potbot/tools/gui_audit_verification.py
+      - src/potbot/evaluation/sandbox_worker_acceptance.py
       - src/potbot/tools/agent_homes.py
       - src/potbot/tools/agent_skeleton.py
       - src/potbot/tools/agent_skeleton/**
@@ -54,6 +60,12 @@ on:
       - tests/unit/test_model_cache_routes.py
       - src/potbot/tools/workspace_concurrency.py
       - src/potbot/tools/shared_workspace_isolation.py
+      - src/potbot/context/model.py
+      - src/potbot/context/projection.py
+      - src/potbot/tools/supervisor.py
+      - src/potbot/tools/worker_telemetry.py
+      - src/potbot/tools/gui_audit_verification.py
+      - src/potbot/evaluation/sandbox_worker_acceptance.py
       - src/potbot/tools/agent_homes.py
       - src/potbot/tools/agent_skeleton.py
       - src/potbot/tools/agent_skeleton/**
