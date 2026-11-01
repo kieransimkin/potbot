@@ -8,6 +8,9 @@ on:
       - 'src/potbot/persistence/database.py'
       - 'sandbox/clients/context_client.py'
       - 'src/potbot/tools/interactive_supervisor.py'
+      - 'tests/test_context_agent_skills.py'
+      - 'tests/unit/test_context_release_hardening.py'
+      - 'tests/integration/test_context_acl.py'
       - 'tests/unit/test_context_agent_rpc.py'
       - 'tests/unit/test_context_skill_lifecycle.py'
       - 'tests/unit/test_context_worker_dispatch.py'
@@ -47,6 +50,8 @@ jobs:
       - name: Bounded protocol, real pipes, and worker lifecycle
         run: >-
           uv run --locked python -m pytest -q
+          tests/test_context_agent_skills.py
+          tests/unit/test_context_release_hardening.py
           tests/unit/test_context_agent_rpc.py
           tests/unit/test_context_skill_lifecycle.py
           tests/unit/test_context_worker_dispatch.py

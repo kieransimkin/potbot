@@ -8,6 +8,7 @@ import pytest
 from potbot.context.bootstrap import (
     grant_shared_context_writer, revoke_shared_context_writer, seed_shared_context,
 )
+from potbot.context.model import ROLES
 from potbot.context.service import WorkspaceContextService
 from potbot.domain.errors import ScopeDeniedError
 from potbot.persistence.database import admin_connection
@@ -15,27 +16,46 @@ from potbot.persistence.database import admin_connection
 pytestmark = pytest.mark.postgres
 
 
-def test_shared_context_requires_explicit_writer_grant(app_env):
+@pytest.mark.parametrize("role", ROLES)
+def test_shared_context_requires_explicit_writer_grant(app_env, role):
     ctx = app_env.context
     service = WorkspaceContextService(app_env.db)
     name = str(ctx.workspace_id)
-    model = service.read(ctx, "sandbox", name, "MODEL.md")
+    document = service.read(ctx, "sandbox", name, role)
+    history_count = len(service.history(ctx, "sandbox", name, role))
+    request = {
+        "content": "# approved\n",
+        "expected_revision": document["revision"],
+        "idempotency_key": uuid4().hex,
+    }
     with pytest.raises(ScopeDeniedError):
-        service.update(ctx, "sandbox", name, "MODEL.md", content="# ungranted\n",
-                       expected_revision=model["revision"], idempotency_key=uuid4().hex)
+        service.update(ctx, "sandbox", name, role, **request)
+    unchanged = service.read(ctx, "sandbox", name, role)
+    assert (unchanged["revision"], unchanged["sha256"]) == (
+        document["revision"], document["sha256"],
+    )
+    assert len(service.history(ctx, "sandbox", name, role)) == history_count
+
     with admin_connection(app_env.admin_dsn, app_env.schema) as conn:
-        grant_shared_context_writer(conn, ctx.workspace_id, UUID(model["object_id"]),
-                                    ctx.principal_id, ("MODEL.md",))
-    result = service.update(ctx, "sandbox", name, "MODEL.md", content="# approved\n",
-                            expected_revision=model["revision"], idempotency_key=uuid4().hex)
-    assert result["revision"] == model["revision"] + 1
+        grant_shared_context_writer(conn, ctx.workspace_id, UUID(document["object_id"]),
+                                    ctx.principal_id, (role,))
+    result = service.update(ctx, "sandbox", name, role, **request)
+    assert result["revision"] == document["revision"] + 1
+    assert service.update(ctx, "sandbox", name, role, **request) == result
+    assert len(service.history(ctx, "sandbox", name, role)) == history_count + 1
+
     with admin_connection(app_env.admin_dsn, app_env.schema) as conn:
-        revoke_shared_context_writer(conn, ctx.workspace_id, UUID(model["object_id"]),
-                                     ctx.principal_id, ("MODEL.md",))
+        revoke_shared_context_writer(conn, ctx.workspace_id, UUID(document["object_id"]),
+                                     ctx.principal_id, (role,))
+    # A revoked grant cannot authorize a new mutation. Session receipt-replay
+    # revocation is independently tested in test_context_skills.py.
     with pytest.raises(ScopeDeniedError):
-        service.update(ctx, "sandbox", name, "MODEL.md", content="# denied\n",
+        service.update(ctx, "sandbox", name, role, content="# denied\n",
                        expected_revision=result["revision"], idempotency_key=uuid4().hex)
-    assert service.read(ctx, "sandbox", name, "MODEL.md")["content"] == "# approved\n"
+    current = service.read(ctx, "sandbox", name, role)
+    assert current["revision"] == result["revision"]
+    assert current["content"] == request["content"]
+    assert len(service.history(ctx, "sandbox", name, role)) == history_count + 1
 
 
 def test_shared_primitive_idempotent_provisioning_and_role_scoped_grant(app_env):
