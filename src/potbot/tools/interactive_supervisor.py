@@ -26,7 +26,6 @@ from potbot.domain.errors import CapabilityUnavailableError, IndeterminateExecut
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.worker_telemetry import WorkerMonitorConfig, WorkerMonitorSession
 
-_MAX_STATUS_BYTES
 _MAX_STATUS_BYTES = 65_536
 _SHUTDOWN_GRACE_S = 0.5
 
@@ -290,7 +289,9 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                         or config.cgroup_root.is_relative_to(home)):
                     raise CapabilityUnavailableError("operator monitoring assets overlap sandbox home")
                 telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
-                                                 request.telemetry_agent_id, launch.identity)
+                                                 request.telemetry_agent_id, launch.identity,
+                                                 identity_kind=request.telemetry_identity_kind,
+                                                 run_id=request.telemetry_run_id)
             process = await asyncio.create_subprocess_exec(
                 *(telemetry.command(launch.argv) if telemetry is not None else launch.argv),
                 stdin=asyncio.subprocess.PIPE,

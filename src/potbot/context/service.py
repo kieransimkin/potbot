@@ -18,10 +18,9 @@ from potbot.context.model import (
 )
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError, RevisionConflictError, ScopeDeniedError
-from potbot.persistence.database import idempotent_command
 
 if TYPE_CHECKING:
-    from potbot.persistence.database import Database
+    from potbot.context.transactions import ContextDatabase
 
 _DENIED = "The requested resource is not accessible."
 
@@ -53,7 +52,7 @@ class WorkspaceContextService:
     credentials, perform filesystem projection, or accept a caller-supplied actor.
     """
 
-    def __init__(self, database: Database):
+    def __init__(self, database: ContextDatabase):
         self.database = database
 
     @staticmethod
@@ -113,6 +112,8 @@ class WorkspaceContextService:
         original result, even after subsequent document revisions.
         """
         from psycopg.types.json import Jsonb
+
+        from potbot.persistence.database import idempotent_command
 
         _identity(context)
         validate_identity(kind, name, role)
@@ -174,6 +175,8 @@ class WorkspaceContextService:
         operator/admin bootstrap (not by this method).
         """
         from psycopg.types.json import Jsonb
+
+        from potbot.persistence.database import idempotent_command
 
         _identity(context)
         validate_identity(kind, name)

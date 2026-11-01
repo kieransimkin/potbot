@@ -1,0 +1,55 @@
+name: MODEL.md agent RPC and PostgreSQL sessions
+on:
+  push:
+    paths:
+      - 'src/potbot/context/**'
+      - 'src/potbot/persistence/context*_schema.py'
+      - 'src/potbot/persistence/schema.py'
+      - 'src/potbot/persistence/database.py'
+      - 'sandbox/clients/context_client.py'
+      - 'src/potbot/tools/interactive_supervisor.py'
+      - 'tests/unit/test_context_agent_rpc.py'
+      - 'tests/integration/test_context_sessions.py'
+      - '.github/workflows/context-agent-rpc.yml'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  context-sessions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      UV_PYTHON: '3.12'
+      # Disposable test service only, never production credentials.
+      POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.12.23'
+      - name: Install existing locked dependencies
+        run: uv sync --locked --extra postgres --extra semantics --extra web --dev
+      - name: Verify real interactive supervisor imports
+        run: uv run --locked python -c "import potbot.tools.interactive_supervisor"
+      - name: Bounded protocol, real pipes, and worker lifecycle
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_context_agent_rpc.py
+          tests/test_workspace_context_contract.py
+          tests/test_context_inspection.py
+      - name: Start disposable PostgreSQL
+        run: docker compose up --detach --wait --wait-timeout 90
+      - name: Genuine PostgreSQL locks, revocation, receipts, RLS and rollback
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/integration/test_context_sessions.py
+          tests/integration/test_workspace_context.py
+          tests/integration/test_context_acl.py
+          tests/integration/test_context_inspection.py
+          tests/integration/test_context_refresh.py
+      - name: Remove disposable database
+        if: always()
+        run: docker compose down --volumes --remove-orphans --timeout 10
