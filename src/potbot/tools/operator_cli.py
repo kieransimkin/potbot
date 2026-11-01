@@ -121,7 +121,7 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                  socket_path: Path | None = None,
                  context_manager: ContextProjectionManager | None = None,
                  shared_skills: Path | None = None,
-                 project_agent_context: bool = False,
+                 project_agent_context: bool | None = None,
                  context_refresh_seconds: int = 10) -> None:
     from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
@@ -132,6 +132,32 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
 
     if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
         raise InvalidInputError("context manager requires the trusted host type")
+    from potbot.context.skill_projection import (
+        SkillLibraryProjector, SkillProjectionBusy, prepare_skill_root,
+    )
+
+    if project_agent_context is None:
+        project_agent_context = context_manager is not None
+    if type(project_agent_context) is not bool:
+        raise InvalidInputError("Agent context default must be a boolean or None")
+    if type(context_refresh_seconds) is not int or not 0 <= context_refresh_seconds <= 300:
+        raise InvalidInputError("Context refresh interval must be 0-300 seconds")
+    if context_manager is not None:
+        candidate = shared_skills or (paths.controller_ledger.parent / ("skills-" + paths.workspace_id.hex))
+        # Validate placement before creating or writing projection directories.
+        physical = candidate.resolve()
+        for mount in (paths.rootfs, paths.home, paths.model_staging, paths.shared_models,
+                      paths.shared_tools, paths.ai_config_dir, paths.ai_history_dir):
+            source = mount.resolve(strict=True)
+            if physical == source or physical.is_relative_to(source) or source.is_relative_to(physical):
+                raise ScopeDeniedError("Skill projection storage overlaps another guest mount")
+        if shared_skills is None:
+            shared_skills = prepare_skill_root(paths.controller_ledger.parent, paths.workspace_id)
+    projector = (SkillLibraryProjector(shared_skills)
+                 if context_manager is not None and shared_skills is not None else None)
+    if projector is not None:
+        assert context_manager is not None
+        projector.sync(context_manager.service, context_manager.principal)
     ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
     runtime = paths.runtime()
     if shared_skills is not None:
@@ -167,6 +193,14 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                     refresh_checked = now
                     from potbot.context.refresh import context_is_stale
 
+                    if projector is not None:
+                        try:
+                            projector.sync(context_manager.service, context_manager.principal)
+                        except SkillProjectionBusy:
+                            # Only lock contention is retryable here. Corrupt files or
+                            # an oversized inventory remain explicit operator failures.
+                            pass
+
                     if context_is_stale(
                         context_manager, operator.runtime, ledger,
                         include_agents=operator._project_agent_context,
@@ -198,8 +232,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="operator-private 0700 snapshot directory outside guest mounts")
     parser.add_argument("--shared-skills", type=Path, default=None,
                         help="trusted host shared skills directory (mounted read-only)")
-    parser.add_argument("--project-agent-context", action="store_true",
-                        help="mount registered per-agent context triples (requires migration)")
+    parser.add_argument("--project-agent-context", action=argparse.BooleanOptionalAction, default=None,
+                        help="per-agent triples default on when context is configured; explicit opt-out for legacy hosts")
     args = parser.parse_args(argv)
     try:
         paths = parse_manifest(args.manifest)

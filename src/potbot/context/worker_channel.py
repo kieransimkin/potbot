@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import UUID
 
-from potbot.context.rpc_contract import ContextRequest
+from potbot.context.rpc_contract import OperationRequest
 from potbot.context.rpc_transport import ChannelResult, serve_context_streams
 from potbot.context.sessions import ContextSession, ContextSessionStore
 from potbot.domain.auth import WorkspaceContext
@@ -81,32 +81,16 @@ class ContextWorkerChannel:
 
     def _validate_process(self, process: IsolatedInteractiveProcess) -> UUID:
         self._authorize()
-        request = process.request
+        if (process.closed or not isinstance(process.isolation_identity, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", process.isolation_identity)):
+            raise ScopeDeniedError("Context worker has no live isolation receipt")
         home = self.registry.lookup(self.principal.workspace_id, self.agent_id)
-        if (home is None or home.workspace_id != self.principal.workspace_id
-                or home.agent_id != self.agent_id or process.closed
-                or not isinstance(process.isolation_identity, str)
-                or not re.fullmatch(r"[0-9a-f]{64}", process.isolation_identity)
-                or request.telemetry_workspace_id != self.principal.workspace_id
-                or request.telemetry_agent_id != self.agent_id
-                or request.telemetry_identity_kind != "agent"
-                or not isinstance(request.telemetry_run_id, UUID)
-                or request.guest_uid != home.uid or request.guest_gid != home.gid
-                or request.stdin != b"" or request.ipc_profile != "none"
-                or request.read_only_roots or request.writable_roots):
-            raise ScopeDeniedError("Context worker is not the isolated registered agent")
-        root = Path(self.registry.ledger.home).resolve(strict=True)
-        target = root / home.directory
-        if (target.is_symlink() or not target.is_dir()
-                or target.resolve(strict=True).parent != root
-                or Path(request.workspace_root).resolve(strict=True) != root
-                or Path(request.sandbox_root or request.workspace_root).resolve(strict=True) != root
-                or not Path(request.cwd).resolve(strict=True).is_relative_to(target)):
-            raise ScopeDeniedError("Context worker home differs from its registration")
+        run_id = validate_worker_binding(
+            process.request, home, Path(self.registry.ledger.home), self.principal, self.agent_id)
         pin = self.guard.ledger.image_status(self.principal.workspace_id)
         if pin is None or pin.get("digest") != self.guard.request.image_digest:
             raise ScopeDeniedError("Context worker image admission changed")
-        return request.telemetry_run_id
+        return run_id
 
     async def serve(self, process: IsolatedInteractiveProcess) -> ContextWorkerResult:
         """Single-use; close process and revoke session on EOF, timeout, or error.
@@ -126,10 +110,11 @@ class ContextWorkerChannel:
         cleanup: list[BaseException] = []
         try:
             run_id = await _settle(lambda: self._validate_process(process))
+            await _settle(lambda: self.store.ensure_agent_context(self.principal, self.agent_id))
             grant = await _settle(lambda: self.store.issue(self.principal, self.agent_id, run_id))
             bound = grant
 
-            def execute(request: ContextRequest) -> dict[str, Any]:
+            def execute(request: OperationRequest) -> dict[str, Any]:
                 self._authorize()
                 return self.store.execute(bound, request)
 
@@ -195,3 +180,24 @@ class ContextWorkerChannel:
             ) from None
         assert grant is not None and result is not None and self.exit_receipt is not None
         return ContextWorkerResult(grant.session_id, result, self.exit_receipt)
+
+
+def validate_worker_binding(request: Any, home: Any, root: Path,
+                            principal: WorkspaceContext, agent_id: UUID) -> UUID:
+    """Validate identity/home/pipe policy before spawn AND again before RPC issuance."""
+    if (home is None or home.workspace_id != principal.workspace_id or home.agent_id != agent_id
+            or request.telemetry_workspace_id != principal.workspace_id
+            or request.telemetry_agent_id != agent_id or request.telemetry_identity_kind != "agent"
+            or not isinstance(request.telemetry_run_id, UUID)
+            or request.guest_uid != home.uid or request.guest_gid != home.gid
+            or request.stdin != b"" or request.ipc_profile != "none"
+            or request.read_only_roots or request.writable_roots):
+        raise ScopeDeniedError("Context worker is not the isolated registered agent")
+    root = root.resolve(strict=True)
+    target = root / home.directory
+    if (target.is_symlink() or not target.is_dir() or target.resolve(strict=True).parent != root
+            or Path(request.workspace_root).resolve(strict=True) != root
+            or Path(request.sandbox_root or request.workspace_root).resolve(strict=True) != root
+            or not Path(request.cwd).resolve(strict=True).is_relative_to(target)):
+        raise ScopeDeniedError("Context worker home differs from its registration")
+    return request.telemetry_run_id

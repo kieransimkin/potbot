@@ -54,8 +54,10 @@ def test_update_contract_and_protected_shared_instructions():
     for content in ('unsafe\x00', '\ud800', None):
         with pytest.raises(InvalidInputError):
             parse_request(encoded({**value, 'content': content}))
-    with pytest.raises(ScopeDeniedError):
-        parse_request(encoded({**value, 'scope': 'sandbox', 'role': 'AGENTS.md'}))
+    # Parsing is not authorization: session execution requires a live, explicit
+    # per-role PostgreSQL writer grant (covered by the integration test).
+    shared = parse_request(encoded({**value, 'scope': 'sandbox', 'role': 'AGENTS.md'}))
+    assert shared.role == 'AGENTS.md' and shared.scope == 'sandbox'
 
 async def pair(handler):
     a, b = socket.socketpair()
@@ -301,6 +303,10 @@ def test_worker_channel_revokes_after_confirmed_process_shutdown(tmp_path, cance
 
     class Store:
 
+        def ensure_agent_context(self, actor, agent_id):
+            assert actor == principal and agent_id == agent
+            events.append('provision')
+
         def issue(self, actor, agent_id, run_id):
             events.append('issue')
             return ContextSession(actor, uuid4(), agent_id, run_id, 1, 'a' * 43)
@@ -360,7 +366,7 @@ def test_worker_channel_revokes_after_confirmed_process_shutdown(tmp_path, cance
         with pytest.raises(ScopeDeniedError):
             await owner.serve(process)
     asyncio.run(exercise())
-    assert events == ['issue', 'read', 'stopped', 'revoke']
+    assert events == ['provision', 'issue', 'read', 'stopped', 'revoke']
 
 def test_client_reports_parse_denial_without_inventing_an_indeterminate_write():
     path = Path(__file__).resolve().parents[2] / 'sandbox/clients/context_client.py'

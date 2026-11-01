@@ -18,7 +18,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from potbot.context.model import sandbox_object_id, sha256
-from potbot.context.rpc_contract import ContextRequest
+from potbot.context.rpc_contract import ContextRequest, OperationRequest, SkillRequest
 from potbot.context.service import WorkspaceContextService
 from potbot.context.transactions import ContextDatabase
 from potbot.domain.auth import WorkspaceContext
@@ -98,6 +98,12 @@ class ContextSessionStore:
             ).fetchone()
             if obj is None:
                 raise ScopeDeniedError(_DENIED)
+            # A run has a separate working model/history, provisioned in this
+            # same transaction. Agent identity was already verified above.
+            WorkspaceContextService(_BoundTransaction(principal, conn)).provision_private(
+                principal, "worker", worker_context_name(agent_id, run_id),
+                idempotency_key="worker-context:" + agent_id.hex + run_id.hex,
+            )
             now = self._now(conn)
             conn.execute(
                 "INSERT INTO workspace_context_sessions "
@@ -156,42 +162,84 @@ class ContextSessionStore:
                 (grant.principal.workspace_id, grant.session_id),
             )
 
-    def execute(self, grant: ContextSession, request: ContextRequest) -> dict[str, Any]:
-        """A valid live lease is required even for an idempotent response replay."""
-        if not isinstance(grant, ContextSession) or not isinstance(request, ContextRequest):
+    def ensure_agent_context(self, principal: WorkspaceContext, agent_id: UUID) -> None:
+        """Host lifecycle hook; caller MUST first validate a registered home/run.
+
+        ContextWorkerChannel calls this only after its independent process/home
+        binding checks. This is not exposed as a guest RPC or authorization API.
+        """
+        if not isinstance(principal, WorkspaceContext) or not isinstance(agent_id, UUID):
+            raise ScopeDeniedError(_DENIED)
+        WorkspaceContextService(self.database).provision_private(
+            principal, "agent", str(agent_id), idempotency_key="agent-context:" + agent_id.hex,
+        )
+
+    def execute(self, grant: ContextSession, request: OperationRequest) -> dict[str, Any]:
+        """Session, ownership, CAS, skill lifecycle and receipts share one commit."""
+        from potbot.context.skill_catalogue import SessionSkillCatalogue
+
+        if not isinstance(grant, ContextSession) or not isinstance(request, (ContextRequest, SkillRequest)):
             raise ScopeDeniedError(_DENIED)
         context = grant.principal
         with self.database.transaction(context) as conn:
             session = self._lock(conn, grant)
             service = WorkspaceContextService(_BoundTransaction(context, conn))
-            kind = request.scope
-            name = str(grant.agent_id if kind == "agent" else context.workspace_id)
-            object_id = (session["agent_object_id"] if kind == "agent"
-                         else sandbox_object_id(context.workspace_id))
-            # Recheck rights before replay as well as before creating any new revision.
-            # FOR SHARE keeps a granted row from being revoked midway through this transaction.
-            if request.method == "context.update" and kind == "sandbox":
-                allowed = conn.execute(
-                    "SELECT role FROM workspace_context_write_grants WHERE workspace_id=%s "
-                    "AND object_id=%s AND principal_id=%s AND role=%s FOR SHARE",
-                    (context.workspace_id, object_id, context.principal_id, request.role),
-                ).fetchone()
-                if allowed is None:
-                    raise ScopeDeniedError(_DENIED)
-            if request.method == "context.update":
-                replay = conn.execute(
-                    "SELECT request_sha256,result FROM workspace_context_session_receipts "
-                    "WHERE workspace_id=%s AND session_id=%s AND request_id=%s",
-                    (context.workspace_id, grant.session_id, request.request_id),
-                ).fetchone()
-                if replay is not None:
-                    if replay["request_sha256"] != request.fingerprint:
-                        raise RevisionConflictError("Request ID was used for different content")
-                    self._check_expiry(conn, session)
-                    return dict(replay["result"])
+            skills = SessionSkillCatalogue(conn, grant, session, service)
+            mutates = request.mutates if isinstance(request, SkillRequest) else request.method == "context.update"
+            if isinstance(request, SkillRequest):
+                skills.authorize(request)
+            else:
+                kind = request.scope
+                if kind == "skill":
+                    assert request.skill_id is not None
+                    name, object_id = skills.context_target(request.skill_id, write=mutates)
+                elif kind == "worker":
+                    name = worker_context_name(grant.agent_id, grant.run_id)
+                    object_id = service._get_object(conn, context, kind, name)
+                else:
+                    name = str(grant.agent_id if kind == "agent" else context.workspace_id)
+                    object_id = (session["agent_object_id"] if kind == "agent"
+                                 else sandbox_object_id(context.workspace_id))
+                if mutates and kind == "sandbox":
+                    # Includes AGENTS.md: a filename grants no authority. Only an
+                    # explicit operator-issued role grant permits this mutation.
+                    allowed = conn.execute(
+                        "SELECT role FROM workspace_context_write_grants WHERE workspace_id=%s "
+                        "AND object_id=%s AND principal_id=%s AND role=%s FOR SHARE",
+                        (context.workspace_id, object_id, context.principal_id, request.role),
+                    ).fetchone()
+                    if allowed is None:
+                        raise ScopeDeniedError(_DENIED)
+            # The session row lock makes request UUIDs unique across both kinds
+            # of receipt. Moving a UUID between context and skill methods fails.
+            replays = conn.execute(
+                "SELECT request_sha256,result FROM workspace_context_session_receipts "
+                "WHERE workspace_id=%s AND session_id=%s AND request_id=%s UNION ALL "
+                "SELECT request_sha256,result FROM workspace_context_skill_receipts "
+                "WHERE workspace_id=%s AND session_id=%s AND request_id=%s",
+                (context.workspace_id, grant.session_id, request.request_id,
+                 context.workspace_id, grant.session_id, request.request_id),
+            ).fetchall()
+            if replays:
+                if len(replays) != 1 or not mutates or replays[0]["request_sha256"] != request.fingerprint:
+                    raise RevisionConflictError("Request ID was used for a different operation")
+                self._check_expiry(conn, session)
+                return dict(replays[0]["result"])
             if session["request_count"] >= session["request_limit"]:
                 raise ScopeDeniedError("Context session request budget exhausted")
-            if request.method == "context.read":
+            if isinstance(request, SkillRequest):
+                result = skills.execute(request)
+                if mutates:
+                    from psycopg.types.json import Jsonb
+
+                    conn.execute(
+                        "INSERT INTO workspace_context_skill_receipts "
+                        "(workspace_id,session_id,request_id,request_sha256,skill_id,result) "
+                        "VALUES (%s,%s,%s,%s,%s,%s)",
+                        (context.workspace_id, grant.session_id, request.request_id,
+                         request.fingerprint, UUID(result["skill_id"]), Jsonb(result)),
+                    )
+            elif request.method == "context.read":
                 result = service.read(context, kind, name, request.role)
                 if sha256(result["content"]) != result["sha256"]:
                     raise RevisionConflictError("Context document digest mismatch")
@@ -199,9 +247,7 @@ class ContextSessionStore:
                 from psycopg.types.json import Jsonb
 
                 assert request.content is not None and request.expected_revision is not None
-                key = hashlib.sha256(
-                    grant.session_id.bytes + request.request_id.bytes
-                ).hexdigest()
+                key = hashlib.sha256(grant.session_id.bytes + request.request_id.bytes).hexdigest()
                 result = service.update(
                     context, kind, name, request.role, content=request.content,
                     expected_revision=request.expected_revision, idempotency_key="agent-rpc:"+key,
@@ -214,16 +260,20 @@ class ContextSessionStore:
                     (context.workspace_id, grant.session_id, request.request_id, request.fingerprint,
                      object_id, request.role, result["revision"], Jsonb(result)),
                 )
-            # A document lock may have blocked until after the lease expired.
-            # Reject here to roll back the CAS, history, event and receipt together.
             self._check_expiry(conn, session)
             conn.execute(
                 "UPDATE workspace_context_sessions SET request_count=request_count+1 "
-                "WHERE workspace_id=%s AND id=%s",
-                (context.workspace_id, grant.session_id),
+                "WHERE workspace_id=%s AND id=%s", (context.workspace_id, grant.session_id),
             )
             return result
 
     def _check_expiry(self, conn: Any, session: dict[str, Any]) -> None:
         if session["expires_at"] <= self._now(conn):
             raise ScopeDeniedError(_DENIED)
+
+
+def worker_context_name(agent_id: UUID, run_id: UUID) -> str:
+    """Do not collapse two agents working on the same run into one object."""
+    if not isinstance(agent_id, UUID) or not isinstance(run_id, UUID):
+        raise InvalidInputError("Worker context needs immutable agent and run identities")
+    return agent_id.hex + "." + run_id.hex

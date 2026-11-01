@@ -19,7 +19,7 @@ from potbot.context.rpc_contract import (
     MAX_CHANNEL_REQUESTS,
     MAX_FRAME_BYTES,
     SCHEMA,
-    ContextRequest,
+    OperationRequest,
     parse_request,
 )
 from potbot.domain.errors import DomainError, InvalidInputError
@@ -67,8 +67,8 @@ async def _read(reader: asyncio.StreamReader) -> bytes | None:
         raise InvalidInputError("Truncated context frame") from None
 
 
-async def _settled_call(handler: Callable[[ContextRequest], dict[str, Any]],
-                        request: ContextRequest) -> dict[str, Any]:
+async def _settled_call(handler: Callable[[OperationRequest], dict[str, Any]],
+                        request: OperationRequest) -> dict[str, Any]:
     # Cancellation cannot undo a synchronous PostgreSQL commit. Keep a strong
     # reference and wait for the bounded DB operation before revoking/closing.
     task = asyncio.create_task(asyncio.to_thread(handler, request))
@@ -90,7 +90,7 @@ async def _settled_call(handler: Callable[[ContextRequest], dict[str, Any]],
 
 async def serve_context_streams(
     reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-    handler: Callable[[ContextRequest], dict[str, Any]], *,
+    handler: Callable[[OperationRequest], dict[str, Any]], *,
     frame_timeout: float = 15.0,
 ) -> ChannelResult:
     """Serve ONE already-admitted channel; caller must revoke its session in finally.
@@ -105,7 +105,7 @@ async def serve_context_streams(
     try:
         while count < MAX_CHANNEL_REQUESTS:
             response: dict[str, Any]
-            request: ContextRequest | None = None
+            request: OperationRequest | None = None
             fatal = False
             try:
                 async with asyncio.timeout(frame_timeout):

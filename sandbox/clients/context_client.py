@@ -71,22 +71,70 @@ class ContextClient:
                 code = "internal_error"
             raise ContextRPCError(code, request_id)
         result = reply.get("result")
-        if not isinstance(result, dict) or type(result.get("revision")) is not int:
+        if not isinstance(result, dict) or (request["method"] != "skills.list"
+                and type(result.get("revision")) is not int):
             raise ContextRPCError("invalid_response", request_id)
         if "content" in result and (
             not isinstance(result["content"], str)
             or hashlib.sha256(result["content"].encode("utf-8")).hexdigest() != result.get("sha256")
         ):
             raise ContextRPCError("integrity_error", request_id)
+        if "context" in result:
+            documents = result["context"]
+            if not isinstance(documents, dict) or set(documents) != {"AGENTS.md", "MODEL.md", "MEMORY.md"}:
+                raise ContextRPCError("invalid_response", request_id)
+            for doc in documents.values():
+                if (not isinstance(doc, dict) or not isinstance(doc.get("content"), str)
+                        or hashlib.sha256(doc["content"].encode("utf-8")).hexdigest() != doc.get("sha256")):
+                    raise ContextRPCError("integrity_error", request_id)
         return result
 
-    def read(self, scope: str, role: str = "MODEL.md") -> dict[str, Any]:
-        return self._exchange({"schema": SCHEMA, "request_id": str(uuid4()),
-            "method": "context.read", "scope": scope, "role": role})
+    def read(self, scope: str, role: str = "MODEL.md", *,
+             skill_id: str | None = None) -> dict[str, Any]:
+        request = {"schema": SCHEMA, "request_id": str(uuid4()),
+                   "method": "context.read", "scope": scope, "role": role}
+        if skill_id is not None:
+            request["skill_id"] = skill_id
+        return self._exchange(request)
 
     def update(self, scope: str, role: str, content: str, *, expected_revision: int,
-               request_id: str, reason: str = "") -> dict[str, Any]:
+               request_id: str, reason: str = "", skill_id: str | None = None) -> dict[str, Any]:
         """Retain request_id BEFORE sending; reuse only for the identical retry."""
+        request = {"schema": SCHEMA, "request_id": request_id, "method": "context.update",
+                   "scope": scope, "role": role, "content": content,
+                   "expected_revision": expected_revision, "reason": reason}
+        if skill_id is not None:
+            request["skill_id"] = skill_id
+        return self._exchange(request)
+
+    def create_skill(self, name: str, content: str, *, request_id: str,
+                     reason: str = "") -> dict[str, Any]:
         return self._exchange({"schema": SCHEMA, "request_id": request_id,
-            "method": "context.update", "scope": scope, "role": role, "content": content,
+            "method": "skills.create", "name": name, "content": content, "reason": reason})
+
+    def save_skill(self, skill_id: str, content: str, *, expected_revision: int,
+                   request_id: str, reason: str = "") -> dict[str, Any]:
+        return self._exchange({"schema": SCHEMA, "request_id": request_id,
+            "method": "skills.save", "skill_id": skill_id, "content": content,
             "expected_revision": expected_revision, "reason": reason})
+
+    def publish_skill(self, skill_id: str, *, expected_revision: int,
+                      request_id: str, reason: str = "") -> dict[str, Any]:
+        return self._exchange({"schema": SCHEMA, "request_id": request_id,
+            "method": "skills.publish", "skill_id": skill_id,
+            "expected_revision": expected_revision, "reason": reason})
+
+    def archive_skill(self, skill_id: str, *, expected_revision: int,
+                      request_id: str, reason: str = "") -> dict[str, Any]:
+        return self._exchange({"schema": SCHEMA, "request_id": request_id,
+            "method": "skills.archive", "skill_id": skill_id,
+            "expected_revision": expected_revision, "reason": reason})
+
+    def list_skills(self, *, limit: int = 25, after: str | None = None) -> dict[str, Any]:
+        return self._exchange({"schema": SCHEMA, "request_id": str(uuid4()),
+            "method": "skills.list", "limit": limit, "after": after})
+
+    def load_skill(self, skill_id: str, release_sha256: str) -> dict[str, Any]:
+        """Load selected text, not execute it or promote it to system policy."""
+        return self._exchange({"schema": SCHEMA, "request_id": str(uuid4()),
+            "method": "skills.load", "skill_id": skill_id, "release_sha256": release_sha256})

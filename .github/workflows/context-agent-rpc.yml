@@ -9,7 +9,11 @@ on:
       - 'sandbox/clients/context_client.py'
       - 'src/potbot/tools/interactive_supervisor.py'
       - 'tests/unit/test_context_agent_rpc.py'
+      - 'tests/unit/test_context_skill_lifecycle.py'
+      - 'tests/unit/test_context_worker_dispatch.py'
+      - 'src/potbot/tools/operator_cli.py'
       - 'tests/integration/test_context_sessions.py'
+      - 'tests/integration/test_context_skills.py'
       - '.github/workflows/context-agent-rpc.yml'
   pull_request:
   workflow_dispatch:
@@ -38,6 +42,8 @@ jobs:
         run: >-
           uv run --locked python -m pytest -q
           tests/unit/test_context_agent_rpc.py
+          tests/unit/test_context_skill_lifecycle.py
+          tests/unit/test_context_worker_dispatch.py
           tests/test_workspace_context_contract.py
           tests/test_context_inspection.py
       - name: Start disposable PostgreSQL
@@ -46,6 +52,7 @@ jobs:
         run: >-
           uv run --locked python -m pytest -q
           tests/integration/test_context_sessions.py
+          tests/integration/test_context_skills.py
           tests/integration/test_workspace_context.py
           tests/integration/test_context_acl.py
           tests/integration/test_context_inspection.py

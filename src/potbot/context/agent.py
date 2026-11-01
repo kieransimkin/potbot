@@ -156,7 +156,7 @@ class ContextMutationBroker:
         if kind == "agent" and name == str(identity.agent_id):
             return
         if (kind == "sandbox" and name == str(identity.principal.workspace_id)
-                and role in {"MODEL.md", "MEMORY.md"}):
+                and role in ROLES):
             return
         raise ScopeDeniedError("Agent context scope does not permit the requested document")
 
