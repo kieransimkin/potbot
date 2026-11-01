@@ -21,8 +21,9 @@ from potbot.api.server import create_app
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
 from potbot.cogs.execution import REPLAY, SEAL, WORK_COGS
 from potbot.cogs.registry import BoundCogRegistry
+from potbot.controller.child_plans import ChildWorkStep, InstalledChildPlan
 from potbot.controller.cog_work import CogWorkMonitor
-from potbot.controller.execution_cogs import ExecutionCogRuntime, HostOperation
+from potbot.controller.execution_cogs import ExecutionCall, ExecutionCogRuntime
 from potbot.controller.execution_events import ExecutionEventService
 from potbot.controller.execution_journal import PinnedExecutionJournal
 from potbot.controller.execution_receipts import ExecutionReceiptService
@@ -45,6 +46,7 @@ from potbot.tools.execution_contracts import (
     WorkBinding,
 )
 from potbot.tools.execution_schemas import schemas
+from potbot.tools.sandbox_cog_worker import SandboxedCogExecutor, SandboxedCogOperation
 from potbot.tools.semantic_contracts import QUERY, RESULTS
 from tests.integration.test_repository_states import setup
 from tests.unit.test_debugger_cogs_live import assert_lifecycles
@@ -57,16 +59,19 @@ SOURCE_FILES = (
     "src/potbot/tools/execution_schemas.py",
     "src/potbot/cogs/execution.py",
     "src/potbot/controller/execution_cogs.py",
+    "src/potbot/controller/child_plans.py",
     "src/potbot/controller/execution_journal.py",
     "src/potbot/controller/execution_receipts.py",
     "src/potbot/controller/execution_events.py",
     "src/potbot/controller/cog_work.py",
     "src/potbot/tools/execution_contracts.py",
+    "src/potbot/tools/sandbox_cog_worker.py",
     "src/potbot/persistence/execution_provenance_schema.py",
+    "tests/integration/test_execution_provenance.py",
 )
 
 
-def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_path):
+def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_path, monkeypatch):
     fixture, artifacts, states, env, _, _ = setup(app_env, tmp_path)
     state = states.capture(
         app_env.context, app_env.repository_id, fixture.path, env, committed_ref="HEAD"
@@ -134,118 +139,100 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
     def operation_ref(kind):
         return f"syn://thing/fixture-{kind.replace('_', '-')}"
 
-    async def simple(call, value):
-        effects.append(call.work.signature.cog_ref.slug)
-        call.progress("fixture_operation_completed")
-        return result("Scripted host fixture; no live provider/browser/device qualification")
+    class FixtureSandboxTransport(SandboxedCogExecutor):
+        """Only the audited worker RPC is simulated in this PostgreSQL test.
 
-    async def script(call, value):
-        effects.append("actual-python-cli")
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-c",
-            "import json,os; print(json.dumps({'sum':7,'pid':os.getpid()}))",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        process_ids.append(proc.pid)
-        try:
-            output, errors = await asyncio.wait_for(proc.communicate(), timeout=5)
-            assert proc.returncode == 0 and not errors and json.loads(output)["sum"] == 7
-        finally:
-            if proc.returncode is None:
-                proc.kill()
-                await proc.wait()
-        call.progress("python_cli_exited")
-        return result("Actual Python CLI returned 7 and exited")
+        This is intentionally not a kernel/Bubblewrap qualification. The real
+        worker, executable hash, UID, lease and syscall audit have independent
+        S46 + live-host gates; no production admission is relaxed here.
+        """
+        def __init__(self, mode: str = "normal"):
+            self.mode = mode
+            self.dispatched = []
 
-    async def mcp(call, value):
-        effects.append("actual-mcp-stdio")
-        async for client, catalog in serve():
-            response = await client.call_tool(
-                "add",
-                {"a": 3, "b": 4},
-                pinned_catalog_hash=catalog.fingerprint,
-                pinned_tool_hash=catalog.tool("add").fingerprint,
-            )
-            assert response.structured_content == {"sum": 7}
-        call.progress("mcp_stdio_child_exited")
-        return result("Actual MCP stdio tool returned 7 and exited")
+        def bind_context(self, database, actor, installed):
+            assert database is app_env.db and actor == app_env.context
+            assert all(isinstance(item, SandboxedCogOperation) for item in installed)
 
-    async def profile(call, value):
-        effects.append("actual-cprofile")
+        async def execute(self, op, value, context, actor, agent):
+            assert actor == app_env.context and agent == sandbox_agent
+            assert isinstance(op, SandboxedCogOperation)
+            self.dispatched.append((op.binding.kind, context.invocation_id))
+            if op.binding.operation_ref == "syn://thing/fixture-failed-write":
+                if self.mode == "write":
+                    write_effects.append("dispatched")
+                    raise OSError("Fixture lost confirmation after dispatch")
+                if self.mode == "mutate":
+                    value.value["text"] = "mutated"
+                    return result("This output must not complete the invocation")
+                raise AssertionError("unspecified test worker")
+            effects.append(op.binding.kind)
+            if op.binding.kind == "script":
+                proc = await asyncio.create_subprocess_exec(
+                    sys.executable, "-c",
+                    "import json,os; print(json.dumps({'sum':7,'pid':os.getpid()}))",
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                )
+                process_ids.append(proc.pid)
+                try:
+                    output, errors = await asyncio.wait_for(proc.communicate(), timeout=5)
+                    assert proc.returncode == 0 and not errors and json.loads(output)["sum"] == 7
+                finally:
+                    if proc.returncode is None:
+                        proc.kill()
+                        await proc.wait()
+            elif op.binding.kind == "mcp_tool":
+                async for client, catalog in serve():
+                    response = await client.call_tool(
+                        "add", {"a": 3, "b": 4},
+                        pinned_catalog_hash=catalog.fingerprint,
+                        pinned_tool_hash=catalog.tool("add").fingerprint,
+                    )
+                    assert response.structured_content == {"sum": 7}
+            elif op.binding.kind == "maintenance":
+                def workload():
+                    return sum(i * i for i in range(100000))
 
-        def workload():
-            return sum(i * i for i in range(100000))
-
-        start = time.perf_counter_ns()
-        plain = workload()
-        plain_ns = time.perf_counter_ns() - start
-        profiler = cProfile.Profile()
-        start = time.perf_counter_ns()
-        measured = profiler.runcall(workload)
-        profiled_ns = time.perf_counter_ns() - start
-        assert plain == measured and profiler.getstats()
-        profiling.append(
-            {
-                "plain_ns": plain_ns,
-                "profiled_ns": profiled_ns,
-                "difference_ns": profiled_ns - plain_ns,
-                "output_hash": content_hash(plain),
-                "sample_count": 1,
-                "qualification": "single_controller_fixture_measurement",
-                "target_ram_bytes": None,
-                "uncertainty": "single_sample_noise_not_estimated",
-            }
-        )
-        call.progress("cprofile_output_compared")
-        return result(canonical_json(profiling[-1]))
-
-    async def subagent(call, value):
-        child = await call.child("tool", operation_ref("tool"), value)
-        outcomes.append(child)
-        return result("Nested scripted subagent observed its child tool")
-
-    async def workflow(call, value):
-        script_result = await call.child("script", operation_ref("script"), value)
-        outcomes.append(script_result)
-        terminal = ExecutionEventService(app_env.db).events(
-            app_env.context, run_id=script_result.receipt.invocation_id
-        )["items"][-1]
-        for kind in WORK_KINDS:
-            if kind in {"workflow", "script"}:
-                continue
-            child = await call.child(
-                kind,
-                operation_ref(kind),
-                value,
-                links=(UUID(terminal["id"]),) if kind == "mcp_tool" else (),
-            )
-            outcomes.append(child)
-        return result("Completed a causal fixture family; original effects are never replayed")
+                start = time.perf_counter_ns()
+                plain = workload()
+                plain_ns = time.perf_counter_ns() - start
+                profiler = cProfile.Profile()
+                start = time.perf_counter_ns()
+                measured = profiler.runcall(workload)
+                profiled_ns = time.perf_counter_ns() - start
+                assert plain == measured and profiler.getstats()
+                profiling.append({
+                    "plain_ns": plain_ns, "profiled_ns": profiled_ns,
+                    "difference_ns": profiled_ns - plain_ns,
+                    "output_hash": content_hash(plain), "sample_count": 1,
+                    "qualification": "host_fixture_transport_double_not_sandbox",
+                    "target_ram_bytes": None,
+                    "uncertainty": "single_sample_noise_not_estimated",
+                })
+            return result("Recorded sandbox transport response for " + op.binding.kind)
 
     for kind in WORK_KINDS:
-        handler = {
-            "script": script,
-            "mcp_tool": mcp,
-            "maintenance": profile,
-            "subagent": subagent,
-            "workflow": workflow,
-        }.get(kind, simple)
-        operations.append(
-            HostOperation(
-                WorkBinding(
-                    kind,
-                    operation_ref(kind),
-                    QUERY,
-                    RESULTS,
-                    content_hash({"fixture_handler": kind}),
-                    "read_only",
-                    policy,
-                ),
-                handler,
-            )
-        )
+        operations.append(SandboxedCogOperation(
+            WorkBinding(kind, operation_ref(kind), QUERY, RESULTS,
+                        content_hash({"fixture_handler": kind}), "read_only", policy),
+            ("/usr/local/libexec/fixture-worker",),
+            content_hash({"fixture_binary": kind}),
+        ))
+    steps = [ChildWorkStep("script", "script", operation_ref("script"))]
+    for kind in WORK_KINDS:
+        if kind not in {"script", "workflow"}:
+            steps.append(ChildWorkStep(
+                kind, kind, operation_ref(kind),
+                links=("script",) if kind == "mcp_tool" else (),
+            ))
+    child_plans = (
+        InstalledChildPlan("workflow", operation_ref("workflow"), tuple(steps)),
+        InstalledChildPlan("subagent", operation_ref("subagent"), (
+            ChildWorkStep("tool", "tool", operation_ref("tool")),
+        )),
+    )
+    sandbox_agent = uuid4()
+    sandbox_executor = FixtureSandboxTransport()
     revoked = []
 
     def admit(*args):
@@ -264,6 +251,9 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         operations=tuple(operations),
         admit=admit,
         receipts=receipt_service,
+        sandbox_executor=sandbox_executor,
+        sandbox_agent_id=sandbox_agent,
+        child_plans=child_plans,
     )
 
     def invoke(signature, value):
@@ -280,6 +270,15 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         )
         outcomes.append(outcome)
         return outcome
+
+    original_child = ExecutionCall._child
+
+    async def record_real_journal_child(call, signature, source, links):
+        outcome = await original_child(call, signature, source, links)
+        outcomes.append(outcome)
+        return outcome
+
+    monkeypatch.setattr(ExecutionCall, "_child", record_real_journal_child)
 
     root = invoke(
         WORK_COGS[WORK_KINDS.index("workflow")],
@@ -471,23 +470,10 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         journal.append(app_env.context, start)
 
     write_effects = []
-
-    async def failed_write(call, value):
-        write_effects.append("dispatched")
-        call.progress("external_write_dispatched")
-        raise OSError("Fixture lost confirmation after dispatch")
-
-    write_operation = HostOperation(
-        WorkBinding(
-            "tool",
-            "syn://thing/fixture-failed-write",
-            QUERY,
-            RESULTS,
-            "f" * 64,
-            "non_idempotent_write",
-            policy,
-        ),
-        failed_write,
+    write_operation = SandboxedCogOperation(
+        WorkBinding("tool", "syn://thing/fixture-failed-write", QUERY, RESULTS,
+                    "f" * 64, "non_idempotent_write", policy),
+        ("/usr/local/libexec/fixture-worker",), "e" * 64,
     )
     writer = ExecutionCogRuntime(
         database=app_env.db,
@@ -500,6 +486,8 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         policy=policy,
         operations=(write_operation,),
         admit=admit,
+        sandbox_executor=FixtureSandboxTransport("write"),
+        sandbox_agent_id=sandbox_agent,
     )
     write_context = replace(context, invocation_id=uuid4())
     tool = WORK_COGS[WORK_KINDS.index("tool")]
@@ -531,10 +519,6 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         == "indeterminate"
     )
 
-    async def mutating_handler(call, value):
-        value.value["text"] = "mutated"
-        return result("This output must not complete the original invocation")
-
     mutator = ExecutionCogRuntime(
         database=app_env.db,
         artifacts=artifacts,
@@ -544,12 +528,13 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         repository_state_id=state["id"],
         emitter_run_id=runtime.emitter,
         policy=policy,
-        operations=(
-            HostOperation(
-                replace(write_operation.binding, effect_class="read_only"), mutating_handler
-            ),
-        ),
+        operations=(SandboxedCogOperation(
+            replace(write_operation.binding, effect_class="read_only"),
+            write_operation.argv, write_operation.executable_sha256,
+        ),),
         admit=admit,
+        sandbox_executor=FixtureSandboxTransport("mutate"),
+        sandbox_agent_id=sandbox_agent,
     )
     mutate_context = replace(write_context, invocation_id=uuid4())
     with pytest.raises(StateMismatchError):
@@ -586,6 +571,8 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         policy=policy,
         operations=(write_operation,),
         admit=admit,
+        sandbox_executor=FixtureSandboxTransport("write"),
+        sandbox_agent_id=sandbox_agent,
     )
     with pytest.raises(OSError):
         asyncio.run(
@@ -676,7 +663,7 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
                 "implementation_source": {
                     p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in SOURCE_FILES
                 },
-                "qualification": "real_SYN_Ember_PostgreSQL_Ed25519_CLI_MCP_REST_WebSocket_fixture",
+                "qualification": "real_SYN_Ember_PostgreSQL_Ed25519_REST_WebSocket_scripted_worker_transport",
                 "catalog_hash": registry.snapshot.fingerprint,
                 "wire_schema_hashes": {ref: runtime.catalog.schema_hash(ref) for ref in schemas()},
                 "receipt": receipt,
@@ -687,7 +674,7 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
                 "effects_after_replay": len(effects),
                 "actual_cli_process_ids": process_ids,
                 "profiling": profiling,
-                "limits": "Other work kinds are scripted host fixtures; no live model, browser or hardware qualification",
+                "limits": "Sandbox subprocess/UID/lease/audit are transport doubles in this PostgreSQL fixture; no live model, browser, Xpra, host or hardware qualification",
                 "signature": "synthetic_test_keys_only",
                 "rest_readback": "passed",
                 "websocket_readback": "passed",

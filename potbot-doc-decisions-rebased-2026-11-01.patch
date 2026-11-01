@@ -1,0 +1,192 @@
+diff --git a/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md b/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
+--- a/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
++++ b/docs/implementation/29-shared-tool-installation-and-clean-checkouts.md
+@@ -14,3 +14,3 @@
+     .cache/ .tmp/ runs/           per-agent ephemeral or reconstructible state
+-/usr/local/tools/                  writable, persistent workspace tool store (new exception)
++/usr/local/tools/                  persistent workspace tool store; read-only during normal agent use
+   <tool-slug>/
+@@ -24,6 +24,12 @@
+ `/usr/local/tools` is **separate from `/home` and the rootfs**, persistent through
+-image upgrades, guest writable and backed by the workspace's own storage. The
+-shared model library is host-global, not a per-workspace tool directory. The image
+-needs the bind mount destination and a `/etc/skel/Tools` symlink. The trusted
+-agent-home skeleton independently copies `Tools -> /usr/local/tools` for each new
+-agent, without altering existing customized homes.
++image upgrades and backed by the workspace's own storage. The canonical policy is
++**read-only by default for ordinary agent shells and tool executions**. Physical
++write access is exposed only after an explicit operator-authorized per-tool unlock
++implemented as a `ToolWriteGrant` under the matching exclusive maintenance lease.
++The writable bind is limited to `/usr/local/tools/<tool-slug>` and is removed when
++that supervised maintenance operation ends. The `Tools -> /usr/local/tools`
++symlink grants no additional write authority. The shared model library is
++host-global, not a per-workspace tool directory. The image needs the bind mount
++destination and a `/etc/skel/Tools` symlink. The trusted agent-home skeleton
++independently copies that symlink for each new agent without altering existing
++customized homes.
+@@ -41,9 +41,11 @@
+    supervised execution ends. Different tools and multiple readers of the same
+    tool are concurrent.
+-2. **Install new.** Stage a canonical Git checkout under a **write** lease for
+-   that tool. The host must validate source URL, exact commit, source cleanliness,
+-   dependency lockfile hashes, reusable artifact hashes, supported ABI and
+-   actual model download paths. Install the tool's environment outside the
+-   checkout and redirect package caches to its `downloads` directory. Never
+-   install unreviewed code into the immutable rootfs.
++2. **Install new.** Request an operator-authorized per-tool unlock. Only after the
++   operator admits the exact maintenance operation and acquires the exclusive
++   **write** lease may it expose a nested writable bind for that tool. Stage the
++   canonical Git checkout through that scoped grant. The host must validate source
++   URL, exact commit, source cleanliness, dependency lockfile hashes, reusable
++   artifact hashes, supported ABI and actual model download paths. Install the
++   tool's environment outside the checkout and redirect package caches to its
++   `downloads` directory. Never install unreviewed code into the immutable rootfs.
+ 3. **Use shared.** Run the pinned installed executable directly from
+@@ -55,6 +55,9 @@
+    Ordinary interactive Bash and unknown-effect tools still require the broad
+    workspace-exclusive lease until all unbrokered writes are mediated.
+-4. **Modify or upgrade.** Obtain a per-tool **write** lease. Do not start while
+-   any agent is executing the installed checkout. Perform the mandatory clean
+-   operation, then clone into `/home/<agent>/projects/<tool>` **while the same
+-   exclusive lease remains active**. A sandboxed Git Cog executes the clone:
++4. **Modify or upgrade.** Request an operator-authorized per-tool unlock and
++   acquire the exclusive **write** lease. Do not start while any agent is
++   executing the installed checkout. The ordinary shared mount remains read-only;
++   only the admitted maintenance child receives the scoped writable bind. Perform
++   the mandatory clean operation, then clone into
++   `/home/<agent>/projects/<tool>` **while the same exclusive lease remains
++   active**. A sandboxed Git Cog executes the clone:
+@@ -135,8 +135,9 @@
+-- **Host access control:** all agents can write `/usr/local/tools`; advisory
+-  leases can be bypassed by a raw shell. A hash check before exec does not
+-  prevent subsequent shared binary replacement or edits during execution.
+-  Before untrusted tools can run concurrently, use a protected immutable
+-  executable snapshot, per-execution read-only mount/verified fd, or true
+-  kernel-enforced write mediation. This implementation intentionally makes no
+-  claim of hostile concurrent-agent isolation.
++- **Host access control:** normal agents must see `/usr/local/tools` read-only,
++  including through `/home/<agent>/Tools`; a raw shell must not be able to turn
++  that mount writable. Only an operator-issued `ToolWriteGrant`, bound to the
++  exact tool, agent, image, executable and exclusive maintenance lease, may
++  unlock a nested writable bind. Qualification must prove relocking after
++  success, failure, cancellation, timeout and operator loss, plus denial of
++  writes to sibling tools. Activation still requires postflight readback, exact
++  executable repinning and release approval.
+ - **Cross-process/machine:** the current lease ledger is host-private SQLite;
+diff --git a/docs/implementation/30-shared-tool-write-fencing.md b/docs/implementation/30-shared-tool-write-fencing.md
+--- a/docs/implementation/30-shared-tool-write-fencing.md
++++ b/docs/implementation/30-shared-tool-write-fencing.md
+@@ -1,13 +1,15 @@
+-# S5 — Shared tools: readonly execution and per-tool maintenance writer
++# S5 — Shared tools: read-only execution and operator-unlocked per-tool maintenance writer
+ 
+-**Scope:** the existing `/usr/local/tools` store and the `SharedToolStore` approval/cleanup workflow are authoritative. This increment closes the ordinary-execution write mount that previously let an unbrokered Bash process change any shared tool. Tools remain physically shared and group-writable when a trusted installer is admitted.
++**Scope:** the existing `/usr/local/tools` store and the `SharedToolStore` approval/cleanup workflow are authoritative. This increment closes the ordinary-execution write mount that previously let an unbrokered Bash process change any shared tool. Tools remain physically shared and group-writable only while a trusted maintenance writer is admitted.
++
++**Canonical policy decision, 1 November 2026:** read-only is the normal state. An agent does not gain shared-tool mutation authority from group membership, the `Tools` symlink, a shell, or the existence of an executable. A shared-tool mutation requires an explicit operator unlock implemented as a scoped `ToolWriteGrant`. The unlock is tied to one tool and one exclusive maintenance lease, lasts only for the supervised maintenance operation, and must be revoked on every terminal path before ordinary execution resumes.
+ 
+ - Normal interactive shells and tool executions see `/usr/local/tools` through an **OS read-only bind mount**. The `/home/<agent>/Tools` symlink continues working and does not grant write permission.
+-- Only the controller-provisioned `ToolWriteGrant` may add a **nested writable bind** for a single `/usr/local/tools/<slug>` installation. Its process must be issued from the verified system rootfs, with a registered `AgentHome`, pinned command, matching agent UID/GID, and active exclusive `shared_tool/<slug>` lease.
++- Only an operator-authorized, controller-provisioned `ToolWriteGrant` may add a **nested writable bind** for a single `/usr/local/tools/<slug>` installation. Its process must be issued from the verified system rootfs, with a registered `AgentHome`, pinned command, matching agent UID/GID, and active exclusive `shared_tool/<slug>` lease. No guest request can self-approve or extend the unlock.
+ - The `SharedToolInstallExecutor` keeps the guard active while the supervised child runs. Failed, timed-out, fenced or uncertain operations leave a blocking indeterminate lease; successful exit alone never registers a tool or proves cleanup.
+ - The operator-supplied `postflight` must independently validate actual writes, expected artifacts, exact bytes and clean routine. Its SHA-256 evidence is recorded separately from the process output receipt. A subsequent `SharedToolStore.register` step remains mandatory.
+ - `SharedWorkspaceBubblewrapBackend` accepts these grants **only from host-side construction**, never guest environment variables or serialized tool requests. Existing broad-home workspace leases are still required for arbitrary write-capable shells; per-tool locks are cooperative unless the OS mount restrictions qualify on the actual host.
+ 
+ ## Acceptance still needed
+ 
+-Run real Linux/WSL2 Bubblewrap checks to prove a normal agent **cannot write** `Tools/<other-tool>`, while an admitted installer can write **only** its own tool, and cannot swap a verified binary after pin/launch. Repeat under concurrency, symlink/rename attacks and lease fencing. This increment supplies tests of mount planning, but those are not substitutes for host qualification.
++Run real Linux/WSL2 Bubblewrap checks to prove a normal agent **cannot write any shared tool**, while an operator-unlocked installer can write **only** its own tool. Verify that the unlock disappears after success, failure, timeout, cancellation and operator loss; that another agent cannot reuse the grant; and that activation cannot retain or execute bytes that differ from postflight/re-pinned evidence. Repeat under concurrency, symlink/rename attacks and lease fencing. This increment supplies tests of mount planning, but those are not substitutes for host qualification.
+diff --git a/docs/implementation/31-ai-configuration-reverse-history.md b/docs/implementation/31-ai-configuration-reverse-history.md
+--- a/docs/implementation/31-ai-configuration-reverse-history.md
++++ b/docs/implementation/31-ai-configuration-reverse-history.md
+@@ -10,5 +10,17 @@
+ ## Change monitoring and inverse records
+ 
+-The host Linux operator starts a bounded recursive **inotify** monitor and takes an initial exact snapshot (file bytes, modes, directories and SHA-256 content identity). For each observed event batch, and during periodic full-tree reconciliations, the operator persists:
++**Canonical policy decision, 1 November 2026:** configuration change detection uses
++the operating system's native filesystem notification facility rather than a
++polling loop. Linux and WSL2 use inotify/fanotify as qualified by the host profile;
++a future native Windows backend uses `ReadDirectoryChangesW`; a future native
++macOS backend uses FSEvents/kqueue as appropriate to the required granularity.
++The watcher backend and its capabilities are part of the qualified runtime
++identity. Unsupported hosts fail closed rather than silently falling back to
++unqualified polling.
++
++The operator starts a bounded recursive native watcher and takes an initial exact
++snapshot (file bytes, modes, directories and SHA-256 content identity). For each
++observed event batch, and during full-tree reconciliation checkpoints, the
++operator persists:
+ 
+ - `head.json`: latest durable complete snapshot plus its content-and-layout digest.
+@@ -24,3 +24,16 @@
+-**Scope of guarantee:** `inotify` can coalesce events and cannot capture the bytes of an intermediate file that is created, modified and deleted between snapshots; an adversarial writer can also race userspace scanning. Records accurately reverse **committed observed filesystem states**, not each individual write syscall. Exact per-write provenance requires a kernel/filesystem transactional journaling facility (for example fanotify permission mediation plus filesystem snapshots or an overlayfs/COW transaction boundary) and qualified Linux tests. We do not represent inotify alone as a complete security or forensics solution.
++**Scope of guarantee:** the product contract is an **OS-native filesystem change
++journal with explicit loss detection and reconciliation**, not a claim that every
++individual `write(2)`/Win32 write call is captured as a separate semantic revision.
++Native watcher APIs may coalesce notifications and their queues may overflow. A
++queue overflow, dropped/lost watch, journal discontinuity, scan race, operator
++restart with an unverified gap, or unsupported event class marks the history
++**indeterminate**. New work is fenced until the operator performs a full-tree
++reconciliation against the last durable head and records the discontinuity and
++result. The system never invents intermediate bytes it could not observe.
++
++Records therefore accurately reverse committed observed filesystem states and
++retain native event provenance where available. Platform-specific watcher
++qualification must test overflow/loss/restart behavior as well as ordinary
++create/modify/rename/delete events.
+ 
+ **Security:** All previous config bytes become readable in `/etc/ai-past`; never put credentials, tokens or private keys in `/etc/ai`.
+@@ -44,3 +44,11 @@
+-The installation executor accepts the same watcher and never creates one per agent. To verify on a qualified Linux/WSL2 host, execute the updated `scripts/qualify_shared_workspace.py` with `--ai-config` and `--ai-past`; check writable `etc/ai`, read-only `etc/ai-past`, normal shared-tool read-only behavior and new reversals. Unit tests use actual Linux inotify but **mock Bubblewrap construction**; a live sandbox acceptance remains mandatory.
++The installation executor accepts the same operator-owned watcher and never creates
++one per agent. Watcher selection belongs to the host/operator runtime, not the
++guest. To verify on a qualified Linux/WSL2 host, execute the updated
++`scripts/qualify_shared_workspace.py` with `--ai-config` and `--ai-past`; check
++writable `etc/ai`, read-only `etc/ai-past`, normal shared-tool read-only behavior,
++native watcher health/overflow handling and new reversals. Unit tests use actual
++Linux inotify but **mock Bubblewrap construction**; a live sandbox acceptance
++remains mandatory. Future Windows/macOS support must exercise the corresponding
++native watcher and the same loss/reconciliation contract before qualification.
+ 
+ The journal holds an exclusive host-side `.monitor.lock` with Linux `flock`: only one operator may write the history for a workspace.
+diff --git a/docs/implementation/recent-potbot-development-reconciliation.md b/docs/implementation/recent-potbot-development-reconciliation.md
+--- a/docs/implementation/recent-potbot-development-reconciliation.md
++++ b/docs/implementation/recent-potbot-development-reconciliation.md
+@@ -57,5 +57,5 @@
+ | RD12 — U02/U04/U05 | Concurrent tools and Git without corrupting shared installs, environments or work. [Concurrency][sandbox26], [DanceFlow audit][uid27], [clean checkouts][tools29]. | **Partial.** Risk catalogues exist; runtime qualification must cover actual destinations. | Keep read/write/unknown footprints, exclusive arbitrary Bash where footprint is unknown, per-agent branches/checkouts, remote `beforeOid` CAS/readback and global locks for shared effects. Probe runtime/env/cache/Git/DB/render/package destinations and quota behavior, including the 17-component DanceFlow audit. Lockfiles are installation inputs, not mutexes. Preserve user edits and indeterminate outcomes. |
+-| RD13 — U02/U04 | All agents can use and update shared `/usr/local/tools`, with the requested agent-home `Tools` symlink (implemented as `/home/<agent>/Tools`); reusable assets remain shared, changes/upgrades use controlled private work. [Original installation design][tools29], [write fencing][tools30]. | **Conflict.** The recovered user request explicitly asked for shared writes; later ordinary read-only mounts plus maintenance grants narrow that behavior. | Reconcile the policy visibly: define which authorized agent operations can acquire scoped shared-write grants, how conflicts/leases/revocation work and how private edit clones promote reviewed updates. Demonstrate the usable shared-write workflow. Do not silently declare an always-read-only ordinary mount to be the entire fulfilled requirement. Clean to pinned Git state without destroying private edits or reusable caches/environments. |
++| RD13 — U02/U04 | All agents can use shared `/usr/local/tools`, with the requested agent-home `Tools` symlink (implemented as `/home/<agent>/Tools`); reusable assets remain shared, while mutations are operator-controlled. [Original installation design][tools29], [write fencing][tools30]. | **Resolved design decision / qualification remaining.** Read-only ordinary access is canonical. Shared mutation requires an explicit operator unlock implemented as a scoped `ToolWriteGrant` under the exclusive per-tool maintenance lease. | Qualify the full unlock lifecycle: request/admission, exact tool/agent/image binding, nested writable mount, private edit/build/test flow where applicable, postflight/readback, executable repin, activation and automatic relock on every terminal path. Prove guests cannot self-unlock, reuse another agent's grant or write sibling tools. Clean to pinned Git state without destroying private edits or reusable caches/environments. |
+ | RD14 — U02/U04/U16 | Qualified tool upgrade and release: stage/build/test/clean/review/activate, independent executable repin, postflight/release and rollback. [S9][upgrade35], [S10][upgrade36], [S11][upgrade37], [S13][operator39]. | **Partial/unverified.** S13 refers to an S12 release gate. The inspected operator reads an optional `trusted_tool_release_gates` table; the creator/enforcer and a standalone S12 implementation/test/document were not located. | Recover or implement the gate and prove dispatch enforcement against the exact approved tool/revision/executable. Missing/stale/failed gate state must not authorize release. Preserve uncertain-effect reconciliation and rollback. S11 approval, successful installation and a healthy S13 operator are different acceptance results. |
+-| RD15 — U02/U01 | Writable `/etc/ai`; operator observes all writes and creates reversible history in read-only `/etc/ai-past`. [Configuration journal][config31], [operator integrity][config32]. | **Conflict/partial.** An observed-state/inotify journal cannot by itself promise capture of every transient or overwritten write. | Retain the original every-write requirement as open: specify transactional or kernel-mediated capture and explicit loss handling, or record an approved narrower guarantee. Qualify attributed ordered history, before/after evidence, safe reversal/checkpoints, overflow/restart recovery, retention and denial of agent history writes. |
++| RD15 — U02/U01 | Writable `/etc/ai`; operator observes filesystem changes and creates reversible history in read-only `/etc/ai-past`. [Configuration journal][config31], [operator integrity][config32]. | **Resolved design decision / partial implementation.** The canonical mechanism is the host OS's native filesystem watcher, with explicit queue-loss/overflow detection and reconciliation checkpoints. The guarantee is observed filesystem-state history, not one semantic revision per write syscall. | Linux/WSL2 must qualify inotify/fanotify; future native Windows uses `ReadDirectoryChangesW`; future native macOS uses FSEvents/kqueue as appropriate. Persist ordered before/after evidence and native event provenance where available. Any overflow, lost watch, restart gap or unreconciled race makes history indeterminate and fences work until full-tree reconciliation. Qualify safe reversal/checkpoints, retention and denial of agent history writes; do not fall back to unqualified polling. |
+ | RD16 — U02/U03/U16 | `/var/logs/ai`, creator-only agent writes, tool/default-log aliases, operator analysis/watch/archive. Recovered 25 October request; [browser evidence][browser37], [gallery][browser38], [S42][browser42] reference S36. | **Unverified integration.** No S36 agent-log component or `/var/logs/ai` mount/alias was located in the inspected sandbox image, workspace launcher or agent skeleton. [S17][hostlogs47] concerns host Xpra logs. | Add an explicit guest logging integration stage: persistent mount, creator-owned partitions, real peer-denial tests, supported-tool log-destination probes, operator watcher/analysis/archive, rotation/quotas/retention and restart/loss recovery. Host Xpra retention does not close the guest agent-log requirement. |
+@@ -113,4 +113,4 @@
+ | Old context notes describe missing ordinary-runner hooks or no shared AGENTS writes. | Stage 10D documents normal runner integration and registered-object hooks; Stage 10C documents explicit per-role grants, including controlled shared instruction edits. Do not reset these to “not implemented.” Unlisted constructors/protocol profiles and real host qualification remain open. |
+-| Shared tools requested writable, later ordinary mounts made read-only. | Keep RD13 as a policy reconciliation and usable scoped-write acceptance requirement. The audit does not claim the user approved removal of shared editing. |
+-| Configuration inotify snapshots described as capturing all writes. | Keep RD15 open for a guarantee that covers transient writes and monitor loss; do not strengthen observed-state evidence into an every-write claim. |
++| Shared tools requested writable, later ordinary mounts made read-only. | **Resolved 1 November 2026:** read-only ordinary access is canonical. Mutation requires an operator-issued, per-tool scoped unlock (`ToolWriteGrant`) under the exclusive maintenance lease, followed by postflight/readback, repin/activation and relock. RD13 now tracks implementation/host qualification rather than a policy conflict. |
++| Configuration history wording implied every write syscall must become a revision. | **Resolved 1 November 2026:** use OS-native filesystem watchers, with overflow/loss detection and full-tree reconciliation. Preserve observable ordered states and native provenance; do not fabricate unobservable intermediate bytes or use polling as a silent fallback. RD15 now tracks implementation/platform qualification rather than a semantic conflict. |
+ | Host Xpra log handling treated as agent log completion. | RD16 requires the guest `/var/logs/ai` integration and creator-only enforcement separately. |
+@@ -182,4 +182,4 @@
+ ## 6. Implementation ordering and closure
+ 
+-1. **Close planning conflicts and inventory holes.** Apply RD26 and the service chronology correction; retain RD13/RD15 as explicit product guarantees to reconcile. Locate or implement S12/S36, map saved operation-catalogue requirements and add MG/original P/E stages to the master inventory. Do not declare U00 complete while binary variants, unavailable P6 sources, issues or CI evidence remain unreconciled.
++1. **Close planning conflicts and inventory holes.** Apply RD26 and the service chronology correction; record the resolved RD13 read-only/operator-unlock policy and RD15 OS-native-watcher/loss-reconciliation policy as canonical qualification requirements. Locate or implement S12/S36, map saved operation-catalogue requirements and add MG/original P/E stages to the master inventory. Do not declare U00 complete while binary variants, unavailable P6 sources, issues or CI evidence remain unreconciled.
+ 2. **Qualify foundation and lifecycle boundaries.** Continue the previous worker/SYN gates alongside RD11–RD17, context migration/host/protocol coverage and R6.1 accounting. Use one existing database/job/Cog authority, with explicit uncertain-effect handling.
+diff --git a/docs/implementation/unified-development-roadmap.md b/docs/implementation/unified-development-roadmap.md
+--- a/docs/implementation/unified-development-roadmap.md
++++ b/docs/implementation/unified-development-roadmap.md
+@@ -55,3 +55,3 @@
+ | U01 | Durable execution and provenance | Checkpoint recovery, fenced leases, tool intents, idempotency/reconciliation, existing R6/R6.1 integration, all-producer causal trace adoption and replayable REST/WebSocket events | M1, M6 | U00 |
+-| U02 | Sandbox and shared filesystem | WSL2+bubblewrap, Docker-built pinned images, enforced agent ownership, shared mount/persistence matrix, usable scoped tool writes, `/usr/local/skills`, model/cache paths, guest `/var/logs/ai`, every-write `/etc/ai` history, operator lifetime and cleanup | M1, M4 | U01 |
++| U02 | Sandbox and shared filesystem | WSL2+bubblewrap, Docker-built pinned images, enforced agent ownership, shared mount/persistence matrix, read-only shared tools with operator-unlocked per-tool writes, `/usr/local/skills`, model/cache paths, guest `/var/logs/ai`, OS-native `/etc/ai` watcher with overflow/loss fencing and reconciliation, operator lifetime and cleanup | M1, M4 | U01 |
+ | U03 | Worker/Cog resource supervision | Every executable work Cog in its qualified workspace sandbox; complete descendant/access-mode/task-exit ledger; lifetime CPU/memory/I/O; system bottlenecks; operator-bound attribution; 60 BPM sprite with 180-second brightness and 2-second spike window; every-agent heat coverage with explicit metric semantics; independent sandbox SYN lifecycle | M5, M6 | U01–U02 |
+@@ -78,3 +78,3 @@
+-Use both conversation reconciliations as completed mapping inputs. The recent-development crosswalk covers all 153 original P steps by phase range, E01–E09 and all 32 MG stages; it does not supply per-stage runtime evidence or recover inaccessible binary variants/P6 artifacts. Preserve RD13 shared-write policy, RD15 every-write history, RD14 S12 and RD16 S36/guest-log gaps as named open requirements.
++Use both conversation reconciliations as completed mapping inputs. The recent-development crosswalk covers all 153 original P steps by phase range, E01–E09 and all 32 MG stages; it does not supply per-stage runtime evidence or recover inaccessible binary variants/P6 artifacts. RD13 and RD15 are no longer design conflicts: normal shared-tool access is read-only with operator-unlocked scoped writes, and `/etc/ai` uses OS-native filesystem watchers with explicit overflow/loss fencing and reconciliation. Their host/platform qualification remains open. Preserve RD14 S12 and RD16 S36/guest-log gaps as named open requirements.
+ 
+ ### Wave 1 — Secure durable foundation (U01–U03, U06)
+@@ -145,2 +145,2 @@
+-| U02-P | U01/U02/U06 | Mount/identity matrix, usable scoped shared-tool writes, enforced concurrency and the original every-write configuration guarantee; RD11–RD13/RD15. |
++| U02-P | U01/U02/U06 | Mount/identity matrix; read-only ordinary shared-tool access with operator-unlocked scoped maintenance writes; enforced concurrency; and OS-native `/etc/ai` watcher loss/overflow fencing plus reconciliation; RD11–RD13/RD15. |
+ | U02-L | U02/U03/U16 | Agent `/var/logs/ai` mount, creator-only writes, actual tool aliases/destinations and operator watch/archive/recovery; RD16, distinct from host Xpra S17. |

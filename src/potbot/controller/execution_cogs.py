@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 from potbot.cogs.contracts import CogOutcome, CogReceipt, CogRunContext, CogSignature, TypedCogValue
 from potbot.cogs.execution import EXECUTION_COGS, SEAL, WORK_COGS, execute
+from potbot.controller.child_plans import InstalledChildPlan, compile_child_plans, execute_child_plan
 from potbot.controller.cog_work import CogWorkMonitor, CogWorkRun
 from potbot.controller.execution_journal import PinnedExecutionJournal
 from potbot.domain.errors import (
@@ -147,6 +148,7 @@ class ExecutionCogRuntime:
         browser_service: Any = None,
         sandbox_executor: SandboxedCogExecutor | None = None,
         sandbox_agent_id: UUID | None = None,
+        child_plans: tuple[InstalledChildPlan, ...] = (),
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -261,6 +263,7 @@ class ExecutionCogRuntime:
             op.binding.policy != policy for op in operations
         ):
             raise ScopeDeniedError("Duplicate or differently pinned host installations")
+        self.child_plans = compile_child_plans(operations, child_plans)
         for op in (*operations, *self._direct_operations.values()):
             self.catalog.schema_hash(op.binding.input_type_ref)
             self.catalog.schema_hash(op.binding.output_type_ref)
@@ -402,9 +405,23 @@ class ExecutionCogRuntime:
                             if self.sandbox_executor is None or self.sandbox_agent_id is None:
                                 raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
                             call.progress("sandbox_worker_dispatched")
-                            return await self.sandbox_executor.execute(
+                            response = await self.sandbox_executor.execute(
                                 op, typed, context, self.actor, self.sandbox_agent_id,
                             )
+                            # Validate the parent result before authorizing *any*
+                            # planned child effect. A malformed guest response
+                            # must never fan out into independently admitted work.
+                            if (not isinstance(response, TypedCogValue)
+                                    or response.type_ref != op.binding.output_type_ref
+                                    or typed.fingerprint != typed_hash):
+                                raise StateMismatchError("Parent sandbox result is not the pinned typed port")
+                            self.catalog.validate(response)
+                            if len(canonical_json(response.value).encode("utf-8")) > self.policy.max_output_bytes:
+                                raise InvalidInputError("Parent output exceeds inline policy bound")
+                            plan = self.child_plans.get((op.binding.kind, op.binding.operation_ref))
+                            if plan is not None:
+                                await execute_child_plan(call, typed, plan)
+                            return response
                         # Only independently constructed trusted controller
                         # artifact services may remain in this process.
                         if signature not in self._direct_operations or not isinstance(op, HostOperation):
@@ -479,7 +496,14 @@ class ExecutionCogRuntime:
             work.complete(outcome)
             return outcome
         except BaseException as error:
-            uncertain = dispatched and binding.effect_class != "read_only"
+            # An interrupted sandbox process can outlive its controller task.
+            # Even a nominal read-only Cog needs operator reconciliation when
+            # its process tree/audit is indeterminate; never emit a clean retry.
+            uncertain = dispatched and (
+                binding.effect_class != "read_only"
+                or (isinstance(op, SandboxedCogOperation)
+                    and isinstance(error, (IndeterminateExecutionError, asyncio.CancelledError)))
+            )
             self._poisoned |= uncertain
             if (
                 uncertain

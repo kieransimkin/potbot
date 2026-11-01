@@ -17,6 +17,10 @@ on:
       - 'src/potbot/tools/sandbox_cog_worker.py'
       - 'tests/unit/test_browser*'
       - 'tests/unit/test_sandbox_cog_worker.py'
+      - 'tests/unit/test_child_plans.py'
+      - 'tests/unit/test_browser_host_closeout.py'
+      - 'tests/integration/test_execution_provenance.py'
+      - 'scripts/check_browser_host_closeout.py'
       - 'tests/integration/test_browser_controller_provenance.py'
       - 'tests/integration/test_repository_states.py'
       - 'tests/integration/conftest.py'
@@ -60,7 +64,7 @@ jobs:
       - name: Verify browser contracts and retain worker isolation checks
         run: |
           mkdir -p artifacts/browser-controller-s48
-          uv run --locked python -m pytest -q tests/unit/test_browser_semantic_catalog.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py --junitxml=artifacts/browser-controller-s48/unit.xml
+          uv run --locked python -m pytest -q tests/unit/test_browser_semantic_catalog.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py tests/unit/test_child_plans.py tests/unit/test_browser_host_closeout.py --junitxml=artifacts/browser-controller-s48/unit.xml
       - name: Start disposable PostgreSQL
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Exercise real controller journals and private artifacts
@@ -68,6 +72,11 @@ jobs:
           uv run --locked python -m pytest -q
           tests/integration/test_browser_controller_provenance.py
           --junitxml=artifacts/browser-controller-s48/postgresql.xml
+      - name: Verify nested child-plan causal journal against real PostgreSQL
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/integration/test_execution_provenance.py
+          --junitxml=artifacts/browser-controller-s48/nested-provenance.xml
       - name: Reject skipped acceptance and record the exact checked-out source
         run: |
           uv run --locked python - <<'PY'
@@ -82,8 +91,13 @@ jobs:
           if len(cases) != 6 or any(case.find(tag) is not None for case in cases
                                    for tag in ('skipped', 'failure', 'error')):
               raise SystemExit('All six PostgreSQL controller acceptance tests must pass without skips')
+          nested = list(ElementTree.parse(report / 'nested-provenance.xml').iter('testcase'))
+          if len(nested) != 1 or any(case.find(tag) is not None for case in nested
+                                    for tag in ('skipped', 'failure', 'error')):
+              raise SystemExit('Nested provenance integration must run exactly once without skips')
           files = (
               'src/potbot/controller/execution_cogs.py',
+              'src/potbot/controller/child_plans.py',
               'src/potbot/controller/execution_journal.py',
               'src/potbot/controller/browser_cogs.py',
               'src/potbot/cogs/browser.py',
@@ -91,6 +105,9 @@ jobs:
               'src/potbot/tools/semantic_contracts.py',
               'src/potbot/tools/browser_cog_contracts.py',
               'src/potbot/tools/xpra_browser_worker.py',
+              'src/potbot/tools/sandbox_cog_worker.py',
+              'tests/unit/test_child_plans.py',
+              'tests/integration/test_execution_provenance.py',
               'tests/unit/test_browser_semantic_catalog.py',
               'tests/integration/test_browser_controller_provenance.py',
           )
@@ -99,6 +116,8 @@ jobs:
               'scope': 'postgresql-controller-with-scripted-browser-transport',
               'controller_acceptance_passed': True,
               'live_browser_qualified': False,
+              'nested_provenance_passed': True,
+              'nested_sandbox_qualified': False,
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
               'test_count': len(cases),
               'source_sha256': {name: hashlib.sha256(Path(name).read_bytes()).hexdigest() for name in files},

@@ -332,49 +332,30 @@ class BrowserWorker:
             result["eventsUnavailable"] = True
         return result
 
-    @staticmethod
-    def _surface_capture_unavailable(error: Exception) -> bool:
-        # Narrow exception match: do not retry timeouts, closed browsers,
-        # denied operations, invalid captures, or any action with side effects.
-        message = str(error)
-        return "Page.captureScreenshot" in message and "Unable to capture screenshot" in message
-
     async def _capture_jpeg(self) -> bytes:
-        """Bounded read-only recovery on the same private page/driver.
+        """Capture the visible page through the *private* CDP session.
 
-        Chromium occasionally rejects surface captures on Xvfb/Xpra. Retry
-        only that precise condition, then use the existing private CDP session
-        without granting Page.captureScreenshot to untrusted CDP commands.
+        The Playwright Page.screenshot helper relies on headful compositor
+        surfaces and font readiness; in Xvfb/Xpra it may fail or time out even
+        while the actual page is alive. This bounded read-only CDP operation
+        uses Chromium's non-surface capture path and does not broaden the
+        user-callable CDP allowlist. There is no action retry.
         """
-        options = {"type": "jpeg", "quality": 48, "animations": "disabled", "timeout": 2000}
+        reply = await asyncio.wait_for(
+            self.cdp.send("Page.captureScreenshot", {
+                "format": "jpeg", "quality": 48, "fromSurface": False,
+                "captureBeyondViewport": False,
+            }),
+            timeout=6.0,
+        )
+        encoded = reply.get("data") if isinstance(reply, dict) else None
+        if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
+            raise ValueError("render sample is absent or exceeds bound")
         try:
-            image = await self.page.screenshot(**options)
-        except Exception as error:
-            if not self._surface_capture_unavailable(error):
-                raise
-            await asyncio.sleep(0.1)
-            try:
-                image = await self.page.screenshot(**options)
-            except Exception as retry_error:
-                if not self._surface_capture_unavailable(retry_error):
-                    raise
-                # This is internal evidence collection, not a user CDP RPC.
-                # fromSurface=False avoids the headful compositor surface path.
-                fallback = await asyncio.wait_for(
-                    self.cdp.send("Page.captureScreenshot", {
-                        "format": "jpeg", "quality": 48, "fromSurface": False,
-                        "captureBeyondViewport": False,
-                    }),
-                    timeout=2.0,
-                )
-                encoded = fallback.get("data") if isinstance(fallback, dict) else None
-                if not isinstance(encoded, str) or len(encoded) > 800_000:
-                    raise ValueError("render sample exceeds bound")
-                try:
-                    image = base64.b64decode(encoded, validate=True)
-                except (ValueError, binascii.Error) as decode_error:
-                    raise ValueError("render sample is not valid base64") from decode_error
-        if (not isinstance(image, bytes) or not 4 <= len(image) <= 600_000
+            image = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as error:
+            raise ValueError("render sample is not valid base64") from error
+        if (not 4 <= len(image) <= 600_000
                 or not image.startswith(b"\xff\xd8") or not image.endswith(b"\xff\xd9")):
             raise ValueError("render sample is not a bounded JPEG")
         return image

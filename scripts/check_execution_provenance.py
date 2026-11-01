@@ -20,12 +20,15 @@ SOURCES = (
     "src/potbot/tools/execution_schemas.py",
     "src/potbot/cogs/execution.py",
     "src/potbot/controller/execution_cogs.py",
+    "src/potbot/controller/child_plans.py",
     "src/potbot/controller/execution_journal.py",
     "src/potbot/controller/execution_receipts.py",
     "src/potbot/controller/execution_events.py",
     "src/potbot/controller/cog_work.py",
     "src/potbot/tools/execution_contracts.py",
+    "src/potbot/tools/sandbox_cog_worker.py",
     "src/potbot/persistence/execution_provenance_schema.py",
+    "tests/integration/test_execution_provenance.py",
 )
 
 

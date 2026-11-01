@@ -1,0 +1,1059 @@
+diff --git a/docs/implementation/browser-completion-followthrough-20261101.md b/docs/implementation/browser-completion-followthrough-20261101.md
+new file mode 100644
+index 0000000..bbf5d31
+--- /dev/null
++++ b/docs/implementation/browser-completion-followthrough-20261101.md
+@@ -0,0 +0,56 @@
++# Browser-control S48 follow-through: child Cogs, capture and host evidence
++
++**Baseline:** Potbot `main` at `0af9b450a3dcaf2b21780c7cf5e72b34e3236f32`, which already contains the earlier screenshot-recovery change. The new changes deliberately preserve the operator's read-only defaults, sandbox requirements, private Xpra streams, existing browser Cog catalog, restricted CDP/HTTPS policy, pinned executable/image admission and independent PostgreSQL RLS. No guest-supplied code or plan runs inside the controller.
++
++## 1. Rendered capture failure
++
++GitHub Actions rendered matrix run `41305705273` showed the previous 2-second Playwright screenshot timeout in three profiles. The worker now collects JPEG pixels on the same private, already-approved CDP session using `Page.captureScreenshot(format=jpeg, quality=48, fromSurface=false, captureBeyondViewport=false)` with a six-second bound. The operation is **not** added to `CDP_READ` or public `validate_command`. It does not retry a click or navigation, and it rejects invalid, malformed, empty or oversized JPEG payloads. The existing 600 KiB evidence ceiling, MIME, digest, optional embedded bytes, immutable ArtifactStore and worker RPC timeout remain unchanged. This is the displayed page in the currently admitted worker, **not** a host/browser attach channel.
++
++The original `Page.screenshot` implementation used a fragile headful compositor surface. The new read-only path was tested in the delivery environment against real Chromium under Xvfb with before/after DOM changes and distinct valid JPEG hashes; its 11 isolated unit tests pass. **This local test is not the pinned Playwright/Patchright CI matrix**. CI must still rerun all four profiles and require all five real cases per profile, no skips, matching package/binary hashes.
++
++## 2. Operator-compiled nested Cog plans
++
++`src/potbot/controller/child_plans.py` adds `ChildWorkStep`, `InstalledChildPlan`, `compile_child_plans`, and `execute_child_plan` for **operator-installed work only**. A plan is an immutable tuple keyed by the exact installed `(kind, operation_ref)` and made available only at `ExecutionCogRuntime` construction. No agent/model/page/guest input can create a new executable, operation, parent, child, input schema, effect grant or credential. `SandboxedCogExecutor` still owns child execution, verified binary pins, agent identity, leases and lifecycle monitoring. The parent worker first completes, then the controller schedules listed child Cogs via `ExecutionCall.child`; each child has its own run ID, independent admission and durable SYN causal chain. Supporting links are resolved from actual, authenticated PostgreSQL terminal events. Unfinished children prevent a parent success receipt.
++
++Compiler rejects unknown operations, duplicate steps, forward/unknown links, cycles, depth >15, expanded families >256, different policy pins, incompatible inherited input ports and stronger child effect classes. Plans may not be passed as plain dictionaries to the runtime. The parent's wall-clock budget covers its family; individual workers retain their own supervised limits. Indeterminate sandbox/audit cancellations poison the runtime and require operator reconciliation, including read-only workers with unconfirmed process exit. The browser's existing direct-service fencing is unchanged.
++
++The legacy PostgreSQL execution-provenance fixture installed 17 host callback workers that the newer runtime correctly forbids. The provided guarded migration replaces these with installed `SandboxedCogOperation` descriptors and a *scripted test-only process/RPC boundary*. Its operator-compiled plan generates the original 18-run family, including subagent->tool and a supporting script->MCP event link; it preserves signing/replay, no-repeat, RLS, API and WebSocket checks. The independent test double may run a host Python CLI and MCP fixture to verify *that harness*, but it **does not qualify those subprocesses as sandbox workers**. It must not be described as the full S46 live execution or Linux/WSL2 kernel gate. The source checker and exact-source evidence now include the child-plan and sandbox-worker implementation.
++
++## 3. Cross-agent live-host closeout
++
++`scripts/check_browser_host_closeout.py` enforces a schema and verifies independently produced, private, immutable operator artifacts. A valid report must bind **two distinct registered agents** to the same workspace, pinned source commit/image and operator epoch; require evidence for all nine real drills: simultaneous registered sessions; separate X11 cookies/sockets and hidden sibling homes; view-only streams and controlled input; consumed ticket/replayed epoch rejection; operator-loss action fencing; TLS/DNS/network policy denial; workspace/foreign-principal PostgreSQL artifact reads; creator-owned logs and archival; and complete process trees, file/syscall/exit accounting with reconciled leases. All evidence files must exist, be private regular files in one operator directory, and match SHA-256 digests, including exact checked-in source hashes. Missing, duplicate, dirty, tampered, skipped or contradictory evidence fails closed.
++
++**Important:** this checker *cannot* authenticate a human operator's truthfulness or remotely attest a host. It never creates synthetic success evidence and deliberately emits `production_qualified:false` with `operator_signoff_required:true`, even when it validates a complete host report. Machine-checked evidence plus real independent host observations and operator approval is the release condition. CI unit tests with synthetic manifest contents are negative/contract tests only.
++
++### Required target host procedure
++
++1. Build, qualify and pin a new immutable image for the commit; never run the developer test-only browser-binary redirection in production.
++2. On a disposable Linux/WSL2 machine with configured **real** Bubblewrap+seccomp, Xpra Xdummy, Chromium and operator service, launch two independently registered agents with the production browser-control Cog path and separate leased sessions.
++3. Exercise the nine drills described above and capture exact source/instance/epoch/lease references and private operator artifacts. Use S46's `scripts/qualify_sandbox_cog_s46.py --run-live` for worker process/exit and S14/S17 operator/Xpra/log qualification, alongside dedicated browser/replay/network/DB probes. A host must not mark a drill successful from an assertion embedded in guest data alone.
++4. Validate the operator-owned manifest and cryptographic file hashes:
++
++```sh
++uv run --locked python scripts/check_browser_host_closeout.py \
++  --manifest /var/logs/ai/operator/browser-host-closeout.json \
++  --output /var/logs/ai/operator/browser-host-result.json
++```
++
++The manifest format is defined by `SCHEMA` and `REQUIRED` in the checker; raw forensic evidence and secrets remain in private operator storage, not public CI artifacts. Use a fresh output file; a failed validation never overwrites prior reports.
++
++## 4. Verification and release status
++
++```sh
++uv run --locked python -m pytest -q \
++  tests/unit/test_browser_capture_recovery.py \
++  tests/unit/test_child_plans.py \
++  tests/unit/test_browser_host_closeout.py \
++  tests/unit/test_browser_provenance_s48.py \
++  tests/unit/test_sandbox_cog_worker.py
++uv run --locked python -m pytest -q \
++  tests/integration/test_execution_provenance.py \
++  tests/integration/test_browser_controller_provenance.py
++```
++
++Run `browser-rendered-acceptance.yml`, `browser-controller-s48.yml`, `browser-control-completion-s42.yml`, full frontend tests and `scripts/check.py --with-postgres --with-sandbox` against the merged commit. The provenance checker cannot pass until the migrated fixture produces its fresh committed-source evidence. The main verification run at `0af9b45` was already red; the prior branch reported many unrelated Ruff formatting/import errors. These are not silently waived by this patch.
++
++**Delivery evidence:** 11 capture unit tests, 12 child-plan contract tests and 16 host-manifest unit tests passed in isolated source-compatible harnesses; an independent headful Chromium CDP pixel check passed. Full-repository PostgreSQL, CI browser engine matrix, target Xpra/Bubblewrap, the actual nested sandbox worker and operator signoff have **not** been run here. Those requirements remain open; a source patch is not a production qualification.
+diff --git a/scripts/check_browser_host_closeout.py b/scripts/check_browser_host_closeout.py
+new file mode 100644
+index 0000000..7b94096
+--- /dev/null
++++ b/scripts/check_browser_host_closeout.py
+@@ -0,0 +0,215 @@
++#!/usr/bin/env python3
++"""Fail-closed manifest gate for independently executed live Potbot browser drills.
++
++This is a *validator*, never a host-test substitute. It does not create
++positive evidence, start agents or bypass operator authority. Every field is
++checked against supplied immutable host observations, but the operator must
++still establish provenance and sign off on the evidence source.
++"""
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import re
++import stat
++import subprocess
++import sys
++from pathlib import Path
++from typing import Any
++from uuid import UUID
++
++SCHEMA = "potbot-browser-host-closeout/v1"
++REQUIRED = (
++    "two_registered_agents", "private_x11_and_home", "view_only_streams",
++    "ticket_replay_and_epoch_denial", "operator_loss_fencing",
++    "network_https_tls_dns_denial", "postgres_artifacts_and_rls",
++    "agent_logs_and_archive", "worker_tree_audit_and_settlement",
++)
++HEX = re.compile(r"[0-9a-f]{64}\Z")
++SHA = re.compile(r"[0-9a-f]{40}\Z")
++MAX_MANIFEST = 96 * 1024
++MAX_EVIDENCE = 4 * 1024 * 1024
++
++
++def unique_json(raw: bytes) -> dict[str, Any]:
++    if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_MANIFEST:
++        raise ValueError("missing or oversized host manifest")
++
++    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
++        output = {}
++        for k, v in items:
++            if k in output:
++                raise ValueError("duplicate host manifest property")
++            output[k] = v
++        return output
++
++    try:
++        obj = json.loads(raw, object_pairs_hook=pairs,
++                         parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
++    except (ValueError, UnicodeError, RecursionError) as error:
++        raise ValueError("invalid host manifest JSON") from error
++    if not isinstance(obj, dict):
++        raise ValueError("host manifest must be an object")
++    return obj
++
++
++def _uuid(raw: object) -> str:
++    if not isinstance(raw, str):
++        raise ValueError("invalid host identity")
++    try:
++        parsed = UUID(raw)
++    except ValueError as error:
++        raise ValueError("invalid host identity") from error
++    if str(parsed) != raw:
++        raise ValueError("noncanonical host identity")
++    return raw
++
++
++def _sha(raw: object) -> str:
++    if not isinstance(raw, str) or not HEX.fullmatch(raw):
++        raise ValueError("invalid source/artifact hash")
++    return raw
++
++
++def _source(root: Path, raw: dict[str, Any]) -> None:
++    if set(raw) != {"commit", "tree_dirty", "files"}:
++        raise ValueError("incomplete source binding")
++    if not isinstance(raw["commit"], str) or not SHA.fullmatch(raw["commit"]):
++        raise ValueError("source commit is not a full Git SHA")
++    if raw["tree_dirty"] is not False:
++        raise ValueError("dirty source cannot qualify a pinned browser")
++    head = subprocess.check_output(["git", "rev-parse", "HEAD"],
++                                   cwd=root, text=True, timeout=10).strip()
++    if head != raw["commit"]:
++        raise ValueError("host acceptance references a different source commit")
++    files = raw["files"]
++    if not isinstance(files, dict) or len(files) < 3 or len(files) > 40:
++        raise ValueError("required committed source hashes absent")
++    for key, expected in files.items():
++        if (not isinstance(key, str) or len(key) > 200 or key.startswith("/")
++                or any(part in {"", ".", ".."} for part in key.split("/"))):
++            raise ValueError("invalid source path")
++        _sha(expected)
++        committed = subprocess.check_output(["git", "show", f"{head}:{key}"],
++                                             cwd=root, timeout=10)
++        actual = root / key
++        if (actual.is_symlink() or not actual.is_file()
++                or hashlib.sha256(actual.read_bytes()).hexdigest() != expected
++                or hashlib.sha256(committed).hexdigest() != expected):
++            raise ValueError("source bytes differ from committed acceptance source")
++    for required in ("src/potbot/tools/xpra_browser_worker.py",
++                     "src/potbot/tools/xpra_browser_control.py",
++                     "src/potbot/tools/agent_xpra_streams.py"):
++        if required not in files:
++            raise ValueError("missing browser/source pin")
++
++
++def _proof(path: Path, recorded_hash: str, directory: Path) -> None:
++    """Evidence is read only from an operator-owned directory outside guests."""
++    _sha(recorded_hash)
++    if (not path.is_absolute() or path.is_symlink() or path.parent != directory
++            or path.resolve(strict=True) != path):
++        raise ValueError("proof must be an ordinary file in the operator report directory")
++    info = path.stat()
++    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid()
++            or info.st_mode & 0o077 or not 0 < info.st_size <= MAX_EVIDENCE):
++        raise ValueError("proof is not operator-private and bounded")
++    fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
++    try:
++        before = os.fstat(fd)
++        with os.fdopen(os.dup(fd), "rb") as stream:
++            observed_hash = hashlib.file_digest(stream, "sha256").hexdigest()
++        after = os.fstat(fd)
++        if (observed_hash != recorded_hash or before.st_mtime_ns != after.st_mtime_ns
++                or before.st_size != after.st_size):
++            raise ValueError("host evidence was modified or does not match its hash")
++    finally:
++        os.close(fd)
++
++
++def verify(data: dict[str, Any], *, directory: Path, root: Path) -> dict[str, Any]:
++    if (not isinstance(data, dict) or set(data) != {
++        "schema", "source", "workspace_id", "agent_ids", "image_digest",
++        "qualification_sha256", "operator_epoch", "drills",
++    } or data["schema"] != SCHEMA):
++        raise ValueError("host closeout schema is incomplete")
++    _source(root, data["source"])
++    _uuid(data["workspace_id"])
++    agents = data["agent_ids"]
++    if (not isinstance(agents, list) or len(agents) != 2
++            or len({_uuid(agent) for agent in agents}) != 2):
++        raise ValueError("two distinct registered agents are mandatory")
++    _sha(data["image_digest"])
++    _sha(data["qualification_sha256"])
++    if (type(data["operator_epoch"]) is not int or data["operator_epoch"] < 1):
++        raise ValueError("missing positive operator epoch")
++    checks = data["drills"]
++    if not isinstance(checks, dict) or set(checks) != set(REQUIRED):
++        raise ValueError("missing mandatory browser host drill")
++    used_evidence: set[str] = set()
++    for kind, row in checks.items():
++        if not isinstance(row, dict) or set(row) != {
++            "passed", "workspace_id", "agent_ids", "image_digest",
++            "operator_epoch", "evidence_file", "evidence_sha256",
++            "observed_process_tree_stopped", "operator_observation",
++        }:
++            raise ValueError("incomplete drill evidence")
++        if (row["passed"] is not True or row["workspace_id"] != data["workspace_id"]
++                or row["agent_ids"] != agents or row["image_digest"] != data["image_digest"]
++                or row["operator_epoch"] != data["operator_epoch"]
++                or row["observed_process_tree_stopped"] is not True
++                or row["operator_observation"] != "direct_live_host"):
++            raise ValueError("drill scope/exit/evidence contradicts operator qualification")
++        name = row["evidence_file"]
++        if (not isinstance(name, str) or len(name) > 100 or "/" in name or "\\" in name
++                or name in {".", ".."} or not name.endswith(".json")):
++            raise ValueError("invalid operator-owned evidence file name")
++        if name in used_evidence:
++            raise ValueError("independent host drills must have separate evidence files")
++        used_evidence.add(name)
++        _proof(directory / name, row["evidence_sha256"], directory)
++    return {
++        "schema": SCHEMA, "manifest_valid": True,
++        "machine_checked_drills": len(REQUIRED), "source_commit": data["source"]["commit"],
++        "workspace_id": data["workspace_id"], "agent_count": len(agents),
++        "qualification": "operator_supplied_host_evidence_checked_not_remote_attestation",
++        "production_qualified": False,
++        "operator_signoff_required": True,
++    }
++
++
++def main(argv: list[str] | None = None) -> int:
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument("--manifest", type=Path, required=True)
++    p.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
++    p.add_argument("--output", type=Path, required=True)
++    args = p.parse_args(argv)
++    try:
++        if args.manifest.is_symlink() or not args.manifest.is_file():
++            raise ValueError("missing private host manifest")
++        manifest_info = args.manifest.stat()
++        if (manifest_info.st_uid != os.geteuid() or manifest_info.st_mode & 0o077
++                or manifest_info.st_nlink != 1 or manifest_info.st_size > MAX_MANIFEST):
++            raise ValueError("host manifest must be an operator-private regular file")
++        result = verify(unique_json(args.manifest.read_bytes()),
++                        directory=args.manifest.resolve(strict=True).parent,
++                        root=args.root.resolve(strict=True))
++        if args.output.exists() or args.output.is_symlink():
++            raise ValueError("host closeout result must be a fresh path")
++        fd = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
++        with os.fdopen(fd, "w", encoding="utf-8") as out:
++            json.dump(result, out, sort_keys=True)
++            out.write("\n")
++            out.flush()
++            os.fsync(out.fileno())
++    except (ValueError, OSError, subprocess.SubprocessError) as error:
++        print(f"host browser closeout incomplete: {type(error).__name__}", file=sys.stderr)
++        return 1
++    print(json.dumps(result, sort_keys=True))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/src/potbot/controller/child_plans.py b/src/potbot/controller/child_plans.py
+new file mode 100644
+index 0000000..39e57e2
+--- /dev/null
++++ b/src/potbot/controller/child_plans.py
+@@ -0,0 +0,150 @@
++"""Operator-installed finite child-Cog plans for sandbox-only work.
++
++A plan contains immutable references to *already installed* sandbox Cogs. It
++cannot be submitted in a model input, compiled from page data, or executed by
++the sandbox child. The controller invokes each planned child through the normal
++Cog admission/journal/supervisor path after the parent worker exits. In
++particular, a callback never runs guest code in the operator process.
++"""
++from __future__ import annotations
++
++import re
++from dataclasses import dataclass
++from types import MappingProxyType
++from typing import TYPE_CHECKING, Any
++from uuid import UUID
++
++from potbot.domain.errors import ScopeDeniedError, StateMismatchError
++from potbot.tools.execution_contracts import WORK_KINDS
++from potbot.tools.sandbox_cog_worker import SandboxedCogOperation
++
++if TYPE_CHECKING:
++    from collections.abc import Mapping
++
++    from potbot.cogs.contracts import TypedCogValue
++    from potbot.controller.execution_cogs import ExecutionCall
++
++_ID = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
++_EFFECTS = {"read_only": 0, "idempotent_write": 1,
++            "non_idempotent_write": 2, "destructive": 3}
++
++
++@dataclass(frozen=True, slots=True)
++class ChildWorkStep:
++    """A trusted child reference; links name earlier completed steps only."""
++
++    name: str
++    kind: str
++    operation_ref: str
++    links: tuple[str, ...] = ()
++
++    def __post_init__(self) -> None:
++        if (not isinstance(self.name, str) or not _ID.fullmatch(self.name)
++                or self.kind not in WORK_KINDS
++                or not isinstance(self.operation_ref, str)
++                or len(self.operation_ref) > 256 or not self.operation_ref.startswith("syn://thing/")
++                or not isinstance(self.links, tuple) or len(self.links) > 16
++                or any(not isinstance(x, str) or not _ID.fullmatch(x) for x in self.links)
++                or len(set(self.links)) != len(self.links)):
++            raise ScopeDeniedError("Child work step is not a bounded installed reference")
++
++
++@dataclass(frozen=True, slots=True)
++class InstalledChildPlan:
++    parent_kind: str
++    parent_operation_ref: str
++    steps: tuple[ChildWorkStep, ...]
++
++    def __post_init__(self) -> None:
++        if (self.parent_kind not in WORK_KINDS
++                or not isinstance(self.parent_operation_ref, str)
++                or len(self.parent_operation_ref) > 256
++                or not self.parent_operation_ref.startswith("syn://thing/")
++                or not isinstance(self.steps, tuple) or not 1 <= len(self.steps) <= 32
++                or any(not isinstance(step, ChildWorkStep) for step in self.steps)):
++            raise ScopeDeniedError("Child work plan must be an installed bounded tuple")
++        seen: set[str] = set()
++        for step in self.steps:
++            if step.name in seen or any(link not in seen for link in step.links):
++                raise ScopeDeniedError("Child plan has duplicate steps or noncausal links")
++            seen.add(step.name)
++
++    @property
++    def key(self) -> tuple[str, str]:
++        return self.parent_kind, self.parent_operation_ref
++
++
++def compile_child_plans(
++    operations: tuple[SandboxedCogOperation, ...],
++    plans: tuple[InstalledChildPlan, ...],
++) -> Mapping[tuple[str, str], InstalledChildPlan]:
++    """Resolve exact installed identities and reject cycles/authority escalation.
++
++    No plan declares a guest executable, a role, a principal, policy override,
++    workspace, or new side-effect grant. Each child receives the parent's
++    independently admitted *typed input*, and gets its own one-use invocation.
++    """
++    if (not isinstance(operations, tuple) or not isinstance(plans, tuple)
++            or len(plans) > 64 or any(not isinstance(p, InstalledChildPlan) for p in plans)):
++        raise ScopeDeniedError("Child plans require operator-installed bounded descriptors")
++    installed = {(op.binding.kind, op.binding.operation_ref): op for op in operations}
++    if len(installed) != len(operations):
++        raise ScopeDeniedError("Duplicate installed work identity")
++    result: dict[tuple[str, str], InstalledChildPlan] = {}
++    for plan in plans:
++        if plan.key in result or plan.key not in installed:
++            raise ScopeDeniedError("Duplicate child plan or unknown parent installation")
++        parent = installed[plan.key].binding
++        for step in plan.steps:
++            child = installed.get((step.kind, step.operation_ref))
++            if child is None:
++                raise ScopeDeniedError("Planned child is not an installed sandbox Cog")
++            binding = child.binding
++            if (binding.input_type_ref != parent.input_type_ref
++                    or _EFFECTS[binding.effect_class] > _EFFECTS[parent.effect_class]):
++                raise ScopeDeniedError("Child input port or effect exceeds parent authority")
++            # The child cannot inherit a separate, weaker or stale policy grant.
++            if binding.policy != parent.policy:
++                raise ScopeDeniedError("Child work changes the parent policy revision")
++        result[plan.key] = plan
++
++    def count_family(key: tuple[str, str], ancestors: tuple[tuple[str, str], ...]) -> int:
++        if key in ancestors or len(ancestors) >= 16:
++            raise ScopeDeniedError("Installed child plans cycle or exceed maximum depth")
++        total = 1
++        plan = result.get(key)
++        for step in plan.steps if plan else ():
++            total += count_family((step.kind, step.operation_ref), (*ancestors, key))
++            if total > 256:
++                raise ScopeDeniedError("Expanded child plan exceeds trace run bound")
++        return total
++
++    for key in result:
++        count_family(key, ())
++    return MappingProxyType(result)
++
++
++async def execute_child_plan(
++    call: ExecutionCall, value: TypedCogValue, plan: InstalledChildPlan,
++) -> None:
++    """No guest-supplied child scheduling; all links are DB-verified receipts."""
++    from potbot.controller.execution_events import ExecutionEventService
++
++    children: dict[str, Any] = {}
++    for step in plan.steps:
++        links: list[UUID] = []
++        for name in step.links:
++            receipt = children[name].receipt
++            history = ExecutionEventService(call.runtime.db).events(
++                call.runtime.actor, run_id=receipt.invocation_id, limit=200,
++            )
++            if history.get("has_more") or not history.get("items"):
++                raise StateMismatchError("Linked child has no bounded durable event history")
++            terminal = history["items"][-1]
++            if (terminal.get("stage") != "completed"
++                    or terminal.get("run_id") != str(receipt.invocation_id)):
++                raise StateMismatchError("Child link has no verified terminal completion")
++            links.append(UUID(terminal["id"]))
++        children[step.name] = await call.child(
++            step.kind, step.operation_ref, value, links=tuple(links),
++        )
+diff --git a/src/potbot/tools/xpra_browser_worker.py b/src/potbot/tools/xpra_browser_worker.py
+--- a/src/potbot/tools/xpra_browser_worker.py
++++ b/src/potbot/tools/xpra_browser_worker.py
+@@ -332,49 +332,30 @@ import os
+             result["eventsUnavailable"] = True
+         return result
+ 
+-    @staticmethod
+-    def _surface_capture_unavailable(error: Exception) -> bool:
+-        # Narrow exception match: do not retry timeouts, closed browsers,
+-        # denied operations, invalid captures, or any action with side effects.
+-        message = str(error)
+-        return "Page.captureScreenshot" in message and "Unable to capture screenshot" in message
+-
+     async def _capture_jpeg(self) -> bytes:
+-        """Bounded read-only recovery on the same private page/driver.
++        """Capture the visible page through the *private* CDP session.
+ 
+-        Chromium occasionally rejects surface captures on Xvfb/Xpra. Retry
+-        only that precise condition, then use the existing private CDP session
+-        without granting Page.captureScreenshot to untrusted CDP commands.
++        The Playwright Page.screenshot helper relies on headful compositor
++        surfaces and font readiness; in Xvfb/Xpra it may fail or time out even
++        while the actual page is alive. This bounded read-only CDP operation
++        uses Chromium's non-surface capture path and does not broaden the
++        user-callable CDP allowlist. There is no action retry.
+         """
+-        options = {"type": "jpeg", "quality": 48, "animations": "disabled", "timeout": 2000}
++        reply = await asyncio.wait_for(
++            self.cdp.send("Page.captureScreenshot", {
++                "format": "jpeg", "quality": 48, "fromSurface": False,
++                "captureBeyondViewport": False,
++            }),
++            timeout=6.0,
++        )
++        encoded = reply.get("data") if isinstance(reply, dict) else None
++        if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
++            raise ValueError("render sample is absent or exceeds bound")
+         try:
+-            image = await self.page.screenshot(**options)
+-        except Exception as error:
+-            if not self._surface_capture_unavailable(error):
+-                raise
+-            await asyncio.sleep(0.1)
+-            try:
+-                image = await self.page.screenshot(**options)
+-            except Exception as retry_error:
+-                if not self._surface_capture_unavailable(retry_error):
+-                    raise
+-                # This is internal evidence collection, not a user CDP RPC.
+-                # fromSurface=False avoids the headful compositor surface path.
+-                fallback = await asyncio.wait_for(
+-                    self.cdp.send("Page.captureScreenshot", {
+-                        "format": "jpeg", "quality": 48, "fromSurface": False,
+-                        "captureBeyondViewport": False,
+-                    }),
+-                    timeout=2.0,
+-                )
+-                encoded = fallback.get("data") if isinstance(fallback, dict) else None
+-                if not isinstance(encoded, str) or len(encoded) > 800_000:
+-                    raise ValueError("render sample exceeds bound")
+-                try:
+-                    image = base64.b64decode(encoded, validate=True)
+-                except (ValueError, binascii.Error) as decode_error:
+-                    raise ValueError("render sample is not valid base64") from decode_error
+-        if (not isinstance(image, bytes) or not 4 <= len(image) <= 600_000
++            image = base64.b64decode(encoded, validate=True)
++        except (ValueError, binascii.Error) as error:
++            raise ValueError("render sample is not valid base64") from error
++        if (not 4 <= len(image) <= 600_000
+                 or not image.startswith(b"\xff\xd8") or not image.endswith(b"\xff\xd9")):
+             raise ValueError("render sample is not a bounded JPEG")
+         return image
+diff --git a/tests/unit/test_browser_capture_recovery.py b/tests/unit/test_browser_capture_recovery.py
+index 1cd0e94..f27a578 100644
+--- a/tests/unit/test_browser_capture_recovery.py
++++ b/tests/unit/test_browser_capture_recovery.py
+@@ -1,4 +1,4 @@
+-"""Bounded browser screenshot recovery; synthetic page/CDP doubles, not Xpra certification."""
++"""Private non-surface capture regression; test doubles do not qualify Xpra."""
+ from __future__ import annotations
+ 
+ import asyncio
+@@ -12,15 +12,17 @@ import pytest
+ from potbot.tools.xpra_browser_worker import BrowserWorker, validate_command
+ 
+ JPEG = b"\xff\xd8" + b"synthetic-evidence" * 20 + b"\xff\xd9"
+-SURFACE_ERROR = "Page.screenshot: Protocol error (Page.captureScreenshot): Unable to capture screenshot"
++PARAMS = {
++    "format": "jpeg", "quality": 48, "fromSurface": False,
++    "captureBeyondViewport": False,
++}
+ 
+ 
+-def browser(*, screen=None, cdp=None):
++def browser(packet=None, *, error=None):
+     worker = BrowserWorker("playwright", False)
+-    screenshot = (AsyncMock(side_effect=screen) if isinstance(screen, (list, Exception))
+-                  else AsyncMock(return_value=screen))
+-    worker.page = SimpleNamespace(screenshot=screenshot, url="about:blank")
+-    worker.cdp = SimpleNamespace(send=AsyncMock(return_value=cdp))
++    worker.page = SimpleNamespace(screenshot=AsyncMock(side_effect=AssertionError(
++        "surface screenshot must not run")), url="about:blank")
++    worker.cdp = SimpleNamespace(send=AsyncMock(return_value=packet, side_effect=error))
+     worker._aria = AsyncMock(return_value='- button "Sample"')
+     return worker
+ 
+@@ -29,83 +31,48 @@ def sample(worker, *, image=True):
+     return asyncio.run(worker.execute({"op": "sample", "image": image}))
+ 
+ 
+-def test_clean_capture_is_single_attempt_and_retains_exact_bytes():
+-    worker = browser(screen=JPEG)
+-    result = sample(worker)
+-    frame = result["frame"]
+-    assert frame["bytes"] == len(JPEG)
+-    assert frame["sha256"] == hashlib.sha256(JPEG).hexdigest()
++def test_private_capture_is_one_bounded_nonsurface_request_and_exact_bytes():
++    worker = browser({"data": base64.b64encode(JPEG).decode("ascii")})
++    value = sample(worker)
++    frame = value["frame"]
++    assert (frame["mime"], frame["bytes"], frame["sha256"]) == (
++        "image/jpeg", len(JPEG), hashlib.sha256(JPEG).hexdigest())
+     assert base64.b64decode(frame["base64"], validate=True) == JPEG
+-    assert result["aria"] == '- button "Sample"'
+-    assert worker.page.screenshot.await_count == 1
+-    worker.cdp.send.assert_not_awaited()
+-
+-
+-def test_transient_surface_error_retries_same_page_once():
+-    worker = browser(screen=[RuntimeError(SURFACE_ERROR), JPEG])
+-    assert sample(worker)["frame"]["bytes"] == len(JPEG)
+-    assert worker.page.screenshot.await_count == 2
+-    worker.cdp.send.assert_not_awaited()
+-
+-
+-def test_second_surface_error_uses_only_private_nonsurface_capture():
+-    worker = browser(screen=[RuntimeError(SURFACE_ERROR), RuntimeError(SURFACE_ERROR)],
+-                     cdp={"data": base64.b64encode(JPEG).decode("ascii")})
+-    result = sample(worker, image=False)
+-    assert result["frame"] == {
+-        "mime": "image/jpeg", "sha256": hashlib.sha256(JPEG).hexdigest(),
+-        "bytes": len(JPEG),
+-    }
+-    worker.cdp.send.assert_awaited_once_with("Page.captureScreenshot", {
+-        "format": "jpeg", "quality": 48, "fromSurface": False,
+-        "captureBeyondViewport": False,
+-    })
+-    # No new untrusted CDP method is authorized by the fallback.
++    assert value["aria"] == '- button "Sample"'
++    worker.cdp.send.assert_awaited_once_with("Page.captureScreenshot", PARAMS)
++    worker.page.screenshot.assert_not_awaited()
++    # The trusted internal evidence path must not become public CDP authority.
+     with pytest.raises(ValueError):
+         validate_command({"op": "cdp", "method": "Page.captureScreenshot"})
+ 
+ 
+-def test_unrelated_browser_error_does_not_retry_or_use_fallback():
+-    worker = browser(screen=RuntimeError("Page.screenshot: browser disconnected"))
+-    with pytest.raises(RuntimeError, match="disconnected"):
+-        sample(worker)
+-    assert worker.page.screenshot.await_count == 1
+-    worker.cdp.send.assert_not_awaited()
+-
+-
+-def test_retry_failure_not_matching_transient_error_stops_before_cdp():
+-    worker = browser(screen=[RuntimeError(SURFACE_ERROR), RuntimeError("permission denied")])
+-    with pytest.raises(RuntimeError, match="permission denied"):
+-        sample(worker)
+-    assert worker.page.screenshot.await_count == 2
+-    worker.cdp.send.assert_not_awaited()
++def test_omit_image_has_digest_and_no_encoded_bytes():
++    worker = browser({"data": base64.b64encode(JPEG).decode()})
++    frame = sample(worker, image=False)["frame"]
++    assert frame == {"mime": "image/jpeg", "sha256": hashlib.sha256(JPEG).hexdigest(),
++                     "bytes": len(JPEG)}
++    worker.cdp.send.assert_awaited_once()
+ 
+ 
+-@pytest.mark.parametrize("fallback", [
++@pytest.mark.parametrize("packet", [
+     {}, {"data": 7}, {"data": "$$$"}, {"data": "A" * 800001},
+-    {"data": base64.b64encode(b"not-a-jpeg").decode("ascii")},
++    {"data": base64.b64encode(b"not-a-jpeg").decode()},
++    {"data": base64.b64encode(b"\xff\xd8" + b"a" * 600001 + b"\xff\xd9").decode()},
+ ])
+-def test_fallback_requires_bounded_base64_of_actual_jpeg(fallback):
+-    worker = browser(screen=[RuntimeError(SURFACE_ERROR), RuntimeError(SURFACE_ERROR)],
+-                     cdp=fallback)
++def test_invalid_capture_fails_closed_without_retry(packet):
++    worker = browser(packet)
+     with pytest.raises(ValueError, match="render sample"):
+         sample(worker)
+-    assert worker.page.screenshot.await_count == 2
+     worker.cdp.send.assert_awaited_once()
++    worker.page.screenshot.assert_not_awaited()
+ 
+ 
+-def test_direct_capture_rejects_oversize_and_invalid_jpeg():
+-    for content in (b"not-a-jpeg", b"\xff\xd8" + b"a" * 600001 + b"\xff\xd9"):
+-        worker = browser(screen=content)
+-        with pytest.raises(ValueError, match="render sample"):
+-            sample(worker)
+-        worker.cdp.send.assert_not_awaited()
+-
+-
+-def test_cdp_timeout_does_not_fabricate_success_or_retry_effects():
+-    worker = browser(screen=[RuntimeError(SURFACE_ERROR), RuntimeError(SURFACE_ERROR)])
+-    worker.cdp.send = AsyncMock(side_effect=asyncio.TimeoutError())
+-    with pytest.raises(asyncio.TimeoutError):
++@pytest.mark.parametrize("failure", [RuntimeError("browser disconnected"),
++                                        PermissionError("fixture denial"),
++                                        asyncio.TimeoutError()])
++def test_capture_errors_propagate_with_no_second_attempt(failure):
++    worker = browser(error=failure)
++    with pytest.raises(type(failure)):
+         sample(worker)
+-    assert worker.page.screenshot.await_count == 2
+-    assert worker.cdp.send.await_count == 1
++    worker.cdp.send.assert_awaited_once()
++    worker.page.screenshot.assert_not_awaited()
+diff --git a/tests/unit/test_browser_host_closeout.py b/tests/unit/test_browser_host_closeout.py
+new file mode 100644
+index 0000000..c1c44fa
+--- /dev/null
++++ b/tests/unit/test_browser_host_closeout.py
+@@ -0,0 +0,113 @@
++"""Manifest validation only; passing data here is not live-host evidence."""
++from __future__ import annotations
++
++import hashlib
++import importlib.util
++import json
++import subprocess
++from pathlib import Path
++from uuid import uuid4
++
++import pytest
++
++ROOT = Path(__file__).resolve().parents[2]
++SPEC = importlib.util.spec_from_file_location(
++    "host_closeout", ROOT / "scripts/check_browser_host_closeout.py"
++)
++GATE = importlib.util.module_from_spec(SPEC)
++SPEC.loader.exec_module(GATE)
++
++
++def make(tmp_path):
++    repo = tmp_path / "repo"
++    repo.mkdir()
++    sources = (
++        "src/potbot/tools/xpra_browser_worker.py",
++        "src/potbot/tools/xpra_browser_control.py",
++        "src/potbot/tools/agent_xpra_streams.py",
++    )
++    pins = {}
++    for path in sources:
++        target = repo / path
++        target.parent.mkdir(parents=True, exist_ok=True)
++        target.write_text("# synthetic validator fixture\n")
++        pins[path] = hashlib.sha256(target.read_bytes()).hexdigest()
++    subprocess.run(["git", "init", "-q", str(repo)], check=True)
++    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
++    subprocess.run(["git", "-C", str(repo), "-c", "user.name=test",
++                    "-c", "user.email=test@example.invalid", "commit", "-qm", "initial"], check=True)
++    sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
++    directory = tmp_path / "operator-reports"
++    directory.mkdir(mode=0o700)
++    workspace, agents, image = str(uuid4()), [str(uuid4()), str(uuid4())], "a" * 64
++    drills = {}
++    for k in GATE.REQUIRED:
++        path = directory / (k + ".json")
++        path.write_text(json.dumps({"synthetic": k}) + "\n")
++        path.chmod(0o600)
++        drills[k] = {
++            "passed": True, "workspace_id": workspace, "agent_ids": agents,
++            "image_digest": image, "operator_epoch": 2, "evidence_file": path.name,
++            "evidence_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
++            "observed_process_tree_stopped": True, "operator_observation": "direct_live_host",
++        }
++    manifest = {
++        "schema": GATE.SCHEMA, "source": {"commit": sha, "tree_dirty": False, "files": pins},
++        "workspace_id": workspace, "agent_ids": agents, "image_digest": image,
++        "qualification_sha256": "b" * 64, "operator_epoch": 2, "drills": drills,
++    }
++    return repo, directory, manifest
++
++
++def test_complete_synthetic_manifest_is_validated_but_not_attested(tmp_path):
++    repo, directory, manifest = make(tmp_path)
++    outcome = GATE.verify(manifest, directory=directory, root=repo)
++    assert outcome["manifest_valid"] is True
++    assert outcome["machine_checked_drills"] == len(GATE.REQUIRED)
++    assert outcome["production_qualified"] is False
++    assert outcome["operator_signoff_required"] is True
++
++
++@pytest.mark.parametrize("change", [
++    lambda x: x["drills"].pop("private_x11_and_home"),
++    lambda x: x["agent_ids"].__setitem__(1, x["agent_ids"][0]),
++    lambda x: x.update(operator_epoch=True),
++    lambda x: x["source"].update(tree_dirty=True),
++    lambda x: x["drills"]["view_only_streams"].update(passed=False),
++    lambda x: x["drills"]["ticket_replay_and_epoch_denial"].update(operator_observation="model_report"),
++    lambda x: x["drills"]["operator_loss_fencing"].update(observed_process_tree_stopped=False),
++    lambda x: x["drills"]["postgres_artifacts_and_rls"].update(evidence_sha256="0" * 64),
++])
++def test_false_or_incomplete_host_claims_are_rejected(tmp_path, change):
++    repo, directory, data = make(tmp_path)
++    change(data)
++    with pytest.raises(ValueError):
++        GATE.verify(data, directory=directory, root=repo)
++
++
++def test_source_changes_invalidates_committed_host_report(tmp_path):
++    repo, directory, data = make(tmp_path)
++    (repo / "src/potbot/tools/xpra_browser_control.py").write_text("# changed\n")
++    with pytest.raises(ValueError):
++        GATE.verify(data, directory=directory, root=repo)
++
++
++def test_private_symlink_and_non_private_files_are_rejected(tmp_path):
++    repo, directory, data = make(tmp_path)
++    link = directory / "link.json"
++    link.symlink_to(directory / "agent_logs_and_archive.json")
++    data["drills"]["agent_logs_and_archive"]["evidence_file"] = link.name
++    with pytest.raises(ValueError):
++        GATE.verify(data, directory=directory, root=repo)
++    link.unlink()
++    original = directory / "agent_logs_and_archive.json"
++    original.chmod(0o644)
++    data["drills"]["agent_logs_and_archive"]["evidence_file"] = original.name
++    with pytest.raises(ValueError):
++        GATE.verify(data, directory=directory, root=repo)
++
++
++@pytest.mark.parametrize("raw", [b"", b"{}{}", b'{"x":1,"x":2}', b'{"x":NaN}', b"x" * (96 * 1024 + 1)])
++def test_rejects_invalid_host_json(raw):
++    with pytest.raises(ValueError):
++        GATE.unique_json(raw)
+diff --git a/tests/unit/test_child_plans.py b/tests/unit/test_child_plans.py
+new file mode 100644
+index 0000000..8b4419c
+--- /dev/null
++++ b/tests/unit/test_child_plans.py
+@@ -0,0 +0,146 @@
++"""Finite, operator-installed child plans. Mock-only, not a kernel qualification."""
++from __future__ import annotations
++
++import asyncio
++from dataclasses import replace
++from types import SimpleNamespace
++from uuid import uuid4
++
++import pytest
++
++from potbot.controller.child_plans import (
++    ChildWorkStep, InstalledChildPlan, compile_child_plans, execute_child_plan,
++)
++from potbot.domain.errors import ScopeDeniedError, StateMismatchError
++from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
++from potbot.tools.sandbox_cog_worker import SandboxedCogOperation
++
++POLICY = ExecutionPolicy("a" * 64, "b" * 64, "c" * 64, "test")
++
++
++def operation(kind, name, *, effect="read_only", input_type="syn://type/in"):
++    return SandboxedCogOperation(WorkBinding(
++        kind, "syn://thing/" + name, input_type, "syn://type/out", "d" * 64,
++        effect, POLICY,
++    ), ("/usr/bin/potbot-cog-worker",), "e" * 64)
++
++
++def example():
++    root = operation("workflow", "root")
++    script = operation("script", "script")
++    server = operation("mcp_tool", "mcp")
++    child = operation("tool", "child")
++    plan = InstalledChildPlan("workflow", "syn://thing/root", (
++        ChildWorkStep("script", "script", "syn://thing/script"),
++        ChildWorkStep("mcp", "mcp_tool", "syn://thing/mcp", links=("script",)),
++        ChildWorkStep("tool", "tool", "syn://thing/child"),
++    ))
++    return (root, script, server, child), plan
++
++
++def test_installs_plan_for_exact_pinned_operations_and_keeps_immutable_mapping():
++    operations, plan = example()
++    compiled = compile_child_plans(operations, (plan,))
++    assert compiled[plan.key] == plan
++    with pytest.raises(TypeError):
++        compiled[plan.key] = plan
++    assert compile_child_plans(operations, ()) == {}
++
++
++@pytest.mark.parametrize("change", [
++    lambda o,p: (o[1:], (p,)),
++    lambda o,p: (o, (p,p)),
++    lambda o,p: (o, (replace(p, parent_operation_ref="syn://thing/unknown"),)),
++    lambda o,p: (o, (replace(p, steps=(ChildWorkStep("bad", "tool", "syn://thing/missing"),)),)),
++    lambda o,p: ((o[0], o[1], o[2], operation("tool", "child", input_type="syn://type/other")), (p,)),
++    lambda o,p: ((o[0], o[1], o[2], operation("tool", "child", effect="non_idempotent_write")), (p,)),
++])
++def test_rejects_unknown_and_escalating_plans(change):
++    ops, plan = example()
++    with pytest.raises(ScopeDeniedError):
++        compile_child_plans(*change(ops, plan))
++
++
++def test_rejects_duplicate_forward_or_unknown_causation():
++    for steps in (
++        (ChildWorkStep("a", "tool", "syn://thing/child"),
++         ChildWorkStep("a", "tool", "syn://thing/child")),
++        (ChildWorkStep("a", "tool", "syn://thing/child", links=("b",)),
++         ChildWorkStep("b", "tool", "syn://thing/child")),
++        (ChildWorkStep("a", "tool", "syn://thing/child", links=("nope",)),),
++    ):
++        with pytest.raises(ScopeDeniedError):
++            InstalledChildPlan("workflow", "syn://thing/root", steps)
++
++
++def test_rejects_mutual_recursive_child_plans():
++    first, second = operation("workflow", "first"), operation("workflow", "second")
++    a = InstalledChildPlan("workflow", first.binding.operation_ref, (
++        ChildWorkStep("other", "workflow", second.binding.operation_ref),
++    ))
++    b = InstalledChildPlan("workflow", second.binding.operation_ref, (
++        ChildWorkStep("back", "workflow", first.binding.operation_ref),
++    ))
++    with pytest.raises(ScopeDeniedError, match="cycle"):
++        compile_child_plans((first, second), (a, b))
++
++
++def test_requires_same_policy_and_prevents_plan_submission_as_untrusted_data():
++    op, plan = example()
++    changed_policy = replace(POLICY, policy_revision_hash="f" * 64)
++    altered = SandboxedCogOperation(replace(op[1].binding, policy=changed_policy),
++                                    op[1].argv, op[1].executable_sha256)
++    with pytest.raises(ScopeDeniedError):
++        compile_child_plans((op[0], altered, op[2], op[3]), (plan,))
++    with pytest.raises(ScopeDeniedError):
++        compile_child_plans(op, ({"parent_kind": "workflow", "steps": []},))
++
++
++def test_execution_links_only_a_durable_completed_child(monkeypatch):
++    from potbot.controller import execution_events
++
++    operations, plan = example()
++    compile_child_plans(operations, (plan,))
++    invocations = []
++    first_run = uuid4()
++    terminal = uuid4()
++    class FakeEvents:
++        def __init__(self, database):
++            assert database == "db"
++        def events(self, actor, **kwargs):
++            assert actor == "actor" and kwargs["run_id"] == first_run
++            return {"items": [{"id": str(terminal), "run_id": str(first_run),
++                               "stage": "completed"}], "has_more": False}
++    monkeypatch.setattr(execution_events, "ExecutionEventService", FakeEvents)
++    class FakeCall:
++        runtime = SimpleNamespace(db="db", actor="actor")
++        async def child(self, kind, operation_ref, value, *, links=()):
++            invocations.append((kind, operation_ref, value, links))
++            return SimpleNamespace(receipt=SimpleNamespace(invocation_id=first_run))
++    asyncio.run(execute_child_plan(FakeCall(), "fixture-input", plan))
++    assert len(invocations) == 3
++    assert invocations[1][3] == (terminal,)
++    assert invocations[0][3] == invocations[2][3] == ()
++
++
++def test_missing_terminal_child_never_dispatches_dependent_work(monkeypatch):
++    from potbot.controller import execution_events
++
++    _, plan = example()
++    run = uuid4()
++    class FakeEvents:
++        def __init__(self, database):
++            pass
++        def events(self, actor, **kwargs):
++            return {"items": [{"id": str(uuid4()), "run_id": str(run),
++                               "stage": "indeterminate"}], "has_more": False}
++    monkeypatch.setattr(execution_events, "ExecutionEventService", FakeEvents)
++    recorded = []
++    class FakeCall:
++        runtime = SimpleNamespace(db="db", actor="actor")
++        async def child(self, *args, **kwargs):
++            recorded.append(args)
++            return SimpleNamespace(receipt=SimpleNamespace(invocation_id=run))
++    with pytest.raises(StateMismatchError):
++        asyncio.run(execute_child_plan(FakeCall(), "fixture-input", plan))
++    assert len(recorded) == 1
+diff --git a/src/potbot/controller/execution_cogs.py b/src/potbot/controller/execution_cogs.py
+--- a/src/potbot/controller/execution_cogs.py
++++ b/src/potbot/controller/execution_cogs.py
+@@ -13,3 +13,4 @@
+ from potbot.cogs.execution import EXECUTION_COGS, SEAL, WORK_COGS, execute
++from potbot.controller.child_plans import InstalledChildPlan, compile_child_plans, execute_child_plan
+ from potbot.controller.cog_work import CogWorkMonitor, CogWorkRun
+ from potbot.controller.execution_journal import PinnedExecutionJournal
+@@ -147,4 +148,5 @@
+         browser_service: Any = None,
+         sandbox_executor: SandboxedCogExecutor | None = None,
+         sandbox_agent_id: UUID | None = None,
++        child_plans: tuple[InstalledChildPlan, ...] = (),
+     ) -> None:
+@@ -262,3 +264,4 @@
+         ):
+             raise ScopeDeniedError("Duplicate or differently pinned host installations")
++        self.child_plans = compile_child_plans(operations, child_plans)
+         for op in (*operations, *self._direct_operations.values()):
+@@ -401,7 +404,21 @@
+                             if self.sandbox_executor is None or self.sandbox_agent_id is None:
+                                 raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
+                             call.progress("sandbox_worker_dispatched")
+-                            return await self.sandbox_executor.execute(
++                            response = await self.sandbox_executor.execute(
+                                 op, typed, context, self.actor, self.sandbox_agent_id,
+                             )
++                            # Validate the parent result before authorizing *any*
++                            # planned child effect. A malformed guest response
++                            # must never fan out into independently admitted work.
++                            if (not isinstance(response, TypedCogValue)
++                                    or response.type_ref != op.binding.output_type_ref
++                                    or typed.fingerprint != typed_hash):
++                                raise StateMismatchError("Parent sandbox result is not the pinned typed port")
++                            self.catalog.validate(response)
++                            if len(canonical_json(response.value).encode("utf-8")) > self.policy.max_output_bytes:
++                                raise InvalidInputError("Parent output exceeds inline policy bound")
++                            plan = self.child_plans.get((op.binding.kind, op.binding.operation_ref))
++                            if plan is not None:
++                                await execute_child_plan(call, typed, plan)
++                            return response
+                         # Only independently constructed trusted controller
+@@ -478,4 +495,11 @@
+             return outcome
+         except BaseException as error:
+-            uncertain = dispatched and binding.effect_class != "read_only"
++            # An interrupted sandbox process can outlive its controller task.
++            # Even a nominal read-only Cog needs operator reconciliation when
++            # its process tree/audit is indeterminate; never emit a clean retry.
++            uncertain = dispatched and (
++                binding.effect_class != "read_only"
++                or (isinstance(op, SandboxedCogOperation)
++                    and isinstance(error, (IndeterminateExecutionError, asyncio.CancelledError)))
++            )
+             self._poisoned |= uncertain
+diff --git a/scripts/check_execution_provenance.py b/scripts/check_execution_provenance.py
+--- a/scripts/check_execution_provenance.py
++++ b/scripts/check_execution_provenance.py
+@@ -19,11 +19,14 @@
+ SOURCES = (
+     "src/potbot/tools/execution_schemas.py",
+     "src/potbot/cogs/execution.py",
+     "src/potbot/controller/execution_cogs.py",
++    "src/potbot/controller/child_plans.py",
+     "src/potbot/controller/execution_journal.py",
+     "src/potbot/controller/execution_receipts.py",
+     "src/potbot/controller/execution_events.py",
+     "src/potbot/controller/cog_work.py",
+     "src/potbot/tools/execution_contracts.py",
++    "src/potbot/tools/sandbox_cog_worker.py",
+     "src/potbot/persistence/execution_provenance_schema.py",
++    "tests/integration/test_execution_provenance.py",
+ )
+diff --git a/.github/workflows/browser-controller-s48.yml b/.github/workflows/browser-controller-s48.yml
+--- a/.github/workflows/browser-controller-s48.yml
++++ b/.github/workflows/browser-controller-s48.yml
+@@ -18,4 +18,8 @@
+       - 'tests/unit/test_browser*'
+       - 'tests/unit/test_sandbox_cog_worker.py'
++      - 'tests/unit/test_child_plans.py'
++      - 'tests/unit/test_browser_host_closeout.py'
++      - 'tests/integration/test_execution_provenance.py'
++      - 'scripts/check_browser_host_closeout.py'
+       - 'tests/integration/test_browser_controller_provenance.py'
+ 
+@@ -61,5 +65,5 @@
+         run: |
+           mkdir -p artifacts/browser-controller-s48
+-          uv run --locked python -m pytest -q tests/unit/test_browser_semantic_catalog.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py --junitxml=artifacts/browser-controller-s48/unit.xml
++          uv run --locked python -m pytest -q tests/unit/test_browser_semantic_catalog.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py tests/unit/test_child_plans.py tests/unit/test_browser_host_closeout.py --junitxml=artifacts/browser-controller-s48/unit.xml
+       - name: Start disposable PostgreSQL
+         run: docker compose up --detach --wait --wait-timeout 90
+@@ -69,4 +73,9 @@
+           tests/integration/test_browser_controller_provenance.py
+           --junitxml=artifacts/browser-controller-s48/postgresql.xml
++      - name: Verify nested child-plan causal journal against real PostgreSQL
++        run: >-
++          uv run --locked python -m pytest -q
++          tests/integration/test_execution_provenance.py
++          --junitxml=artifacts/browser-controller-s48/nested-provenance.xml
+       - name: Reject skipped acceptance and record the exact checked-out source
+         run: |
+@@ -78,6 +87,11 @@
+                                    for tag in ('skipped', 'failure', 'error')):
+               raise SystemExit('All six PostgreSQL controller acceptance tests must pass without skips')
++          nested = list(ElementTree.parse(report / 'nested-provenance.xml').iter('testcase'))
++          if len(nested) != 1 or any(case.find(tag) is not None for case in nested
++                                    for tag in ('skipped', 'failure', 'error')):
++              raise SystemExit('Nested provenance integration must run exactly once without skips')
+           files = (
+               'src/potbot/controller/execution_cogs.py',
++              'src/potbot/controller/child_plans.py',
+ 
+ 
+@@ -92,4 +106,7 @@
+               'src/potbot/tools/browser_cog_contracts.py',
+               'src/potbot/tools/xpra_browser_worker.py',
++              'src/potbot/tools/sandbox_cog_worker.py',
++              'tests/unit/test_child_plans.py',
++              'tests/integration/test_execution_provenance.py',
+               'tests/unit/test_browser_semantic_catalog.py',
+ 
+@@ -101,3 +118,5 @@
+               'controller_acceptance_passed': True,
+               'live_browser_qualified': False,
++              'nested_provenance_passed': True,
++              'nested_sandbox_qualified': False,
+               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
