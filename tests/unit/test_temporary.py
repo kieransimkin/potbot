@@ -95,13 +95,13 @@ def test_sharing_violation_retries_boundedly_without_changing_acl(tmp_path, monk
     owner = TemporaryDirectory(dir=tmp_path)
     original, calls = temporary._remove_tree, []
 
-    def busy(path):
+    def busy(path, **kwargs):
         calls.append(path)
         if len(calls) < 3:
             error = PermissionError("fixture sharing violation")
             error.winerror = 32
             raise error
-        original(path)
+        original(path, **kwargs)
 
     monkeypatch.setattr(temporary, "_WINDOWS", True)
     monkeypatch.setattr(temporary, "_remove_tree", busy)
@@ -113,7 +113,7 @@ def test_sharing_violation_retries_boundedly_without_changing_acl(tmp_path, monk
 def test_permanent_denial_is_explicit_and_keeps_the_owned_directory(tmp_path, monkeypatch):
     owner = TemporaryDirectory(dir=tmp_path)
 
-    def denied(path):
+    def denied(path, **kwargs):
         raise PermissionError("fixture permanent denial")
 
     with monkeypatch.context() as patch:
@@ -127,7 +127,7 @@ def test_permanent_denial_is_explicit_and_keeps_the_owned_directory(tmp_path, mo
 def test_cleanup_failure_preserves_the_original_failure(tmp_path, monkeypatch):
     owner = TemporaryDirectory(dir=tmp_path)
 
-    def denied(path):
+    def denied(path, **kwargs):
         raise PermissionError("fixture permanent denial")
 
     with monkeypatch.context() as patch:

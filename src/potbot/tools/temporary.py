@@ -1,7 +1,9 @@
 """Workspace scratch storage with inherited Windows ACLs and bounded cleanup.
 
 Native identity/vault files retain their separate custody and atomic-file policy.
-No function here changes an existing directory ACL or grants broader access.
+Creation never rewrites an existing parent ACL. POSIX cleanup restores owner
+permissions only on verified directories inside the disposable tree; it never
+chmods regular files, follows symlinks, or grants group/other permissions.
 """
 
 from __future__ import annotations
@@ -18,6 +20,15 @@ from pathlib import Path
 from uuid import uuid4
 
 _WINDOWS = os.name == "nt"
+# Capture capabilities once: fault-injection wrappers must not change dispatch.
+_POSIX_FD_CLEANUP = (
+    os.name == "posix"
+    and hasattr(os, "O_DIRECTORY")
+    and hasattr(os, "O_NOFOLLOW")
+    and hasattr(os, "fchmod")
+    and {os.open, os.stat, os.unlink, os.rmdir} <= os.supports_dir_fd
+    and os.scandir in os.supports_fd
+)
 _COMPONENT = re.compile(r"[A-Za-z0-9._-]{0,64}\Z")
 
 
@@ -27,7 +38,7 @@ def _unique_name() -> str:
 
 
 class TemporaryStorageError(OSError):
-    """Scratch storage is unusable; no permission workaround is attempted."""
+    """Scratch storage is unusable; permanent denials retain the owned tree."""
 
 
 def create_directory(path: Path) -> Path:
@@ -67,7 +78,88 @@ def allocate_file(parent: Path, *, prefix: str = "potbot-", suffix: str = "") ->
     raise FileExistsError(f"Temporary file name collisions at {parent}")
 
 
-def _remove_tree(path: Path) -> None:
+def _directory_identity(info: os.stat_result) -> tuple[int, int]:
+    if not stat.S_ISDIR(info.st_mode):
+        raise TemporaryStorageError("Scratch directory was replaced by a non-directory")
+    return info.st_dev, info.st_ino
+
+
+def _same_directory(info: os.stat_result, identity: tuple[int, int]) -> None:
+    if _directory_identity(info) != identity:
+        raise TemporaryStorageError("Scratch directory identity changed during cleanup")
+
+
+def _remove_posix_tree(path: Path, expected_identity: tuple[int, int] | None) -> None:
+    """Unlink through pinned descriptors, repairing owned directories only.
+
+    Callers must stop writers before cleanup. Unreadable directories,
+    ownership denials and cross-device subtrees are not permission workarounds.
+    In particular, never use chmod(path) in a pathname-based rmtree callback:
+    a symlink swap could otherwise change permissions outside the scratch tree.
+    """
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+
+    def empty(directory: int, device: int) -> None:
+        info = os.fstat(directory)
+        if info.st_dev != device:
+            raise TemporaryStorageError("Refusing a cross-device scratch subtree")
+        mode = stat.S_IMODE(info.st_mode)
+        if mode & stat.S_IRWXU != stat.S_IRWXU:
+            if info.st_uid != os.geteuid():
+                raise PermissionError("Refusing to repair a foreign-owned scratch directory")
+            # Unlink requires parent-directory write/search permission, NOT a
+            # writable file. Preserve read-only files and external hardlinks.
+            os.fchmod(directory, mode | stat.S_IRWXU)
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                try:
+                    child_info = entry.stat(follow_symlinks=False)
+                    if not stat.S_ISDIR(child_info.st_mode):
+                        os.unlink(entry.name, dir_fd=directory)
+                        continue
+                    identity = _directory_identity(child_info)
+                    child = os.open(entry.name, flags, dir_fd=directory)
+                    try:
+                        _same_directory(os.fstat(child), identity)
+                        empty(child, device)
+                        _same_directory(
+                            os.stat(entry.name, dir_fd=directory, follow_symlinks=False), identity
+                        )
+                        os.rmdir(entry.name, dir_fd=directory)
+                    finally:
+                        os.close(child)
+                except FileNotFoundError:
+                    # A vanished descendant is already gone; other failures
+                    # must propagate, leaving _cleaned false and naming the tree.
+                    continue
+
+    parent = os.open(path.parent, flags)
+    try:
+        directory = os.open(path.name, flags, dir_fd=parent)
+        try:
+            info = os.fstat(directory)
+            identity = _directory_identity(info)
+            if expected_identity is not None:
+                _same_directory(info, expected_identity)
+            empty(directory, info.st_dev)
+            _same_directory(os.stat(path.name, dir_fd=parent, follow_symlinks=False), identity)
+            os.rmdir(path.name, dir_fd=parent)
+        finally:
+            os.close(directory)
+    finally:
+        os.close(parent)
+
+
+def _remove_tree(path: Path, *, expected_identity: tuple[int, int] | None = None) -> None:
+    if not _WINDOWS and _POSIX_FD_CLEANUP:
+        _remove_posix_tree(path, expected_identity)
+        return
+    # Preserve native Windows read-only-file handling and sharing-lock retries.
+    # Platforms lacking descriptor APIs do not get a path-based POSIX chmod
+    # fallback: ordinary cleanup can proceed, but access denials remain errors.
+    if expected_identity is not None:
+        _same_directory(path.lstat(), expected_identity)
+
     def readonly(function: object, name: str, error: BaseException) -> None:
         target = Path(name)
         if isinstance(error, FileNotFoundError):
@@ -90,6 +182,8 @@ class TemporaryDirectory:
     versions. Using the selected parent's existing ACL avoids that replacement.
     File/rename/read/delete preflight runs before the caller can write payloads.
     Cleanup retries transient locks; permanent denials retain a named directory.
+    Stop child writers first. POSIX teardown may restore owner rwx on readable,
+    owned directories in this exact allocation, without mutating file modes.
     """
 
     def __init__(
@@ -114,6 +208,7 @@ class TemporaryDirectory:
             parent = scratch_root(parent)
             self.path = parent / (prefix + _unique_name() + suffix)
             self.path.mkdir(mode=0o777 if _WINDOWS else 0o700)
+            self._identity = _directory_identity(self.path.lstat())
         except OSError as error:
             raise TemporaryStorageError(
                 f"Scratch directory allocation failed at {parent}; "
@@ -171,7 +266,7 @@ class TemporaryDirectory:
             return
         for attempt in range(6):
             try:
-                _remove_tree(self.path)
+                _remove_tree(self.path, expected_identity=self._identity)
                 self._cleaned = True
                 return
             except FileNotFoundError:
