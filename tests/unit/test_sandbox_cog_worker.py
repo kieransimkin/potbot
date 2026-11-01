@@ -3,6 +3,7 @@
 These tests do not qualify a kernel sandbox. The separate live S46 runner uses
 SandboxedCogExecutor's constructor and the audited ProcessSupervisor unchanged.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,8 +44,13 @@ def _op() -> SandboxedCogOperation:
         "a" * 64, "b" * 64, "c" * 64, "test", max_wall_ms=5000, max_output_bytes=16384
     )
     binding = WorkBinding(
-        "tool", "syn://thing/contract-cog", "syn://type/in", "syn://type/out",
-        "d" * 64, "read_only", policy,
+        "tool",
+        "syn://thing/contract-cog",
+        "syn://type/in",
+        "syn://type/out",
+        "d" * 64,
+        "read_only",
+        policy,
     )
     return SandboxedCogOperation(
         binding, ("/usr/bin/potbot-worker",), hashlib.sha256(_BINARY).hexdigest()
@@ -64,9 +70,12 @@ def _fixture(tmp_path: Path):
     # monkeypatched guard. This does not introduce a new persistence backend.
     ledger = WorkspaceLeaseLedger(private / "leases.sqlite", workspace_home=home)
     ledger.pin_image(
-        workspace, digest=runtime.image_digest,
+        workspace,
+        digest=runtime.image_digest,
         image_ref="ghcr.io/test/system@sha256:" + runtime.image_digest,
-        build_commit="c" * 40, platform="linux/amd64", rootfs_path=rootfs,
+        build_commit="c" * 40,
+        platform="linux/amd64",
+        rootfs_path=rootfs,
         qualification_sha256=runtime.qualification_sha256,
     )
     registered = SimpleNamespace(
@@ -83,10 +92,14 @@ def _fixture(tmp_path: Path):
     executor.syn_mesh = SynWorkerNodeMesh(interval_seconds=0.05)
     requests = []
     result = SimpleNamespace(
-        processes_stopped=True, outcome="completed", exit_code=0,
-        stdout=json.dumps({
-            "schema_version": 1, "type_ref": "syn://type/out", "value": {"done": True}
-        }).encode(), stdout_truncated=False, isolation_identity="unit-process-double",
+        processes_stopped=True,
+        outcome="completed",
+        exit_code=0,
+        stdout=json.dumps(
+            {"schema_version": 1, "type_ref": "syn://type/out", "value": {"done": True}}
+        ).encode(),
+        stdout_truncated=False,
+        isolation_identity="unit-process-double",
     )
 
     def run(request, *, cancelled):
@@ -96,8 +109,13 @@ def _fixture(tmp_path: Path):
 
     executor.supervisor = SimpleNamespace(run=run)
     return SimpleNamespace(
-        executor=executor, actor=WorkspaceContext(workspace, principal), agent=agent,
-        home=registered, requests=requests, result=result, binary=binary,
+        executor=executor,
+        actor=WorkspaceContext(workspace, principal),
+        agent=agent,
+        home=registered,
+        requests=requests,
+        result=result,
+        binary=binary,
     )
 
 
@@ -106,10 +124,15 @@ def _context():
 
 
 def _run(fixture, context=None):
-    return asyncio.run(fixture.executor.execute(
-        _op(), TypedCogValue("syn://type/in", {"args": "untrusted"}),
-        context or _context(), fixture.actor, fixture.agent,
-    ))
+    return asyncio.run(
+        fixture.executor.execute(
+            _op(),
+            TypedCogValue("syn://type/in", {"args": "untrusted"}),
+            context or _context(),
+            fixture.actor,
+            fixture.agent,
+        )
+    )
 
 
 def test_in_process_host_callback_cannot_be_installed_as_a_worker() -> None:
@@ -124,11 +147,12 @@ def test_in_process_host_callback_cannot_be_installed_as_a_worker() -> None:
 
 
 def test_typed_result_rejects_duplicate_keys_and_unpinned_output() -> None:
-    assert _one_json(
-        b'{"schema_version":1,"type_ref":"syn://type/out","value":{"ok":true}}'
-    )["value"] == {"ok": True}
+    assert _one_json(b'{"schema_version":1,"type_ref":"syn://type/out","value":{"ok":true}}')[
+        "value"
+    ] == {"ok": True}
     for raw in (
-        b'{}', b'{"schema_version":1,"schema_version":1,"type_ref":"x","value":1}',
+        b"{}",
+        b'{"schema_version":1,"schema_version":1,"type_ref":"x","value":1}',
         b'{"schema_version":1,"type_ref":"x","value":NaN}',
         b'{"schema_version":1,"type_ref":"x","value":1}garbage',
     ):
@@ -208,7 +232,12 @@ def test_unconfirmed_process_exit_retains_the_workspace_fence(tmp_path):
 def test_worker_never_dispatches_without_operator_syn_mesh():
     executor = SandboxedCogExecutor.__new__(SandboxedCogExecutor)
     with pytest.raises(CapabilityUnavailableError, match="SYN node"):
-        asyncio.run(executor.execute(
-            _op(), TypedCogValue("syn://type/in", {}), _context(),
-            WorkspaceContext(uuid4(), uuid4()), uuid4(),
-        ))
+        asyncio.run(
+            executor.execute(
+                _op(),
+                TypedCogValue("syn://type/in", {}),
+                _context(),
+                WorkspaceContext(uuid4(), uuid4()),
+                uuid4(),
+            )
+        )

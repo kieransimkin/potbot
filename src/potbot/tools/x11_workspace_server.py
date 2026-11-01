@@ -283,7 +283,9 @@ def create_app(
             "transport": "xpra-native-binary",
             "windowPresentation": "dockview",
             "xpraReadOnly": server.readonly_mode,
-            "agentPrivateDisplaysEnabled": bool(apps is not None and getattr(apps, "agent_displays", None) is not None),
+            "agentPrivateDisplaysEnabled": bool(
+                apps is not None and getattr(apps, "agent_displays", None) is not None
+            ),
         }
 
     @app.post("/v1/xpra/tickets")
@@ -320,10 +322,12 @@ def create_app(
         return JSONResponse(data, headers={"Cache-Control": "private, no-store"})
 
     from potbot.domain.errors import DomainError
+
     # S41 operator-only read-only agent-view admission.
     agent_streams = None
     if apps is not None and getattr(apps, "agent_displays", None) is not None:
         from potbot.tools.agent_xpra_streams import AgentXpraTicketAuthority
+
         agent_streams = AgentXpraTicketAuthority(server, apps)
 
     @app.post("/v1/xpra/apps")
@@ -467,8 +471,12 @@ def create_app(
         return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
 
     @app.post("/v1/xpra/agent-sessions/{agent_id}/{session_id}/ticket")
-    async def agent_xpra_ticket(agent_id: str, session_id: str, request: Request,
-                                authorization: str | None = Header(default=None)) -> JSONResponse:
+    async def agent_xpra_ticket(
+        agent_id: str,
+        session_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> JSONResponse:
         authenticate(authorization)
         if agent_streams is None:
             raise HTTPException(503, "agent stream admission is not enabled")
@@ -490,20 +498,28 @@ def create_app(
     @app.websocket("/v1/xpra/agent/ws")
     async def agent_xpra_websocket(ws: WebSocket) -> None:
         # S42: only an exact single agent-stream ticket is admitted.
-        if (len(ws.query_params.multi_items()) != 1 or
-                ws.query_params.multi_items()[0][0] != "ticket"):
+        if (
+            len(ws.query_params.multi_items()) != 1
+            or ws.query_params.multi_items()[0][0] != "ticket"
+        ):
             await ws.close(code=4403)
             return
-        if ws.headers.get("origin") != allowed_origin or agent_streams is None or (
-            operator_fence is not None and not operator_fence.healthy()
+        if (
+            ws.headers.get("origin") != allowed_origin
+            or agent_streams is None
+            or (operator_fence is not None and not operator_fence.healthy())
         ):
             await ws.close(code=4403)
             return
         try:
             ticket = agent_streams.consume(ws.query_params.get("ticket", ""))
             upstream = await websockets.unix_connect(
-                str(ticket.socket), uri="ws://localhost/", open_timeout=5,
-                max_size=8 * 1024 * 1024, max_queue=4, compression=None,
+                str(ticket.socket),
+                uri="ws://localhost/",
+                open_timeout=5,
+                max_size=8 * 1024 * 1024,
+                max_queue=4,
+                compression=None,
             )
         except (OSError, RuntimeError, TimeoutError, DomainError):
             await ws.close(code=4403)
@@ -537,13 +553,18 @@ def create_app(
             # process retirement, private socket replacement, or operator loss.
             while True:
                 await asyncio.sleep(0.25)
-                if operator_fence is not None and not await asyncio.to_thread(operator_fence.healthy):
+                if operator_fence is not None and not await asyncio.to_thread(
+                    operator_fence.healthy
+                ):
                     return
                 if not await asyncio.to_thread(agent_streams.still_live, ticket):
                     return
 
-        tasks = [asyncio.create_task(native_to_agent()),
-                 asyncio.create_task(agent_to_native()), asyncio.create_task(check_owner())]
+        tasks = [
+            asyncio.create_task(native_to_agent()),
+            asyncio.create_task(agent_to_native()),
+            asyncio.create_task(check_owner()),
+        ]
         try:
             done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in pending:

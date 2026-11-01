@@ -12,6 +12,7 @@ verification and event persistence) remain host control-plane services, NOT Cog
 workers; their effects may only enter the sandbox through independently admitted
 workers and are not granted arbitrary host subprocess access.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,18 +29,26 @@ from uuid import UUID
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
-    CapabilityUnavailableError, IndeterminateExecutionError,
-    InvalidInputError, ScopeDeniedError, StateMismatchError,
+    CapabilityUnavailableError,
+    IndeterminateExecutionError,
+    InvalidInputError,
+    ScopeDeniedError,
+    StateMismatchError,
 )
 from potbot.domain.serialization import canonical_json, content_hash
 from potbot.tools.agent_homes import AgentHomeRegistry
-from potbot.tools.execution_contracts import WorkBinding, WORK_KINDS
-from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend, SharedWorkspaceRuntime
+from potbot.tools.execution_contracts import WORK_KINDS, WorkBinding
+from potbot.tools.shared_workspace_isolation import (
+    SharedWorkspaceBubblewrapBackend,
+    SharedWorkspaceRuntime,
+)
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.syn_worker_nodes import SynWorkerNodeMesh
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
 from potbot.tools.workspace_supervision import (
-    WorkspaceExecutorIdentity, WorkspaceLeaseGuard, assert_shared_execution_allowed,
+    WorkspaceExecutorIdentity,
+    WorkspaceLeaseGuard,
+    assert_shared_execution_allowed,
 )
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
@@ -60,9 +69,16 @@ class SandboxedCogOperation:
             raise InvalidInputError("Unknown installed worker protocol")
         if self.binding.kind not in WORK_KINDS:
             raise ScopeDeniedError("sandbox Cog requires an installed work kind")
-        if not isinstance(self.argv, tuple) or not 1 <= len(self.argv) <= 32 or any(
-            not isinstance(arg, str) or not arg or len(arg) > 4096 or "\0" in arg for arg in self.argv
-        ) or not self.argv[0].startswith("/") or not _SHA.fullmatch(self.executable_sha256):
+        if (
+            not isinstance(self.argv, tuple)
+            or not 1 <= len(self.argv) <= 32
+            or any(
+                not isinstance(arg, str) or not arg or len(arg) > 4096 or "\0" in arg
+                for arg in self.argv
+            )
+            or not self.argv[0].startswith("/")
+            or not _SHA.fullmatch(self.executable_sha256)
+        ):
             raise InvalidInputError("sandbox Cog needs a bounded, pinned guest executable")
         if self.binding.parent_event_id or self.binding.links:
             raise ScopeDeniedError("Cog cause belongs to an invocation, not the installation")
@@ -73,12 +89,15 @@ def require_isolated_work(operations: tuple[object, ...]) -> None:
     if not isinstance(operations, tuple) or any(
         not isinstance(op, SandboxedCogOperation) for op in operations
     ):
-        raise ScopeDeniedError("Cog work requires a qualified sandbox installation; host callbacks are forbidden")
+        raise ScopeDeniedError(
+            "Cog work requires a qualified sandbox installation; host callbacks are forbidden"
+        )
 
 
 def _one_json(raw: bytes) -> dict[str, Any]:
     if not raw or len(raw) > _MAX_WIRE:
         raise StateMismatchError("sandboxed Cog output is absent or exceeds the typed bound")
+
     def unique(items: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for key, value in items:
@@ -86,12 +105,20 @@ def _one_json(raw: bytes) -> dict[str, Any]:
                 raise StateMismatchError("sandbox Cog output contains duplicate keys")
             result[key] = value
         return result
+
     try:
-        data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique,
-                          parse_constant=lambda _: (_ for _ in ()).throw(ValueError("non-finite")))
+        data = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=unique,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError("non-finite")),
+        )
     except (UnicodeError, ValueError) as exc:
         raise StateMismatchError("sandboxed Cog result is not a canonical JSON object") from exc
-    if not isinstance(data, dict) or set(data) != {"schema_version", "type_ref", "value"} or data["schema_version"] != 1:
+    if (
+        not isinstance(data, dict)
+        or set(data) != {"schema_version", "type_ref", "value"}
+        or data["schema_version"] != 1
+    ):
         raise StateMismatchError("sandboxed Cog returned an undeclared result envelope")
     return data
 
@@ -99,24 +126,32 @@ def _one_json(raw: bytes) -> dict[str, Any]:
 class SandboxedCogExecutor:
     """Host-only runner; scoped to ONE qualified workspace image/agent registry."""
 
-    def __init__(self, runtime: SharedWorkspaceRuntime, ledger: WorkspaceLeaseLedger,
-                 homes: AgentHomeRegistry, supervisor: ProcessSupervisor,
-                 syn_mesh: SynWorkerNodeMesh) -> None:
-        if (not isinstance(runtime, SharedWorkspaceRuntime)
-                or not isinstance(ledger, WorkspaceLeaseLedger)
-                or not isinstance(homes, AgentHomeRegistry)
-                or homes.ledger is not ledger
-                or not isinstance(supervisor, ProcessSupervisor)
-                or not isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend)
-                or supervisor.backend.runtime != runtime
-                or not isinstance(syn_mesh, SynWorkerNodeMesh)):
+    def __init__(
+        self,
+        runtime: SharedWorkspaceRuntime,
+        ledger: WorkspaceLeaseLedger,
+        homes: AgentHomeRegistry,
+        supervisor: ProcessSupervisor,
+        syn_mesh: SynWorkerNodeMesh,
+    ) -> None:
+        if (
+            not isinstance(runtime, SharedWorkspaceRuntime)
+            or not isinstance(ledger, WorkspaceLeaseLedger)
+            or not isinstance(homes, AgentHomeRegistry)
+            or homes.ledger is not ledger
+            or not isinstance(supervisor, ProcessSupervisor)
+            or not isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend)
+            or supervisor.backend.runtime != runtime
+            or not isinstance(syn_mesh, SynWorkerNodeMesh)
+        ):
             raise ScopeDeniedError("Cog runner requires the qualified pinned host sandbox")
         self.runtime, self.ledger, self.homes, self.supervisor = runtime, ledger, homes, supervisor
         self.syn_mesh = syn_mesh
         self._context_binding = None
 
-    def bind_context(self, database: Any, actor: WorkspaceContext,
-                     operations: tuple[SandboxedCogOperation, ...]) -> None:
+    def bind_context(
+        self, database: Any, actor: WorkspaceContext, operations: tuple[SandboxedCogOperation, ...]
+    ) -> None:
         """Called by the trusted controller after its ordinary installation checks."""
         from potbot.context.runtime_integration import ContextExecutionBinding
 
@@ -149,38 +184,63 @@ class SandboxedCogExecutor:
             if candidate.is_symlink():
                 raise ScopeDeniedError("Cog executable may not follow symlinks")
         binary = candidate.resolve(strict=True)
-        if not binary.is_file() or not binary.is_relative_to(root) or not os.access(binary, os.X_OK):
+        if (
+            not binary.is_file()
+            or not binary.is_relative_to(root)
+            or not os.access(binary, os.X_OK)
+        ):
             raise ScopeDeniedError("Cog executable is not present in admitted image")
         with binary.open("rb") as stream:
             if hashlib.file_digest(stream, "sha256").hexdigest() != op.executable_sha256:
                 raise StateMismatchError("Cog worker binary changed after installation")
 
-    def _run_sync(self, op: SandboxedCogOperation, source: TypedCogValue,
-                  cog_context: CogRunContext, actor: WorkspaceContext,
-                  agent_id: UUID, cancel: threading.Event,
-                  syn_fault: threading.Event | None = None) -> TypedCogValue:
+    def _run_sync(
+        self,
+        op: SandboxedCogOperation,
+        source: TypedCogValue,
+        cog_context: CogRunContext,
+        actor: WorkspaceContext,
+        agent_id: UUID,
+        cancel: threading.Event,
+        syn_fault: threading.Event | None = None,
+    ) -> TypedCogValue:
         home = self.homes.lookup(actor.workspace_id, agent_id)
         if home is None or home.workspace_id != actor.workspace_id or home.agent_id != agent_id:
             raise ScopeDeniedError("Cog worker agent identity is not registered")
         cwd = self.runtime.home / home.directory
-        assert_shared_execution_allowed(runtime=self.runtime, ledger=self.ledger,
-                                        workspace_id=actor.workspace_id, candidate_path=str(cwd))
+        assert_shared_execution_allowed(
+            runtime=self.runtime,
+            ledger=self.ledger,
+            workspace_id=actor.workspace_id,
+            candidate_path=str(cwd),
+        )
         self._executable(op)
-        wire = canonical_json({"schema_version": 1, "operation_ref": op.binding.operation_ref,
-                               "input": {"type_ref": source.type_ref, "value": source.value},
-                               "invocation_id": str(cog_context.invocation_id)})
+        wire = canonical_json(
+            {
+                "schema_version": 1,
+                "operation_ref": op.binding.operation_ref,
+                "input": {"type_ref": source.type_ref, "value": source.value},
+                "invocation_id": str(cog_context.invocation_id),
+            }
+        )
         stdin = wire.encode("utf-8")
         if len(stdin) > _MAX_WIRE:
             raise InvalidInputError("Cog input must fit its admitted typed transport")
-        identity = WorkspaceExecutorIdentity(actor.workspace_id, agent_id, self.runtime.image_digest)
+        identity = WorkspaceExecutorIdentity(
+            actor.workspace_id, agent_id, self.runtime.image_digest
+        )
         guard = WorkspaceLeaseGuard.exclusive_home(
-            self.ledger, identity, operation="cog.sandbox.execute",
+            self.ledger,
+            identity,
+            operation="cog.sandbox.execute",
             idempotency_key="cog-" + cog_context.invocation_id.hex,
         )
         projections = None
         selected_supervisor = self.supervisor
         if self._context_binding is not None:
-            projections = self._context_binding.prepare(self, actor, agent_id, cog_context.invocation_id)
+            projections = self._context_binding.prepare(
+                self, actor, agent_id, cog_context.invocation_id
+            )
             selected_supervisor = ProcessSupervisor(projections.backend)
             selected_supervisor.monitor_config = self.supervisor.monitor_config
         stopped = False
@@ -188,24 +248,37 @@ class SandboxedCogExecutor:
         try:
             guard.start()
             request = ProcessRequest(
-                argv=op.argv, workspace_root=self.runtime.home, sandbox_root=self.runtime.home,
-                cwd=cwd, guest_uid=home.uid, guest_gid=home.gid,
-                stdin=stdin, timeout_ms=op.binding.policy.max_wall_ms,
+                argv=op.argv,
+                workspace_root=self.runtime.home,
+                sandbox_root=self.runtime.home,
+                cwd=cwd,
+                guest_uid=home.uid,
+                guest_gid=home.gid,
+                stdin=stdin,
+                timeout_ms=op.binding.policy.max_wall_ms,
                 max_output_bytes=op.binding.policy.max_output_bytes,
                 memory_bytes=4 * 1024**3,
                 cpu_seconds=max(1, min(3600, (op.binding.policy.max_wall_ms + 999) // 1000)),
-                telemetry_workspace_id=actor.workspace_id, telemetry_agent_id=agent_id,
-                telemetry_identity_kind="agent", telemetry_run_id=cog_context.invocation_id,
+                telemetry_workspace_id=actor.workspace_id,
+                telemetry_agent_id=agent_id,
+                telemetry_identity_kind="agent",
+                telemetry_run_id=cog_context.invocation_id,
             )
             dispatched = True
             result = selected_supervisor.run(
-                request, cancelled=lambda: cancel.is_set() or guard.fenced
-                or (syn_fault is not None and syn_fault.is_set())
-                or (self._context_binding is not None and not self._context_live(actor)),
+                request,
+                cancelled=lambda: (
+                    cancel.is_set()
+                    or guard.fenced
+                    or (syn_fault is not None and syn_fault.is_set())
+                    or (self._context_binding is not None and not self._context_live(actor))
+                ),
             )
             stopped = result.processes_stopped is True
             if not stopped or result.outcome == "inconclusive":
-                raise IndeterminateExecutionError("sandbox Cog process tree or audit is not confirmed stopped")
+                raise IndeterminateExecutionError(
+                    "sandbox Cog process tree or audit is not confirmed stopped"
+                )
             if result.outcome != "completed" or result.exit_code != 0 or result.stdout_truncated:
                 raise StateMismatchError("sandbox Cog did not return an admitted typed result")
             response = _one_json(result.stdout)
@@ -215,19 +288,32 @@ class SandboxedCogExecutor:
             guard.ensure_live()
             if syn_fault is not None and syn_fault.is_set():
                 raise IndeterminateExecutionError("worker SYN node failed during sandbox execution")
-            guard.finish(evidence_sha256=content_hash({"run": str(cog_context.invocation_id),
-                                                        "result": output.fingerprint,
-                                                        "isolation": result.isolation_identity}))
+            guard.finish(
+                evidence_sha256=content_hash(
+                    {
+                        "run": str(cog_context.invocation_id),
+                        "result": output.fingerprint,
+                        "isolation": result.isolation_identity,
+                    }
+                )
+            )
             return output
         except BaseException:
             # Never release a lease after possibly dispatched and unconfirmed effects.
             try:
                 if dispatched:
-                    guard.finish(evidence_sha256=content_hash({"attempt": str(cog_context.invocation_id),
-                                                               "state": "indeterminate"}), uncertain=True)
+                    guard.finish(
+                        evidence_sha256=content_hash(
+                            {"attempt": str(cog_context.invocation_id), "state": "indeterminate"}
+                        ),
+                        uncertain=True,
+                    )
                 else:
-                    guard.finish(evidence_sha256=content_hash({"attempt": str(cog_context.invocation_id),
-                                                               "state": "not_dispatched"}))
+                    guard.finish(
+                        evidence_sha256=content_hash(
+                            {"attempt": str(cog_context.invocation_id), "state": "not_dispatched"}
+                        )
+                    )
             except Exception:
                 guard.abandon()
             raise
@@ -242,9 +328,14 @@ class SandboxedCogExecutor:
         except Exception:
             return False
 
-    async def execute(self, op: SandboxedCogOperation, source: TypedCogValue,
-                      cog_context: CogRunContext, actor: WorkspaceContext,
-                      agent_id: UUID) -> TypedCogValue:
+    async def execute(
+        self,
+        op: SandboxedCogOperation,
+        source: TypedCogValue,
+        cog_context: CogRunContext,
+        actor: WorkspaceContext,
+        agent_id: UUID,
+    ) -> TypedCogValue:
         if not isinstance(op, SandboxedCogOperation) or not isinstance(agent_id, UUID):
             raise ScopeDeniedError("Cog worker requires trusted installed operation and agent")
         if source.type_ref != op.binding.input_type_ref:
@@ -255,17 +346,30 @@ class SandboxedCogExecutor:
         if not isinstance(getattr(self, "syn_mesh", None), SynWorkerNodeMesh):
             raise CapabilityUnavailableError("worker SYN node relay must be configured")
         cancelled = threading.Event()
-        async with self.syn_mesh.node(actor.workspace_id, agent_id, cog_context.invocation_id) as node:
+        async with self.syn_mesh.node(
+            actor.workspace_id, agent_id, cog_context.invocation_id
+        ) as node:
             if op.protocol == "context-rpc/v1":
                 from potbot.context.runtime_integration import execute_context_operation
 
-                job = asyncio.create_task(execute_context_operation(
-                    self, op, source, cog_context, actor, agent_id, cancelled, node.fault_event))
+                job = asyncio.create_task(
+                    execute_context_operation(
+                        self, op, source, cog_context, actor, agent_id, cancelled, node.fault_event
+                    )
+                )
             else:
-                job = asyncio.create_task(asyncio.to_thread(
-                    self._run_sync, op, source, cog_context, actor, agent_id,
-                    cancelled, node.fault_event,
-                ))
+                job = asyncio.create_task(
+                    asyncio.to_thread(
+                        self._run_sync,
+                        op,
+                        source,
+                        cog_context,
+                        actor,
+                        agent_id,
+                        cancelled,
+                        node.fault_event,
+                    )
+                )
             try:
                 return await asyncio.shield(job)
             except asyncio.CancelledError:
@@ -274,7 +378,7 @@ class SandboxedCogExecutor:
                 # process. The underlying supervisor must finish its audit.
                 try:
                     await asyncio.wait_for(asyncio.shield(job), timeout=5)
-                except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                except (TimeoutError, asyncio.CancelledError, Exception):
                     pass
                 raise IndeterminateExecutionError(
                     "Cog task cancelled; sandbox process reconciliation required"

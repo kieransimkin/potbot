@@ -43,15 +43,22 @@ def lifecycle(ref=OPEN, *, offset=0, terminal="completed", denied=False):
     stages = ["failed"] if denied else ["started", "updated", terminal]
     rows = []
     for i, stage in enumerate(stages):
-        rows.append({
-            "id": str(uuid4()), "sequence": offset + i + 1, "run_id": run,
-            "parent_run_id": run if rows else None,
-            "parent_event_id": rows[-1]["id"] if rows else None,
-            "stage": stage,
-            "telemetry": {**copy.deepcopy(metadata), "phase": "admission_denied" if denied else "test"},
-            "output_artifact_ref": "artifact:" + str(uuid4()) if stage == "completed" else None,
-            "output_sha256": "e" * 64 if stage == "completed" else None,
-        })
+        rows.append(
+            {
+                "id": str(uuid4()),
+                "sequence": offset + i + 1,
+                "run_id": run,
+                "parent_run_id": run if rows else None,
+                "parent_event_id": rows[-1]["id"] if rows else None,
+                "stage": stage,
+                "telemetry": {
+                    **copy.deepcopy(metadata),
+                    "phase": "admission_denied" if denied else "test",
+                },
+                "output_artifact_ref": "artifact:" + str(uuid4()) if stage == "completed" else None,
+                "output_sha256": "e" * 64 if stage == "completed" else None,
+            }
+        )
     return rows
 
 
@@ -89,8 +96,9 @@ def test_single_admission_denial_is_retained_but_not_successful_coverage():
     events = ledger() + lifecycle(READ, offset=6, denied=True)
     assert control_plane_summary(events, required_cogs=REQUIRED)["admission_denials"] == 1
     with pytest.raises(ValueError, match="successful required Cog"):
-        control_plane_summary(lifecycle(OPEN) + lifecycle(READ, offset=3, denied=True),
-                              required_cogs=REQUIRED)
+        control_plane_summary(
+            lifecycle(OPEN) + lifecycle(READ, offset=3, denied=True), required_cogs=REQUIRED
+        )
 
 
 def test_readback_cogs_can_be_allowed_without_demanding_every_optional_cog():
@@ -161,14 +169,39 @@ def mutate(events, case):
         raise AssertionError(case)
 
 
-@pytest.mark.parametrize("case", [
-    "empty", "duplicate-event", "sequence-reversal", "boolean-sequence", "bad-uuid",
-    "missing-parent-field", "cross-run-parent", "broken-event-chain", "external-root",
-    "external-root-event", "unfinished", "no-progress", "early-terminal", "repeated-start",
-    "wrong-operation", "nested-child", "changed-policy", "changed-task", "missing-pinned-scope",
-    "missing-output", "invalid-output-sha", "unmeasured", "negative-metric", "boolean-metric",
-    "nan-metric", "infinite-metric", "huge-metric", "missing-metric",
-])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "empty",
+        "duplicate-event",
+        "sequence-reversal",
+        "boolean-sequence",
+        "bad-uuid",
+        "missing-parent-field",
+        "cross-run-parent",
+        "broken-event-chain",
+        "external-root",
+        "external-root-event",
+        "unfinished",
+        "no-progress",
+        "early-terminal",
+        "repeated-start",
+        "wrong-operation",
+        "nested-child",
+        "changed-policy",
+        "changed-task",
+        "missing-pinned-scope",
+        "missing-output",
+        "invalid-output-sha",
+        "unmeasured",
+        "negative-metric",
+        "boolean-metric",
+        "nan-metric",
+        "infinite-metric",
+        "huge-metric",
+        "missing-metric",
+    ],
+)
 def test_invalid_evidence_is_rejected(case):
     events = ledger()
     mutate(events, case)
@@ -207,8 +240,14 @@ def test_checks_survive_optimized_python():
         "control_plane_summary([], required_cogs={'required'})"
     )
     env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
-    run = subprocess.run([sys.executable, "-O", "-c", program], env=env,
-                         capture_output=True, text=True, timeout=15, check=False)
+    run = subprocess.run(
+        [sys.executable, "-O", "-c", program],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
     assert run.returncode != 0
     assert "empty or oversized ledger" in run.stderr
 
@@ -220,22 +259,39 @@ def test_acceptance_fixtures_use_the_registered_controller_boundary(singular, pl
     tree, gate_tree = ast.parse(fixture.read_text()), ast.parse(gate.read_text())
     names = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
     assert not {"HostOperation", "WORK_COGS", "WORK_KINDS"} & names
-    runtimes = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name) and node.func.id == "ExecutionCogRuntime"]
+    runtimes = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "ExecutionCogRuntime"
+    ]
     assert runtimes
     for call in runtimes:
         operations = next(kw.value for kw in call.keywords if kw.arg == "operations")
         assert isinstance(operations, ast.Tuple) and operations.elts == []
-    assert any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-               and isinstance(node.func.value, ast.Name) and node.func.value.id == "registry"
-               and node.func.attr == "invoke" for node in ast.walk(tree))
-    assert any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-               and node.func.id == "check_control_plane_report" for node in ast.walk(gate_tree))
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "registry"
+        and node.func.attr == "invoke"
+        for node in ast.walk(tree)
+    )
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "check_control_plane_report"
+        for node in ast.walk(gate_tree)
+    )
 
     def source_list(parsed):
-        return next(ast.literal_eval(node.value) for node in parsed.body
-                    if isinstance(node, ast.Assign)
-                    and any(isinstance(t, ast.Name) and t.id == "SOURCES" for t in node.targets))
+        return next(
+            ast.literal_eval(node.value)
+            for node in parsed.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "SOURCES" for t in node.targets)
+        )
 
     sources = source_list(tree)
     assert sources == source_list(gate_tree)
@@ -244,6 +300,9 @@ def test_acceptance_fixtures_use_the_registered_controller_boundary(singular, pl
     assert "src/potbot/tools/sandbox_cog_worker.py" in sources
     assert "src/potbot/evaluation/artifact_control_plane.py" in sources
     # JSON round-trip preserves the boolean qualification limit.
-    assert json.loads(json.dumps(control_plane_summary(ledger(), required_cogs=REQUIRED)))[
-        "sandbox_worker_qualified"
-    ] is False
+    assert (
+        json.loads(json.dumps(control_plane_summary(ledger(), required_cogs=REQUIRED)))[
+            "sandbox_worker_qualified"
+        ]
+        is False
+    )

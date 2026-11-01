@@ -3,6 +3,7 @@
 This covers workspace lifecycle and browser ticket admission. The separate opt-in
 acceptance test uses the real Xpra binary and Xdummy from its host packages.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,7 +20,8 @@ from potbot.tools.x11_workspace_server import WorkspaceXServer, XpraBridgeError,
 @pytest.fixture
 def fake_xpra(tmp_path: Path) -> Path:
     executable = tmp_path / "fake-xpra"
-    executable.write_text("""#!/usr/bin/env python3
+    executable.write_text(
+        """#!/usr/bin/env python3
 import asyncio,os,pathlib,re,signal,socket,sys
 import websockets
 args=sys.argv[1:]
@@ -39,7 +41,9 @@ async def run():
   await stop.wait()
 asyncio.run(run())
 x.close(); pathlib.Path(xpath).unlink(missing_ok=True)
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
     executable.chmod(0o755)
     return executable
 
@@ -73,13 +77,16 @@ def test_xpra_owned_display_and_binary_ws_relay(tmp_path: Path, fake_xpra: Path)
         app = create_app(server, "a" * 48, "http://127.0.0.1:3100")
         with TestClient(app) as client:
             assert client.post("/v1/xpra/tickets").status_code == 401
-            admission = client.post("/v1/xpra/tickets", headers={"Authorization": "Bearer " + "a" * 48})
+            admission = client.post(
+                "/v1/xpra/tickets", headers={"Authorization": "Bearer " + "a" * 48}
+            )
             assert admission.status_code == 200
             data = admission.json()
             assert data["workspaceId"] == str(workspace)
             assert data["expiresInSeconds"] == 30
-            with client.websocket_connect("/v1/xpra/ws?ticket=" + data["ticket"],
-                                          headers={"Origin": "http://127.0.0.1:3100"}) as ws:
+            with client.websocket_connect(
+                "/v1/xpra/ws?ticket=" + data["ticket"], headers={"Origin": "http://127.0.0.1:3100"}
+            ) as ws:
                 ws.send_bytes(b"\x50\x00Xpra binary frame")
                 assert ws.receive_bytes() == b"\x50\x00Xpra binary frame"
             assert not server.consume_ticket(data["ticket"])
@@ -92,7 +99,9 @@ def test_xpra_owned_display_and_binary_ws_relay(tmp_path: Path, fake_xpra: Path)
     assert not server.auth_file.exists()
 
 
-def test_distinct_workspaces_have_distinct_displays_and_tokens(tmp_path: Path, fake_xpra: Path) -> None:
+def test_distinct_workspaces_have_distinct_displays_and_tokens(
+    tmp_path: Path, fake_xpra: Path
+) -> None:
     require_xauth()
     roots = [tmp_path / x for x in ("first", "second")]
     for root in roots:
@@ -132,9 +141,7 @@ def test_clean_stop_allows_restarting_the_same_workspace(tmp_path: Path, fake_xp
     root = tmp_path / "restart"
     root.mkdir()
     session = WorkspaceXServer(uuid4(), root, xpra_executable=str(fake_xpra))
-    first_display = None
     session.start()
-    first_display = session.display
     first_socket = session.xpra_protocol_socket
     session.stop()
     assert not first_socket.exists()  # dead Xpra sockets must not block clean restart
@@ -161,19 +168,24 @@ def test_rejected_origin_does_not_consume_another_workspaces_capability(
             assert client.get("/v1/xpra/status").status_code == 401
             status = client.get("/v1/xpra/status", headers={"Authorization": "Bearer " + "c" * 48})
             assert status.json() == {
-                "workspaceId": str(server.workspace_id), "available": True,
-                "transport": "xpra-native-binary", "windowPresentation": "dockview",
-                "xpraReadOnly": False, "agentPrivateDisplaysEnabled": False,
+                "workspaceId": str(server.workspace_id),
+                "available": True,
+                "transport": "xpra-native-binary",
+                "windowPresentation": "dockview",
+                "xpraReadOnly": False,
+                "agentPrivateDisplaysEnabled": False,
             }
             secret = server.ticket()
             with pytest.raises(WebSocketDisconnect):
-                with client.websocket_connect("/v1/xpra/ws?ticket=" + secret,
-                    headers={"Origin": "https://untrusted.example"}) as connection:
+                with client.websocket_connect(
+                    "/v1/xpra/ws?ticket=" + secret, headers={"Origin": "https://untrusted.example"}
+                ) as connection:
                     connection.receive_bytes()
             # The invalid Origin was rejected before consuming this one-use
             # ticket. The legitimate Origin may still use it exactly once.
-            with client.websocket_connect("/v1/xpra/ws?ticket=" + secret,
-                headers={"Origin": "http://127.0.0.1:3100"}) as connection:
+            with client.websocket_connect(
+                "/v1/xpra/ws?ticket=" + secret, headers={"Origin": "http://127.0.0.1:3100"}
+            ) as connection:
                 connection.send_bytes(b"accept")
                 assert connection.receive_bytes() == b"accept"
             assert not server.consume_ticket(secret)

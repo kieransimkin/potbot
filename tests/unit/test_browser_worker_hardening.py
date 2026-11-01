@@ -19,9 +19,16 @@ from potbot.tools.xpra_browser_worker import BrowserWorker, validate_command
 def test_pointer_and_cdp_reject_nonfinite_or_non_numeric_wheel_deltas(delta):
     for command in (
         {"op": "input.pointer", "action": "wheel", "x": 1, "y": 2, "deltaY": delta},
-        {"op": "cdp", "method": "Input.dispatchMouseEvent", "params": {
-            "type": "mouseWheel", "x": 1, "y": 2, "deltaY": delta,
-        }},
+        {
+            "op": "cdp",
+            "method": "Input.dispatchMouseEvent",
+            "params": {
+                "type": "mouseWheel",
+                "x": 1,
+                "y": 2,
+                "deltaY": delta,
+            },
+        },
     ):
         with pytest.raises(ValueError):
             validate_command(command)
@@ -30,9 +37,18 @@ def test_pointer_and_cdp_reject_nonfinite_or_non_numeric_wheel_deltas(delta):
 @pytest.mark.parametrize("count", [True, False, "1", 1.0, -1, 3])
 def test_cdp_click_count_is_a_bounded_integer(count):
     with pytest.raises(ValueError):
-        validate_command({"op": "cdp", "method": "Input.dispatchMouseEvent", "params": {
-            "type": "mousePressed", "x": 1, "y": 2, "clickCount": count,
-        }})
+        validate_command(
+            {
+                "op": "cdp",
+                "method": "Input.dispatchMouseEvent",
+                "params": {
+                    "type": "mousePressed",
+                    "x": 1,
+                    "y": 2,
+                    "clickCount": count,
+                },
+            }
+        )
 
 
 @pytest.mark.parametrize(("engine", "stealth"), [("other", False), ("playwright", 1)])
@@ -82,7 +98,8 @@ def test_cleanup_stops_driver_even_when_browser_close_fails():
 
 def test_serve_cleans_up_a_partially_started_worker(monkeypatch):
     worker = SimpleNamespace(
-        start=AsyncMock(side_effect=RuntimeError("partial startup")), close=AsyncMock(),
+        start=AsyncMock(side_effect=RuntimeError("partial startup")),
+        close=AsyncMock(),
     )
     monkeypatch.setattr(module, "BrowserWorker", lambda *_: worker)
     with pytest.raises(RuntimeError, match="partial startup"):
@@ -106,7 +123,8 @@ def test_picker_stop_sends_complete_protocol_parameters_before_releasing_state()
     worker._selected.append(7)
     assert asyncio.run(worker.execute({"op": "inspect.stop"})) == {"picker": False}
     assert worker.cdp.send.await_args_list[0].args == (
-        "Overlay.setInspectMode", {"mode": "none", "highlightConfig": {}},
+        "Overlay.setInspectMode",
+        {"mode": "none", "highlightConfig": {}},
     )
     assert worker.cdp.send.await_args_list[1].args == ("Overlay.hideHighlight",)
     assert not worker._selected
@@ -136,14 +154,24 @@ def test_inspection_releases_remote_object_when_listener_collection_fails():
 def test_css_and_script_caches_retain_only_bounded_source_metadata():
     worker = BrowserWorker("playwright", False)
     for number in range(450):
-        worker._remember_sheet({"header": {
-            "styleSheetId": str(number), "sourceURL": "a" * 9000,
-            "sourceMapURL": "b" * 9000, "unneeded": "c" * 9000,
-        }})
-        worker._remember_script({
-            "scriptId": str(number), "url": "a" * 9000,
-            "sourceMapURL": "b" * 9000, "stackTrace": {"large": "c" * 9000},
-        })
+        worker._remember_sheet(
+            {
+                "header": {
+                    "styleSheetId": str(number),
+                    "sourceURL": "a" * 9000,
+                    "sourceMapURL": "b" * 9000,
+                    "unneeded": "c" * 9000,
+                }
+            }
+        )
+        worker._remember_script(
+            {
+                "scriptId": str(number),
+                "url": "a" * 9000,
+                "sourceMapURL": "b" * 9000,
+                "stackTrace": {"large": "c" * 9000},
+            }
+        )
     assert len(worker._sheets) == len(worker._scripts) == 400
     assert "0" not in worker._sheets and "0" not in worker._scripts
     assert set(worker._sheets["449"]) == {"sourceURL", "sourceMapURL"}
@@ -166,12 +194,15 @@ class BoundedInput(io.BytesIO):
         return super().readline(size)
 
 
-@pytest.mark.parametrize("message", [
-    b'{"id":1,"id":2,"command":{"op":"state"}}',
-    b'{"id":1,"command":{"op":"state","op":"navigate","url":"about:blank"}}',
-    b'{"id":1,"command":{"op":"input.pointer","action":"wheel","x":0,"y":0,"deltaY":NaN}}',
-    b'{"id":1,"command":{"op":"input.pointer","action":"wheel","x":0,"y":0,"deltaY":Infinity}}',
-])
+@pytest.mark.parametrize(
+    "message",
+    [
+        b'{"id":1,"id":2,"command":{"op":"state"}}',
+        b'{"id":1,"command":{"op":"state","op":"navigate","url":"about:blank"}}',
+        b'{"id":1,"command":{"op":"input.pointer","action":"wheel","x":0,"y":0,"deltaY":NaN}}',
+        b'{"id":1,"command":{"op":"input.pointer","action":"wheel","x":0,"y":0,"deltaY":Infinity}}',
+    ],
+)
 def test_serve_rejects_ambiguous_json_before_dispatch(monkeypatch, message):
     worker = SimpleNamespace(start=AsyncMock(), close=AsyncMock(), execute=AsyncMock())
     source = BoundedInput(message + b"\n")
@@ -209,7 +240,8 @@ def test_file_navigation_decodes_then_checks_real_workspace_path(monkeypatch):
     monkeypatch.setattr(Path, "is_file", lambda _: True)
     worker = BrowserWorker("playwright", False)
     worker.page = SimpleNamespace(
-        goto=AsyncMock(), title=AsyncMock(return_value="Fixture"),
+        goto=AsyncMock(),
+        title=AsyncMock(return_value="Fixture"),
         url="file:///home/agent/a%20page.html",
     )
     asyncio.run(worker.execute({"op": "navigate", "url": worker.page.url}))

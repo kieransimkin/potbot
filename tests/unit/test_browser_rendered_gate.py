@@ -21,15 +21,21 @@ def passing_report(profile="playwright", version="1.64.1"):
     root = ET.Element("testsuites")
     suite = ET.SubElement(root, "testsuite", errors="0", failures="0", skipped="0", tests="5")
     for name in sorted(GATE.EXPECTED_TESTS):
-        case = ET.SubElement(suite, "testcase", name=name, classname="tests.browser.test_rendered_worker")
+        case = ET.SubElement(
+            suite, "testcase", name=name, classname="tests.browser.test_rendered_worker"
+        )
         if name == "test_accessibility_role_actions_and_verified_render_change":
             props = ET.SubElement(case, "properties")
             for key, value in {
                 "browser_profile": profile,
                 "browser_version": "144.0.7559.96",
-                "browser_binary": json.dumps({
-                    "source": "engine", "sha256": "a" * 64, "bytes": 1234,
-                }),
+                "browser_binary": json.dumps(
+                    {
+                        "source": "engine",
+                        "sha256": "a" * 64,
+                        "bytes": 1234,
+                    }
+                ),
                 "packages": json.dumps({name: version for name in GATE.PROFILES[profile]}),
             }.items():
                 ET.SubElement(props, "property", name=key, value=value)
@@ -83,8 +89,16 @@ def test_rejects_missing_or_duplicate_runtime_identity_properties():
         GATE.validate_report(encode(root), "playwright")
 
 
-@pytest.mark.parametrize("raw", [b"", b"not XML", b"x" * (4 * 1024 * 1024 + 1),
-                                 b'<!DOCTYPE x><testsuites/>', b'<!ENTITY x "bad">'])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"",
+        b"not XML",
+        b"x" * (4 * 1024 * 1024 + 1),
+        b"<!DOCTYPE x><testsuites/>",
+        b'<!ENTITY x "bad">',
+    ],
+)
 def test_rejects_unbounded_malformed_or_entity_xml(raw):
     with pytest.raises(ValueError):
         GATE.validate_report(raw, "playwright")
@@ -105,10 +119,21 @@ def source_fixture(tmp_path):
     )
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
-    subprocess.run([
-        "git", "-C", str(tmp_path), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
-        "commit", "-qm", "synthetic gate fixture",
-    ], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "-qm",
+            "synthetic gate fixture",
+        ],
+        check=True,
+    )
     report = tmp_path / "input.xml"
     report.write_bytes(encode(passing_report()))
     return report
@@ -120,8 +145,13 @@ def test_successful_gate_cannot_claim_other_qualification(tmp_path):
     assert result["rendered_worker_passed"] is True
     assert result["dependency_pins_match_image"] is True
     assert result["tested_sources_dirty"] is False
-    for name in ("xpra_qualified", "sandbox_image_qualified", "kernel_isolation_qualified",
-                 "multi_agent_qualified", "postgresql_controller_qualified"):
+    for name in (
+        "xpra_qualified",
+        "sandbox_image_qualified",
+        "kernel_isolation_qualified",
+        "multi_agent_qualified",
+        "postgresql_controller_qualified",
+    ):
         assert result[name] is False
     assert set(result["source_sha256"]) == set(GATE.SOURCE_FILES)
 
@@ -152,20 +182,42 @@ def test_failed_cli_recheck_does_not_leave_a_stale_success_file(tmp_path):
     report.write_text("broken XML")
     output = tmp_path / "result.json"
     output.write_text('{"rendered_worker_passed":true}')
-    process = subprocess.run([
-        sys.executable, str(SCRIPT), str(report), "--root", str(tmp_path),
-        "--profile", "playwright", "--output", str(output),
-    ], capture_output=True, text=True, timeout=10)
+    process = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            str(report),
+            "--root",
+            str(tmp_path),
+            "--profile",
+            "playwright",
+            "--output",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
     assert process.returncode == 1
     assert not output.exists()
 
 
-@pytest.mark.parametrize("key,value", [
-    ("source", "arbitrary"), ("source", None), ("source", []),
-    ("sha256", "A" * 64), ("sha256", "0" * 63), ("sha256", None),
-    ("bytes", True), ("bytes", 0), ("bytes", -1), ("bytes", 2 * 1024**3 + 1),
-    ("bytes", 1.5),
-])
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("source", "arbitrary"),
+        ("source", None),
+        ("source", []),
+        ("sha256", "A" * 64),
+        ("sha256", "0" * 63),
+        ("sha256", None),
+        ("bytes", True),
+        ("bytes", 0),
+        ("bytes", -1),
+        ("bytes", 2 * 1024**3 + 1),
+        ("bytes", 1.5),
+    ],
+)
 def test_rejects_invalid_executable_identity(key, value):
     root = passing_report()
     prop = root.find("testsuite/testcase/properties/property[@name='browser_binary']")
@@ -176,10 +228,15 @@ def test_rejects_invalid_executable_identity(key, value):
         GATE.validate_report(encode(root), "playwright")
 
 
-@pytest.mark.parametrize("value", [
-    '{}', '[]', 'null',
-    '{"source":"engine","source":"system","sha256":"a","bytes":1}',
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "{}",
+        "[]",
+        "null",
+        '{"source":"engine","source":"system","sha256":"a","bytes":1}',
+    ],
+)
 def test_rejects_missing_or_ambiguous_executable_identity(value):
     root = passing_report()
     root.find("testsuite/testcase/properties/property[@name='browser_binary']").set("value", value)
@@ -210,7 +267,8 @@ def test_engine_gate_preserves_executable_hash_without_claiming_image_qualificat
 def test_duplicate_package_identity_is_rejected():
     root = passing_report()
     root.find("testsuite/testcase/properties/property[@name='packages']").set(
-        "value", '{"playwright":"1.64.1","playwright":"1.64.1"}',
+        "value",
+        '{"playwright":"1.64.1","playwright":"1.64.1"}',
     )
     with pytest.raises(ValueError):
         GATE.validate_report(encode(root), "playwright")

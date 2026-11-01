@@ -92,7 +92,8 @@ def check(evidence: dict) -> dict:
     )
     events = evidence["events"]
     control_plane = check_control_plane_report(
-        evidence.get("control_plane"), events,
+        evidence.get("control_plane"),
+        events,
         required_cogs={str(signature.cog_ref) for signature in RANGE_COGS},
     )
     assert {e["telemetry"]["cog_ref"] for e in events if e["stage"] == "completed"} >= {

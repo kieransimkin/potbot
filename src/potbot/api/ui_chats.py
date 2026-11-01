@@ -18,13 +18,18 @@ from potbot.domain.errors import InvalidInputError, RevisionConflictError, Scope
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
     from potbot.persistence.database import Database
 
 MAX_PROMPT_BYTES = 48000
 
 
 def _title(value: Any) -> str:
-    if not isinstance(value, str) or not 1 <= len(value.strip()) <= 120 or any(ord(c) < 32 for c in value):
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value.strip()) <= 120
+        or any(ord(c) < 32 for c in value)
+    ):
         raise InvalidInputError("A bounded visible session title is required")
     return value.strip()
 
@@ -55,18 +60,24 @@ class UiChatStore:
 
     @staticmethod
     def _summary(row: dict[str, Any]) -> dict[str, Any]:
-        return {"id": str(row["id"]), "title": row["title"],
-                "revision": int(row["revision"]),
-                "updatedAt": row["updated_at"].isoformat()}
+        return {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "revision": int(row["revision"]),
+            "updatedAt": row["updated_at"].isoformat(),
+        }
 
-    def create_session(self, context: WorkspaceContext, *, session_id: UUID, title: str) -> dict[str, Any]:
+    def create_session(
+        self, context: WorkspaceContext, *, session_id: UUID, title: str
+    ) -> dict[str, Any]:
         title = _title(title)
         with self.db.transaction(context) as conn:
             # Serialize admission per principal so a second operator tab cannot
             # bypass the bounded-session allowance concurrently.
-            conn.execute("SELECT pg_catalog.pg_advisory_xact_lock(hashtext(%s))",
-                         ("potbot:ui:chat:" + str(context.workspace_id) + ":" +
-                          str(context.principal_id),))
+            conn.execute(
+                "SELECT pg_catalog.pg_advisory_xact_lock(hashtext(%s))",
+                ("potbot:ui:chat:" + str(context.workspace_id) + ":" + str(context.principal_id),),
+            )
             known = conn.execute(
                 "SELECT id,title,revision,updated_at FROM ui_chat_sessions "
                 "WHERE workspace_id=%s AND id=%s AND principal_id=%s",
@@ -111,7 +122,9 @@ class UiChatStore:
             return [self._summary(row) for row in rows]
 
     @staticmethod
-    def _session(conn: Any, context: WorkspaceContext, session_id: UUID, *, lock: bool = False) -> dict[str, Any]:
+    def _session(
+        conn: Any, context: WorkspaceContext, session_id: UUID, *, lock: bool = False
+    ) -> dict[str, Any]:
         clause = " FOR UPDATE" if lock else ""
         row = conn.execute(
             "SELECT id,title,revision,updated_at FROM ui_chat_sessions "
@@ -131,14 +144,27 @@ class UiChatStore:
                 "AND principal_id=%s ORDER BY ordinal DESC LIMIT 40",
                 (context.workspace_id, session_id, context.principal_id),
             ).fetchall()
-        turns = [{"id": str(row["id"]), "ordinal": row["ordinal"],
-                  "user": row["user_text"], "assistant": row["assistant_text"],
-                  "state": row["state"], "runId": row["run_id"],
-                  "updatedAt": row["updated_at"].isoformat()} for row in reversed(rows)]
-        return {"session": self._summary(session), "turns": turns,
-                "moreBefore": turns[0]["ordinal"] > 1 if turns else False}
+        turns = [
+            {
+                "id": str(row["id"]),
+                "ordinal": row["ordinal"],
+                "user": row["user_text"],
+                "assistant": row["assistant_text"],
+                "state": row["state"],
+                "runId": row["run_id"],
+                "updatedAt": row["updated_at"].isoformat(),
+            }
+            for row in reversed(rows)
+        ]
+        return {
+            "session": self._summary(session),
+            "turns": turns,
+            "moreBefore": turns[0]["ordinal"] > 1 if turns else False,
+        }
 
-    def start_turn(self, context: WorkspaceContext, session_id: UUID, *, request_id: UUID, text: str) -> dict[str, Any]:
+    def start_turn(
+        self, context: WorkspaceContext, session_id: UUID, *, request_id: UUID, text: str
+    ) -> dict[str, Any]:
         text = _text(text, 16000)
         with self.db.transaction(context) as conn:
             session = self._session(conn, context, session_id, lock=True)
@@ -169,8 +195,12 @@ class UiChatStore:
             ).fetchall()
             messages: list[dict[str, str]] = []
             for row in reversed(rows):
-                messages.extend(({"role": "user", "content": row["user_text"]},
-                                 {"role": "assistant", "content": row["assistant_text"]}))
+                messages.extend(
+                    (
+                        {"role": "user", "content": row["user_text"]},
+                        {"role": "assistant", "content": row["assistant_text"]},
+                    )
+                )
             messages.append({"role": "user", "content": text})
             # Existing chat API's prompt budget must not be exceeded.
             if sum(len(item["content"].encode("utf-8")) for item in messages) > MAX_PROMPT_BYTES:
@@ -179,8 +209,15 @@ class UiChatStore:
             conn.execute(
                 "INSERT INTO ui_chat_turns(workspace_id,id,session_id,principal_id,request_id,ordinal,user_text) "
                 "VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                (context.workspace_id, turn_id, session_id, context.principal_id,
-                 request_id, session["revision"] + 1, text),
+                (
+                    context.workspace_id,
+                    turn_id,
+                    session_id,
+                    context.principal_id,
+                    request_id,
+                    session["revision"] + 1,
+                    text,
+                ),
             )
             conn.execute(
                 "UPDATE ui_chat_sessions SET revision=revision+1,updated_at=clock_timestamp() "
@@ -189,16 +226,27 @@ class UiChatStore:
             )
             return {"id": str(turn_id), "created": True, "state": "pending", "messages": messages}
 
-    def finish_turn(self, context: WorkspaceContext, session_id: UUID, turn_id: UUID, *,
-                    status: str, assistant_text: str | None, run_id: str | None) -> dict[str, Any]:
+    def finish_turn(
+        self,
+        context: WorkspaceContext,
+        session_id: UUID,
+        turn_id: UUID,
+        *,
+        status: str,
+        assistant_text: str | None,
+        run_id: str | None,
+    ) -> dict[str, Any]:
         if status not in {"completed", "indeterminate"}:
             raise InvalidInputError("Chat turn must have a terminal outcome")
         if status == "completed":
             assistant_text = _text(assistant_text, 32000)
         elif assistant_text is not None:
             raise InvalidInputError("Uncertain turns must not be reported as complete")
-        if run_id is not None and (not isinstance(run_id, str) or
-                                   len(run_id) != 32 or any(c not in "0123456789abcdef" for c in run_id)):
+        if run_id is not None and (
+            not isinstance(run_id, str)
+            or len(run_id) != 32
+            or any(c not in "0123456789abcdef" for c in run_id)
+        ):
             raise InvalidInputError("Invalid model run identity")
         with self.db.transaction(context) as conn:
             self._session(conn, context, session_id, lock=True)
@@ -206,8 +254,15 @@ class UiChatStore:
                 "UPDATE ui_chat_turns SET state=%s,assistant_text=%s,run_id=%s, "
                 "updated_at=clock_timestamp() WHERE workspace_id=%s AND session_id=%s "
                 "AND principal_id=%s AND id=%s AND state='pending' RETURNING id,state",
-                (status, assistant_text, run_id, context.workspace_id, session_id,
-                 context.principal_id, turn_id),
+                (
+                    status,
+                    assistant_text,
+                    run_id,
+                    context.workspace_id,
+                    session_id,
+                    context.principal_id,
+                    turn_id,
+                ),
             ).fetchone()
             if not row:
                 old = conn.execute(
@@ -215,8 +270,15 @@ class UiChatStore:
                     "AND session_id=%s AND principal_id=%s AND id=%s",
                     (context.workspace_id, session_id, context.principal_id, turn_id),
                 ).fetchone()
-                if not old or old["state"] != status or old["assistant_text"] != assistant_text or old["run_id"] != run_id:
-                    raise RevisionConflictError("Chat turn outcome already finalized or unavailable")
+                if (
+                    not old
+                    or old["state"] != status
+                    or old["assistant_text"] != assistant_text
+                    or old["run_id"] != run_id
+                ):
+                    raise RevisionConflictError(
+                        "Chat turn outcome already finalized or unavailable"
+                    )
             conn.execute(
                 "UPDATE ui_chat_sessions SET updated_at=clock_timestamp() "
                 "WHERE workspace_id=%s AND id=%s AND principal_id=%s",
@@ -224,7 +286,9 @@ class UiChatStore:
             )
             return {"id": str(turn_id), "state": status}
 
-    def reconcile_pending(self, context: WorkspaceContext, session_id: UUID, turn_id: UUID) -> dict[str, Any]:
+    def reconcile_pending(
+        self, context: WorkspaceContext, session_id: UUID, turn_id: UUID
+    ) -> dict[str, Any]:
         """Operator acknowledgement after possible dispatch and lease expiry.
 
         Never assume an unfinished inference was unbilled, and never replay it.
@@ -244,8 +308,9 @@ class UiChatStore:
             return {"id": str(turn_id), "state": "indeterminate", "replayed": False}
 
 
-def register_chat_routes(app: FastAPI, database: Database, authenticate: Any,
-                         allowed_origins: tuple[str, ...]) -> None:
+def register_chat_routes(
+    app: FastAPI, database: Database, authenticate: Any, allowed_origins: tuple[str, ...]
+) -> None:
     """Authenticated routes, strictly scoped by database role and workspace RLS."""
     store = UiChatStore(database)
 
@@ -292,7 +357,9 @@ def register_chat_routes(app: FastAPI, database: Database, authenticate: Any,
         data = await document(request)
         if set(data) != {"requestId", "text"}:
             raise InvalidInputError("Expected idempotent request ID and text")
-        return store.start_turn(context, _uuid(session_id), request_id=_uuid(data["requestId"]), text=data["text"])
+        return store.start_turn(
+            context, _uuid(session_id), request_id=_uuid(data["requestId"]), text=data["text"]
+        )
 
     @app.post("/v1/ui/sessions/{session_id}/turns/{turn_id}/finish")
     async def finish_turn(request: Request, session_id: str, turn_id: str) -> dict[str, Any]:
@@ -300,13 +367,23 @@ def register_chat_routes(app: FastAPI, database: Database, authenticate: Any,
         data = await document(request)
         if set(data) != {"status", "assistant", "runId"}:
             raise InvalidInputError("Expected complete or indeterminate turn status")
-        return store.finish_turn(context, _uuid(session_id), _uuid(turn_id),
-                                 status=data["status"], assistant_text=data["assistant"], run_id=data["runId"])
+        return store.finish_turn(
+            context,
+            _uuid(session_id),
+            _uuid(turn_id),
+            status=data["status"],
+            assistant_text=data["assistant"],
+            run_id=data["runId"],
+        )
 
     @app.post("/v1/ui/sessions/{session_id}/turns/{turn_id}/reconcile")
-    async def reconcile_chat_turn(request: Request, session_id: str, turn_id: str) -> dict[str, Any]:
+    async def reconcile_chat_turn(
+        request: Request, session_id: str, turn_id: str
+    ) -> dict[str, Any]:
         context = actor(request)
         body = await document(request)
         if set(body) != {"acknowledgeUncertain"} or body["acknowledgeUncertain"] is not True:
-            raise InvalidInputError("Explicit acknowledgement is needed to reconcile a pending turn")
+            raise InvalidInputError(
+                "Explicit acknowledgement is needed to reconcile a pending turn"
+            )
         return store.reconcile_pending(context, _uuid(session_id), _uuid(turn_id))

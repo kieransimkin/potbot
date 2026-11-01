@@ -4,6 +4,7 @@ This exercises sealed browser Cogs, admission, private ArtifactStore bytes and
 terminal event persistence. It does NOT launch Chromium, Xpra or a sandbox and
 must not be reported as live-browser/host qualification.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,12 +38,18 @@ def configured(app_env, tmp_path, *, deny_at=None):
     _, artifacts, _, _, state, _ = setup(app_env, tmp_path)
     registry = BoundCogRegistry.browser()
     sealed = SynService(app_env.db, artifacts).import_snapshot(
-        app_env.context, app_env.repository_id, "browser-controller-s48", registry.snapshot,
+        app_env.context,
+        app_env.repository_id,
+        "browser-controller-s48",
+        registry.snapshot,
     )
     selected_policy = ExecutionPolicy("a" * 64, "b" * 64, state["content_digest"], __version__)
     apps = Apps(app_env.context)  # Only the Xpra RPC/stop boundary is scripted.
     service = BrowserControlService(
-        actor=app_env.context, apps=apps, artifacts=artifacts, policy=selected_policy,
+        actor=app_env.context,
+        apps=apps,
+        artifacts=artifacts,
+        policy=selected_policy,
         approved_sessions=(SESSION,),
     )
     task, admissions = uuid4(), []
@@ -54,43 +61,68 @@ def configured(app_env, tmp_path, *, deny_at=None):
 
     def runtime():
         return ExecutionCogRuntime(
-            database=app_env.db, artifacts=artifacts, actor=app_env.context,
-            snapshot_id=UUID(sealed["scope"]["snapshot_id"]), task_revision_id=task,
-            repository_state_id=state["id"], emitter_run_id=uuid4(), policy=selected_policy,
-            operations=(), admit=admit, browser_service=service,
+            database=app_env.db,
+            artifacts=artifacts,
+            actor=app_env.context,
+            snapshot_id=UUID(sealed["scope"]["snapshot_id"]),
+            task_revision_id=task,
+            repository_state_id=state["id"],
+            emitter_run_id=uuid4(),
+            policy=selected_policy,
+            operations=(),
+            admit=admit,
+            browser_service=service,
         )
 
     return SimpleNamespace(
-        app=app_env, artifacts=artifacts, state=state, registry=registry, apps=apps,
-        service=service, task=task, host=runtime(), runtime=runtime, admissions=admissions,
+        app=app_env,
+        artifacts=artifacts,
+        state=state,
+        registry=registry,
+        apps=apps,
+        service=service,
+        task=task,
+        host=runtime(),
+        runtime=runtime,
+        admissions=admissions,
     )
 
 
 def context(fixture):
     return CogRunContext(
-        fixture.registry.snapshot.fingerprint, fixture.task, fixture.state["id"], uuid4(),
+        fixture.registry.snapshot.fingerprint,
+        fixture.task,
+        fixture.state["id"],
+        uuid4(),
     )
 
 
 def invoke(fixture, signature, selected, *, run=None):
     run = run or context(fixture)
-    result = asyncio.run(fixture.registry.invoke(
-        str(signature.cog_ref), TypedCogValue(signature.input_type_ref, request(selected)),
-        run, controller=fixture.host,
-    ))
+    result = asyncio.run(
+        fixture.registry.invoke(
+            str(signature.cog_ref),
+            TypedCogValue(signature.input_type_ref, request(selected)),
+            run,
+            controller=fixture.host,
+        )
+    )
     return run, result
 
 
 def events(fixture, run):
     page = ExecutionEventService(fixture.app.db).events(
-        fixture.app.context, run_id=run.invocation_id, limit=200,
+        fixture.app.context,
+        run_id=run.invocation_id,
+        limit=200,
     )
     assert page["has_more"] is False
     return page["items"]
 
 
 def test_all_four_registered_browser_cogs_persist_causal_events_and_private_evidence(
-    app_env, tmp_path,
+    app_env,
+    tmp_path,
 ):
     fixture = configured(app_env, tmp_path)
     commands = (
@@ -102,10 +134,14 @@ def test_all_four_registered_browser_cogs_persist_causal_events_and_private_evid
     assert fixture.host.operations == {}  # No arbitrary HostOperation worker fixture.
     for signature, selected in zip(BROWSER_COGS, commands, strict=True):
         if signature == CAPTURE:
-            fixture.apps.result = {"frame": {
-                "mime": "image/jpeg", "sha256": hashlib.sha256(JPEG).hexdigest(),
-                "bytes": len(JPEG), "base64": base64.b64encode(JPEG).decode(),
-            }}
+            fixture.apps.result = {
+                "frame": {
+                    "mime": "image/jpeg",
+                    "sha256": hashlib.sha256(JPEG).hexdigest(),
+                    "bytes": len(JPEG),
+                    "base64": base64.b64encode(JPEG).decode(),
+                }
+            }
         run, outcome = invoke(fixture, signature, selected)
         receipt = outcome.value.value
         history = events(fixture, run)
@@ -115,15 +151,20 @@ def test_all_four_registered_browser_cogs_persist_causal_events_and_private_evid
             assert current["parent_event_id"] == previous["id"]
             assert current["parent_run_id"] == str(run.invocation_id)
         for row in history:
-            assert row["telemetry"]["semantic_snapshot_hash"] == fixture.registry.snapshot.fingerprint
+            assert (
+                row["telemetry"]["semantic_snapshot_hash"] == fixture.registry.snapshot.fingerprint
+            )
             assert row["telemetry"]["execution_scope_hash"] == outcome.receipt.scope_hash
             assert row["telemetry"]["work_kind"] == "browser"
         for prefix in ("observation", "manifest"):
             raw = fixture.artifacts.read(app_env.context, UUID(receipt[prefix + "_artifact_id"]))
             assert hashlib.sha256(raw).hexdigest() == receipt[prefix + "_sha256"]
-        manifest = json.loads(fixture.artifacts.read(
-            app_env.context, UUID(receipt["manifest_artifact_id"]),
-        ))
+        manifest = json.loads(
+            fixture.artifacts.read(
+                app_env.context,
+                UUID(receipt["manifest_artifact_id"]),
+            )
+        )
         assert manifest["invocation_id"] == str(run.invocation_id)
         assert manifest["workspace_id"] == str(app_env.context.workspace_id)
         assert manifest["principal_id"] == str(app_env.context.principal_id)
@@ -131,17 +172,26 @@ def test_all_four_registered_browser_cogs_persist_causal_events_and_private_evid
         assert "base64" not in json.dumps(receipt)
         terminal = history[-1]
         output = fixture.artifacts.read(
-            app_env.context, UUID(terminal["output_artifact_ref"].removeprefix("artifact:")),
+            app_env.context,
+            UUID(terminal["output_artifact_ref"].removeprefix("artifact:")),
         )
         assert hashlib.sha256(output).hexdigest() == terminal["output_sha256"]
         assert json.loads(output)["cog_receipt"] == outcome.receipt.to_dict()
-        assert ExecutionEventService(app_env.other_db).events(
-            app_env.other_context, run_id=run.invocation_id,
-        )["items"] == []
+        assert (
+            ExecutionEventService(app_env.other_db).events(
+                app_env.other_context,
+                run_id=run.invocation_id,
+            )["items"]
+            == []
+        )
         if signature == CAPTURE:
-            assert fixture.artifacts.read(
-                app_env.context, UUID(receipt["image_artifact_id"]),
-            ) == JPEG
+            assert (
+                fixture.artifacts.read(
+                    app_env.context,
+                    UUID(receipt["image_artifact_id"]),
+                )
+                == JPEG
+            )
         else:
             assert receipt["image_artifact_id"] is None
         before = len(fixture.apps.commands)
@@ -152,7 +202,9 @@ def test_all_four_registered_browser_cogs_persist_causal_events_and_private_evid
 
 
 def test_completed_action_with_failed_journal_is_indeterminate_and_fenced(
-    app_env, tmp_path, monkeypatch,
+    app_env,
+    tmp_path,
+    monkeypatch,
 ):
     fixture = configured(app_env, tmp_path)
     run = context(fixture)
@@ -186,7 +238,9 @@ def test_policy_revoked_after_picker_effect_fences_without_replaying(app_env, tm
 
 
 def test_readonly_observation_journal_failure_is_failed_not_an_action_replay(
-    app_env, tmp_path, monkeypatch,
+    app_env,
+    tmp_path,
+    monkeypatch,
 ):
     fixture = configured(app_env, tmp_path)
     run = context(fixture)

@@ -4,12 +4,14 @@ The filesystem projections are immutable; a refresh replaces operator runtime
 references only after all existing workers have left and an exclusive workspace
 lease fences new admissions. Previously mounted inodes are never modified.
 """
+
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from potbot.domain.auth import WorkspaceContext
@@ -22,7 +24,8 @@ if TYPE_CHECKING:
 
 @contextmanager
 def exclusive_context_refresh(
-    ledger: WorkspaceLeaseLedger, principal: WorkspaceContext,
+    ledger: WorkspaceLeaseLedger,
+    principal: WorkspaceContext,
 ) -> Iterator[None]:
     """Acquire a workspace-wide write claim, fencing cross-process tool claims.
 
@@ -37,9 +40,13 @@ def exclusive_context_refresh(
     if pin is None or not isinstance(pin.get("digest"), str):
         raise StateMismatchError("Cannot refresh an unpinned workspace")
     request = AccessRequest(
-        principal.workspace_id, principal.principal_id,
-        "context.refresh", uuid4().hex, "write",
-        (AccessResource("workspace", "*", "write"),), pin["digest"],
+        principal.workspace_id,
+        principal.principal_id,
+        "context.refresh",
+        uuid4().hex,
+        "write",
+        (AccessResource("workspace", "*", "write"),),
+        pin["digest"],
     )
     lease = ledger.claim(request, ttl_seconds=300, replay_existing=False)
     uncertain = True
@@ -53,7 +60,8 @@ def exclusive_context_refresh(
 
 
 def collect_agent_projections(
-    manager: ContextProjectionManager, ledger: WorkspaceLeaseLedger,
+    manager: ContextProjectionManager,
+    ledger: WorkspaceLeaseLedger,
     workspace_id: UUID,
 ) -> tuple[AgentContextProjection, ...]:
     """Select only operator-registered agents, not arbitrary /home entries."""
@@ -67,9 +75,11 @@ def collect_agent_projections(
         ).fetchone()
         rows = (
             db.execute(
-                "SELECT agent_id,directory FROM agent_homes "
-                "WHERE workspace_id=? ORDER BY agent_id", (str(workspace_id),)
-            ).fetchall() if exists is not None else ()
+                "SELECT agent_id,directory FROM agent_homes WHERE workspace_id=? ORDER BY agent_id",
+                (str(workspace_id),),
+            ).fetchall()
+            if exists is not None
+            else ()
         )
     result: list[AgentContextProjection] = []
     for row in rows:
@@ -91,8 +101,11 @@ class RefreshReceipt:
 
 
 def context_is_stale(
-    manager: ContextProjectionManager, runtime: object,
-    ledger: WorkspaceLeaseLedger, *, include_agents: bool,
+    manager: ContextProjectionManager,
+    runtime: object,
+    ledger: WorkspaceLeaseLedger,
+    *,
+    include_agents: bool,
 ) -> bool:
     """Check root and every pinned agent against DB state without altering mounts.
 
@@ -116,9 +129,12 @@ def context_is_stale(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_homes'"
         ).fetchone()
         registered = (
-            db.execute("SELECT agent_id FROM agent_homes WHERE workspace_id=?",
-                       (str(principal.workspace_id),)).fetchall()
-            if present is not None else ()
+            db.execute(
+                "SELECT agent_id FROM agent_homes WHERE workspace_id=?",
+                (str(principal.workspace_id),),
+            ).fetchall()
+            if present is not None
+            else ()
         )
     if len(registered) > 256:
         raise StateMismatchError("Context refresh agent inventory exceeds limit")
@@ -126,7 +142,10 @@ def context_is_stale(
         return True
     for binding in agents:
         if inspector.freshness(
-            principal, "agent", str(binding.agent_id), binding.projection,
+            principal,
+            "agent",
+            str(binding.agent_id),
+            binding.projection,
         ).stale:
             return True
     return False

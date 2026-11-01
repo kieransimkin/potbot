@@ -1,0 +1,71 @@
+# Potbot: normalize text in Git while preserving native binary content.
+# This file is committed so behavior is consistent on Windows and Linux.
+* text=auto
+
+# Source, configuration and documentation use LF in index and checkout.
+*.py   text eol=lf
+*.pyi  text eol=lf
+*.sh   text eol=lf
+*.bash text eol=lf
+*.ps1  text eol=lf
+*.rs   text eol=lf
+*.toml text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.sql  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.css  text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.htm  text eol=lf
+*.md   text eol=lf
+*.rst  text eol=lf
+*.xml  text eol=lf
+*.svg  text eol=lf
+*.txt  text eol=lf
+*.csv  text eol=lf
+*.lock text eol=lf
+*.patch text eol=lf
+*.diff text eol=lf
+.gitattributes text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+
+# Windows command scripts use CRLF on checkout but normalize LF in Git.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Explicit binaries cannot be misinterpreted as source (including images).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.7z binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+*.wav binary
+*.flac binary
+*.mp4 binary
+*.webm binary
+*.gguf binary
+*.safetensors binary
+*.onnx binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary

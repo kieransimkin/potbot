@@ -40,9 +40,13 @@ def _read_private(path: Path, *, maximum: int = _MAX_FILE_SIZE) -> bytes:
     fd = os.open(path, flags)
     try:
         info = os.fstat(fd)
-        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
-                or info.st_mode & 0o077 or info.st_nlink != 1
-                or not 0 <= info.st_size <= maximum):
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_mode & 0o077
+            or info.st_nlink != 1
+            or not 0 <= info.st_size <= maximum
+        ):
             raise ValueError("private audit record invalid")
         with os.fdopen(os.dup(fd), "rb") as stream:
             raw = stream.read(maximum + 1)
@@ -50,7 +54,10 @@ def _read_private(path: Path, *, maximum: int = _MAX_FILE_SIZE) -> bytes:
             raise ValueError("private audit record size changed")
         after = os.fstat(fd)
         if (after.st_ino, after.st_dev, after.st_mtime_ns, after.st_size) != (
-            info.st_ino, info.st_dev, info.st_mtime_ns, info.st_size
+            info.st_ino,
+            info.st_dev,
+            info.st_mtime_ns,
+            info.st_size,
         ):
             raise ValueError("private audit record changed during inspection")
         return raw
@@ -70,7 +77,8 @@ def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def _json(data: bytes) -> Any:
     try:
         return json.loads(
-            data, object_pairs_hook=_unique_pairs,
+            data,
+            object_pairs_hook=_unique_pairs,
             parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite audit number")),
         )
     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
@@ -84,8 +92,9 @@ def _document(path: Path, maximum: int = 1048576) -> dict[str, Any]:
     return value
 
 
-def _lines(path: Path, *, maximum: int = _MAX_FILE_SIZE,
-           limit: int = _MAX_FILE_KEYS) -> tuple[list[dict[str, Any]], bytes]:
+def _lines(
+    path: Path, *, maximum: int = _MAX_FILE_SIZE, limit: int = _MAX_FILE_KEYS
+) -> tuple[list[dict[str, Any]], bytes]:
     raw = _read_private(path, maximum=maximum)
     if raw and not raw.endswith(b"\n"):
         raise ValueError("audit JSONL has a partial final line")
@@ -131,15 +140,18 @@ def _canonical_uuid(value: Any) -> UUID:
     return parsed
 
 
-def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
-                  identity_kind: str, subject_id: UUID | None) -> dict[str, Any]:
+def _verify_child(
+    child: Path, workspace_id: UUID, run_id: UUID, *, identity_kind: str, subject_id: UUID | None
+) -> dict[str, Any]:
     identity = _document(child / "identity.json", 65536)
     receipt = _document(child / "lifetime.json")
-    if (identity.get("workspace_id") != str(workspace_id)
-            or identity.get("worker_id") != child.name
-            or identity.get("run_id") != str(run_id)
-            or identity.get("identity_kind") != identity_kind
-            or identity_kind not in {"principal", "agent"}):
+    if (
+        identity.get("workspace_id") != str(workspace_id)
+        or identity.get("worker_id") != child.name
+        or identity.get("run_id") != str(run_id)
+        or identity.get("identity_kind") != identity_kind
+        or identity_kind not in {"principal", "agent"}
+    ):
         raise ValueError("GUI audit identity differs from expected scope")
     actual_subject = _canonical_uuid(identity.get("agent_id"))
     if subject_id is not None and actual_subject != subject_id:
@@ -150,12 +162,14 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
         if receipt.get(key) != identity.get(key):
             raise ValueError("GUI lifetime receipt changed identity")
     integrity = receipt.get("trace_integrity")
-    if (receipt.get("audit_complete") is not True
-            or receipt.get("audit_failure") is not None
-            or not isinstance(integrity, dict)
-            or any(_nonnegative(v) != 0 for v in integrity.values())
-            or receipt.get("per_pid_kernel_exit_accounting") is not True
-            or receipt.get("taskstats_missing_exit_events") != 0):
+    if (
+        receipt.get("audit_complete") is not True
+        or receipt.get("audit_failure") is not None
+        or not isinstance(integrity, dict)
+        or any(_nonnegative(v) != 0 for v in integrity.values())
+        or receipt.get("per_pid_kernel_exit_accounting") is not True
+        or receipt.get("taskstats_missing_exit_events") != 0
+    ):
         raise ValueError("GUI kernel audit is incomplete")
     tree_index, file_index = receipt.get("process_tree"), receipt.get("file_index")
     if not isinstance(tree_index, dict) or not isinstance(file_index, dict):
@@ -164,12 +178,14 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
     files, file_raw = _lines(child / "file-index.jsonl")
     _hash(tree_raw, tree_index.get("sha256"))
     _hash(file_raw, file_index.get("sha256"))
-    if (tree_index.get("tree_complete") is not True
-            or tree_index.get("nodes") != len(nodes)
-            or not 1 <= len(nodes) <= _MAX_PROCESSES
-            or tree_index.get("expected_untraced_count") != 0
-            or tree_index.get("fork_conflicts") != 0
-            or file_index.get("file_keys") != len(files)):
+    if (
+        tree_index.get("tree_complete") is not True
+        or tree_index.get("nodes") != len(nodes)
+        or not 1 <= len(nodes) <= _MAX_PROCESSES
+        or tree_index.get("expected_untraced_count") != 0
+        or tree_index.get("fork_conflicts") != 0
+        or file_index.get("file_keys") != len(files)
+    ):
         raise ValueError("GUI process or file index declarations differ")
     processes: dict[int, int | None] = {}
     for node in nodes:
@@ -184,7 +200,10 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
         kernel = node.get("kernel_exit_resources")
         if not isinstance(kernel, dict) or kernel.get("pid") != pid:
             raise ValueError("kernel exit process does not match trace")
-        if not isinstance(node.get("exit"), dict) or node["exit"].get("state") not in {"exited", "signalled"}:
+        if not isinstance(node.get("exit"), dict) or node["exit"].get("state") not in {
+            "exited",
+            "signalled",
+        }:
             raise ValueError("process has no observed exit")
         processes[pid] = parent
     roots = sorted(pid for pid, parent in processes.items() if parent is None)
@@ -198,12 +217,15 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
                 raise ValueError("process tree has a cycle or missing parent")
             visited.add(cursor)
             cursor = processes[cursor]
-    if (receipt.get("traced_pid_count") != len(processes)
-            or receipt.get("per_pid_kernel_exit_count") != len(processes)):
+    if receipt.get("traced_pid_count") != len(processes) or receipt.get(
+        "per_pid_kernel_exit_count"
+    ) != len(processes):
         raise ValueError("kernel task-exit coverage mismatch")
     trace_pids: set[int] = set()
     trace_hash = hashlib.sha256()
-    traces = sorted((p for p in child.iterdir() if p.name.startswith("trace.")), key=lambda p: p.name)
+    traces = sorted(
+        (p for p in child.iterdir() if p.name.startswith("trace.")), key=lambda p: p.name
+    )
     for trace in traces:
         match = _TRACE.fullmatch(trace.name)
         if match is None:
@@ -216,16 +238,24 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
     if trace_pids != set(processes):
         raise ValueError("GUI trace PIDs differ from kernel exit accounting")
     expected_trace = receipt.get("trace_sha256")
-    if not isinstance(expected_trace, str) or not _HEX.fullmatch(expected_trace) or trace_hash.hexdigest() != expected_trace:
+    if (
+        not isinstance(expected_trace, str)
+        or not _HEX.fullmatch(expected_trace)
+        or trace_hash.hexdigest() != expected_trace
+    ):
         raise ValueError("GUI raw syscall trace hash mismatch")
     total_events = 0
     seen_files: set[tuple[int, str]] = set()
     for item in files:
         pid = _positive_pid(item.get("pid"))
         path = item.get("path")
-        if (pid not in processes or not isinstance(path, str)
-                or not 0 < len(path) <= 8192 or (pid, path) in seen_files
-                or item.get("path_is_lexical") is not True):
+        if (
+            pid not in processes
+            or not isinstance(path, str)
+            or not 0 < len(path) <= 8192
+            or (pid, path) in seen_files
+            or item.get("path_is_lexical") is not True
+        ):
             raise ValueError("GUI file access belongs to unknown process or path")
         seen_files.add((pid, path))
         successful = _nonnegative(item.get("successful"))
@@ -242,12 +272,14 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
         if successful != s_total or failed != f_total or not successful + failed:
             raise ValueError("GUI file access totals inconsistent")
         first, last = item.get("first_at"), item.get("last_at")
-        if (type(first) not in (int, float) or type(last) not in (int, float)
-                or not 0 < first <= last < 1e12):
+        if (
+            type(first) not in (int, float)
+            or type(last) not in (int, float)
+            or not 0 < first <= last < 1e12
+        ):
             raise ValueError("GUI file access times invalid")
         total_events += successful + failed
-    if (file_index.get("events") != total_events
-            or receipt.get("file_event_count") != total_events):
+    if file_index.get("events") != total_events or receipt.get("file_event_count") != total_events:
         raise ValueError("GUI file event count differs from actual index")
     usage = receipt.get("cgroup_usage")
     if not isinstance(usage, dict):
@@ -270,8 +302,14 @@ def _verify_child(child: Path, workspace_id: UUID, run_id: UUID, *,
     }
 
 
-def verify_gui_run(audit_root: Path, workspace_id: UUID, run_id: UUID, *,
-                   identity_kind: str = "principal", subject_id: UUID | None = None) -> dict[str, Any]:
+def verify_gui_run(
+    audit_root: Path,
+    workspace_id: UUID,
+    run_id: UUID,
+    *,
+    identity_kind: str = "principal",
+    subject_id: UUID | None = None,
+) -> dict[str, Any]:
     if not isinstance(workspace_id, UUID) or not isinstance(run_id, UUID):
         raise ValueError("GUI audit needs canonical workspace and run UUIDs")
     if identity_kind not in {"principal", "agent"}:
@@ -295,8 +333,9 @@ def verify_gui_run(audit_root: Path, workspace_id: UUID, run_id: UUID, *,
                 raise ValueError("ambiguous GUI audit run")
     if len(matches) != 1:
         raise ValueError("GUI audit run unavailable")
-    return _verify_child(matches[0], workspace_id, run_id,
-                         identity_kind=identity_kind, subject_id=subject_id)
+    return _verify_child(
+        matches[0], workspace_id, run_id, identity_kind=identity_kind, subject_id=subject_id
+    )
 
 
 def inspect_recovery(audit_root: Path, workspace_id: UUID, *, limit: int = 512) -> dict[str, Any]:
@@ -326,7 +365,10 @@ def inspect_recovery(audit_root: Path, workspace_id: UUID, *, limit: int = 512) 
         try:
             identity = _document(child / "identity.json", 65536)
             run = _canonical_uuid(identity.get("run_id"))
-            if identity.get("workspace_id") != str(workspace_id) or identity.get("worker_id") != child.name:
+            if (
+                identity.get("workspace_id") != str(workspace_id)
+                or identity.get("worker_id") != child.name
+            ):
                 raise ValueError("GUI recovery identity differs")
             kind = identity.get("identity_kind")
             if kind not in {"principal", "agent"}:
@@ -341,21 +383,33 @@ def inspect_recovery(audit_root: Path, workspace_id: UUID, *, limit: int = 512) 
                     status = "incomplete"
                 else:
                     try:
-                        _verify_child(child, workspace_id, run, identity_kind=kind,
-                                      subject_id=_canonical_uuid(identity.get("agent_id")))
+                        _verify_child(
+                            child,
+                            workspace_id,
+                            run,
+                            identity_kind=kind,
+                            subject_id=_canonical_uuid(identity.get("agent_id")),
+                        )
                         status = "qualified"
                     except (ValueError, OSError, KeyError, TypeError):
                         status = "invalid_evidence"
-            entries.append({"workerId": child.name, "runId": str(run), "identityKind": kind,
-                            "status": status})
+            entries.append(
+                {"workerId": child.name, "runId": str(run), "identityKind": kind, "status": status}
+            )
         except (ValueError, OSError, TypeError, KeyError):
             status = "invalid_identity"
-            entries.append({"workerId": child.name, "runId": None,
-                            "identityKind": None, "status": status})
+            entries.append(
+                {"workerId": child.name, "runId": None, "identityKind": None, "status": status}
+            )
         counts[status] = counts.get(status, 0) + 1
     unknown = active_names - {entry["workerId"] for entry in entries}
     if unknown:
         raise ValueError("orphaned GUI monitor active markers")
-    return {"schema": "potbot-gui-recovery-s16/v1", "workspaceId": str(workspace_id),
-            "total": len(entries), "counts": counts, "runs": entries,
-            "requiresReconciliation": any(entry["status"] != "qualified" for entry in entries)}
+    return {
+        "schema": "potbot-gui-recovery-s16/v1",
+        "workspaceId": str(workspace_id),
+        "total": len(entries),
+        "counts": counts,
+        "runs": entries,
+        "requiresReconciliation": any(entry["status"] != "qualified" for entry in entries),
+    }

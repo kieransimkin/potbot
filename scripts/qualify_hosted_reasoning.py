@@ -51,7 +51,10 @@ def qualification_request(provider: str, model: str, policy: HostedPolicy) -> Pr
 
 
 def qualify(
-    request: ProviderRequest, policy: HostedPolicy, credentials: Any, *,
+    request: ProviderRequest,
+    policy: HostedPolicy,
+    credentials: Any,
+    *,
     client_factory: Any = HostedProviderClient,
 ) -> dict[str, Any]:
     """Exactly one provider call; no retries and no credential/answer logging."""
@@ -95,19 +98,31 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--provider", required=True, choices=("openai", "gemini"))
     parser.add_argument("--model", required=True)
     parser.add_argument("--provider-policy", required=True, type=Path)
-    parser.add_argument("--allow-paid", action="store_true",
-                        help="explicitly authorize one provider request")
-    parser.add_argument("--confirm-prompt-disclosure", action="store_true",
-                        help="allow the fixed synthetic test prompt to leave the host")
+    parser.add_argument(
+        "--allow-paid", action="store_true", help="explicitly authorize one provider request"
+    )
+    parser.add_argument(
+        "--confirm-prompt-disclosure",
+        action="store_true",
+        help="allow the fixed synthetic test prompt to leave the host",
+    )
     parser.add_argument("--report", type=Path, default=None)
     args = parser.parse_args(argv)
     try:
         policy = HostedPolicy.read(args.provider_policy)
         request = qualification_request(args.provider, args.model, policy)
         if not args.allow_paid or not args.confirm_prompt_disclosure:
-            print(json.dumps({"status": "preflight_only", "provider": args.provider,
-                              "model": args.model, "protocol": request.selection.protocol,
-                              "paid_request_sent": False}))
+            print(
+                json.dumps(
+                    {
+                        "status": "preflight_only",
+                        "provider": args.provider,
+                        "model": args.model,
+                        "protocol": request.selection.protocol,
+                        "paid_request_sent": False,
+                    }
+                )
+            )
             return 0
         report = qualify(request, policy, ServiceCredentials())
         serialized = json.dumps(report, indent=2, sort_keys=True)
@@ -122,8 +137,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report["result"] == "pass" else 1
     except Exception:
         # Do not print provider exception details: some include response headers.
-        print(json.dumps({"status": "failed", "provider": args.provider,
-                          "model": args.model, "details": "See operator diagnostics"}))
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "provider": args.provider,
+                    "model": args.model,
+                    "details": "See operator diagnostics",
+                }
+            )
+        )
         return 1
 
 

@@ -5,6 +5,7 @@ private network namespace and denies TCP creation; connecting Chromium to this
 broker requires a separately qualified, isolated namespace-local HTTP forwarder.
 No host TCP listener, broad fetch API, URL forwarding or DNS rebinding fallback.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -17,9 +18,9 @@ import socketserver
 import stat
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 
@@ -31,10 +32,23 @@ _MAX_SECONDS = 60
 
 def checked_host(host: object) -> str:
     """Allow only canonical ASCII DNS names (never IPs, Unicode/IDNA aliases)."""
-    if not isinstance(host, str) or host != host.lower() or len(host) > 253 or (
-        not _HOST.fullmatch(host) or "." not in host or host.endswith(".")
-        or any(not label or len(label) > 63 or label.startswith("-") or label.endswith("-")
-               or label.startswith("xn--") for label in host.split("."))
+    if (
+        not isinstance(host, str)
+        or host != host.lower()
+        or len(host) > 253
+        or (
+            not _HOST.fullmatch(host)
+            or "." not in host
+            or host.endswith(".")
+            or any(
+                not label
+                or len(label) > 63
+                or label.startswith("-")
+                or label.endswith("-")
+                or label.startswith("xn--")
+                for label in host.split(".")
+            )
+        )
     ):
         raise InvalidInputError("CONNECT host must be a canonical ASCII DNS name")
     try:
@@ -56,7 +70,9 @@ class ConnectPolicy:
         if len(set(self.hosts)) != len(self.hosts):
             raise InvalidInputError("duplicate CONNECT policy host")
 
-    def resolve(self, authority: str, *, resolver: Callable[..., object] = socket.getaddrinfo) -> str:
+    def resolve(
+        self, authority: str, *, resolver: Callable[..., object] = socket.getaddrinfo
+    ) -> str:
         if not isinstance(authority, str) or authority.count(":") != 1:
             raise ScopeDeniedError("CONNECT must specify one approved hostname and TLS port")
         host, port = authority.split(":", 1)
@@ -94,17 +110,34 @@ class _UnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
 
 class BrowserConnectGateway:
     """Small operator-bound CONNECT relay, never a general forward proxy."""
-    def __init__(self, socket_path: Path, *, policy: ConnectPolicy, token: str,
-                 resolver: Callable[..., object] = socket.getaddrinfo,
-                 connect: Callable[..., socket.socket] = socket.create_connection) -> None:
+
+    def __init__(
+        self,
+        socket_path: Path,
+        *,
+        policy: ConnectPolicy,
+        token: str,
+        resolver: Callable[..., object] = socket.getaddrinfo,
+        connect: Callable[..., socket.socket] = socket.create_connection,
+    ) -> None:
         path = Path(socket_path).absolute()
-        if (not isinstance(policy, ConnectPolicy) or not isinstance(token, str)
-                or len(token) < 32 or len(token) > 128 or "\r" in token or "\n" in token
-                or path.is_symlink() or path.exists()):
+        if (
+            not isinstance(policy, ConnectPolicy)
+            or not isinstance(token, str)
+            or len(token) < 32
+            or len(token) > 128
+            or "\r" in token
+            or "\n" in token
+            or path.is_symlink()
+            or path.exists()
+        ):
             raise ScopeDeniedError("invalid private CONNECT gateway configuration")
         parent = path.parent
-        if parent.is_symlink() or not parent.is_dir() or parent.stat().st_uid != os.getuid() or (
-            stat.S_IMODE(parent.stat().st_mode) & 0o077
+        if (
+            parent.is_symlink()
+            or not parent.is_dir()
+            or parent.stat().st_uid != os.getuid()
+            or (stat.S_IMODE(parent.stat().st_mode) & 0o077)
         ):
             raise ScopeDeniedError("CONNECT gateway socket parent must be operator-private")
         self.path, self.policy, self.token = path, policy, token
@@ -130,8 +163,9 @@ class BrowserConnectGateway:
 
         self._server = _UnixServer(str(self.path), Handler)
         os.chmod(self.path, 0o600)
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True,
-                                        name="potbot-connect-broker")
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, daemon=True, name="potbot-connect-broker"
+        )
         self._thread.start()
 
     def _handle(self, client: socket.socket) -> None:
@@ -158,16 +192,20 @@ class BrowserConnectGateway:
                 if not name or name in fields:
                     raise ValueError()
                 fields[name] = value.strip()
-            if not secrets.compare_digest(fields.get("proxy-authorization", ""),
-                                           "Bearer " + self.token):
+            if not secrets.compare_digest(
+                fields.get("proxy-authorization", ""), "Bearer " + self.token
+            ):
                 raise PermissionError()
             if fields.get("host", authority) != authority or (
-                set(fields) - {"host", "proxy-authorization", "proxy-connection", "connection", "user-agent"}
+                set(fields)
+                - {"host", "proxy-authorization", "proxy-connection", "connection", "user-agent"}
             ):
                 raise ValueError()
             ip = self.policy.resolve(authority, resolver=self.resolver)
         except PermissionError:
-            client.sendall(b"HTTP/1.1 407 Proxy Authentication Required\r\nConnection: close\r\n\r\n")
+            client.sendall(
+                b"HTTP/1.1 407 Proxy Authentication Required\r\nConnection: close\r\n\r\n"
+            )
             return
         except (ValueError, UnicodeError, ScopeDeniedError, InvalidInputError):
             client.sendall(b"HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n")
@@ -187,7 +225,7 @@ class BrowserConnectGateway:
             for sock in sockets:
                 sock.setblocking(False)
             while time.monotonic() < deadline:
-                readable, _, _ = select.select(sockets, [], [], .5)
+                readable, _, _ = select.select(sockets, [], [], 0.5)
                 for source in readable:
                     chunk = source.recv(16384)
                     if not chunk:

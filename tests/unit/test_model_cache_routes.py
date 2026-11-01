@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -43,27 +42,35 @@ def test_installer_rejects_unrouted_and_unobserved_downloads() -> None:
     with pytest.raises(InvalidInputError):
         validate_tool_installation(tool, env=dict(MODEL_ENV), destinations=(), probe_performed=True)
     with pytest.raises(ScopeDeniedError):
-        validate_tool_installation(tool, env={}, destinations=("/var/ai/cache/check/model.gguf",),
-                                   probe_performed=True)
+        validate_tool_installation(
+            tool, env={}, destinations=("/var/ai/cache/check/model.gguf",), probe_performed=True
+        )
     for value in (
-        "/home/agent/models/file.gguf", "/opt/potbot/models/fake.gguf",
-        "/var/ai/../home/foo", "/var/ai/cache/../../home/foo",
-        "/var/ai/models", "var/ai/downloads/x", "/var/ai/misc/file.gguf",
+        "/home/agent/models/file.gguf",
+        "/opt/potbot/models/fake.gguf",
+        "/var/ai/../home/foo",
+        "/var/ai/cache/../../home/foo",
+        "/var/ai/models",
+        "var/ai/downloads/x",
+        "/var/ai/misc/file.gguf",
     ):
         with pytest.raises((InvalidInputError, ScopeDeniedError)):
             validate_model_destination(value)
     validate_tool_installation(
-        tool, env=dict(MODEL_ENV),
+        tool,
+        env=dict(MODEL_ENV),
         destinations=("/var/ai/cache/huggingface/hub/weight.safetensors",),
         probe_performed=True,
     )
     with pytest.raises(InvalidInputError):
-        validate_tool_installation(tool, env=dict(MODEL_ENV), destinations=(), probe_performed=False)
+        validate_tool_installation(
+            tool, env=dict(MODEL_ENV), destinations=(), probe_performed=False
+        )
     without = next(t for t in TOOL_DOWNLOAD_POLICIES if t.name == "DanceMoves")
     with pytest.raises(ScopeDeniedError):
-        validate_tool_installation(without, env={},
-                                   destinations=("/var/ai/downloads/file.gguf",),
-                                   probe_performed=True)
+        validate_tool_installation(
+            without, env={}, destinations=("/var/ai/downloads/file.gguf",), probe_performed=True
+        )
 
 
 def test_image_and_installation_gate(tmp_path: Path) -> None:
@@ -72,21 +79,37 @@ def test_image_and_installation_gate(tmp_path: Path) -> None:
     gate = root / "scripts/check_model_cache_policy.py"
     from subprocess import run
 
-    result = run([sys.executable, str(gate), "--image-contract", str(image)],
-                 capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(root / "src")})
+    result = run(
+        [sys.executable, str(gate), "--image-contract", str(image)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
+    )
     assert result.returncode == 0, result.stderr
     probe = tmp_path / "probe.json"
     payload = {
-        "schema": "potbot-tool-model-probe/v1", "tool": "RasterMoves", "network_used": False,
+        "schema": "potbot-tool-model-probe/v1",
+        "tool": "RasterMoves",
+        "network_used": False,
         "environment": MODEL_ENV,
         "paths": ["/var/ai/cache/huggingface/hub/model.safetensors"],
     }
     probe.write_text(json.dumps(payload))
-    result = run([sys.executable, str(gate), "--tool", "RasterMoves", "--probe", str(probe)],
-                 capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(root / "src")})
+    result = run(
+        [sys.executable, str(gate), "--tool", "RasterMoves", "--probe", str(probe)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
+    )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["qualified_for_model_routes"] is True
     payload["paths"] = ["/home/models/checkpoint.safetensors"]
     probe.write_text(json.dumps(payload))
-    assert run([sys.executable, str(gate), "--tool", "RasterMoves", "--probe", str(probe)],
-               capture_output=True, env={**os.environ, "PYTHONPATH": str(root / "src")}).returncode != 0
+    assert (
+        run(
+            [sys.executable, str(gate), "--tool", "RasterMoves", "--probe", str(probe)],
+            capture_output=True,
+            env={**os.environ, "PYTHONPATH": str(root / "src")},
+        ).returncode
+        != 0
+    )

@@ -83,9 +83,13 @@ class AccessResource:
                 raise InvalidInputError("GitHub file requires repository ref and path")
             identity, path = self.name.split(":", 1)
             identity = _github_ref(identity)
-            if (not path or path.startswith("/") or len(path.encode()) > 1024
-                    or "\\" in path or any(part in {"", ".", ".."}
-                                       for part in path.split("/"))):
+            if (
+                not path
+                or path.startswith("/")
+                or len(path.encode()) > 1024
+                or "\\" in path
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+            ):
                 raise InvalidInputError("GitHub file must be a canonical repository path")
             object.__setattr__(self, "name", identity + ":" + path)
         elif self.kind == "shared_tool":
@@ -133,16 +137,16 @@ def conflict(a: AccessResource, b: AccessResource, *, same_workspace: bool = Tru
         if a.kind == "github" or b.kind == "github":
             return True
         path_a, path_b = a.name.split(":", 1)[1], b.name.split(":", 1)[1]
-        return path_a == path_b or path_a.startswith(path_b + "/") or path_b.startswith(path_a + "/")
+        return (
+            path_a == path_b or path_a.startswith(path_b + "/") or path_b.startswith(path_a + "/")
+        )
     if a.kind != b.kind:
         return False
     if a.kind == "shared_tool":
         return a.name == b.name
     if a.kind == "home":
         return (
-            a.name == b.name
-            or a.name.startswith(b.name + "/")
-            or b.name.startswith(a.name + "/")
+            a.name == b.name or a.name.startswith(b.name + "/") or b.name.startswith(a.name + "/")
         )
     if a.kind == "github":
         a_repo, a_ref = a.name.split("#", 1)
@@ -184,7 +188,10 @@ class AccessRequest:
             raise InvalidInputError("read-only tools cannot request writes")
         if self.effect == "write" and not any(r.mode == "write" for r in self.resources):
             raise InvalidInputError("mutations require explicit write resources")
-        if self.effect == "unknown" and AccessResource("workspace", "*", "write") not in self.resources:
+        if (
+            self.effect == "unknown"
+            and AccessResource("workspace", "*", "write") not in self.resources
+        ):
             raise InvalidInputError("unknown tool effects require an exclusive workspace claim")
         if not isinstance(self.image_digest, str) or not _SHA256.fullmatch(self.image_digest):
             raise InvalidInputError("a pinned system image SHA-256 is required")
@@ -291,8 +298,12 @@ class WorkspaceLeaseLedger:
     @staticmethod
     def _lease(row: sqlite3.Row) -> AccessLease:
         return AccessLease(
-            row["lease_id"], UUID(row["workspace_id"]), row["generation"],
-            row["expires_ns"], row["state"], row["token"]
+            row["lease_id"],
+            UUID(row["workspace_id"]),
+            row["generation"],
+            row["expires_ns"],
+            row["state"],
+            row["token"],
         )
 
     @staticmethod
@@ -322,7 +333,10 @@ class WorkspaceLeaseLedger:
                     break
 
     def claim(
-        self, request: AccessRequest, *, ttl_seconds: int = 60,
+        self,
+        request: AccessRequest,
+        *,
+        ttl_seconds: int = 60,
         replay_existing: bool = True,
     ) -> AccessLease:
         if type(ttl_seconds) is not int or not 1 <= ttl_seconds <= 300:
@@ -359,7 +373,8 @@ class WorkspaceLeaseLedger:
                 existing = tuple(AccessResource(**item) for item in json.loads(row["resources"]))
                 if any(
                     conflict(a, b, same_workspace=same_workspace)
-                    for a in request.resources for b in existing
+                    for a in request.resources
+                    for b in existing
                 ):
                     raise StateMismatchError("conflicting or indeterminate workspace access")
             identifier = uuid4().hex
@@ -369,11 +384,16 @@ class WorkspaceLeaseLedger:
                 "idempotency_key,request_hash,image_digest,resources,token,state,expires_ns) "
                 "VALUES(?,?,?,?,?,?,?,?,?,'active',?)",
                 (
-                    identifier, str(request.workspace_id), str(request.actor_id),
-                    request.operation, request.idempotency_key, request.fingerprint,
+                    identifier,
+                    str(request.workspace_id),
+                    str(request.actor_id),
+                    request.operation,
+                    request.idempotency_key,
+                    request.fingerprint,
                     request.image_digest,
                     json.dumps([r.to_dict() for r in request.resources], sort_keys=True),
-                    token, now + ttl_seconds * 1_000_000_000,
+                    token,
+                    now + ttl_seconds * 1_000_000_000,
                 ),
             )
             row = db.execute("SELECT * FROM leases WHERE lease_id=?", (identifier,)).fetchone()
@@ -390,8 +410,13 @@ class WorkspaceLeaseLedger:
             updated = db.execute(
                 "UPDATE leases SET expires_ns=? WHERE lease_id=? AND workspace_id=? "
                 "AND generation=? AND token=? AND state='active'",
-                (now + ttl_seconds * 1_000_000_000, lease.lease_id,
-                 str(lease.workspace_id), lease.generation, lease.token),
+                (
+                    now + ttl_seconds * 1_000_000_000,
+                    lease.lease_id,
+                    str(lease.workspace_id),
+                    lease.generation,
+                    lease.token,
+                ),
             )
             if updated.rowcount != 1:
                 raise StateMismatchError("workspace tool lease is expired or fenced")
@@ -410,8 +435,14 @@ class WorkspaceLeaseLedger:
             result = db.execute(
                 "UPDATE leases SET state=?,result_sha256=? WHERE lease_id=? "
                 "AND workspace_id=? AND generation=? AND token=? AND state='active'",
-                (state, result_sha256, lease.lease_id, str(lease.workspace_id),
-                 lease.generation, lease.token),
+                (
+                    state,
+                    result_sha256,
+                    lease.lease_id,
+                    str(lease.workspace_id),
+                    lease.generation,
+                    lease.token,
+                ),
             )
             if result.rowcount != 1:
                 raise StateMismatchError("workspace tool completion is stale or duplicated")
@@ -425,8 +456,13 @@ class WorkspaceLeaseLedger:
             result = db.execute(
                 "UPDATE leases SET state='reconciled',result_sha256=? WHERE lease_id=? "
                 "AND workspace_id=? AND generation=? AND token=? AND state='indeterminate'",
-                (evidence_sha256, lease.lease_id, str(lease.workspace_id),
-                 lease.generation, lease.token),
+                (
+                    evidence_sha256,
+                    lease.lease_id,
+                    str(lease.workspace_id),
+                    lease.generation,
+                    lease.token,
+                ),
             )
             if result.rowcount != 1:
                 raise StateMismatchError("only indeterminate tool calls can be reconciled")
@@ -439,14 +475,22 @@ class WorkspaceLeaseLedger:
             rows = db.execute(
                 "SELECT generation,operation,state,image_digest,expires_ns "
                 "FROM leases WHERE workspace_id=? AND state IN ('active','indeterminate') "
-                "ORDER BY generation", (str(workspace_id),)
+                "ORDER BY generation",
+                (str(workspace_id),),
             ).fetchall()
             return [dict(row) for row in rows]
 
     def pin_image(
-        self, workspace_id: UUID, *, digest: str, image_ref: str,
-        build_commit: str, platform: str, rootfs_path: Path,
-        qualification_sha256: str, expected_revision: int = 0,
+        self,
+        workspace_id: UUID,
+        *,
+        digest: str,
+        image_ref: str,
+        build_commit: str,
+        platform: str,
+        rootfs_path: Path,
+        qualification_sha256: str,
+        expected_revision: int = 0,
     ) -> int:
         """Host-only image upgrade with CAS; no live/uncertain tool calls allowed.
 
@@ -455,13 +499,10 @@ class WorkspaceLeaseLedger:
         An untrusted model or sandbox shell must not call this host service.
         """
         if not isinstance(workspace_id, UUID) or not all(
-            isinstance(v, str) and _SHA256.fullmatch(v)
-            for v in (digest, qualification_sha256)
+            isinstance(v, str) and _SHA256.fullmatch(v) for v in (digest, qualification_sha256)
         ):
             raise InvalidInputError("image activation requires digests")
-        if not isinstance(build_commit, str) or not re.fullmatch(
-            r"[0-9a-f]{40}", build_commit
-        ):
+        if not isinstance(build_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", build_commit):
             raise InvalidInputError("image build must bind a commit")
         if platform not in {"linux/amd64", "linux/arm64"}:
             raise InvalidInputError("image platform must be Linux and supported")
@@ -481,7 +522,9 @@ class WorkspaceLeaseLedger:
                 (str(workspace_id),),
             ).fetchone()
             if active:
-                raise StateMismatchError("reconcile/finish workspace operations before image change")
+                raise StateMismatchError(
+                    "reconcile/finish workspace operations before image change"
+                )
             existing = db.execute(
                 "SELECT revision FROM workspace_image_pins WHERE workspace_id=?",
                 (str(workspace_id),),
@@ -496,8 +539,16 @@ class WorkspaceLeaseLedger:
                 "image_ref=excluded.image_ref,build_commit=excluded.build_commit, "
                 "platform=excluded.platform,rootfs_path=excluded.rootfs_path, "
                 "qualification_sha256=excluded.qualification_sha256,revision=excluded.revision",
-                (str(workspace_id), digest, image_ref, build_commit, platform,
-                 str(root), qualification_sha256, revision),
+                (
+                    str(workspace_id),
+                    digest,
+                    image_ref,
+                    build_commit,
+                    platform,
+                    str(root),
+                    qualification_sha256,
+                    revision,
+                ),
             )
             db.execute(
                 "INSERT INTO workspace_image_history VALUES(?,?,?,?,?)",

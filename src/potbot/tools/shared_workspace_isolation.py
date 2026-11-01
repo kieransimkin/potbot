@@ -33,7 +33,10 @@ def is_wsl2(kernel_release: str) -> bool:
 
 
 def wsl_guest_preflight(
-    *, kernel_release: str, config_text: str | None, mountinfo: str,
+    *,
+    kernel_release: str,
+    config_text: str | None,
+    mountinfo: str,
 ) -> tuple[str, ...]:
     """WSL distribution checks, NOT proof of a Windows host security boundary."""
     lower = kernel_release.casefold()
@@ -59,8 +62,10 @@ def wsl_guest_preflight(
         except configparser.Error:
             failures.append("invalid wsl.conf")
     # DrvFs can still be mounted manually; reject it even with automount disabled.
-    if any(" - drvfs " in line.casefold() or " - 9p " in line.casefold()
-           for line in mountinfo.splitlines()):
+    if any(
+        " - drvfs " in line.casefold() or " - 9p " in line.casefold()
+        for line in mountinfo.splitlines()
+    ):
         failures.append("Windows shared filesystem visible to WSL guest")
     return tuple(failures)
 
@@ -91,6 +96,7 @@ class SharedWorkspaceRuntime:
 
     def __post_init__(self) -> None:
         import re
+
         for digest in (self.image_digest, self.qualification_sha256):
             if not isinstance(digest, str) or not re.fullmatch("[a-f0-9]{64}", digest):
                 raise InvalidInputError("runtime requires OCI and qualification hashes")
@@ -104,10 +110,15 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
     It does not itself grant an agent authorization to execute anything.
     """
 
-    def __init__(self, runtime: SharedWorkspaceRuntime, *,
-                 executable: Path | None = None, prlimit: Path | None = None,
-                 tool_write_grant: ToolWriteGrant | None = None,
-                 ai_monitor: AiConfigHistoryMonitor | None = None) -> None:
+    def __init__(
+        self,
+        runtime: SharedWorkspaceRuntime,
+        *,
+        executable: Path | None = None,
+        prlimit: Path | None = None,
+        tool_write_grant: ToolWriteGrant | None = None,
+        ai_monitor: AiConfigHistoryMonitor | None = None,
+    ) -> None:
         self.runtime = runtime
         self.tool_write_grant = tool_write_grant
         self.ai_monitor = ai_monitor
@@ -122,21 +133,32 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         return attachment is None or attachment.healthy()
 
     def prepare(
-        self, *, argv: tuple[str, ...], workspace_root: Path, cwd: Path,
-        read_only_roots: tuple[Path, ...], writable_roots: tuple[Path, ...],
-        sandbox_root: Path, status_fd: int, memory_bytes: int, cpu_seconds: int,
-        max_file_bytes: int, max_open_files: int, ipc_profile: str = "none",
-        guest_uid: int | None = None, guest_gid: int | None = None,
+        self,
+        *,
+        argv: tuple[str, ...],
+        workspace_root: Path,
+        cwd: Path,
+        read_only_roots: tuple[Path, ...],
+        writable_roots: tuple[Path, ...],
+        sandbox_root: Path,
+        status_fd: int,
+        memory_bytes: int,
+        cpu_seconds: int,
+        max_file_bytes: int,
+        max_open_files: int,
+        ipc_profile: str = "none",
+        guest_uid: int | None = None,
+        guest_gid: int | None = None,
     ) -> IsolationLaunch:
         if (guest_uid is None) != (guest_gid is None) or (
-            guest_uid is not None and (
-                type(guest_uid) is not int or not 420 <= guest_uid <= 65533
-                or guest_gid != 69
-            )
+            guest_uid is not None
+            and (type(guest_uid) is not int or not 420 <= guest_uid <= 65533 or guest_gid != 69)
         ):
             raise InvalidInputError("sandbox guest identity must use allocated UID and GID 69")
         if ipc_profile != "none" or read_only_roots or writable_roots:
-            raise ScopeDeniedError("shared workspace forbids extra writable/readable host mounts or IPC")
+            raise ScopeDeniedError(
+                "shared workspace forbids extra writable/readable host mounts or IPC"
+            )
         # Admission precedes executable inspection, bind mounts and dispatch.
         if self.operator_attachment is not None:
             self.operator_attachment.require_healthy()
@@ -153,7 +175,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             raise CapabilityUnavailableError("Linux guest feature preflight unavailable") from exc
         errors = wsl_guest_preflight(kernel_release=kernel, config_text=config, mountinfo=mounts)
         if errors:
-            raise CapabilityUnavailableError("WSL2 isolation preflight failed: " + "; ".join(errors))
+            raise CapabilityUnavailableError(
+                "WSL2 isolation preflight failed: " + "; ".join(errors)
+            )
         try:
             rootfs = self.runtime.rootfs.resolve(strict=True)
             home = self.runtime.home.resolve(strict=True)
@@ -161,24 +185,37 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             sandbox = Path(sandbox_root).resolve(strict=True)
         except OSError as exc:
             raise CapabilityUnavailableError("provisioned workspace paths unavailable") from exc
-        if (not rootfs.is_dir() or not home.is_dir() or home != original_home
-                or sandbox != home or rootfs == home or rootfs.is_relative_to(home)
-                or home.is_relative_to(rootfs)):
+        if (
+            not rootfs.is_dir()
+            or not home.is_dir()
+            or home != original_home
+            or sandbox != home
+            or rootfs == home
+            or rootfs.is_relative_to(home)
+            or home.is_relative_to(rootfs)
+        ):
             raise ScopeDeniedError("shared workspace home/rootfs boundaries do not match")
         for target in ("home", "proc", "dev", "var/ai", "opt/potbot/models", "usr/local/tools"):
             path = rootfs / target
             if not path.is_dir() or path.is_symlink():
                 raise CapabilityUnavailableError("system image lacks a safe mount destination")
-        if (not (rootfs / "tmp").is_symlink()
-                or os.readlink(rootfs / "tmp") != "/home/.tmp"):
+        if not (rootfs / "tmp").is_symlink() or os.readlink(rootfs / "tmp") != "/home/.tmp":
             raise CapabilityUnavailableError("/tmp must map to persistent-home scratch")
         if not (home / ".tmp").is_dir() or (home / ".tmp").is_symlink():
             raise CapabilityUnavailableError("workspace /home/.tmp must be provisioned")
-        if (self.runtime.model_staging is None or self.runtime.shared_models is None
-                or self.runtime.shared_tools is None):
-            raise CapabilityUnavailableError("sandbox requires staging, models and shared tools mounts")
-        for candidate in (self.runtime.model_staging, self.runtime.shared_models,
-                          self.runtime.shared_tools):
+        if (
+            self.runtime.model_staging is None
+            or self.runtime.shared_models is None
+            or self.runtime.shared_tools is None
+        ):
+            raise CapabilityUnavailableError(
+                "sandbox requires staging, models and shared tools mounts"
+            )
+        for candidate in (
+            self.runtime.model_staging,
+            self.runtime.shared_models,
+            self.runtime.shared_tools,
+        ):
             if Path(candidate).is_symlink():
                 raise ScopeDeniedError("sandbox model mount source cannot be a symlink")
         try:
@@ -186,19 +223,28 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             library = self.runtime.shared_models.resolve(strict=True)
             tools = self.runtime.shared_tools.resolve(strict=True)
         except OSError as exc:
-            raise CapabilityUnavailableError("sandbox model directories must be pre-provisioned") from exc
+            raise CapabilityUnavailableError(
+                "sandbox model directories must be pre-provisioned"
+            ) from exc
         if not staging.is_dir() or not library.is_dir() or not tools.is_dir():
             raise CapabilityUnavailableError("sandbox model sources must be directories")
         sources = (home, rootfs, staging, library, tools)
-        if any(a == b or a.is_relative_to(b) or b.is_relative_to(a)
-               for index, a in enumerate(sources) for b in sources[index + 1:]):
-            raise ScopeDeniedError("sandbox home, image, staging and global model store must be disjoint")
+        if any(
+            a == b or a.is_relative_to(b) or b.is_relative_to(a)
+            for index, a in enumerate(sources)
+            for b in sources[index + 1 :]
+        ):
+            raise ScopeDeniedError(
+                "sandbox home, image, staging and global model store must be disjoint"
+            )
         # Modern images advertise both /etc/ai mounts. Missing sources or a
         # healthy operator watcher are an execution failure, not a silent
         # unmonitored fallback. Older images retain their legacy mount layout.
         ai_enabled = (
-            any((rootfs / item).exists() or (rootfs / item).is_symlink()
-                for item in ("etc/ai", "etc/ai-past"))
+            any(
+                (rootfs / item).exists() or (rootfs / item).is_symlink()
+                for item in ("etc/ai", "etc/ai-past")
+            )
             or self.runtime.ai_config_dir is not None
             or self.runtime.ai_history_dir is not None
             or self.ai_monitor is not None
@@ -210,11 +256,20 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             for item in ("etc/ai", "etc/ai-past"):
                 target = rootfs / item
                 if not target.is_dir() or target.is_symlink():
-                    raise CapabilityUnavailableError("system rootfs lacks safe /etc/ai mount targets")
-            if (self.runtime.ai_config_dir is None or self.runtime.ai_history_dir is None
-                    or (not isinstance(self.ai_monitor, AiConfigHistoryMonitor)
-                        and self.operator_attachment is None)):
-                raise CapabilityUnavailableError("AI configuration mounts require an active operator watcher")
+                    raise CapabilityUnavailableError(
+                        "system rootfs lacks safe /etc/ai mount targets"
+                    )
+            if (
+                self.runtime.ai_config_dir is None
+                or self.runtime.ai_history_dir is None
+                or (
+                    not isinstance(self.ai_monitor, AiConfigHistoryMonitor)
+                    and self.operator_attachment is None
+                )
+            ):
+                raise CapabilityUnavailableError(
+                    "AI configuration mounts require an active operator watcher"
+                )
             if self.runtime.ai_config_dir.is_symlink() or self.runtime.ai_history_dir.is_symlink():
                 raise ScopeDeniedError("AI config mounts may not be symlinks")
             try:
@@ -225,9 +280,14 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             if not config_ai.is_dir() or not history_ai.is_dir():
                 raise CapabilityUnavailableError("AI config/history sources must be directories")
             extended = (*sources, config_ai, history_ai)
-            if any(a == b or a.is_relative_to(b) or b.is_relative_to(a)
-                   for index, a in enumerate(extended) for b in extended[index + 1:]):
-                raise ScopeDeniedError("AI config and history storage must be disjoint from sandbox assets")
+            if any(
+                a == b or a.is_relative_to(b) or b.is_relative_to(a)
+                for index, a in enumerate(extended)
+                for b in extended[index + 1 :]
+            ):
+                raise ScopeDeniedError(
+                    "AI config and history storage must be disjoint from sandbox assets"
+                )
             if not config_ai.stat().st_mode & stat.S_IWGRP:
                 raise ScopeDeniedError("/etc/ai backing store must be workspace-group writable")
             if self.ai_monitor is not None:
@@ -249,10 +309,14 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             if not skills.is_dir() or target.is_symlink() or not target.is_dir():
                 raise CapabilityUnavailableError("shared skills require an image mount target")
             if skills.stat().st_mode & 0o022:
-                raise ScopeDeniedError("shared skills require an operator-controlled read-only source")
+                raise ScopeDeniedError(
+                    "shared skills require an operator-controlled read-only source"
+                )
             boundaries = (*sources, *(x for x in (config_ai, history_ai) if x is not None))
-            if any(skills == x or skills.is_relative_to(x) or x.is_relative_to(skills)
-                   for x in boundaries):
+            if any(
+                skills == x or skills.is_relative_to(x) or x.is_relative_to(skills)
+                for x in boundaries
+            ):
                 raise ScopeDeniedError("shared skills overlap a sandbox mount")
         context_files: tuple[Path, ...] = ()
         context_mounts: list[str] = []
@@ -264,9 +328,12 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 target = rootfs / role
                 if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
                     raise CapabilityUnavailableError("rootfs has no safe context file placeholder")
-            context_files = projection.inspect(excluded_roots=(
-                *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
-            ))
+            context_files = projection.inspect(
+                excluded_roots=(
+                    *sources,
+                    *(x for x in (config_ai, history_ai, skills) if x is not None),
+                )
+            )
             # Absence is optional; a configured projection is never partial.
             # Validate before allocating the seccomp descriptor.
             if len(context_files) != len(ROLES):
@@ -285,8 +352,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         if self.runtime.agent_context_projections:
             seen: set[str] = set()
             for binding in self.runtime.agent_context_projections:
-                if (not isinstance(binding, AgentContextProjection)
-                        or binding.directory in seen):
+                if not isinstance(binding, AgentContextProjection) or binding.directory in seen:
                     raise InvalidInputError("Duplicate or untrusted agent context projection")
                 seen.add(binding.directory)
                 if self.runtime.context_projection is not None and (
@@ -298,15 +364,23 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             if agent_directory is not None and agent_binding is None:
                 raise ScopeDeniedError("Named agent is missing operator context projection")
         if agent_binding is not None:
-            agent_files = agent_binding.inspect(home=home, excluded_roots=(
-                *sources, *(x for x in (config_ai, history_ai, skills) if x is not None),
-            ))
+            agent_files = agent_binding.inspect(
+                home=home,
+                excluded_roots=(
+                    *sources,
+                    *(x for x in (config_ai, history_ai, skills) if x is not None),
+                ),
+            )
             if len(agent_files) != len(ROLES):
                 raise InvalidInputError("Agent context projection must contain all three documents")
             for role, source in zip(ROLES, agent_files, strict=True):
-                agent_mounts.extend((
-                    "--ro-bind", str(source), "/home/" + agent_binding.directory + "/" + role,
-                ))
+                agent_mounts.extend(
+                    (
+                        "--ro-bind",
+                        str(source),
+                        "/home/" + agent_binding.directory + "/" + role,
+                    )
+                )
         # Guest executable must be present inside immutable image; no host executable bind.
         if not argv or not argv[0].startswith("/"):
             raise InvalidInputError("guest command must use an absolute path")
@@ -316,6 +390,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             # merely because an executable exists at this pathname. Its exact
             # bytes must be registered in the operator-owned runtime contract.
             import re
+
             if guest not in dict(self.runtime.tool_entrypoints):
                 raise ScopeDeniedError("shared tool executable lacks operator admission")
             expected = dict(self.runtime.tool_entrypoints)[guest]
@@ -323,8 +398,11 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 raise InvalidInputError("shared tool entrypoint hash is invalid")
             relative = guest.removeprefix("/usr/local/tools/")
             pieces = relative.split("/")
-            if (len(pieces) < 3 or pieces[1] not in {"environment", "static"}
-                    or any(piece in {"", ".", ".."} for piece in pieces)):
+            if (
+                len(pieces) < 3
+                or pieces[1] not in {"environment", "static"}
+                or any(piece in {"", ".", ".."} for piece in pieces)
+            ):
                 raise ScopeDeniedError("tool entrypoint must be pinned reusable binary")
             candidate = tools
             for piece in pieces:
@@ -352,7 +430,10 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             if guest.startswith("/usr/local/tools/"):
                 raise ScopeDeniedError("installers must execute a verified rootfs program")
             tool_write_source = self.tool_write_grant.admit(
-                runtime=self.runtime, cwd=cwd, guest_uid=guest_uid, guest_gid=guest_gid,
+                runtime=self.runtime,
+                cwd=cwd,
+                guest_uid=guest_uid,
+                guest_gid=guest_gid,
             )
         # --clearenv removes caller-supplied variables. Use the operator's
         # dedicated cache policy for installation, per-agent state for use.
@@ -372,70 +453,159 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         seccomp = _seccomp_fd()
         try:
             args = [
-                str(self.prlimit), f"--as={memory_bytes}", f"--cpu={cpu_seconds}",
-                f"--fsize={max_file_bytes}", f"--nofile={max_open_files}", "--",
-                str(self.executable), "--unshare-all", "--die-with-parent", "--new-session",
-                "--cap-drop", "ALL", "--hostname", "potbot",
+                str(self.prlimit),
+                f"--as={memory_bytes}",
+                f"--cpu={cpu_seconds}",
+                f"--fsize={max_file_bytes}",
+                f"--nofile={max_open_files}",
+                "--",
+                str(self.executable),
+                "--unshare-all",
+                "--die-with-parent",
+                "--new-session",
+                "--cap-drop",
+                "ALL",
+                "--hostname",
+                "potbot",
                 # A requested synthetic UID must have a genuine user namespace.
                 # --uid/--gid alone do not establish distinct *host* DAC IDs;
                 # kernel-enforced cross-agent mode protection requires separate
                 # idmapped filesystem/subuid qualification.
-                *(("--unshare-user", "--uid", str(guest_uid),
-                   "--gid", str(guest_gid)) if guest_uid is not None else ()),
-                "--ro-bind", str(rootfs), "/", "--bind", str(home), "/home",
-                "--bind", str(staging), "/var/ai",
+                *(
+                    ("--unshare-user", "--uid", str(guest_uid), "--gid", str(guest_gid))
+                    if guest_uid is not None
+                    else ()
+                ),
+                "--ro-bind",
+                str(rootfs),
+                "/",
+                "--bind",
+                str(home),
+                "/home",
+                "--bind",
+                str(staging),
+                "/var/ai",
                 # Normal use can read, but never mutate a shared checkout.
-                "--ro-bind", str(tools), "/usr/local/tools",
-                *( ("--bind", str(tool_write_source),
-                    "/usr/local/tools/" + self.tool_write_grant.slug)
-                   if tool_write_source is not None else () ),
-                "--ro-bind", str(library), "/opt/potbot/models",
-                *( ("--ro-bind", str(skills), "/usr/local/skills") if skills else () ),
+                "--ro-bind",
+                str(tools),
+                "/usr/local/tools",
+                *(
+                    (
+                        "--bind",
+                        str(tool_write_source),
+                        "/usr/local/tools/" + self.tool_write_grant.slug,
+                    )
+                    if tool_write_source is not None
+                    else ()
+                ),
+                "--ro-bind",
+                str(library),
+                "/opt/potbot/models",
+                *(("--ro-bind", str(skills), "/usr/local/skills") if skills else ()),
                 *context_mounts,
                 *agent_mounts,
-                *(("--bind", str(config_ai), "/etc/ai",
-                   "--ro-bind", str(history_ai), "/etc/ai-past") if ai_enabled else ()),
-                "--proc", "/proc", "--dev", "/dev",
-                "--clearenv", "--setenv", "HOME", guest_home,
-                "--setenv", "PATH", "/usr/bin:/bin", "--setenv", "TMPDIR", "/home/.tmp",
-                "--setenv", "LANG", "C.UTF-8", "--setenv", "TERM", "xterm-256color",
-                "--setenv", "SHELL", "/bin/bash",
-                *(("--setenv", "POTBOT_AI_CONFIG", "/etc/ai",
-                   "--setenv", "POTBOT_AI_HISTORY", "/etc/ai-past") if ai_enabled else ()),
-                *[arg for key, value in guest_env.items()
-                  for arg in ("--setenv", key, value)],
-                "--chdir", guest_cwd,
-                "--seccomp", str(seccomp), "--json-status-fd", str(status_fd), "--", *argv,
-            ]
-            identity = content_hash({
-                "backend": "shared-rootfs-bwrap-seccomp-v2", "image": self.runtime.image_digest,
-                "qualification": self.runtime.qualification_sha256,
-                "rootfs": str(rootfs), "home": str(home), "cwd": guest_cwd,
-                "network": "private-denied", "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-ro/models-ro/proc/dev",
-                "model_staging": str(staging), "shared_models": str(library),
-                "shared_tools": str(tools),
-                "shared_skills": str(skills) if skills is not None else None,
-                "context_revisions": self.runtime.context_projection.revisions if context_files else None,
-                "context_digests": self.runtime.context_projection.digests if context_files else None,
-                "agent_context_id": str(agent_binding.agent_id) if agent_binding else None,
-                "agent_context_directory": agent_binding.directory if agent_binding else None,
-                "agent_context_revisions": (agent_binding.projection.revisions
-                                            if agent_binding else None),
-                "agent_context_digests": (agent_binding.projection.digests
-                                          if agent_binding else None),
-                "ai_mount_policy": "rw-config/ro-history/journaled-v1" if ai_enabled else "legacy-none",
-                "ai_config": str(config_ai) if ai_enabled else None,
-                "ai_history": str(history_ai) if ai_enabled else None,
-                "writable_tool": self.tool_write_grant.slug if tool_write_source else None,
-                "tool_write_lease": (
-                    self.tool_write_grant.guard.lease.lease_id if tool_write_source else None
+                *(
+                    (
+                        "--bind",
+                        str(config_ai),
+                        "/etc/ai",
+                        "--ro-bind",
+                        str(history_ai),
+                        "/etc/ai-past",
+                    )
+                    if ai_enabled
+                    else ()
                 ),
-                "tool_entrypoints": sorted(self.runtime.tool_entrypoints),
-                "guest_uid": guest_uid, "guest_gid": guest_gid,
-                "kernel_agent_dac_qualified": False,
-                "bwrap": hashlib.sha256(self.executable.read_bytes()).hexdigest(),
-                "prlimit": hashlib.sha256(self.prlimit.read_bytes()).hexdigest(),
-            })
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
+                "--clearenv",
+                "--setenv",
+                "HOME",
+                guest_home,
+                "--setenv",
+                "PATH",
+                "/usr/bin:/bin",
+                "--setenv",
+                "TMPDIR",
+                "/home/.tmp",
+                "--setenv",
+                "LANG",
+                "C.UTF-8",
+                "--setenv",
+                "TERM",
+                "xterm-256color",
+                "--setenv",
+                "SHELL",
+                "/bin/bash",
+                *(
+                    (
+                        "--setenv",
+                        "POTBOT_AI_CONFIG",
+                        "/etc/ai",
+                        "--setenv",
+                        "POTBOT_AI_HISTORY",
+                        "/etc/ai-past",
+                    )
+                    if ai_enabled
+                    else ()
+                ),
+                *[arg for key, value in guest_env.items() for arg in ("--setenv", key, value)],
+                "--chdir",
+                guest_cwd,
+                "--seccomp",
+                str(seccomp),
+                "--json-status-fd",
+                str(status_fd),
+                "--",
+                *argv,
+            ]
+            identity = content_hash(
+                {
+                    "backend": "shared-rootfs-bwrap-seccomp-v2",
+                    "image": self.runtime.image_digest,
+                    "qualification": self.runtime.qualification_sha256,
+                    "rootfs": str(rootfs),
+                    "home": str(home),
+                    "cwd": guest_cwd,
+                    "network": "private-denied",
+                    "mounts": "rootfs-ro/home-rw/staging-rw/shared-tools-ro/models-ro/proc/dev",
+                    "model_staging": str(staging),
+                    "shared_models": str(library),
+                    "shared_tools": str(tools),
+                    "shared_skills": str(skills) if skills is not None else None,
+                    "context_revisions": self.runtime.context_projection.revisions
+                    if context_files
+                    else None,
+                    "context_digests": self.runtime.context_projection.digests
+                    if context_files
+                    else None,
+                    "agent_context_id": str(agent_binding.agent_id) if agent_binding else None,
+                    "agent_context_directory": agent_binding.directory if agent_binding else None,
+                    "agent_context_revisions": (
+                        agent_binding.projection.revisions if agent_binding else None
+                    ),
+                    "agent_context_digests": (
+                        agent_binding.projection.digests if agent_binding else None
+                    ),
+                    "ai_mount_policy": "rw-config/ro-history/journaled-v1"
+                    if ai_enabled
+                    else "legacy-none",
+                    "ai_config": str(config_ai) if ai_enabled else None,
+                    "ai_history": str(history_ai) if ai_enabled else None,
+                    "writable_tool": self.tool_write_grant.slug if tool_write_source else None,
+                    "tool_write_lease": (
+                        self.tool_write_grant.guard.lease.lease_id if tool_write_source else None
+                    ),
+                    "tool_entrypoints": sorted(self.runtime.tool_entrypoints),
+                    "guest_uid": guest_uid,
+                    "guest_gid": guest_gid,
+                    "kernel_agent_dac_qualified": False,
+                    "bwrap": hashlib.sha256(self.executable.read_bytes()).hexdigest(),
+                    "prlimit": hashlib.sha256(self.prlimit.read_bytes()).hexdigest(),
+                }
+            )
             return IsolationLaunch(tuple(args), (seccomp, status_fd), identity)
         except BaseException:
             os.close(seccomp)

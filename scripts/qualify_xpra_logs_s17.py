@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Operator-only, read-only Xpra log inventory; no contents or host paths in report."""
+
 from __future__ import annotations
 
 import argparse
@@ -29,9 +30,16 @@ def main(argv: list[str] | None = None) -> int:
             output.flush()
             os.fsync(output.fileno())
         digest = hashlib.sha256(args.report.read_bytes()).hexdigest()
-        print(json.dumps({"qualified": not result["requiresReconciliation"],
-                          "recoveryRequired": result["requiresReconciliation"],
-                          "reportSha256": digest}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "qualified": not result["requiresReconciliation"],
+                    "recoveryRequired": result["requiresReconciliation"],
+                    "reportSha256": digest,
+                },
+                sort_keys=True,
+            )
+        )
         return 2 if result["requiresReconciliation"] else 0
     except (OSError, TypeError, ValueError, XpraLogError):
         print('{"qualified":false,"error":"xpra_log_inventory_unavailable"}', file=sys.stderr)

@@ -29,9 +29,16 @@ from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.worker_telemetry import WorkerMonitorConfig
 
 
-def _case(supervisor: ProcessSupervisor, *, home: Path, command: str,
-          must_succeed: bool, workspace_id: UUID, principal_id: UUID,
-          audit_root: Path) -> dict[str, object]:
+def _case(
+    supervisor: ProcessSupervisor,
+    *,
+    home: Path,
+    command: str,
+    must_succeed: bool,
+    workspace_id: UUID,
+    principal_id: UUID,
+    audit_root: Path,
+) -> dict[str, object]:
     # These are selected by the trusted operator, never by a guest request.
     if not isinstance(workspace_id, UUID) or not isinstance(principal_id, UUID):
         raise ValueError("smoke requires explicit operator workspace/principal UUIDs")
@@ -40,29 +47,41 @@ def _case(supervisor: ProcessSupervisor, *, home: Path, command: str,
     run_id = uuid4()
     request = ProcessRequest(
         argv=("/bin/bash", "--noprofile", "--norc", "-c", command),
-        cwd=home, workspace_root=home, sandbox_root=home,
-        environment={"HOME": "/home"}, timeout_ms=15000,
-        memory_bytes=1024**3, cpu_seconds=15,
-        max_output_bytes=8192, max_file_bytes=4 * 1024**2,
-        telemetry_workspace_id=workspace_id, telemetry_agent_id=principal_id,
-        telemetry_identity_kind="principal", telemetry_run_id=run_id,
+        cwd=home,
+        workspace_root=home,
+        sandbox_root=home,
+        environment={"HOME": "/home"},
+        timeout_ms=15000,
+        memory_bytes=1024**3,
+        cpu_seconds=15,
+        max_output_bytes=8192,
+        max_file_bytes=4 * 1024**2,
+        telemetry_workspace_id=workspace_id,
+        telemetry_agent_id=principal_id,
+        telemetry_identity_kind="principal",
+        telemetry_run_id=run_id,
     )
     result = supervisor.run(request)
     # A denial counts only after actual dispatch, confirmed shutdown, intact
     # bounded capture, and independent readback of the complete kernel audit.
     trustworthy_run = (
-        result.dispatched is True and result.processes_stopped is True
+        result.dispatched is True
+        and result.processes_stopped is True
         and isinstance(result.isolation_identity, str)
         and re.fullmatch(r"[0-9a-f]{64}", result.isolation_identity) is not None
-        and result.stdout_truncated is False and result.stderr_truncated is False
+        and result.stdout_truncated is False
+        and result.stderr_truncated is False
         and type(result.exit_code) is int
     )
     audit_verified = False
     if trustworthy_run:
         try:
             audit = verify_gui_run(
-                audit_root, workspace_id, run_id,
-                identity_kind="principal", subject_id=principal_id,
+                audit_root,
+                workspace_id,
+                run_id,
+                identity_kind="principal",
+                subject_id=principal_id,
             )
             audit_verified = (
                 audit.get("qualified") is True
@@ -74,16 +93,27 @@ def _case(supervisor: ProcessSupervisor, *, home: Path, command: str,
             # Never echo private transcript paths/content into the report.
             audit_verified = False
     if must_succeed:
-        passed = (trustworthy_run and audit_verified and result.outcome == "completed"
-                  and result.exit_code == 0)
+        passed = (
+            trustworthy_run
+            and audit_verified
+            and result.outcome == "completed"
+            and result.exit_code == 0
+        )
     else:
         # These fixed write/socket probes use exit 1 for denial. A missing
         # executable (126/127), signal, or infrastructure failure is not denial.
-        passed = (trustworthy_run and audit_verified and result.outcome == "nonzero_exit"
-                  and result.exit_code == 1)
+        passed = (
+            trustworthy_run
+            and audit_verified
+            and result.outcome == "nonzero_exit"
+            and result.exit_code == 1
+        )
     return {
-        "passed": passed, "outcome": result.outcome, "exit_code": result.exit_code,
-        "run_id": str(run_id), "audit_verified": audit_verified,
+        "passed": passed,
+        "outcome": result.outcome,
+        "exit_code": result.exit_code,
+        "run_id": str(run_id),
+        "audit_verified": audit_verified,
         "dispatched": result.dispatched,
         "processes_stopped": result.processes_stopped,
         "isolation_identity": result.isolation_identity,
@@ -97,7 +127,7 @@ def _network_namespace_command(host_namespace: str) -> str:
         raise ValueError("host network namespace identity is unavailable")
     # Empty output or a failed readlink must not compare unequal and pass.
     return (
-        'guest_net_ns=$(readlink /proc/self/ns/net) && '
+        "guest_net_ns=$(readlink /proc/self/ns/net) && "
         '[[ "$guest_net_ns" =~ ^net:\\[[0-9]+\\]$ ]] && '
         'test "$guest_net_ns" != ' + shlex.quote(host_namespace)
     )
@@ -140,22 +170,37 @@ def _report_destination(path: Path, runtime: SharedWorkspaceRuntime) -> Path:
         raise ValueError("report requires a fresh canonical absolute pathname")
     parent = path.parent
     info = parent.stat()
-    if (os.name != "posix" or not parent.is_dir() or parent.resolve(strict=True) != parent
-            or info.st_uid != os.geteuid() or info.st_mode & 0o077):
+    if (
+        os.name != "posix"
+        or not parent.is_dir()
+        or parent.resolve(strict=True) != parent
+        or info.st_uid != os.geteuid()
+        or info.st_mode & 0o077
+    ):
         raise ValueError("report parent must be an existing operator-private directory")
     for source in (
-        runtime.rootfs, runtime.home, runtime.model_staging, runtime.shared_models,
-        runtime.shared_tools, runtime.shared_skills, runtime.ai_config_dir, runtime.ai_history_dir,
+        runtime.rootfs,
+        runtime.home,
+        runtime.model_staging,
+        runtime.shared_models,
+        runtime.shared_tools,
+        runtime.shared_skills,
+        runtime.ai_config_dir,
+        runtime.ai_history_dir,
     ):
         if source is not None and path.is_relative_to(source.resolve(strict=True)):
             raise ValueError("report must stay outside every guest mount")
     return path
 
 
-def qualify(runtime: SharedWorkspaceRuntime,
-            ai_monitor: AiConfigHistoryMonitor | None = None, *,
-            workspace_id: UUID, principal_id: UUID,
-            monitor_config: WorkerMonitorConfig | None = None) -> dict[str, object]:
+def qualify(
+    runtime: SharedWorkspaceRuntime,
+    ai_monitor: AiConfigHistoryMonitor | None = None,
+    *,
+    workspace_id: UUID,
+    principal_id: UUID,
+    monitor_config: WorkerMonitorConfig | None = None,
+) -> dict[str, object]:
     if not isinstance(workspace_id, UUID) or not isinstance(principal_id, UUID):
         raise ValueError("smoke requires explicit operator workspace/principal UUIDs")
     if (runtime.ai_config_dir is None) != (runtime.ai_history_dir is None):
@@ -165,13 +210,19 @@ def qualify(runtime: SharedWorkspaceRuntime,
     home = runtime.home.resolve(strict=True)
     config = monitor_config or WorkerMonitorConfig.from_environment()
     supervisor = ProcessSupervisor(
-        SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=ai_monitor), monitor_config=config,
+        SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=ai_monitor),
+        monitor_config=config,
     )
 
     def run_case(*, command: str, must_succeed: bool) -> dict[str, object]:
         result = _case(
-            supervisor, home=home, command=command, must_succeed=must_succeed,
-            workspace_id=workspace_id, principal_id=principal_id, audit_root=config.audit_root,
+            supervisor,
+            home=home,
+            command=command,
+            must_succeed=must_succeed,
+            workspace_id=workspace_id,
+            principal_id=principal_id,
+            audit_root=config.audit_root,
         )
         if result["processes_stopped"] is not True:
             # Do not launch another probe or remove possible live-worker files.
@@ -193,35 +244,37 @@ def qualify(runtime: SharedWorkspaceRuntime,
             must_succeed=True,
         ),
         "home_is_writable": run_case(
-            command=f'touch /home/.tmp/{marker} && test -e /home/.tmp/{marker}',
+            command=f"touch /home/.tmp/{marker} && test -e /home/.tmp/{marker}",
             must_succeed=True,
         ),
         "ai_staging_writable": run_case(
-            command=f'touch /var/ai/{marker} && test -e /var/ai/{marker}',
+            command=f"touch /var/ai/{marker} && test -e /var/ai/{marker}",
             must_succeed=True,
         ),
         "shared_tools_read_only_during_normal_run": run_case(
-            command=f'touch /usr/local/tools/{marker}',
+            command=f"touch /usr/local/tools/{marker}",
             must_succeed=False,
         ),
         "shared_tools_group_mode": run_case(
             command='test "$(stat -c %a /usr/local/tools)" = 2775 && '
-                    'test "$(stat -c %g /usr/local/tools)" = 69',
+            'test "$(stat -c %g /usr/local/tools)" = 69',
             must_succeed=True,
         ),
         "shared_models_read_only": run_case(
-            command=f'touch /opt/potbot/models/{marker}', must_succeed=False,
+            command=f"touch /opt/potbot/models/{marker}",
+            must_succeed=False,
         ),
         "model_cache_env_routed": run_case(
             command='test "$HF_HOME" = /var/ai/cache/huggingface && '
-                    'test "$OLLAMA_MODELS" = /var/ai/cache/ollama/models',
+            'test "$OLLAMA_MODELS" = /var/ai/cache/ollama/models',
             must_succeed=True,
         ),
         "etc_is_read_only": run_case(
-            command=f'touch /etc/{marker}', must_succeed=False,
+            command=f"touch /etc/{marker}",
+            must_succeed=False,
         ),
         "windows_drive_not_visible": run_case(
-            command='test ! -e /mnt/c/Windows && test ! -e /mnt/d',
+            command="test ! -e /mnt/c/Windows && test ! -e /mnt/d",
             must_succeed=True,
         ),
         "network_is_denied": run_case(
@@ -232,19 +285,19 @@ def qualify(runtime: SharedWorkspaceRuntime,
     if runtime.ai_config_dir is not None and runtime.ai_history_dir is not None:
         assert ai_monitor is not None  # Required before any dispatch above.
         tests["etc_ai_writable"] = run_case(
-            command=f'touch /etc/ai/{marker} && test -e /etc/ai/{marker}',
+            command=f"touch /etc/ai/{marker} && test -e /etc/ai/{marker}",
             must_succeed=True,
         )
         tests["etc_ai_past_readonly"] = run_case(
-            command=f'touch /etc/ai-past/{marker}', must_succeed=False,
+            command=f"touch /etc/ai-past/{marker}",
+            must_succeed=False,
         )
         # The operator records both file creation and later removal. The marker
         # must be present in a durable inverse record even if its inotify event
         # has already been consumed by the monitor's background thread.
         ai_monitor.poll_once()
         history_files = sorted(runtime.ai_history_dir.glob("*.reverse.json"))
-        recorded = any(marker in path.read_text(encoding="utf-8")
-                       for path in history_files[-32:])
+        recorded = any(marker in path.read_text(encoding="utf-8") for path in history_files[-32:])
         tests["etc_ai_reverse_recorded"] = {"passed": recorded, "records": len(history_files)}
         _remove_marker(runtime.ai_config_dir, marker)
         ai_monitor.poll_once()
@@ -253,10 +306,14 @@ def qualify(runtime: SharedWorkspaceRuntime,
         _remove_marker(runtime.model_staging, marker)
     passed = all(item["passed"] is True for item in tests.values())
     result: dict[str, object] = {
-        "schema": "potbot-sandbox-qualification-smoke/v2", "qualified_smoke": passed,
-        "platform": platform.platform(), "image_digest": runtime.image_digest,
-        "workspace_id": str(workspace_id), "principal_id": str(principal_id),
-        "qualification_id": str(uuid4()), "identity_kind": "principal",
+        "schema": "potbot-sandbox-qualification-smoke/v2",
+        "qualified_smoke": passed,
+        "platform": platform.platform(),
+        "image_digest": runtime.image_digest,
+        "workspace_id": str(workspace_id),
+        "principal_id": str(principal_id),
+        "qualification_id": str(uuid4()),
+        "identity_kind": "principal",
         "qualifier_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "tests": tests,
         "warning": "Live smoke only, not complete hostile-code/Windows isolation attestation",
@@ -285,30 +342,48 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--ai-config and --ai-past must be supplied together")
     try:
         runtime = SharedWorkspaceRuntime(
-            args.image_digest, args.rootfs, args.home, "0" * 64,
-            model_staging=args.model_staging, shared_models=args.shared_models,
-            shared_tools=args.shared_tools, ai_config_dir=args.ai_config,
+            args.image_digest,
+            args.rootfs,
+            args.home,
+            "0" * 64,
+            model_staging=args.model_staging,
+            shared_models=args.shared_models,
+            shared_tools=args.shared_tools,
+            ai_config_dir=args.ai_config,
             ai_history_dir=args.ai_past,
         )
         report_path = _report_destination(args.report, runtime)
         config = WorkerMonitorConfig.from_environment()
         if args.ai_config is not None:
-            with AiConfigHistoryMonitor(config_dir=args.ai_config, past_dir=args.ai_past) as monitor:
+            with AiConfigHistoryMonitor(
+                config_dir=args.ai_config, past_dir=args.ai_past
+            ) as monitor:
                 report = qualify(
-                    runtime, ai_monitor=monitor, workspace_id=args.workspace_id,
-                    principal_id=args.principal_id, monitor_config=config,
+                    runtime,
+                    ai_monitor=monitor,
+                    workspace_id=args.workspace_id,
+                    principal_id=args.principal_id,
+                    monitor_config=config,
                 )
         else:
             report = qualify(
-                runtime, workspace_id=args.workspace_id, principal_id=args.principal_id,
+                runtime,
+                workspace_id=args.workspace_id,
+                principal_id=args.principal_id,
                 monitor_config=config,
             )
         write_report(report_path, report)
     except Exception as exc:
         print("sandbox qualification could not execute: " + type(exc).__name__, file=sys.stderr)
         return 2
-    print(json.dumps({"qualified_smoke": report["qualified_smoke"],
-                      "receipt_sha256": report["receipt_sha256"]}))
+    print(
+        json.dumps(
+            {
+                "qualified_smoke": report["qualified_smoke"],
+                "receipt_sha256": report["receipt_sha256"],
+            }
+        )
+    )
     return 0 if report["qualified_smoke"] else 1
 
 

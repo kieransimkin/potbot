@@ -31,10 +31,19 @@ _REV = re.compile(r"[a-f0-9]{40,64}\Z")
 _REPO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{0,100}\Z")
 _QUANT = re.compile(r"(?:q[2-8]_[a-z0-9_]+|f16|bf16|fp32|int8|native)\Z")
 _TICKET = re.compile(r"[a-f0-9]{32}\Z")
-_ALLOWED_SUFFIX = frozenset({
-    ".gguf", ".safetensors", ".onnx", ".json", ".model", ".tiktoken",
-    ".txt", ".vocab", ".merges",
-})
+_ALLOWED_SUFFIX = frozenset(
+    {
+        ".gguf",
+        ".safetensors",
+        ".onnx",
+        ".json",
+        ".model",
+        ".tiktoken",
+        ".txt",
+        ".vocab",
+        ".merges",
+    }
+)
 _IGNORED_SUFFIX = frozenset({".part", ".tmp", ".lock", ".incomplete", ".download"})
 
 
@@ -42,8 +51,13 @@ def _relative_file(name: str) -> tuple[str, ...]:
     if not isinstance(name, str) or not name or len(name.encode()) > 400:
         raise InvalidInputError("model file name must be a bounded relative path")
     segments = name.split("/")
-    if (any(not s or s in {".", ".."} or s.startswith(".") or "\\" in s
-            or "\x00" in s for s in segments) or len(segments) > 8):
+    if (
+        any(
+            not s or s in {".", ".."} or s.startswith(".") or "\\" in s or "\x00" in s
+            for s in segments
+        )
+        or len(segments) > 8
+    ):
         raise InvalidInputError("model file names must not traverse directories")
     if Path(name).suffix.lower() not in _ALLOWED_SUFFIX:
         raise InvalidInputError("unknown or executable model sidecar extension")
@@ -134,8 +148,13 @@ class SharedModelLibrary:
             raise ScopeDeniedError("controller library roots must not be symlinks")
         self.root = Path(shared_root).resolve(strict=True)
         self.locks = Path(lock_root).resolve(strict=True)
-        if (not self.root.is_dir() or not self.locks.is_dir() or self.root == self.locks
-                or self.root.is_relative_to(self.locks) or self.locks.is_relative_to(self.root)):
+        if (
+            not self.root.is_dir()
+            or not self.locks.is_dir()
+            or self.root == self.locks
+            or self.root.is_relative_to(self.locks)
+            or self.locks.is_relative_to(self.root)
+        ):
             raise ScopeDeniedError("model library and controller locks must have disjoint roots")
         if not os.access(self.root, os.W_OK) or not os.access(self.locks, os.W_OK):
             raise ScopeDeniedError("operator must control a writable library and lock directory")
@@ -144,8 +163,9 @@ class SharedModelLibrary:
     def _locked(self) -> Iterator[None]:
         if os.name != "posix" or fcntl is None:
             raise ScopeDeniedError("model promotions require a Linux/WSL operator")
-        descriptor = os.open(self.locks / "model-store.lock",
-                             os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        descriptor = os.open(
+            self.locks / "model-store.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
+        )
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX)
             yield
@@ -162,8 +182,9 @@ class SharedModelLibrary:
             if not stat.S_ISREG(before.st_mode) or before.st_size != expected.byte_count:
                 raise StateMismatchError("model source changed or remains incomplete")
             # Model files may contain code-like metadata but are never executed.
-            out_fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                             0o600)
+            out_fd = os.open(
+                destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+            )
             try:
                 digest = hashlib.sha256()
                 total = 0
@@ -177,13 +198,19 @@ class SharedModelLibrary:
                     digest.update(data)
                     os.write(out_fd, data)
                 after = os.fstat(source_fd)
-                if (total != expected.byte_count or digest.hexdigest() != expected.sha256
-                        or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
-                        != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+                if (
+                    total != expected.byte_count
+                    or digest.hexdigest() != expected.sha256
+                    or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                    != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                ):
                     raise StateMismatchError("model bytes or file identity changed during snapshot")
                 ext = path.suffix.lower()
-                if ext == ".gguf" and not (head.startswith(b"GGUF") and len(head) >= 24
-                                               and 2 <= int.from_bytes(head[4:8], "little") <= 3):
+                if ext == ".gguf" and not (
+                    head.startswith(b"GGUF")
+                    and len(head) >= 24
+                    and 2 <= int.from_bytes(head[4:8], "little") <= 3
+                ):
                     raise StateMismatchError("model does not have a supported GGUF header")
                 if ext == ".safetensors":
                     length = int.from_bytes(head[:8], "little") if len(head) >= 8 else 0
@@ -196,9 +223,11 @@ class SharedModelLibrary:
                     if not isinstance(header, dict) or not header:
                         raise StateMismatchError("model safetensors header lacks tensor entries")
                     tensors = [v for k, v in header.items() if k != "__metadata__"]
-                    if not tensors or any(not isinstance(v, dict) or not {
-                        "dtype", "shape", "data_offsets"
-                    } <= v.keys() for v in tensors):
+                    if not tensors or any(
+                        not isinstance(v, dict)
+                        or not {"dtype", "shape", "data_offsets"} <= v.keys()
+                        for v in tensors
+                    ):
                         raise StateMismatchError("model safetensors tensor metadata is invalid")
                 os.fsync(out_fd)
             finally:
@@ -211,7 +240,11 @@ class SharedModelLibrary:
         if Path(staging).is_symlink():
             raise ScopeDeniedError("staging root cannot be a symbolic link")
         staging = Path(staging).resolve(strict=True)
-        if not staging.is_dir() or staging.is_relative_to(self.root) or self.root.is_relative_to(staging):
+        if (
+            not staging.is_dir()
+            or staging.is_relative_to(self.root)
+            or self.root.is_relative_to(staging)
+        ):
             raise ScopeDeniedError("staging area must be separate from the global model store")
         downloads = staging / "downloads"
         if downloads.is_symlink() or not downloads.is_dir():
@@ -230,14 +263,21 @@ class SharedModelLibrary:
             if not isinstance(index, dict) or not isinstance(index.get("weight_map"), dict):
                 raise StateMismatchError("model shard index requires a tensor weight map")
             required = set(index["weight_map"].values())
-            if not required or any(not isinstance(v, str) for v in required) or not required <= included:
+            if (
+                not required
+                or any(not isinstance(v, str) for v in required)
+                or not required <= included
+            ):
                 raise StateMismatchError("model index references shards outside admitted bundle")
         payload = {
-            "schema": "potbot-model-bundle/v1", "repository": ticket.identity.repository,
-            "revision": ticket.identity.revision, "quantization": ticket.identity.quantization,
+            "schema": "potbot-model-bundle/v1",
+            "repository": ticket.identity.repository,
+            "revision": ticket.identity.revision,
+            "quantization": ticket.identity.quantization,
             "format": ticket.identity.format,
-            "assets": [{"path": a.path, "sha256": a.sha256, "bytes": a.byte_count}
-                       for a in ticket.assets],
+            "assets": [
+                {"path": a.path, "sha256": a.sha256, "bytes": a.byte_count} for a in ticket.assets
+            ],
         }
         serialized = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
         receipt_sha = hashlib.sha256(serialized).hexdigest()
@@ -280,7 +320,9 @@ class SharedModelLibrary:
                             os.close(directory_fd)
                     finally:
                         temporary.unlink(missing_ok=True)
-                linked.append((asset.path, f"{SHARED_MODELS_GUEST}/blobs/{asset.sha256[:2]}/{asset.sha256}"))
+                linked.append(
+                    (asset.path, f"{SHARED_MODELS_GUEST}/blobs/{asset.sha256[:2]}/{asset.sha256}")
+                )
             manifest_path = manifests / (ticket.identity.key + ".json")
             if manifest_path.exists():
                 if manifest_path.read_bytes() != serialized:
@@ -321,7 +363,10 @@ class SharedModelLibrary:
             raise ScopeDeniedError("cannot link into global model library")
         # A caller-provided receipt is not authority to create arbitrary links.
         # Read exact approved asset identities from the controller library first.
-        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]+--[a-z0-9][a-z0-9._-]+__r-[a-f0-9]{40,64}__(?:q[2-8]_[a-z0-9_]+|f16|bf16|fp32|int8|native)", model.key):
+        if not re.fullmatch(
+            r"[a-z0-9][a-z0-9._-]+--[a-z0-9][a-z0-9._-]+__r-[a-f0-9]{40,64}__(?:q[2-8]_[a-z0-9_]+|f16|bf16|fp32|int8|native)",
+            model.key,
+        ):
             raise InvalidInputError("invalid model release identity")
         manifest_file = self.root / "manifests" / (model.key + ".json")
         if manifest_file.is_symlink() or not manifest_file.is_file():
@@ -330,9 +375,10 @@ class SharedModelLibrary:
         if hashlib.sha256(manifest_bytes).hexdigest() != model.manifest_sha256:
             raise StateMismatchError("model release manifest changed or mismatched")
         document = json.loads(manifest_bytes)
-        approved_files = tuple((item["path"],
-                                f"{SHARED_MODELS_GUEST}/blobs/{item['sha256'][:2]}/{item['sha256']}")
-                               for item in document["assets"])
+        approved_files = tuple(
+            (item["path"], f"{SHARED_MODELS_GUEST}/blobs/{item['sha256'][:2]}/{item['sha256']}")
+            for item in document["assets"]
+        )
         if model.files != approved_files:
             raise ScopeDeniedError("requested model links differ from approved asset manifest")
         with self._locked():
@@ -444,10 +490,17 @@ class ModelDownloadWatcher:
                         signature = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
                         current[rel] = signature
                         repo, revision = self._hint(tuple(rel.split("/")))
-                        result.append(ObservedModelFile(
-                            rel, suffix.lstrip("."), info.st_size, info.st_mtime_ns, repo, revision,
-                            "needs_ticket" if self._last.get(rel) == signature else "settling",
-                        ))
+                        result.append(
+                            ObservedModelFile(
+                                rel,
+                                suffix.lstrip("."),
+                                info.st_size,
+                                info.st_mtime_ns,
+                                repo,
+                                revision,
+                                "needs_ticket" if self._last.get(rel) == signature else "settling",
+                            )
+                        )
                         continue
                     if entry.is_dir(follow_symlinks=False):
                         stack.append((Path(entry.path), depth + 1))
@@ -456,11 +509,14 @@ class ModelDownloadWatcher:
                         continue
                     name = entry.name.casefold()
                     suffix = Path(name).suffix
-                    is_ollama_blob = ("/ollama/models/blobs/" in entry.path
-                                      and re.fullmatch(r"sha256-[a-f0-9]{64}", name) is not None)
-                    if suffix in _IGNORED_SUFFIX or name.startswith(".") or (
-                        suffix not in {".gguf", ".safetensors", ".onnx"}
-                        and not is_ollama_blob
+                    is_ollama_blob = (
+                        "/ollama/models/blobs/" in entry.path
+                        and re.fullmatch(r"sha256-[a-f0-9]{64}", name) is not None
+                    )
+                    if (
+                        suffix in _IGNORED_SUFFIX
+                        or name.startswith(".")
+                        or (suffix not in {".gguf", ".safetensors", ".onnx"} and not is_ollama_blob)
                     ):
                         continue
                     info = entry.stat(follow_symlinks=False)
@@ -469,11 +525,17 @@ class ModelDownloadWatcher:
                     current[rel] = signature
                     parts = tuple(rel.split("/"))
                     repo, revision = self._hint(parts)
-                    result.append(ObservedModelFile(
-                        rel, "ollama-blob" if is_ollama_blob else suffix.lstrip("."),
-                        info.st_size, info.st_mtime_ns, repo, revision,
-                        "needs_ticket" if self._last.get(rel) == signature else "settling",
-                    ))
+                    result.append(
+                        ObservedModelFile(
+                            rel,
+                            "ollama-blob" if is_ollama_blob else suffix.lstrip("."),
+                            info.st_size,
+                            info.st_mtime_ns,
+                            repo,
+                            revision,
+                            "needs_ticket" if self._last.get(rel) == signature else "settling",
+                        )
+                    )
         self._last = current
         return tuple(sorted(result, key=lambda item: item.path))
 
@@ -535,8 +597,9 @@ class ModelFilesystemNotifier:
                 self._tracked.add(current)
             try:
                 with os.scandir(current) as entries:
-                    directories.extend(Path(entry.path) for entry in entries
-                                       if entry.is_dir(follow_symlinks=False))
+                    directories.extend(
+                        Path(entry.path) for entry in entries if entry.is_dir(follow_symlinks=False)
+                    )
             except (OSError, PermissionError):
                 pass
 
@@ -547,6 +610,7 @@ class ModelFilesystemNotifier:
             raise InvalidInputError("model watcher interval outside allowed bounds")
         if self._fd < 0:
             import time
+
             time.sleep(interval)
             return
         ready, _, _ = select.select([self._fd], [], [], interval)

@@ -44,8 +44,9 @@ class ChannelResult:
 
 
 def response_bytes(value: dict[str, Any]) -> bytes:
-    payload = json.dumps(value, ensure_ascii=False, allow_nan=False,
-                         separators=(",", ":")).encode("utf-8")
+    payload = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
     if not 1 <= len(payload) <= MAX_FRAME_BYTES:
         raise InvalidInputError("Context response exceeds its frame bound")
     return struct.pack("!I", len(payload)) + payload
@@ -67,8 +68,9 @@ async def _read(reader: asyncio.StreamReader) -> bytes | None:
         raise InvalidInputError("Truncated context frame") from None
 
 
-async def _settled_call(handler: Callable[[OperationRequest], dict[str, Any]],
-                        request: OperationRequest) -> dict[str, Any]:
+async def _settled_call(
+    handler: Callable[[OperationRequest], dict[str, Any]], request: OperationRequest
+) -> dict[str, Any]:
     # Cancellation cannot undo a synchronous PostgreSQL commit. Keep a strong
     # reference and wait for the bounded DB operation before revoking/closing.
     task = asyncio.create_task(asyncio.to_thread(handler, request))
@@ -89,8 +91,10 @@ async def _settled_call(handler: Callable[[OperationRequest], dict[str, Any]],
 
 
 async def serve_context_streams(
-    reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
-    handler: Callable[[OperationRequest], dict[str, Any]], *,
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    handler: Callable[[OperationRequest], dict[str, Any]],
+    *,
     frame_timeout: float = 15.0,
 ) -> ChannelResult:
     """Serve ONE already-admitted channel; caller must revoke its session in finally.
@@ -98,8 +102,12 @@ async def serve_context_streams(
     Stdout is reserved for protocol frames, stderr for worker logs. Request/frame
     bounds apply even when the same valid request is replayed repeatedly.
     """
-    if (isinstance(frame_timeout, bool) or not isinstance(frame_timeout, int | float)
-            or not math.isfinite(frame_timeout) or not 0 < frame_timeout <= 60):
+    if (
+        isinstance(frame_timeout, bool)
+        or not isinstance(frame_timeout, int | float)
+        or not math.isfinite(frame_timeout)
+        or not 0 < frame_timeout <= 60
+    ):
         raise InvalidInputError("Invalid context channel deadline")
     count = errors = received = sent = 0
     try:
@@ -118,33 +126,52 @@ async def serve_context_streams(
                 request = parse_request(payload)
                 count += 1
                 result = await _settled_call(handler, request)
-                response = {"schema": SCHEMA, "request_id": str(request.request_id),
-                            "ok": True, "result": result}
+                response = {
+                    "schema": SCHEMA,
+                    "request_id": str(request.request_id),
+                    "ok": True,
+                    "result": result,
+                }
             except DomainError as exc:
                 errors += 1
                 code = str(exc.code.value)
-                response = {"schema": SCHEMA,
-                            "request_id": str(request.request_id) if request else None,
-                            "ok": False, "error": {"code": code if code in _MESSAGES else "internal_error",
-                                "message": _MESSAGES.get(code, "Context operation unavailable")}}
+                response = {
+                    "schema": SCHEMA,
+                    "request_id": str(request.request_id) if request else None,
+                    "ok": False,
+                    "error": {
+                        "code": code if code in _MESSAGES else "internal_error",
+                        "message": _MESSAGES.get(code, "Context operation unavailable"),
+                    },
+                }
                 fatal = request is None or code not in {"revision_conflict", "invalid_input"}
             except (TimeoutError, ConnectionError, OSError):
                 break
             except Exception:
                 errors += 1
-                response = {"schema": SCHEMA,
-                            "request_id": str(request.request_id) if request else None,
-                            "ok": False, "error": {"code": "internal_error",
-                                                     "message": "Context operation unavailable"}}
+                response = {
+                    "schema": SCHEMA,
+                    "request_id": str(request.request_id) if request else None,
+                    "ok": False,
+                    "error": {"code": "internal_error", "message": "Context operation unavailable"},
+                }
                 fatal = True
             try:
                 wire = response_bytes(response)
             except (InvalidInputError, ValueError, UnicodeError):
                 errors += 1
                 fatal = True
-                wire = response_bytes({"schema": SCHEMA,
-                    "request_id": str(request.request_id) if request else None, "ok": False,
-                    "error": {"code": "invalid_input", "message": "Context response exceeds its bound"}})
+                wire = response_bytes(
+                    {
+                        "schema": SCHEMA,
+                        "request_id": str(request.request_id) if request else None,
+                        "ok": False,
+                        "error": {
+                            "code": "invalid_input",
+                            "message": "Context response exceeds its bound",
+                        },
+                    }
+                )
             sent += len(wire)
             if sent > MAX_CHANNEL_BYTES:
                 break

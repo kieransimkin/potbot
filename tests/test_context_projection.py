@@ -1,4 +1,5 @@
 """Operator context snapshot tests; no PostgreSQL required for these checks."""
+
 from __future__ import annotations
 
 import hashlib
@@ -16,9 +17,14 @@ from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 class FakeService:
     def __init__(self) -> None:
         self.calls = 0
-        self.data = {role: {"content": f"# {role}\n", "revision": 1,
-                            "sha256": hashlib.sha256(f"# {role}\n".encode()).hexdigest()}
-                     for role in ROLES}
+        self.data = {
+            role: {
+                "content": f"# {role}\n",
+                "revision": 1,
+                "sha256": hashlib.sha256(f"# {role}\n".encode()).hexdigest(),
+            }
+            for role in ROLES
+        }
 
     def read_triple(self, principal: WorkspaceContext, kind: str, name: str) -> dict:
         assert kind == "sandbox" and name == str(principal.workspace_id)
@@ -48,15 +54,17 @@ def test_disallows_guest_writable_parent(tmp_path: Path) -> None:
     directory.mkdir(mode=0o777)
     directory.chmod(0o777)
     with pytest.raises(ScopeDeniedError):
-        ContextProjectionManager(service=FakeService(),
-                                 principal=WorkspaceContext(uuid4(), uuid4()), parent=directory)
+        ContextProjectionManager(
+            service=FakeService(), principal=WorkspaceContext(uuid4(), uuid4()), parent=directory
+        )
 
 
 def test_corrupted_snapshot_fails_closed(tmp_path: Path) -> None:
     parent = tmp_path / "operator"
     parent.mkdir(mode=0o700)
-    manager = ContextProjectionManager(service=FakeService(),
-                                       principal=WorkspaceContext(uuid4(), uuid4()), parent=parent)
+    manager = ContextProjectionManager(
+        service=FakeService(), principal=WorkspaceContext(uuid4(), uuid4()), parent=parent
+    )
     snapshot = manager.capture()
     target = snapshot.directory / "MODEL.md"
     target.chmod(0o600)
@@ -70,8 +78,9 @@ def test_corrupted_snapshot_fails_closed(tmp_path: Path) -> None:
 def test_symlink_and_overlapping_guest_mount_rejected(tmp_path: Path) -> None:
     parent = tmp_path / "operator"
     parent.mkdir(mode=0o700)
-    manager = ContextProjectionManager(service=FakeService(),
-                                       principal=WorkspaceContext(uuid4(), uuid4()), parent=parent)
+    manager = ContextProjectionManager(
+        service=FakeService(), principal=WorkspaceContext(uuid4(), uuid4()), parent=parent
+    )
     snapshot = manager.capture()
     with pytest.raises(ScopeDeniedError):
         snapshot.inspect(excluded_roots=(parent,))
@@ -92,8 +101,9 @@ def test_broken_database_digest_and_partial_snapshot(tmp_path: Path) -> None:
     parent.mkdir(mode=0o700)
     service = FakeService()
     service.data["MODEL.md"]["sha256"] = "0" * 64
-    manager = ContextProjectionManager(service=service,
-                                       principal=WorkspaceContext(uuid4(), uuid4()), parent=parent)
+    manager = ContextProjectionManager(
+        service=service, principal=WorkspaceContext(uuid4(), uuid4()), parent=parent
+    )
     with pytest.raises(StateMismatchError):
         manager.capture()
     manager.close()
@@ -102,6 +112,7 @@ def test_broken_database_digest_and_partial_snapshot(tmp_path: Path) -> None:
 
 def test_read_triple_uses_single_document_select() -> None:
     from contextlib import contextmanager
+
     from potbot.context.service import WorkspaceContextService
 
     class Connection:
@@ -121,7 +132,8 @@ def test_read_triple_uses_single_document_select() -> None:
             return [{"role": role, **item} for role, item in FakeService().data.items()]
 
     class Database:
-        def __init__(self): self.connection = Connection()
+        def __init__(self):
+            self.connection = Connection()
 
         @contextmanager
         def transaction(self, context):
@@ -136,17 +148,26 @@ def test_read_triple_uses_single_document_select() -> None:
 
 def test_read_triple_rejects_missing_document() -> None:
     from contextlib import contextmanager
+
     from potbot.context.service import WorkspaceContextService
 
     class Connection:
-        def execute(self, query, _params): return self
-        def fetchone(self): return {"id": uuid4()}
-        def fetchall(self): return [{"role": "MODEL.md", **FakeService().data["MODEL.md"]}]
+        def execute(self, query, _params):
+            return self
+
+        def fetchone(self):
+            return {"id": uuid4()}
+
+        def fetchall(self):
+            return [{"role": "MODEL.md", **FakeService().data["MODEL.md"]}]
 
     class Database:
         @contextmanager
-        def transaction(self, context): yield Connection()
+        def transaction(self, context):
+            yield Connection()
 
     context = WorkspaceContext(uuid4(), uuid4())
     with pytest.raises(ScopeDeniedError):
-        WorkspaceContextService(Database()).read_triple(context, "sandbox", str(context.workspace_id))
+        WorkspaceContextService(Database()).read_triple(
+            context, "sandbox", str(context.workspace_id)
+        )

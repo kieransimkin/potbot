@@ -8,14 +8,27 @@ The existing migration-owner role owns narrowly scoped trigger functions.
 Runtime logins cannot execute those functions or write the source index.
 """
 
-WORKSPACE_TABLES = ("workspace_context_sources", "workspace_context_source_events",
-                    "workspace_context_runtime_sources", "workspace_context_work_results")
-APPEND_ONLY_TABLES = ("workspace_context_source_events", "workspace_context_runtime_sources", "workspace_context_work_results")
+WORKSPACE_TABLES = (
+    "workspace_context_sources",
+    "workspace_context_source_events",
+    "workspace_context_runtime_sources",
+    "workspace_context_work_results",
+)
+APPEND_ONLY_TABLES = (
+    "workspace_context_source_events",
+    "workspace_context_runtime_sources",
+    "workspace_context_work_results",
+)
 
 # This is an audited coverage manifest, not a heuristic over every table.
 SOURCE_TABLES = (
-    "repositories", "episodes", "model_catalog", "actions",
-    "execution_run_contracts", "syn_namespaces", "workspace_sandboxes",
+    "repositories",
+    "episodes",
+    "model_catalog",
+    "actions",
+    "execution_run_contracts",
+    "syn_namespaces",
+    "workspace_sandboxes",
 )
 
 MIGRATION_STATEMENTS = (
@@ -276,7 +289,13 @@ MIGRATION_STATEMENTS = (
             ("episodes", "task", "id::text", "primitive", "NULL::uuid"),
             ("model_catalog", "model", "id::text", "model", "NULL::uuid"),
             ("actions", "tool", "kind", "tool", "NULL::uuid"),
-            ("execution_run_contracts", "execution", "run_id::text", "worker", "owner_principal_id"),
+            (
+                "execution_run_contracts",
+                "execution",
+                "run_id::text",
+                "worker",
+                "owner_principal_id",
+            ),
             ("syn_namespaces", "namespace", "id::text", "primitive", "NULL::uuid"),
             ("workspace_sandboxes", "operator", "workspace_id::text", "operator", "NULL::uuid"),
             ("workspace_sandboxes", "gateway", "'tool-gateway'", "gateway", "NULL::uuid"),

@@ -1,4 +1,5 @@
 """S46 validator tests; synthetic records are NOT live qualification evidence."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -17,13 +18,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def config():
     return {
-        "schema_version": 1, "workspace_id": str(uuid4()), "principal_id": str(uuid4()),
-        "agent_ids": [str(uuid4()), str(uuid4())], "workspace_name": "probe-workspace",
+        "schema_version": 1,
+        "workspace_id": str(uuid4()),
+        "principal_id": str(uuid4()),
+        "agent_ids": [str(uuid4()), str(uuid4())],
+        "workspace_name": "probe-workspace",
         "ledger": "/srv/operator/workspace.db",
         "runtime": {
-            "image_digest": "a" * 64, "qualification_sha256": "b" * 64,
-            "rootfs": "/srv/images/fixture", "home": "/srv/workspaces/fixture/home",
-            "model_staging": "/srv/staging", "shared_models": "/srv/models",
+            "image_digest": "a" * 64,
+            "qualification_sha256": "b" * 64,
+            "rootfs": "/srv/images/fixture",
+            "home": "/srv/workspaces/fixture/home",
+            "model_staging": "/srv/staging",
+            "shared_models": "/srv/models",
             "shared_tools": "/srv/tools",
         },
     }
@@ -31,10 +38,18 @@ def config():
 
 def audit(workspace, run):
     return {
-        "schema": "potbot-gui-audit-integrity-s16/v1", "qualified": True,
-        "workspaceId": workspace, "runId": run, "identityKind": "agent",
-        "tracedProcesses": 2, "fileKeys": 4, "fileEvents": 10,
-        "cpuUsec": 100, "readBytes": 200, "writeBytes": 0, "peakMemoryBytes": 4096,
+        "schema": "potbot-gui-audit-integrity-s16/v1",
+        "qualified": True,
+        "workspaceId": workspace,
+        "runId": run,
+        "identityKind": "agent",
+        "tracedProcesses": 2,
+        "fileKeys": 4,
+        "fileEvents": 10,
+        "cpuUsec": 100,
+        "readBytes": 200,
+        "writeBytes": 0,
+        "peakMemoryBytes": 4096,
     }
 
 
@@ -45,22 +60,25 @@ def test_policy_is_exact_and_independent():
     assert len(checked["agent_ids"]) == 2
 
 
-@pytest.mark.parametrize("mutation", [
-    lambda c: c.update(schema_version=True),
-    lambda c: c.update(argv=["/bin/sh"]),
-    lambda c: c.update(agent_ids=[]),
-    lambda c: c.update(agent_ids=[c["agent_ids"][0]] * 2),
-    lambda c: c.update(agent_ids=[str(uuid4()) for _ in range(5)]),
-    lambda c: c.update(workspace_id="not-a-uuid"),
-    lambda c: c.update(workspace_name="../operator"),
-    lambda c: c.update(ledger="/srv/workspaces/fixture/home/ledger"),
-    lambda c: c["runtime"].update(rootfs="/srv/images/../fixture"),
-    lambda c: c["runtime"].update(rootfs="/srv//fixture"),
-    lambda c: c["runtime"].update(home=c["runtime"]["rootfs"]),
-    lambda c: c["runtime"].update(shared_tools=c["runtime"]["home"] + "/tools"),
-    lambda c: c["runtime"].update(image_digest="unknown"),
-    lambda c: c["runtime"].update(tool_entrypoints=[["/bin/sh", "a" * 64]]),
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda c: c.update(schema_version=True),
+        lambda c: c.update(argv=["/bin/sh"]),
+        lambda c: c.update(agent_ids=[]),
+        lambda c: c.update(agent_ids=[c["agent_ids"][0]] * 2),
+        lambda c: c.update(agent_ids=[str(uuid4()) for _ in range(5)]),
+        lambda c: c.update(workspace_id="not-a-uuid"),
+        lambda c: c.update(workspace_name="../operator"),
+        lambda c: c.update(ledger="/srv/workspaces/fixture/home/ledger"),
+        lambda c: c["runtime"].update(rootfs="/srv/images/../fixture"),
+        lambda c: c["runtime"].update(rootfs="/srv//fixture"),
+        lambda c: c["runtime"].update(home=c["runtime"]["rootfs"]),
+        lambda c: c["runtime"].update(shared_tools=c["runtime"]["home"] + "/tools"),
+        lambda c: c["runtime"].update(image_digest="unknown"),
+        lambda c: c["runtime"].update(tool_entrypoints=[["/bin/sh", "a" * 64]]),
+    ],
+)
 def test_policy_rejects_scope_expansion(mutation):
     value = config()
     mutation(value)
@@ -68,8 +86,10 @@ def test_policy_rejects_scope_expansion(mutation):
         acceptance.policy(value)
 
 
-@pytest.mark.parametrize("raw", [b'{}{}', b'[]', b'{"x":1,"x":2}',
-                                b'{"x":NaN}', b'{"x":Infinity}', b'\xff', b' ' * 65537])
+@pytest.mark.parametrize(
+    "raw",
+    [b"{}{}", b"[]", b'{"x":1,"x":2}', b'{"x":NaN}', b'{"x":Infinity}', b"\xff", b" " * 65537],
+)
 def test_json_rejects_ambiguous_or_unbounded_documents(raw):
     with pytest.raises(ValueError):
         acceptance.unique_json(raw)
@@ -78,9 +98,18 @@ def test_json_rejects_ambiguous_or_unbounded_documents(raw):
 def valid_probe():
     run, nonce = str(uuid4()), "c" * 64
     value = {
-        "nonce": nonce, "invocation_id": run, "mode": "inspect",
-        "observation": {"uid": 420, "gid": 69, "pid": 3, "cwd": "/home/agent",
-                        "root_readonly": True, "inet_denied": True, "inet6_denied": True},
+        "nonce": nonce,
+        "invocation_id": run,
+        "mode": "inspect",
+        "observation": {
+            "uid": 420,
+            "gid": 69,
+            "pid": 3,
+            "cwd": "/home/agent",
+            "root_readonly": True,
+            "inet_denied": True,
+            "inet6_denied": True,
+        },
     }
     expected = dict(nonce=nonce, run_id=run, uid=420, gid=69, guest_cwd="/home/agent")
     return value, expected
@@ -91,20 +120,23 @@ def test_probe_binds_nonce_run_identity_and_boundary_observations():
     assert acceptance.check_probe(value, **expected)["uid"] == 420
 
 
-@pytest.mark.parametrize("mutation", [
-    lambda v: v.update(nonce="d" * 64),
-    lambda v: v.update(invocation_id=str(uuid4())),
-    lambda v: v.update(mode="wire_only"),
-    lambda v: v.update(observation=None),
-    lambda v: v["observation"].update(uid=0),
-    lambda v: v["observation"].update(pid=True),
-    lambda v: v["observation"].update(gid=True),
-    lambda v: v["observation"].update(cwd="/home/another-agent"),
-    lambda v: v["observation"].update(root_readonly=False),
-    lambda v: v["observation"].update(inet_denied=1),
-    lambda v: v["observation"].update(inet6_denied=False),
-    lambda v: v["observation"].update(extra="unadmitted"),
-])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda v: v.update(nonce="d" * 64),
+        lambda v: v.update(invocation_id=str(uuid4())),
+        lambda v: v.update(mode="wire_only"),
+        lambda v: v.update(observation=None),
+        lambda v: v["observation"].update(uid=0),
+        lambda v: v["observation"].update(pid=True),
+        lambda v: v["observation"].update(gid=True),
+        lambda v: v["observation"].update(cwd="/home/another-agent"),
+        lambda v: v["observation"].update(root_readonly=False),
+        lambda v: v["observation"].update(inet_denied=1),
+        lambda v: v["observation"].update(inet6_denied=False),
+        lambda v: v["observation"].update(extra="unadmitted"),
+    ],
+)
 def test_probe_rejects_missing_replayed_or_unconfined_responses(mutation):
     value, expected = valid_probe()
     mutation(value)
@@ -113,16 +145,31 @@ def test_probe_rejects_missing_replayed_or_unconfined_responses(mutation):
 
 
 def process():
-    return SimpleNamespace(dispatched=True, processes_stopped=True, outcome="completed",
-                           exit_code=0, stdout_truncated=False, stderr_truncated=False,
-                           isolation_identity="unit-synthetic-isolation")
+    return SimpleNamespace(
+        dispatched=True,
+        processes_stopped=True,
+        outcome="completed",
+        exit_code=0,
+        stdout_truncated=False,
+        stderr_truncated=False,
+        isolation_identity="unit-synthetic-isolation",
+    )
 
 
-@pytest.mark.parametrize("field,value", [
-    ("dispatched", False), ("processes_stopped", False), ("processes_stopped", 1),
-    ("outcome", "inconclusive"), ("exit_code", False), ("exit_code", 1),
-    ("stdout_truncated", True), ("stderr_truncated", True), ("isolation_identity", ""),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("dispatched", False),
+        ("processes_stopped", False),
+        ("processes_stopped", 1),
+        ("outcome", "inconclusive"),
+        ("exit_code", False),
+        ("exit_code", 1),
+        ("stdout_truncated", True),
+        ("stderr_truncated", True),
+        ("isolation_identity", ""),
+    ],
+)
 def test_process_requires_confirmed_bounded_success(field, value):
     result = process()
     setattr(result, field, value)
@@ -134,11 +181,20 @@ def test_process_valid_record():
     acceptance.check_process(process())
 
 
-@pytest.mark.parametrize("field,value", [
-    ("qualified", 1), ("workspaceId", str(uuid4())), ("runId", str(uuid4())),
-    ("identityKind", "principal"), ("tracedProcesses", 0), ("fileEvents", 0),
-    ("fileKeys", -1), ("cpuUsec", True), ("readBytes", None),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("qualified", 1),
+        ("workspaceId", str(uuid4())),
+        ("runId", str(uuid4())),
+        ("identityKind", "principal"),
+        ("tracedProcesses", 0),
+        ("fileEvents", 0),
+        ("fileKeys", -1),
+        ("cpuUsec", True),
+        ("readBytes", None),
+    ],
+)
 def test_audit_rejects_wrong_scope_and_unmeasured_counters(field, value):
     ws, run = str(uuid4()), str(uuid4())
     record = audit(ws, run)
@@ -152,15 +208,34 @@ def report_arguments():
     attempts = []
     for agent in agents:
         run = str(uuid4())
-        attempts.append({"agent_id": agent, "run_id": run, "qualified": True,
-                         "process_stopped": True, "audit": audit(ws, run),
-                         "isolation_sha256": "e" * 64,
-                         "registered_identity": {"uid": 420, "gid": 69},
-                         "observations": {"uid": 420, "gid": 69, "root_readonly": True,
-                                          "inet_denied": True, "inet6_denied": True}})
-    return dict(source_commit="a" * 40, source_hashes={acceptance.PROBE_SOURCE: "b" * 64},
-                image_digest="c" * 64, qualification_sha256="d" * 64,
-                probe_sha256="b" * 64, workspace_id=ws, agents=agents, attempts=attempts)
+        attempts.append(
+            {
+                "agent_id": agent,
+                "run_id": run,
+                "qualified": True,
+                "process_stopped": True,
+                "audit": audit(ws, run),
+                "isolation_sha256": "e" * 64,
+                "registered_identity": {"uid": 420, "gid": 69},
+                "observations": {
+                    "uid": 420,
+                    "gid": 69,
+                    "root_readonly": True,
+                    "inet_denied": True,
+                    "inet6_denied": True,
+                },
+            }
+        )
+    return dict(
+        source_commit="a" * 40,
+        source_hashes={acceptance.PROBE_SOURCE: "b" * 64},
+        image_digest="c" * 64,
+        qualification_sha256="d" * 64,
+        probe_sha256="b" * 64,
+        workspace_id=ws,
+        agents=agents,
+        attempts=attempts,
+    )
 
 
 def test_report_does_not_claim_browser_or_provenance_acceptance():
@@ -171,7 +246,9 @@ def test_report_does_not_claim_browser_or_provenance_acceptance():
     assert value["qualification"] == "registered_worker_transport_and_kernel_audit_only"
 
 
-@pytest.mark.parametrize("case", ["missing", "duplicate", "unconfirmed", "wrong-agent", "no-source"])
+@pytest.mark.parametrize(
+    "case", ["missing", "duplicate", "unconfirmed", "wrong-agent", "no-source"]
+)
 def test_report_requires_every_selected_attempt(case):
     args = report_arguments()
     if case == "missing":
@@ -282,8 +359,15 @@ def test_committed_source_check_rejects_dirty_diagnostic_bytes(tmp_path, monkeyp
 
     git("init", "-q")
     git("add", "probe.py")
-    git("-c", "user.name=S46 fixture", "-c", "user.email=fixture@example.invalid",
-        "commit", "-qm", "fixture")
+    git(
+        "-c",
+        "user.name=S46 fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        "commit",
+        "-qm",
+        "fixture",
+    )
     module = _runner_module()
     monkeypatch.setattr(module, "SOURCES", ("probe.py",))
     head, hashes = module.committed_sources(repo)
@@ -301,6 +385,10 @@ def test_live_runner_cannot_bypass_executor_or_provision_authority():
     calls = [node.func for node in ast.walk(tree) if isinstance(node, ast.Call)]
     names = {node.id for node in calls if isinstance(node, ast.Name)}
     methods = {node.attr for node in calls if isinstance(node, ast.Attribute)}
-    assert {"SandboxedCogExecutor", "SharedWorkspaceBubblewrapBackend",
-            "verify_gui_run", "validate_runtime_pin"} <= names
+    assert {
+        "SandboxedCogExecutor",
+        "SharedWorkspaceBubblewrapBackend",
+        "verify_gui_run",
+        "validate_runtime_pin",
+    } <= names
     assert not {"__new__", "pin_image", "provision", "reconcile"} & methods

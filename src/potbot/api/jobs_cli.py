@@ -262,10 +262,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             with database.transaction(context):
                 pass
             logger = EventLogger(
-                log_path=Path(os.environ["POTBOT_LOG_FILE"]) if os.environ.get("POTBOT_LOG_FILE") else None,
+                log_path=Path(os.environ["POTBOT_LOG_FILE"])
+                if os.environ.get("POTBOT_LOG_FILE")
+                else None,
                 log_content=os.environ.get("POTBOT_LOG_CONTENT") == "1",
                 protected_values=protected_values(database, ServiceCredentials())
-                                 if os.environ.get("POTBOT_LOG_CONTENT") == "1" else (),
+                if os.environ.get("POTBOT_LOG_CONTENT") == "1"
+                else (),
             )
             runner = HostedJobRunner(service, hosted_gateway(database, policy), logger=logger)
             if args.once:

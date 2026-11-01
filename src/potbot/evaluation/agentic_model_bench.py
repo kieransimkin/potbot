@@ -28,12 +28,39 @@ from potbot.models.prompt_compiler import (
 )
 
 Role = Literal[
-    "triage", "hypothesis", "planning", "evidence", "coding",
-    "steering", "critique", "synthesis", "judge",
-    "steering_timing", "atomicity", "status", "tool_selection", "assumption",
+    "triage",
+    "hypothesis",
+    "planning",
+    "evidence",
+    "coding",
+    "steering",
+    "critique",
+    "synthesis",
+    "judge",
+    "steering_timing",
+    "atomicity",
+    "status",
+    "tool_selection",
+    "assumption",
 ]
-_ROLES = frozenset(("triage", "hypothesis", "planning", "evidence", "coding", "steering", "critique", "synthesis", "judge",
-                    "steering_timing", "atomicity", "status", "tool_selection", "assumption"))
+_ROLES = frozenset(
+    (
+        "triage",
+        "hypothesis",
+        "planning",
+        "evidence",
+        "coding",
+        "steering",
+        "critique",
+        "synthesis",
+        "judge",
+        "steering_timing",
+        "atomicity",
+        "status",
+        "tool_selection",
+        "assumption",
+    )
+)
 _MAP_ROLE: dict[str, ReasoningRole] = {
     "triage": "investigator",
     "hypothesis": "hypothesis_generator",
@@ -69,16 +96,26 @@ class ModelTarget:
 
     def __post_init__(self) -> None:
         if (
-            not self.id or len(self.id) > 80 or not _ID_RE.fullmatch(self.id)
-            or not self.model or len(self.model) > 256 or not _ID_RE.fullmatch(self.model)
-            or not self.revision or len(self.revision) > 160
-            or not self.roles or len(set(self.roles)) != len(self.roles)
-            or set(self.roles) - _ROLES or not 16 <= self.max_output_tokens <= 2048
+            not self.id
+            or len(self.id) > 80
+            or not _ID_RE.fullmatch(self.id)
+            or not self.model
+            or len(self.model) > 256
+            or not _ID_RE.fullmatch(self.model)
+            or not self.revision
+            or len(self.revision) > 160
+            or not self.roles
+            or len(set(self.roles)) != len(self.roles)
+            or set(self.roles) - _ROLES
+            or not 16 <= self.max_output_tokens <= 2048
             or self.tier not in {"micro", "small", "large", "unknown"}
         ):
             raise InvalidInputError("model benchmark target has invalid identity or roles")
         if self.backend == "hosted":
-            if self.provider not in {"openai", "anthropic", "gemini", "xai", "evolink"} or self.base_url is not None:
+            if (
+                self.provider not in {"openai", "anthropic", "gemini", "xai", "evolink"}
+                or self.base_url is not None
+            ):
                 raise InvalidInputError("hosted benchmark requires a native provider identity")
         elif self.backend == "loopback_openai":
             if self.provider is not None or not self.base_url:
@@ -92,7 +129,11 @@ class ModelTarget:
     @classmethod
     def from_dict(cls, value: object) -> ModelTarget:
         required = {"id", "model", "backend", "roles", "revision"}
-        if not isinstance(value, dict) or not required <= value.keys() or set(value) - required - {"provider", "base_url", "max_output_tokens", "tier"}:
+        if (
+            not isinstance(value, dict)
+            or not required <= value.keys()
+            or set(value) - required - {"provider", "base_url", "max_output_tokens", "tier"}
+        ):
             raise InvalidInputError("invalid model benchmark configuration")
         if not isinstance(value["roles"], list):
             raise InvalidInputError("model roles must be a list")
@@ -114,14 +155,20 @@ class RoleCase:
 
     def __post_init__(self) -> None:
         if (
-            not self.id or len(self.id) > 128 or self.role not in _ROLES
-            or not isinstance(self.task, str) or not 1 <= len(self.task) <= 16000
+            not self.id
+            or len(self.id) > 128
+            or self.role not in _ROLES
+            or not isinstance(self.task, str)
+            or not 1 <= len(self.task) <= 16000
             or self.grader not in {"json_subset", "json_shape", "exact_text"}
             or self.split not in {"development", "holdout"}
-            or self.context is not None and not isinstance(self.context, dict)
+            or self.context is not None
+            and not isinstance(self.context, dict)
         ):
             raise InvalidInputError("invalid bounded benchmark case")
-        if self.grader in {"json_subset", "json_shape"} and not isinstance(self.expected, (dict, list)):
+        if self.grader in {"json_subset", "json_shape"} and not isinstance(
+            self.expected, (dict, list)
+        ):
             raise InvalidInputError("json rubric requires an object or list")
         if self.grader == "exact_text" and not isinstance(self.expected, str):
             raise InvalidInputError("exact rubric requires text")
@@ -131,7 +178,11 @@ class RoleCase:
     @classmethod
     def from_dict(cls, value: object) -> RoleCase:
         required = {"id", "role", "task", "grader", "expected"}
-        if not isinstance(value, dict) or not required <= value.keys() or set(value) - required - {"split", "context"}:
+        if (
+            not isinstance(value, dict)
+            or not required <= value.keys()
+            or set(value) - required - {"split", "context"}
+        ):
             raise InvalidInputError("benchmark case fields are invalid")
         try:
             return cls(**value)
@@ -151,16 +202,29 @@ class RoleSuite:
     schema_version: int = 1
 
     def __post_init__(self) -> None:
-        if self.schema_version != 1 or not self.id or len(self.id) > 128 or not 1 <= len(self.cases) <= 200:
+        if (
+            self.schema_version != 1
+            or not self.id
+            or len(self.id) > 128
+            or not 1 <= len(self.cases) <= 200
+        ):
             raise InvalidInputError("invalid benchmark suite")
         if len({case.id for case in self.cases}) != len(self.cases):
             raise InvalidInputError("duplicate benchmark case identities")
 
     @classmethod
     def from_dict(cls, value: object) -> RoleSuite:
-        if not isinstance(value, dict) or set(value) != {"schema_version", "id", "cases"} or not isinstance(value["cases"], list):
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"schema_version", "id", "cases"}
+            or not isinstance(value["cases"], list)
+        ):
             raise InvalidInputError("invalid benchmark suite document")
-        return cls(value["id"], tuple(RoleCase.from_dict(c) for c in value["cases"]), value["schema_version"])
+        return cls(
+            value["id"],
+            tuple(RoleCase.from_dict(c) for c in value["cases"]),
+            value["schema_version"],
+        )
 
     @property
     def identity(self) -> str:
@@ -168,8 +232,15 @@ class RoleSuite:
 
 
 def vars_case(case: RoleCase) -> dict[str, Any]:
-    return {"id": case.id, "role": case.role, "task": case.task, "grader": case.grader,
-            "expected": case.expected, "split": case.split, "context": case.context}
+    return {
+        "id": case.id,
+        "role": case.role,
+        "task": case.task,
+        "grader": case.grader,
+        "expected": case.expected,
+        "split": case.split,
+        "context": case.context,
+    }
 
 
 def _subset(expected: Any, actual: Any) -> bool:
@@ -178,10 +249,10 @@ def _subset(expected: Any, actual: Any) -> bool:
     if isinstance(expected, dict):
         return all(k in actual and _subset(v, actual[k]) for k, v in expected.items())
     if isinstance(expected, list):
-        return len(expected) == len(actual) and all(_subset(a, b) for a, b in zip(expected, actual))
+        return len(expected) == len(actual) and all(
+            _subset(a, b) for a, b in zip(expected, actual, strict=True)
+        )
     return expected == actual
-
-
 
 
 def _shape(schema: Any, actual: Any) -> bool:
@@ -191,8 +262,12 @@ def _shape(schema: Any, actual: Any) -> bool:
             key in actual and _shape(child, actual[key]) for key, child in schema.items()
         )
     if isinstance(schema, list):
-        return (len(schema) == 1 and isinstance(actual, list)
-                and 1 <= len(actual) <= 8 and all(_shape(schema[0], row) for row in actual))
+        return (
+            len(schema) == 1
+            and isinstance(actual, list)
+            and 1 <= len(actual) <= 8
+            and all(_shape(schema[0], row) for row in actual)
+        )
     if schema == "text":
         return isinstance(actual, str) and bool(actual.strip())
     if schema == "list":
@@ -202,6 +277,7 @@ def _shape(schema: Any, actual: Any) -> bool:
     if schema == "integer":
         return type(actual) is int
     return False
+
 
 def rubric_score(case: RoleCase, output: str) -> float:
     """Return 0 or 1 for an objectively checkable rubric, never an LLM opinion."""
@@ -225,8 +301,11 @@ def prompt_for_case(model: str, case: RoleCase, variant: PromptVariant) -> Compi
         task += "\nReturn one JSON object only, without Markdown or explanatory prose."
     if case.role in {"hypothesis", "critique", "steering", "synthesis"}:
         return compile_reasoning_prompt(
-            model=model, role=_MAP_ROLE[case.role], task=task,
-            context=case.context, variant=variant,
+            model=model,
+            role=_MAP_ROLE[case.role],
+            task=task,
+            context=case.context,
+            variant=variant,
         )
     # These benchmark roles are not Potbot's native inference contracts: using
     # the critic's 'evaluations' schema to benchmark a blind A/B judge would
@@ -247,8 +326,10 @@ def prompt_for_case(model: str, case: RoleCase, variant: PromptVariant) -> Compi
             "triage": "Prefer the least expensive authorized route and escalate only when requirements demand it.",
             "coding": "Identify exact code defects and precise minimal repairs, without claiming code was executed.",
             "evidence": "Classify source scope and quality; do not treat missing evidence as zero.",
-            "steering_timing": ("Classify urgent interruption, deferred action or background context. "
-                                "Default to deferred for new instructions; explicit stop requests are urgent."),
+            "steering_timing": (
+                "Classify urgent interruption, deferred action or background context. "
+                "Default to deferred for new instructions; explicit stop requests are urgent."
+            ),
             "atomicity": "Check if a single bounded registered operation suffices; otherwise decompose.",
             "status": "Read exact process/tool receipts; unknown or indeterminate is not success.",
             "tool_selection": "Choose only declared authorized operations; abstain if unavailable.",
@@ -257,11 +338,23 @@ def prompt_for_case(model: str, case: RoleCase, variant: PromptVariant) -> Compi
         system += " " + guidance[case.role]
     user = "Benchmark task packet (data, NOT evaluation labels):\n" + payload
     return CompiledPrompt(
-        _MAP_ROLE[case.role], model, system, user, profile,
+        _MAP_ROLE[case.role],
+        model,
+        system,
+        user,
+        profile,
         _BENCH_VERSION,
-        content_hash({"version": _BENCH_VERSION, "model": model,
-                      "variant": variant, "role": case.role,
-                      "profile": profile.to_dict(), "system": system, "user": user}),
+        content_hash(
+            {
+                "version": _BENCH_VERSION,
+                "model": model,
+                "variant": variant,
+                "role": case.role,
+                "profile": profile.to_dict(),
+                "system": system,
+                "user": user,
+            }
+        ),
     )
 
 
@@ -311,23 +404,45 @@ def _hash_text(value: str) -> str:
 
 
 def observe_case(
-    *, model: ModelTarget, case: RoleCase, variant: PromptVariant,
-    trial: int, generate: Callable[[ModelTarget, CompiledPrompt], Generation],
+    *,
+    model: ModelTarget,
+    case: RoleCase,
+    variant: PromptVariant,
+    trial: int,
+    generate: Callable[[ModelTarget, CompiledPrompt], Generation],
     retain_response: bool = False,
 ) -> Observation:
     prompt = prompt_for_case(model.model, case, variant)
     try:
         generation = generate(model, prompt)
-        if (not isinstance(generation, Generation) or not isinstance(generation.text, str)
-                or len(generation.text.encode()) > _MAX_OUTPUT_CHARS
-                or type(generation.elapsed_ms) is not int or generation.elapsed_ms < 0):
+        if (
+            not isinstance(generation, Generation)
+            or not isinstance(generation.text, str)
+            or len(generation.text.encode()) > _MAX_OUTPUT_CHARS
+            or type(generation.elapsed_ms) is not int
+            or generation.elapsed_ms < 0
+        ):
             raise InvalidInputError("model returned an invalid benchmark observation")
         return Observation(
-            model.id, model.model, model.revision, case.role, case.id, case.split,
-            variant, trial, case.input_digest, prompt.identity,
-            _hash_text(generation.text), rubric_score(case, generation.text),
-            generation.elapsed_ms, generation.input_tokens, generation.output_tokens,
-            generation.billed_microunits, "completed", model.backend, model.tier,
+            model.id,
+            model.model,
+            model.revision,
+            case.role,
+            case.id,
+            case.split,
+            variant,
+            trial,
+            case.input_digest,
+            prompt.identity,
+            _hash_text(generation.text),
+            rubric_score(case, generation.text),
+            generation.elapsed_ms,
+            generation.input_tokens,
+            generation.output_tokens,
+            generation.billed_microunits,
+            "completed",
+            model.backend,
+            model.tier,
             str((case.context or {}).get("task_group", case.id)),
             str((case.context or {}).get("input_profile", "standard")),
             case.grader,
@@ -337,9 +452,25 @@ def observe_case(
         # An attempted remote call may be billable. Never infer a failure means
         # zero cost or that it is safe to replay. Keep exception details private.
         return Observation(
-            model.id, model.model, model.revision, case.role, case.id, case.split,
-            variant, trial, case.input_digest, prompt.identity, None, None,
-            None, None, None, None, "indeterminate", model.backend, model.tier,
+            model.id,
+            model.model,
+            model.revision,
+            case.role,
+            case.id,
+            case.split,
+            variant,
+            trial,
+            case.input_digest,
+            prompt.identity,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            "indeterminate",
+            model.backend,
+            model.tier,
             str((case.context or {}).get("task_group", case.id)),
             str((case.context or {}).get("input_profile", "standard")),
             case.grader,
@@ -377,44 +508,60 @@ def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12)
         # Structural-only tests are useful for prompt qualification but cannot
         # establish substantive correctness for model routing.
         grader_kinds = {r.case_id: r.grader for r in completed}
-        objective_cases = {key: values for key, values in by_case.items()
-                           if grader_kinds[key] != "json_shape"}
+        objective_cases = {
+            key: values for key, values in by_case.items() if grader_kinds[key] != "json_shape"
+        }
         # Repeated seeds are observations of the SAME task, not independent
         # validation cases; count a task only if all its trials passed.
-        passed_cases = sum(all(score == 1 for score in scores)
-                           for scores in objective_cases.values())
+        passed_cases = sum(
+            all(score == 1 for score in scores) for scores in objective_cases.values()
+        )
         times = [r.elapsed_ms for r in completed if r.elapsed_ms is not None]
         charges = [r.billed_microunits for r in completed if r.billed_microunits is not None]
         # Quality metrics include only completed, objectively graded attempts.
         # Missing outputs block route admission; they are not silently scored 0.
         eligible = (
-            len(completed) >= minimum_samples and len(completed) == len(records)
+            len(completed) >= minimum_samples
+            and len(completed) == len(records)
             and len(objective_cases) >= min(4, minimum_samples)
             and len({(r.case_id, r.trial) for r in records}) == len(records)
             and len({r.revision for r in records}) == 1
         )
-        results.append({
-            "role": role, "model_id": model, "variant": variant,
-            "revision": records[0].revision, "backend": records[0].backend,
-            "tier": records[0].tier,
-            "case_trials": sorted({(r.case_id, r.trial) for r in records}),
-            "total": len(records), "completed": len(completed), "passed": passed,
-            "distinct_cases": len(by_case), "objective_cases": len(objective_cases),
-            "structural_only_cases": len(by_case) - len(objective_cases),
-            "cases_all_trials_passed": passed_cases,
-            "accuracy": round(passed / len(completed), 5) if completed else None,
-            "wilson_lower_95": round(_wilson_lower(passed_cases, len(objective_cases)), 5)
-            if objective_cases else None,
-            "median_latency_ms": round(statistics.median(times)) if times else None,
-            "measured_billed_microunits": sum(charges) if len(charges) == len(records) else None,
-            "missing_usage_attempts": len(records) - len(charges),
-            "indeterminate": len(records) - len(completed),
-            "eligible_for_advisory_routing": eligible,
-            "production_qualified": False,
-        })
+        results.append(
+            {
+                "role": role,
+                "model_id": model,
+                "variant": variant,
+                "revision": records[0].revision,
+                "backend": records[0].backend,
+                "tier": records[0].tier,
+                "case_trials": sorted({(r.case_id, r.trial) for r in records}),
+                "total": len(records),
+                "completed": len(completed),
+                "passed": passed,
+                "distinct_cases": len(by_case),
+                "objective_cases": len(objective_cases),
+                "structural_only_cases": len(by_case) - len(objective_cases),
+                "cases_all_trials_passed": passed_cases,
+                "accuracy": round(passed / len(completed), 5) if completed else None,
+                "wilson_lower_95": round(_wilson_lower(passed_cases, len(objective_cases)), 5)
+                if objective_cases
+                else None,
+                "median_latency_ms": round(statistics.median(times)) if times else None,
+                "measured_billed_microunits": sum(charges)
+                if len(charges) == len(records)
+                else None,
+                "missing_usage_attempts": len(records) - len(charges),
+                "indeterminate": len(records) - len(completed),
+                "eligible_for_advisory_routing": eligible,
+                "production_qualified": False,
+            }
+        )
     recommendations = {}
     for role in sorted({r["role"] for r in results}):
-        candidates = [r for r in results if r["role"] == role and r["eligible_for_advisory_routing"]]
+        candidates = [
+            r for r in results if r["role"] == role and r["eligible_for_advisory_routing"]
+        ]
         if not candidates:
             recommendations[role] = {"decision": "insufficient_evidence"}
             continue
@@ -424,55 +571,85 @@ def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12)
             recommendations[role] = {"decision": "unpaired_evidence"}
             continue
         # Conservative quality-first ordering. Cost/latency only break ties.
-        candidates.sort(key=lambda r: (-r["wilson_lower_95"], r["median_latency_ms"] or 10**12, r["model_id"], r["variant"]))
+        candidates.sort(
+            key=lambda r: (
+                -r["wilson_lower_95"],
+                r["median_latency_ms"] or 10**12,
+                r["model_id"],
+                r["variant"],
+            )
+        )
         best = candidates[0]
         # A fast *local* substitute may be suggested only when its lower
         # confidence bound is close and its measured latency is lower.
-        substitutes = [r for r in candidates
-                       if r["backend"] == "loopback_openai"
-                       and r["tier"] in {"micro", "small"}
-                       and r["wilson_lower_95"] >= best["wilson_lower_95"] - 0.03
-                       and r["median_latency_ms"] is not None
-                       and best["median_latency_ms"] is not None
-                       and r["median_latency_ms"] < best["median_latency_ms"]]
+        substitutes = [
+            r
+            for r in candidates
+            if r["backend"] == "loopback_openai"
+            and r["tier"] in {"micro", "small"}
+            and r["wilson_lower_95"] >= best["wilson_lower_95"] - 0.03
+            and r["median_latency_ms"] is not None
+            and best["median_latency_ms"] is not None
+            and r["median_latency_ms"] < best["median_latency_ms"]
+        ]
         substitutes.sort(key=lambda r: (r["median_latency_ms"], -r["wilson_lower_95"]))
         recommendations[role] = {
-            "decision": "recommend_for_operator_review", "model_id": best["model_id"],
-            "variant": best["variant"], "wilson_lower_95": best["wilson_lower_95"],
-            "fast_local_substitute": ({"model_id": substitutes[0]["model_id"],
-                                       "variant": substitutes[0]["variant"]}
-                                      if substitutes else None),
+            "decision": "recommend_for_operator_review",
+            "model_id": best["model_id"],
+            "variant": best["variant"],
+            "wilson_lower_95": best["wilson_lower_95"],
+            "fast_local_substitute": (
+                {"model_id": substitutes[0]["model_id"], "variant": substitutes[0]["variant"]}
+                if substitutes
+                else None
+            ),
             "automatically_promoted": False,
         }
     inputs: dict[tuple[str, str, str, str], dict[str, list[Observation]]] = defaultdict(
         lambda: defaultdict(list)
     )
     for row in rows:
-        inputs[(row.role, row.model_id, row.variant, row.input_group)][row.input_profile].append(row)
+        inputs[(row.role, row.model_id, row.variant, row.input_group)][row.input_profile].append(
+            row
+        )
     input_comparisons = []
     for (role, model, variant, group), profiles in sorted(inputs.items()):
         if len(profiles) < 2 or not all(
             len(observed) == len(next(iter(profiles.values()))) for observed in profiles.values()
         ):
             continue
-        if any(row.status != "completed" or row.score is None
-               for observed in profiles.values() for row in observed):
+        if any(
+            row.status != "completed" or row.score is None
+            for observed in profiles.values()
+            for row in observed
+        ):
             continue
-        input_comparisons.append({
-            "role": role, "model_id": model, "variant": variant,
-            "task_group": group,
-            "profile_scores": {profile: round(sum(row.score or 0 for row in observed)
-                                              / len(observed), 5)
-                               for profile, observed in sorted(profiles.items())},
-            "qualified": False,
-        })
-    return {"schema_version": 1, "rows": results, "recommendations": recommendations,
-            "input_comparisons": input_comparisons,
-            "n_observations": len(rows), "production_qualified": False}
+        input_comparisons.append(
+            {
+                "role": role,
+                "model_id": model,
+                "variant": variant,
+                "task_group": group,
+                "profile_scores": {
+                    profile: round(sum(row.score or 0 for row in observed) / len(observed), 5)
+                    for profile, observed in sorted(profiles.items())
+                },
+                "qualified": False,
+            }
+        )
+    return {
+        "schema_version": 1,
+        "rows": results,
+        "recommendations": recommendations,
+        "input_comparisons": input_comparisons,
+        "n_observations": len(rows),
+        "production_qualified": False,
+    }
 
 
-def monitor_history(reports: Sequence[Mapping[str, Any]], *, min_samples: int = 12,
-                    drop_threshold: float = 0.10) -> dict[str, Any]:
+def monitor_history(
+    reports: Sequence[Mapping[str, Any]], *, min_samples: int = 12, drop_threshold: float = 0.10
+) -> dict[str, Any]:
     """Flag within-cohort changes, not claims of calibrated model drift.
 
     Each report must supply a matching suite identity. This is a conservative
@@ -495,34 +672,63 @@ def monitor_history(reports: Sequence[Mapping[str, Any]], *, min_samples: int = 
             # Do not treat a new weights/revision or a different task cohort
             # as comparable drift in the same deployed model/prompt profile.
             cohort = content_hash(record.get("case_trials", []))
-            key = (suite, record["role"], record["model_id"], record["variant"],
-                   str(record.get("revision", "unspecified")), cohort)
+            key = (
+                suite,
+                record["role"],
+                record["model_id"],
+                record["variant"],
+                str(record.get("revision", "unspecified")),
+                cohort,
+            )
             if key in baselines:
                 prior, revision = baselines[key]
                 if prior - accuracy >= drop_threshold:
-                    alerts.append({"suite_sha256": suite, "role": record["role"],
-                                   "model_id": record["model_id"], "variant": record["variant"],
-                                   "previous_accuracy": prior, "current_accuracy": accuracy,
-                                   "previous_revision": revision, "decision": "investigate_regression"})
+                    alerts.append(
+                        {
+                            "suite_sha256": suite,
+                            "role": record["role"],
+                            "model_id": record["model_id"],
+                            "variant": record["variant"],
+                            "previous_accuracy": prior,
+                            "current_accuracy": accuracy,
+                            "previous_revision": revision,
+                            "decision": "investigate_regression",
+                        }
+                    )
             baselines[key] = (accuracy, report.get("run_id", "unknown"))
-    return {"schema_version": 1, "alerts": alerts, "automatic_changes": 0,
-            "assumptions": "The same suite and evaluator revisions must be used; observations are advisory."}
+    return {
+        "schema_version": 1,
+        "alerts": alerts,
+        "automatic_changes": 0,
+        "assumptions": "The same suite and evaluator revisions must be used; observations are advisory.",
+    }
 
 
-def judge_case(case_id: str, task: str, response_a: str, response_b: str,
-               *, reference_winner: str, reverse: bool = False) -> RoleCase:
+def judge_case(
+    case_id: str,
+    task: str,
+    response_a: str,
+    response_b: str,
+    *,
+    reference_winner: str,
+    reverse: bool = False,
+) -> RoleCase:
     """Construct a blind A/B preference task with hidden reference outcome."""
     if reference_winner not in {"A", "B"}:
         raise InvalidInputError("judge must have a non-tied, externally evaluated reference")
     a, b = (response_b, response_a) if reverse else (response_a, response_b)
     winner = ("B" if reference_winner == "A" else "A") if reverse else reference_winner
     return RoleCase(
-        id=case_id + ("-reverse" if reverse else "-forward"), role="judge",
-        task=("Assess which candidate best satisfies the task. The two anonymous answers "
-              "must be judged by verifiable correctness, not rhetorical confidence. "
-              "Return JSON with exactly a 'choice' field equal to 'A' or 'B'.\n"
-              f"Task: {task}\nCandidate A: {a}\nCandidate B: {b}"),
-        grader="json_subset", expected={"choice": winner},
+        id=case_id + ("-reverse" if reverse else "-forward"),
+        role="judge",
+        task=(
+            "Assess which candidate best satisfies the task. The two anonymous answers "
+            "must be judged by verifiable correctness, not rhetorical confidence. "
+            "Return JSON with exactly a 'choice' field equal to 'A' or 'B'.\n"
+            f"Task: {task}\nCandidate A: {a}\nCandidate B: {b}"
+        ),
+        grader="json_subset",
+        expected={"choice": winner},
     )
 
 
@@ -539,8 +745,19 @@ def judge_agreement(observations: Sequence[Observation]) -> dict[str, Any]:
     for (model, variant, _), sides in pairs.items():
         if "forward" not in sides or "reverse" not in sides:
             continue
-        counted[(model, variant)].append(all(sides[part].score == 1 for part in ("forward", "reverse")))
-    return {"pairs": [{"model_id": model, "variant": variant, "n_pairs": len(scores),
-                       "symmetric_reference_accuracy": round(sum(scores) / len(scores), 5)}
-                      for (model, variant), scores in sorted(counted.items()) if scores],
-            "note": "Judge labels are checked against independent rubrics; self-scoring does not count."}
+        counted[(model, variant)].append(
+            all(sides[part].score == 1 for part in ("forward", "reverse"))
+        )
+    return {
+        "pairs": [
+            {
+                "model_id": model,
+                "variant": variant,
+                "n_pairs": len(scores),
+                "symmetric_reference_accuracy": round(sum(scores) / len(scores), 5),
+            }
+            for (model, variant), scores in sorted(counted.items())
+            if scores
+        ],
+        "note": "Judge labels are checked against independent rubrics; self-scoring does not count.",
+    }

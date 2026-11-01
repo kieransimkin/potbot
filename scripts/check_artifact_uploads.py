@@ -135,7 +135,8 @@ def check(evidence: dict) -> dict:
     )
     events = evidence["events"]
     control_plane = check_control_plane_report(
-        evidence.get("control_plane"), events,
+        evidence.get("control_plane"),
+        events,
         required_cogs={str(signature.cog_ref) for signature in UPLOAD_COGS},
         allowed_cogs={str(signature.cog_ref) for signature in (*UPLOAD_COGS, OPEN_READ, READ)},
     )

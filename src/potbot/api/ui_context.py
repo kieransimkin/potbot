@@ -4,6 +4,7 @@ Installed by the API owner, never by a sandbox worker. All information and
 mutation requests are checked using Potbot's PostgreSQL workspace RLS and
 existing context CAS/write-grant machinery. No host paths or DB DSNs leak.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,6 +24,7 @@ from potbot.domain.errors import InvalidInputError, RevisionConflictError, Scope
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
     from potbot.persistence.database import Database
 
 _HEADERS = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"}
@@ -84,9 +86,11 @@ async def _json_small(request: Request, max_bytes: int = 8192) -> dict[str, Any]
 
 
 def register_context_routes(
-    app: FastAPI, database: Database,
+    app: FastAPI,
+    database: Database,
     authenticate: Callable[[str | None], WorkspaceContext],
-    allowed_origins: tuple[str, ...], workspace_id: UUID,
+    allowed_origins: tuple[str, ...],
+    workspace_id: UUID,
 ) -> None:
     inspector = ContextHistoryInspector(WorkspaceContextService(database))
 
@@ -111,14 +115,19 @@ def register_context_routes(
         # Read the text separately but require the same revision and digest;
         # concurrent writes fail closed instead of returning a mixed snapshot.
         current = await run_in_threadpool(inspector.service.read, actor, *target)
-        if (current["revision"] != result["revision"] or
-                current["sha256"] != result["sha256"]):
+        if current["revision"] != result["revision"] or current["sha256"] != result["sha256"]:
             raise RevisionConflictError("Context changed while reading; retry")
         raw = current["content"].encode("utf-8")
         preview = raw[:262144].decode("utf-8", errors="ignore")
-        return JSONResponse({"schema": "potbot-ui-context/v1", **result,
-                             "content": preview, "truncated": len(raw) > 262144},
-                            headers=_HEADERS)
+        return JSONResponse(
+            {
+                "schema": "potbot-ui-context/v1",
+                **result,
+                "content": preview,
+                "truncated": len(raw) > 262144,
+            },
+            headers=_HEADERS,
+        )
 
     @app.get("/v1/ui/context/diff")
     async def context_diff(request: Request) -> JSONResponse:
@@ -130,7 +139,9 @@ def register_context_routes(
             raise InvalidInputError("Diff requires committed revisions")
         actor = authorized(request)
         result = await run_in_threadpool(inspector.diff, actor, *target, before, after)
-        return JSONResponse({"schema": "potbot-ui-context-diff/v1", "diff": result}, headers=_HEADERS)
+        return JSONResponse(
+            {"schema": "potbot-ui-context-diff/v1", "diff": result}, headers=_HEADERS
+        )
 
     @app.get("/v1/ui/context/events")
     async def context_events(request: Request) -> JSONResponse:
@@ -140,28 +151,50 @@ def register_context_routes(
         if limit < 1:
             raise InvalidInputError("Context event limit must be positive")
         actor = authorized(request)
-        events = await run_in_threadpool(inspector.service.events, actor, after_id=after, limit=limit)
-        return JSONResponse({"schema": "potbot-ui-context-events/v1", "events": events}, headers=_HEADERS)
+        events = await run_in_threadpool(
+            inspector.service.events, actor, after_id=after, limit=limit
+        )
+        return JSONResponse(
+            {"schema": "potbot-ui-context-events/v1", "events": events}, headers=_HEADERS
+        )
 
     @app.post("/v1/ui/context/restore")
     async def context_restore(request: Request) -> JSONResponse:
         actor = authorized(request)
         body = await _json_small(request)
-        required = {"kind", "name", "role", "source_revision", "expected_revision",
-                    "idempotency_key", "confirm"}
+        required = {
+            "kind",
+            "name",
+            "role",
+            "source_revision",
+            "expected_revision",
+            "idempotency_key",
+            "confirm",
+        }
         if set(body) not in (required, required | {"reason"}) or body["confirm"] is not True:
             raise InvalidInputError("Restore requires an exact confirmed request")
         target = _target(body)
         before, expected = body["source_revision"], body["expected_revision"]
         key = body["idempotency_key"]
         reason = body.get("reason", "operator-reviewed context restore")
-        if (type(before) is not int or before < 1 or type(expected) is not int or expected < 1
-                or not isinstance(key, str) or not 1 <= len(key) <= 128
-                or not isinstance(reason, str) or len(reason) > 900):
+        if (
+            type(before) is not int
+            or before < 1
+            or type(expected) is not int
+            or expected < 1
+            or not isinstance(key, str)
+            or not 1 <= len(key) <= 128
+            or not isinstance(reason, str)
+            or len(reason) > 900
+        ):
             raise InvalidInputError("Invalid context restore preconditions")
         result = await run_in_threadpool(
-            inspector.restore, actor, *target,
-            source_revision=before, expected_revision=expected,
-            idempotency_key=key, reason=reason,
+            inspector.restore,
+            actor,
+            *target,
+            source_revision=before,
+            expected_revision=expected,
+            idempotency_key=key,
+            reason=reason,
         )
         return JSONResponse({"schema": "potbot-ui-context-restored/v1", **result}, headers=_HEADERS)

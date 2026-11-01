@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Real, read-only local operator socket qualification. Not an OS escape test."""
+
 from __future__ import annotations
 
 import argparse
@@ -26,20 +27,23 @@ def main() -> int:
         ):
             raise ValueError("Qualification receipts must be controller-private")
         client = OperatorAttachmentClient(
-            socket_path=args.socket_path, workspace_id=paths.workspace_id,
+            socket_path=args.socket_path,
+            workspace_id=paths.workspace_id,
             image_digest=paths.image_digest,
             qualification_sha256=paths.qualification_sha256,
             mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
         )
         status = client.require_healthy()
-        report = {"schema": "potbot-s13-live-local-attachment/v1",
-                  "workspaceId": str(paths.workspace_id),
-                  "imageDigest": paths.image_digest,
-                  "epoch": status["epoch"],
-                  "watcherHealthy": status["history_healthy"],
-                  "releaseGatesPending": status["pending_release_gates"],
-                  "readOnlyProbe": True,
-                  "warning": "A live Unix socket check is not adversarial OS sandbox qualification"}
+        report = {
+            "schema": "potbot-s13-live-local-attachment/v1",
+            "workspaceId": str(paths.workspace_id),
+            "imageDigest": paths.image_digest,
+            "epoch": status["epoch"],
+            "watcherHealthy": status["history_healthy"],
+            "releaseGatesPending": status["pending_release_gates"],
+            "readOnlyProbe": True,
+            "warning": "A live Unix socket check is not adversarial OS sandbox qualification",
+        }
         report["sha256"] = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
         if args.report.is_symlink():
             raise ValueError("Qualification report destination may not be redirected")

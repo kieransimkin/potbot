@@ -33,9 +33,14 @@ def test_operator_root_and_base_exact_distinct_paths(real_hdwallet):
     assert bytes(root.public_key) == values["root_public"]
     assert bytes(base.public_key) == values["base_public"]
     assert root.public_key != base.public_key
-    assert hashlib.sha256(bytes(base.public_key)).digest() != hashlib.sha256(bytes(root.public_key)).digest()
+    assert (
+        hashlib.sha256(bytes(base.public_key)).digest()
+        != hashlib.sha256(bytes(root.public_key)).digest()
+    )
     for node, tag in ((root, b"root"), (base, b"base")):
-        signer = signing_cls(bytes(node.xprivate_key) + bytes(node.public_key) + bytes(node.chain_code))
+        signer = signing_cls(
+            bytes(node.xprivate_key) + bytes(node.public_key) + bytes(node.chain_code)
+        )
         message = b"SYN v2 derived-key path qualification/" + tag
         Ed25519PublicKey.from_public_bytes(bytes(node.public_key)).verify(
             signer.sign(message), message
@@ -51,9 +56,9 @@ def test_eight_independent_hd_leaf_signatures(real_hdwallet, inheritance):
         node = wallet.derive_from_path(path)
         public = bytes(node.public_key)
         assert len(public) == 32
-        signature = signing_cls(
-            bytes(node.xprivate_key) + public + bytes(node.chain_code)
-        ).sign(b"SYN inherited-key path/public-only qualification")
+        signature = signing_cls(bytes(node.xprivate_key) + public + bytes(node.chain_code)).sign(
+            b"SYN inherited-key path/public-only qualification"
+        )
         Ed25519PublicKey.from_public_bytes(public).verify(
             signature, b"SYN inherited-key path/public-only qualification"
         )

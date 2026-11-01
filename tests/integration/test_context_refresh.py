@@ -1,4 +1,5 @@
 """Real PostgreSQL snapshot refresh requires disposable POTBOT_TEST_DSN."""
+
 from uuid import UUID, uuid4
 
 import pytest
@@ -24,11 +25,22 @@ def test_refresh_uses_new_revision_without_mutating_previous_snapshot(app_env, t
     old_bytes = (previous.directory / "MODEL.md").read_bytes()
     document = store.read(principal, "sandbox", name, "MODEL.md")
     with admin_connection(app_env.admin_dsn, app_env.schema) as connection:
-        grant_shared_context_writer(connection, principal.workspace_id, UUID(document["object_id"]),
-                                    principal.principal_id, ("MODEL.md",))
-    changed = store.update(principal, "sandbox", name, "MODEL.md",
-                           content="# Snapshot two\n\nVerified.\n",
-                           expected_revision=document["revision"], idempotency_key=uuid4().hex)
+        grant_shared_context_writer(
+            connection,
+            principal.workspace_id,
+            UUID(document["object_id"]),
+            principal.principal_id,
+            ("MODEL.md",),
+        )
+    changed = store.update(
+        principal,
+        "sandbox",
+        name,
+        "MODEL.md",
+        content="# Snapshot two\n\nVerified.\n",
+        expected_revision=document["revision"],
+        idempotency_key=uuid4().hex,
+    )
     assert inspector.freshness(principal, "sandbox", name, previous).stale is True
     updated = manager.capture()
     assert updated.revisions[1] == changed["revision"]

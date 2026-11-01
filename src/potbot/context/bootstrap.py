@@ -3,6 +3,7 @@
 Only the *admin* provisioning or migration code calls this. It never accepts
 agent-supplied instructions and never overwrites already-committed documents.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -111,7 +112,10 @@ def seed_shared_context(connection: Any, workspace_id: UUID, kind: str, name: st
 
 
 def grant_shared_context_writer(
-    connection: Any, workspace_id: UUID, object_id: UUID, principal_id: UUID,
+    connection: Any,
+    workspace_id: UUID,
+    object_id: UUID,
+    principal_id: UUID,
     roles: tuple[str, ...],
 ) -> None:
     """Admin-only explicit grant for shared object document roles.
@@ -141,7 +145,10 @@ def grant_shared_context_writer(
 
 
 def revoke_shared_context_writer(
-    connection: Any, workspace_id: UUID, object_id: UUID, principal_id: UUID,
+    connection: Any,
+    workspace_id: UUID,
+    object_id: UUID,
+    principal_id: UUID,
     roles: tuple[str, ...],
 ) -> None:
     """Admin-only grant revocation, immediately effective on new SQL statements."""

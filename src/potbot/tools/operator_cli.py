@@ -16,24 +16,43 @@ import signal
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
+from potbot.domain.errors import (
+    CapabilityUnavailableError,
+    InvalidInputError,
+    ScopeDeniedError,
+    StateMismatchError,
+)
 
 if TYPE_CHECKING:
     from potbot.context.projection import ContextProjectionManager
     from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
 
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
-_FIELDS = frozenset({"workspace_id", "image_digest", "qualification_sha256", "rootfs",
-                     "home", "model_staging", "shared_models", "shared_tools", "ai_config_dir",
-                     "ai_history_dir", "controller_ledger"})
-_ENTRYPOINT = re.compile(r"/usr/local/tools/[a-z][a-z0-9-]{1,62}/(?:environment|static)/[A-Za-z0-9_./+-]{1,220}\Z")
+_FIELDS = frozenset(
+    {
+        "workspace_id",
+        "image_digest",
+        "qualification_sha256",
+        "rootfs",
+        "home",
+        "model_staging",
+        "shared_models",
+        "shared_tools",
+        "ai_config_dir",
+        "ai_history_dir",
+        "controller_ledger",
+    }
+)
+_ENTRYPOINT = re.compile(
+    r"/usr/local/tools/[a-z][a-z0-9-]{1,62}/(?:environment|static)/[A-Za-z0-9_./+-]{1,220}\Z"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,9 +74,14 @@ class OperatorPaths:
         from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
 
         return SharedWorkspaceRuntime(
-            self.image_digest, self.rootfs, self.home, self.qualification_sha256,
-            model_staging=self.model_staging, shared_models=self.shared_models,
-            shared_tools=self.shared_tools, ai_config_dir=self.ai_config_dir,
+            self.image_digest,
+            self.rootfs,
+            self.home,
+            self.qualification_sha256,
+            model_staging=self.model_staging,
+            shared_models=self.shared_models,
+            shared_tools=self.shared_tools,
+            ai_config_dir=self.ai_config_dir,
             ai_history_dir=self.ai_history_dir,
             tool_entrypoints=self.tool_entrypoints,
         )
@@ -66,8 +90,12 @@ class OperatorPaths:
 def parse_manifest(manifest: Path) -> OperatorPaths:
     """Operator-selected exact host paths; no values originate with a guest."""
     path = Path(manifest)
-    if (not path.is_absolute() or path.is_symlink() or not path.is_file()
-            or path.resolve(strict=True) != path):
+    if (
+        not path.is_absolute()
+        or path.is_symlink()
+        or not path.is_file()
+        or path.resolve(strict=True) != path
+    ):
         raise InvalidInputError("Operator manifest must be an existing real absolute file")
     if path.stat().st_mode & 0o022:
         raise ScopeDeniedError("Operator manifest must not be group/world writable")
@@ -75,14 +103,20 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
         raise InvalidInputError("Operator manifest exceeds size allowance")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict) or set(payload) not in (_FIELDS, _FIELDS | {"tool_entrypoints"}):
+        if not isinstance(payload, dict) or set(payload) not in (
+            _FIELDS,
+            _FIELDS | {"tool_entrypoints"},
+        ):
             raise ValueError
         identity = UUID(payload["workspace_id"])
         if str(identity) != payload["workspace_id"]:
             raise ValueError
-        if not all(isinstance(payload[name], str) and _HEX.fullmatch(payload[name])
-                   for name in ("image_digest", "qualification_sha256")):
+        if not all(
+            isinstance(payload[name], str) and _HEX.fullmatch(payload[name])
+            for name in ("image_digest", "qualification_sha256")
+        ):
             raise ValueError
+
         def absolute(name: str) -> Path:
             raw = payload[name]
             p = Path(raw)
@@ -92,43 +126,58 @@ def parse_manifest(manifest: Path) -> OperatorPaths:
             if resolved != p:
                 raise ValueError
             return resolved
+
         selected = payload.get("tool_entrypoints", {})
         if not isinstance(selected, dict) or len(selected) > 96:
             raise ValueError
         pins = []
         for entrypoint, digest in selected.items():
-            if (not isinstance(entrypoint, str) or not _ENTRYPOINT.fullmatch(entrypoint)
-                    or any(part in {"", ".", ".."} for part in entrypoint.split("/")[1:])
-                    or not isinstance(digest, str) or not _HEX.fullmatch(digest)):
+            if (
+                not isinstance(entrypoint, str)
+                or not _ENTRYPOINT.fullmatch(entrypoint)
+                or any(part in {"", ".", ".."} for part in entrypoint.split("/")[1:])
+                or not isinstance(digest, str)
+                or not _HEX.fullmatch(digest)
+            ):
                 raise ValueError
             pins.append((entrypoint, digest))
-        fields = {name: absolute(name) for name in _FIELDS - {
-            "workspace_id", "image_digest", "qualification_sha256"
-        }}
+        fields = {
+            name: absolute(name)
+            for name in _FIELDS - {"workspace_id", "image_digest", "qualification_sha256"}
+        }
         if fields["controller_ledger"].is_relative_to(fields["home"]):
             raise ValueError
         if fields["ai_history_dir"].is_relative_to(fields["home"]):
             raise ValueError
-        return OperatorPaths(identity, payload["image_digest"], payload["qualification_sha256"],
-                             tool_entrypoints=tuple(sorted(pins)), **fields)
+        return OperatorPaths(
+            identity,
+            payload["image_digest"],
+            payload["qualification_sha256"],
+            tool_entrypoints=tuple(sorted(pins)),
+            **fields,
+        )
     except (KeyError, ValueError, TypeError, UnicodeError, OSError):
         raise InvalidInputError("Operator manifest contains unsafe paths or identity") from None
 
 
-def run_operator(paths: OperatorPaths, *, stop: threading.Event,
-                 pulse: Callable[[dict[str, object]], None] | None = None,
-                 socket_path: Path | None = None,
-                 context_manager: ContextProjectionManager | None = None,
-                 shared_skills: Path | None = None,
-                 project_agent_context: bool | None = None,
-                 context_refresh_seconds: int = 10,
-                 without_context: bool = False) -> None:
-    from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
-    from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
-    from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
-
+def run_operator(
+    paths: OperatorPaths,
+    *,
+    stop: threading.Event,
+    pulse: Callable[[dict[str, object]], None] | None = None,
+    socket_path: Path | None = None,
+    context_manager: ContextProjectionManager | None = None,
+    shared_skills: Path | None = None,
+    project_agent_context: bool | None = None,
+    context_refresh_seconds: int = 10,
+    without_context: bool = False,
+) -> None:
     from dataclasses import replace
+
     from potbot.context.projection import ContextProjectionManager
+    from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
+    from potbot.tools.operator_attachment_s13 import OperatorAttachmentServer, mount_fingerprint
+    from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
 
     if type(without_context) is not bool or (without_context and context_manager is not None):
         raise InvalidInputError("Invalid operator context migration mode")
@@ -139,7 +188,9 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
     if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
         raise InvalidInputError("context manager requires the trusted host type")
     from potbot.context.skill_projection import (
-        SkillLibraryProjector, SkillProjectionBusy, prepare_skill_root,
+        SkillLibraryProjector,
+        SkillProjectionBusy,
+        prepare_skill_root,
     )
 
     if project_agent_context is None:
@@ -149,13 +200,26 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
     if type(context_refresh_seconds) is not int or not 0 <= context_refresh_seconds <= 300:
         raise InvalidInputError("Context refresh interval must be 0-300 seconds")
     if context_manager is not None:
-        candidate = shared_skills or (paths.controller_ledger.parent / ("skills-" + paths.workspace_id.hex))
+        candidate = shared_skills or (
+            paths.controller_ledger.parent / ("skills-" + paths.workspace_id.hex)
+        )
         # Validate placement before creating or writing projection directories.
         physical = candidate.resolve()
-        for mount in (paths.rootfs, paths.home, paths.model_staging, paths.shared_models,
-                      paths.shared_tools, paths.ai_config_dir, paths.ai_history_dir):
+        for mount in (
+            paths.rootfs,
+            paths.home,
+            paths.model_staging,
+            paths.shared_models,
+            paths.shared_tools,
+            paths.ai_config_dir,
+            paths.ai_history_dir,
+        ):
             source = mount.resolve(strict=True)
-            if physical == source or physical.is_relative_to(source) or source.is_relative_to(physical):
+            if (
+                physical == source
+                or physical.is_relative_to(source)
+                or source.is_relative_to(physical)
+            ):
                 raise ScopeDeniedError("Skill projection storage overlaps another guest mount")
         if shared_skills is None:
             shared_skills = prepare_skill_root(paths.controller_ledger.parent, paths.workspace_id)
@@ -164,8 +228,11 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
         from potbot.context.catalogue import reconcile_installed_tools
 
         reconcile_installed_tools(context_manager.service, context_manager.principal, ledger)
-    projector = (SkillLibraryProjector(shared_skills)
-                 if context_manager is not None and shared_skills is not None else None)
+    projector = (
+        SkillLibraryProjector(shared_skills)
+        if context_manager is not None and shared_skills is not None
+        else None
+    )
     from potbot.context.object_projection import ObjectContextProjector
 
     objects = ObjectContextProjector(shared_skills) if projector is not None else None
@@ -178,31 +245,49 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
     runtime = paths.runtime()
     if shared_skills is not None:
         runtime = replace(runtime, shared_skills=shared_skills)
-    with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
-                             runtime=runtime, context_manager=context_manager,
-                             project_agent_context=project_agent_context) as operator, ExitStack() as resources:
+    with (
+        AiWorkspaceOperator(
+            workspace_id=paths.workspace_id,
+            ledger=ledger,
+            runtime=runtime,
+            context_manager=context_manager,
+            project_agent_context=project_agent_context,
+        ) as operator,
+        ExitStack() as resources,
+    ):
         # The history watcher owns the singleton lock BEFORE the socket appears.
         # Stop offering new admissions BEFORE the watcher can be shut down.
         if socket_path is not None:
             endpoint = Path(socket_path)
-            for mount in (paths.rootfs, paths.home, paths.model_staging,
-                          paths.shared_models, paths.shared_tools,
-                          paths.ai_config_dir, paths.ai_history_dir):
+            for mount in (
+                paths.rootfs,
+                paths.home,
+                paths.model_staging,
+                paths.shared_models,
+                paths.shared_tools,
+                paths.ai_config_dir,
+                paths.ai_history_dir,
+            ):
                 physical = mount.resolve(strict=True)
                 if endpoint == physical or endpoint.is_relative_to(physical):
                     raise ScopeDeniedError("Operator endpoint overlaps a guest mount")
-            resources.enter_context(OperatorAttachmentServer(
-                socket_path=socket_path, workspace_id=paths.workspace_id,
-                image_digest=paths.image_digest,
-                qualification_sha256=paths.qualification_sha256,
-                mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
-                status=operator.status,
-            ))
+            resources.enter_context(
+                OperatorAttachmentServer(
+                    socket_path=socket_path,
+                    workspace_id=paths.workspace_id,
+                    image_digest=paths.image_digest,
+                    qualification_sha256=paths.qualification_sha256,
+                    mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
+                    status=operator.status,
+                )
+            )
         refresh_checked = 0.0
         while True:
             status = operator.status()
             if not status["history_healthy"]:
-                raise CapabilityUnavailableError("AI history monitor faulted; guest execution fenced")
+                raise CapabilityUnavailableError(
+                    "AI history monitor faulted; guest execution fenced"
+                )
             if context_manager is not None and context_refresh_seconds > 0:
                 now = time.monotonic()
                 if now - refresh_checked >= context_refresh_seconds:
@@ -211,7 +296,9 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
 
                     if projector is not None:
                         try:
-                            reconcile_installed_tools(context_manager.service, context_manager.principal, ledger)
+                            reconcile_installed_tools(
+                                context_manager.service, context_manager.principal, ledger
+                            )
                             projector.sync(context_manager.service, context_manager.principal)
                             assert objects is not None
                             objects.sync(context_manager.service, context_manager.principal)
@@ -221,7 +308,9 @@ def run_operator(paths: OperatorPaths, *, stop: threading.Event,
                             pass
 
                     if context_is_stale(
-                        context_manager, operator.runtime, ledger,
+                        context_manager,
+                        operator.runtime,
+                        ledger,
                         include_agents=operator._project_agent_context,
                     ):
                         try:
@@ -243,41 +332,83 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="potbot operator", description=__doc__)
     parser.add_argument("run", nargs="?", default="run")
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--socket-path", type=Path, default=None,
-                        help="host-private Linux operator health socket (never guest-mounted)")
-    parser.add_argument("--context-principal-id", type=UUID, default=None,
-                        help="trusted PostgreSQL workspace principal for MODEL.md projections")
-    parser.add_argument("--context-parent", type=Path, default=None,
-                        help="operator-private 0700 snapshot directory outside guest mounts")
-    parser.add_argument("--shared-skills", type=Path, default=None,
-                        help="trusted host shared skills directory (mounted read-only)")
-    parser.add_argument("--project-agent-context", action=argparse.BooleanOptionalAction, default=None,
-                        help="per-agent triples default on when context is configured; explicit opt-out for legacy hosts")
-    parser.add_argument("--context-schema", default=None,
-                        help="restricted application schema; defaults to service scope or POTBOT_CONTEXT_SCHEMA")
-    parser.add_argument("--without-context", action="store_true",
-                        help="explicit legacy migration mode; does not qualify MODEL.md integration")
+    parser.add_argument(
+        "--socket-path",
+        type=Path,
+        default=None,
+        help="host-private Linux operator health socket (never guest-mounted)",
+    )
+    parser.add_argument(
+        "--context-principal-id",
+        type=UUID,
+        default=None,
+        help="trusted PostgreSQL workspace principal for MODEL.md projections",
+    )
+    parser.add_argument(
+        "--context-parent",
+        type=Path,
+        default=None,
+        help="operator-private 0700 snapshot directory outside guest mounts",
+    )
+    parser.add_argument(
+        "--shared-skills",
+        type=Path,
+        default=None,
+        help="trusted host shared skills directory (mounted read-only)",
+    )
+    parser.add_argument(
+        "--project-agent-context",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="per-agent triples default on when context is configured; explicit opt-out for legacy hosts",
+    )
+    parser.add_argument(
+        "--context-schema",
+        default=None,
+        help="restricted application schema; defaults to service scope or POTBOT_CONTEXT_SCHEMA",
+    )
+    parser.add_argument(
+        "--without-context",
+        action="store_true",
+        help="explicit legacy migration mode; does not qualify MODEL.md integration",
+    )
     args = parser.parse_args(argv)
     try:
         paths = parse_manifest(args.manifest)
         manager = None
         if args.without_context:
-            if any((args.context_principal_id, args.context_parent, args.context_schema,
-                    args.project_agent_context)):
+            if any(
+                (
+                    args.context_principal_id,
+                    args.context_parent,
+                    args.context_schema,
+                    args.project_agent_context,
+                )
+            ):
                 raise InvalidInputError("Legacy mode conflicts with context configuration")
         else:
             from potbot.context.operator_bootstrap import default_context_manager
 
-            manager = default_context_manager(paths, principal_id=args.context_principal_id,
-                parent=args.context_parent, schema=args.context_schema, shared_skills=args.shared_skills)
+            manager = default_context_manager(
+                paths,
+                principal_id=args.context_principal_id,
+                parent=args.context_parent,
+                schema=args.context_schema,
+                shared_skills=args.shared_skills,
+            )
         stopped = threading.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             if sig is not None:
                 signal.signal(sig, lambda _sig, _frame: stopped.set())
-        run_operator(paths, stop=stopped, socket_path=args.socket_path,
-                     context_manager=manager, shared_skills=args.shared_skills,
-                     project_agent_context=args.project_agent_context,
-                     without_context=args.without_context)
+        run_operator(
+            paths,
+            stop=stopped,
+            socket_path=args.socket_path,
+            context_manager=manager,
+            shared_skills=args.shared_skills,
+            project_agent_context=args.project_agent_context,
+            without_context=args.without_context,
+        )
         print(json.dumps({"operator": "stopped", "workspace_id": str(paths.workspace_id)}))
         return 0
     except (CapabilityUnavailableError, InvalidInputError, ScopeDeniedError) as error:

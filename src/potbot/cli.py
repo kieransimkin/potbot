@@ -116,7 +116,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "credentials", help="manage database, provider and API credentials in the native vault"
     )
     commands.add_parser("operator", help="run the S7 AI-history operator on a qualified host")
-    commands.add_parser("context", help="inspect, diff, and restore PostgreSQL MODEL/MEMORY history")
+    commands.add_parser(
+        "context", help="inspect, diff, and restore PostgreSQL MODEL/MEMORY history"
+    )
     parsed = parser.parse_args(args)
     if parsed.command == "info":
         print(

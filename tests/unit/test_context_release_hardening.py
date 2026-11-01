@@ -1,4 +1,5 @@
 """Release safety checks, without database credentials or a live guest."""
+
 from uuid import uuid4
 
 import pytest

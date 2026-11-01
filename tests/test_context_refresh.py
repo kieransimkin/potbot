@@ -1,5 +1,5 @@
 """No real PostgreSQL or Bubblewrap needed for the refresh admission contract."""
-from contextlib import contextmanager
+
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -94,42 +94,55 @@ def _memory_view(workspace, *, model_revision=1):
     from potbot.context.model import ROLES, sha256
 
     docs = {
-        role: {"content": "# " + role, "revision": model_revision if role == "MODEL.md" else 1,
-               "sha256": sha256("# " + role)}
+        role: {
+            "content": "# " + role,
+            "revision": model_revision if role == "MODEL.md" else 1,
+            "sha256": sha256("# " + role),
+        }
         for role in ROLES
     }
+
     class Snapshot:
         workspace_id = workspace
         revisions = (1, 1, 1)
         digests = tuple(docs[role]["sha256"] for role in ROLES)
-        def inspect(self, **kwargs): return ()
+
+        def inspect(self, **kwargs):
+            return ()
 
     return docs, Snapshot()
 
 
 def test_root_revision_refresh_is_detected():
-    from potbot.context.refresh import context_is_stale
     from types import SimpleNamespace
+
+    from potbot.context.refresh import context_is_stale
 
     wid = uuid4()
     docs, snapshot = _memory_view(wid, model_revision=2)
+
     class Service:
         def read_triple(self, principal, kind, name):
             assert kind == "sandbox" and name == str(wid)
             return docs
+
     manager = SimpleNamespace(principal=WorkspaceContext(wid, uuid4()), service=Service())
     runtime = SimpleNamespace(context_projection=snapshot, agent_context_projections=())
     assert context_is_stale(manager, runtime, Ledger(), include_agents=False)
 
 
 def test_fresh_root_without_agents_does_not_refresh():
-    from potbot.context.refresh import context_is_stale
     from types import SimpleNamespace
+
+    from potbot.context.refresh import context_is_stale
 
     wid = uuid4()
     docs, snapshot = _memory_view(wid)
+
     class Service:
-        def read_triple(self, principal, kind, name): return docs
+        def read_triple(self, principal, kind, name):
+            return docs
+
     manager = SimpleNamespace(principal=WorkspaceContext(wid, uuid4()), service=Service())
     runtime = SimpleNamespace(context_projection=snapshot, agent_context_projections=())
     assert not context_is_stale(manager, runtime, Ledger(), include_agents=False)

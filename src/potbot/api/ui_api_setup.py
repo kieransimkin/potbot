@@ -63,15 +63,20 @@ def _provider(value: str) -> str:
 
 
 def _valid_key(value: object) -> str:
-    if (not isinstance(value, str) or not 1 <= len(value) <= _MAX_KEY_BYTES
-            or any(not 33 <= ord(char) <= 126 for char in value)):
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= _MAX_KEY_BYTES
+        or any(not 33 <= ord(char) <= 126 for char in value)
+    ):
         raise InvalidInputError("API key must be a bounded visible ASCII token")
     return value
 
 
 def _valid_setup_token(value: object) -> bool:
-    return isinstance(value, str) and 32 <= len(value) <= 4096 and all(
-        33 <= ord(char) <= 126 for char in value
+    return (
+        isinstance(value, str)
+        and 32 <= len(value) <= 4096
+        and all(33 <= ord(char) <= 126 for char in value)
     )
 
 
@@ -139,8 +144,10 @@ class ApiSetupCredentials:
             }
         try:
             stored = self.credentials.store.get("providers." + name)
-            status = "configured" if stored is not None and _valid_key_safe(stored) else (
-                "invalid_vault" if stored is not None else "missing"
+            status = (
+                "configured"
+                if stored is not None and _valid_key_safe(stored)
+                else ("invalid_vault" if stored is not None else "missing")
             )
         except CapabilityUnavailableError:
             status = "vault_unavailable"
@@ -176,7 +183,9 @@ class ApiSetupCredentials:
             if state["configured"] and not replace:
                 raise StateMismatchError("Credential exists; explicitly approve rotation")
             if state["status"] == "invalid_vault" and not replace:
-                raise StateMismatchError("Replacing an invalid vault credential requires confirmation")
+                raise StateMismatchError(
+                    "Replacing an invalid vault credential requires confirmation"
+                )
             self.credentials.store.set("providers." + name, value)
             if self.changed is not None:
                 self.changed(name)
@@ -213,8 +222,10 @@ class ApiSetupCredentials:
                 # Emit a small category; never reflect a remote error body,
                 # HTTP headers, raw URL, key or exception text.
                 status = (
-                    "authentication_rejected" if error.status_code in {401, 403}
-                    else "rate_limited" if error.status_code == 429
+                    "authentication_rejected"
+                    if error.status_code in {401, 403}
+                    else "rate_limited"
+                    if error.status_code == 429
                     else "provider_unavailable"
                 )
                 return {"id": name, "verified": False, "status": status}
@@ -292,9 +303,11 @@ def register_api_setup_routes(
         if request.query_params:
             raise InvalidInputError("API setup does not accept query credentials")
         origin = request.headers.get("origin")
-        if (mutating and origin not in allowed_origins) or (
-            origin is not None and origin not in allowed_origins
-        ) or request.headers.get("sec-fetch-site") == "cross-site":
+        if (
+            (mutating and origin not in allowed_origins)
+            or (origin is not None and origin not in allowed_origins)
+            or request.headers.get("sec-fetch-site") == "cross-site"
+        ):
             raise ScopeDeniedError("Untrusted API setup origin")
         identity = authenticate(request.headers.get("authorization"))
         with database.transaction(identity):
@@ -317,9 +330,11 @@ def register_api_setup_routes(
         body = await _document(request)
         if set(body) != {"key", "confirm", "replace"}:
             raise InvalidInputError("Unexpected API credential fields")
-        return response(await run_in_threadpool(
-            service.put, name, body["key"], confirm=body["confirm"], replace=body["replace"]
-        ))
+        return response(
+            await run_in_threadpool(
+                service.put, name, body["key"], confirm=body["confirm"], replace=body["replace"]
+            )
+        )
 
     @app.delete("/v1/ui/setup/apis/{provider}")
     async def remove_api(request: Request, provider: str) -> JSONResponse:

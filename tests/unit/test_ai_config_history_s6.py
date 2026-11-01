@@ -48,9 +48,14 @@ def test_revisions_capture_reverse_text_binary_delete_rename_and_modes(tmp_path:
         assert changes["extras/script.sh"]["before"] is None
         current = json.loads((past / "head.json").read_text())["snapshot"]
         old = reconstruct_prior_snapshot(current, recorded)
-        assert old["settings.ini"]["data_base64"] == changes["settings.ini"]["before"]["data_base64"]
+        assert (
+            old["settings.ini"]["data_base64"] == changes["settings.ini"]["before"]["data_base64"]
+        )
         assert "new-name.txt" not in old and "renamed.txt" in old
-        assert base64.b64decode(changes["weights.bin"]["before"]["data_base64"]) == b"\x00\xfforiginal\n"
+        assert (
+            base64.b64decode(changes["weights.bin"]["before"]["data_base64"])
+            == b"\x00\xfforiginal\n"
+        )
         human = reverse.text_diff_path.read_text()
         assert "-version=2" in human and "+version=1" in human
         assert "binary weights.bin" in human
@@ -126,7 +131,9 @@ def test_monitor_catches_changes_without_ignoring_new_directory(tmp_path: Path) 
             if json.loads((past / "head.json").read_text())["snapshot"].get("newdir/quick.txt"):
                 break
             time.sleep(0.05)
-        assert json.loads((past / "head.json").read_text())["snapshot"]["newdir/quick.txt"]["sha256"]
+        assert json.loads((past / "head.json").read_text())["snapshot"]["newdir/quick.txt"][
+            "sha256"
+        ]
         watcher.require_active()
     finally:
         watcher.stop()

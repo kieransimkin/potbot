@@ -250,6 +250,7 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
         telemetry: WorkerMonitorSession | None = None
         try:
             from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
             launch_options: dict[str, int] = {}
             if request.guest_uid is not None:
                 if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
@@ -279,19 +280,32 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 **request.environment,
             }
             from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
             if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
                 if request.telemetry_workspace_id is None or request.telemetry_agent_id is None:
-                    raise CapabilityUnavailableError("unidentified interactive Cog cannot run unmonitored")
+                    raise CapabilityUnavailableError(
+                        "unidentified interactive Cog cannot run unmonitored"
+                    )
                 config = self.monitor_config or WorkerMonitorConfig.from_environment()
                 home, audit = self.backend.runtime.home.resolve(), config.audit_root
-                if (audit == home or audit.is_relative_to(home) or home.is_relative_to(audit)
-                        or config.strace.is_relative_to(home)
-                        or config.cgroup_root.is_relative_to(home)):
-                    raise CapabilityUnavailableError("operator monitoring assets overlap sandbox home")
-                telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
-                                                 request.telemetry_agent_id, launch.identity,
-                                                 identity_kind=request.telemetry_identity_kind,
-                                                 run_id=request.telemetry_run_id)
+                if (
+                    audit == home
+                    or audit.is_relative_to(home)
+                    or home.is_relative_to(audit)
+                    or config.strace.is_relative_to(home)
+                    or config.cgroup_root.is_relative_to(home)
+                ):
+                    raise CapabilityUnavailableError(
+                        "operator monitoring assets overlap sandbox home"
+                    )
+                telemetry = WorkerMonitorSession(
+                    config,
+                    request.telemetry_workspace_id,
+                    request.telemetry_agent_id,
+                    launch.identity,
+                    identity_kind=request.telemetry_identity_kind,
+                    run_id=request.telemetry_run_id,
+                )
             process = await asyncio.create_subprocess_exec(
                 *(telemetry.command(launch.argv) if telemetry is not None else launch.argv),
                 stdin=asyncio.subprocess.PIPE,
@@ -305,7 +319,8 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 limit=min(request.max_output_bytes + 2, 2 * 1024 * 1024 + 2),
             )
             if telemetry is not None:
-                try: telemetry.start(process.pid)
+                try:
+                    telemetry.start(process.pid)
                 except BaseException:
                     process.kill()
                     await process.wait()
@@ -322,12 +337,17 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
             if process is None:
                 os.close(status_read)
         assert launch is not None and process is not None
+
         def cancellation_or_audit_fault() -> bool:
             return (cancelled is not None and cancelled()) or (
                 telemetry is not None and not telemetry.healthy
             )
+
         return IsolatedInteractiveProcess(
-            request, process, launch.identity, status_read,
+            request,
+            process,
+            launch.identity,
+            status_read,
             cancelled=cancellation_or_audit_fault if telemetry is not None or cancelled else None,
             monitor_session=telemetry,
         )

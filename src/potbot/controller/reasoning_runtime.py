@@ -49,13 +49,19 @@ class PostgresReasoningStore:
                 "INSERT INTO reasoning_runtime_runs "
                 "(workspace_id,id,principal_id,state,lease_token,lease_until) "
                 "VALUES (%s,%s,%s,'running',%s,clock_timestamp()+(%s * interval '1 second'))",
-                (context.workspace_id, _run_id(run_id), context.principal_id, token,
-                 self.lease_seconds),
+                (
+                    context.workspace_id,
+                    _run_id(run_id),
+                    context.principal_id,
+                    token,
+                    self.lease_seconds,
+                ),
             )
         return token
 
-    def checkpoint(self, context: WorkspaceContext, run_id: str, token: UUID,
-                   snapshot: dict[str, Any]) -> None:
+    def checkpoint(
+        self, context: WorkspaceContext, run_id: str, token: UUID, snapshot: dict[str, Any]
+    ) -> None:
         """Fenced checkpoint and event append commit atomically.
 
         An expired writer cannot publish a late model result. A later operator
@@ -72,11 +78,13 @@ class PostgresReasoningStore:
         from psycopg.types.json import Jsonb
 
         with self.database.transaction(context) as conn:
-            row = _record(conn.execute(
-                "SELECT state,lease_token,event_cursor FROM reasoning_runtime_runs "
-                "WHERE workspace_id=%s AND id=%s FOR UPDATE",
-                (context.workspace_id, _run_id(run_id)),
-            ).fetchone())
+            row = _record(
+                conn.execute(
+                    "SELECT state,lease_token,event_cursor FROM reasoning_runtime_runs "
+                    "WHERE workspace_id=%s AND id=%s FOR UPDATE",
+                    (context.workspace_id, _run_id(run_id)),
+                ).fetchone()
+            )
             valid = conn.execute(
                 "SELECT 1 FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s "
                 "AND state='running' AND lease_token=%s AND lease_until > clock_timestamp()",
@@ -93,8 +101,13 @@ class PostgresReasoningStore:
                 conn.execute(
                     "INSERT INTO reasoning_runtime_events "
                     "(workspace_id,run_id,sequence,type,data) VALUES (%s,%s,%s,%s,%s)",
-                    (context.workspace_id, _run_id(run_id), index, event.get("type", ""),
-                     Jsonb(event)),
+                    (
+                        context.workspace_id,
+                        _run_id(run_id),
+                        index,
+                        event.get("type", ""),
+                        Jsonb(event),
+                    ),
                 )
             closed = status != "running"
             conn.execute(
@@ -103,28 +116,42 @@ class PostgresReasoningStore:
                 "CASE WHEN %s THEN NULL ELSE clock_timestamp()+(%s * interval '1 second') END, "
                 "accepting_steering=CASE WHEN %s THEN false ELSE accepting_steering END, "
                 "updated_at=clock_timestamp() WHERE workspace_id=%s AND id=%s",
-                (Jsonb(snapshot), len(events), status, None if closed else token,
-                 closed, self.lease_seconds, closed, context.workspace_id, _run_id(run_id)),
+                (
+                    Jsonb(snapshot),
+                    len(events),
+                    status,
+                    None if closed else token,
+                    closed,
+                    self.lease_seconds,
+                    closed,
+                    context.workspace_id,
+                    _run_id(run_id),
+                ),
             )
 
     def inspect(self, context: WorkspaceContext, run_id: str) -> dict[str, Any]:
         with self.database.transaction(context) as conn:
-            row = _record(conn.execute(
-                "SELECT state,generation,checkpoint,accepting_steering,snapshot "
-                "FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s",
-                (context.workspace_id, _run_id(run_id)),
-            ).fetchone())
+            row = _record(
+                conn.execute(
+                    "SELECT state,generation,checkpoint,accepting_steering,snapshot "
+                    "FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s",
+                    (context.workspace_id, _run_id(run_id)),
+                ).fetchone()
+            )
         return {"run_id": run_id, **row}
 
-    def events(self, context: WorkspaceContext, run_id: str, *, after: int = 0,
-               limit: int = 100) -> list[dict[str, Any]]:
+    def events(
+        self, context: WorkspaceContext, run_id: str, *, after: int = 0, limit: int = 100
+    ) -> list[dict[str, Any]]:
         if type(after) is not int or after < 0 or type(limit) is not int or not 1 <= limit <= 200:
             raise InvalidInputError("invalid reasoning event cursor")
         with self.database.transaction(context) as conn:
-            _record(conn.execute(
-                "SELECT id FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s",
-                (context.workspace_id, _run_id(run_id)),
-            ).fetchone())
+            _record(
+                conn.execute(
+                    "SELECT id FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s",
+                    (context.workspace_id, _run_id(run_id)),
+                ).fetchone()
+            )
             rows = conn.execute(
                 "SELECT sequence,type,data FROM reasoning_runtime_events "
                 "WHERE workspace_id=%s AND run_id=%s AND sequence>%s "
@@ -169,24 +196,31 @@ class PostgresSteeringInbox:
 
     @staticmethod
     def _view(row: dict[str, Any]) -> dict[str, Any]:
-        result = {"id": row["id"], "request_id": row["request_id"],
-                  "prompt": row["prompt"], "status": row["status"],
-                  "created_ns": int(row["created_at"].timestamp() * 1_000_000_000)}
+        result = {
+            "id": row["id"],
+            "request_id": row["request_id"],
+            "prompt": row["prompt"],
+            "status": row["status"],
+            "created_ns": int(row["created_at"].timestamp() * 1_000_000_000),
+        }
         if row["decision"] is not None:
             result.update(row["decision"])
         return result
 
-    def submit(self, context: WorkspaceContext, run_id: str, *, request_id: str,
-               prompt: str) -> dict[str, Any]:
+    def submit(
+        self, context: WorkspaceContext, run_id: str, *, request_id: str, prompt: str
+    ) -> dict[str, Any]:
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt.encode()) > 8192:
             raise InvalidInputError("steering prompt must be 1-8192 UTF-8 bytes")
         key = self._key(request_id)
         with self.database.transaction(context) as conn:
-            run = _record(conn.execute(
-                "SELECT state,accepting_steering FROM reasoning_runtime_runs "
-                "WHERE workspace_id=%s AND id=%s FOR UPDATE",
-                (context.workspace_id, _run_id(run_id)),
-            ).fetchone())
+            run = _record(
+                conn.execute(
+                    "SELECT state,accepting_steering FROM reasoning_runtime_runs "
+                    "WHERE workspace_id=%s AND id=%s FOR UPDATE",
+                    (context.workspace_id, _run_id(run_id)),
+                ).fetchone()
+            )
             existing = conn.execute(
                 "SELECT * FROM reasoning_runtime_steering "
                 "WHERE workspace_id=%s AND run_id=%s AND id=%s",
@@ -206,7 +240,9 @@ class PostgresSteeringInbox:
             ).fetchone()
             return self._view(_record(row))
 
-    def pending(self, context: WorkspaceContext, run_id: str, *, limit: int = 16) -> tuple[dict[str, Any], ...]:
+    def pending(
+        self, context: WorkspaceContext, run_id: str, *, limit: int = 16
+    ) -> tuple[dict[str, Any], ...]:
         if type(limit) is not int or not 1 <= limit <= 64:
             raise InvalidInputError("invalid steering page size")
         with self.database.transaction(context) as conn:
@@ -217,18 +253,25 @@ class PostgresSteeringInbox:
             ).fetchall()
         return tuple(self._view(dict(row)) for row in rows)
 
-    def resolve(self, context: WorkspaceContext, run_id: str, request: dict[str, Any],
-                decision: dict[str, Any]) -> dict[str, Any]:
+    def resolve(
+        self,
+        context: WorkspaceContext,
+        run_id: str,
+        request: dict[str, Any],
+        decision: dict[str, Any],
+    ) -> dict[str, Any]:
         if not isinstance(decision, dict) or len(json.dumps(decision)) > 8192:
             raise InvalidInputError("steering decision must be bounded")
         from psycopg.types.json import Jsonb
 
         with self.database.transaction(context) as conn:
-            row = _record(conn.execute(
-                "SELECT * FROM reasoning_runtime_steering WHERE workspace_id=%s "
-                "AND run_id=%s AND id=%s FOR UPDATE",
-                (context.workspace_id, _run_id(run_id), request["id"]),
-            ).fetchone())
+            row = _record(
+                conn.execute(
+                    "SELECT * FROM reasoning_runtime_steering WHERE workspace_id=%s "
+                    "AND run_id=%s AND id=%s FOR UPDATE",
+                    (context.workspace_id, _run_id(run_id), request["id"]),
+                ).fetchone()
+            )
             if row["status"] == "decided":
                 return self._view(row)
             result = conn.execute(
@@ -257,10 +300,12 @@ class PostgresSteeringInbox:
 
     def history(self, context: WorkspaceContext, run_id: str) -> list[dict[str, Any]]:
         with self.database.transaction(context) as conn:
-            _record(conn.execute(
-                "SELECT id FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s",
-                (context.workspace_id, _run_id(run_id)),
-            ).fetchone())
+            _record(
+                conn.execute(
+                    "SELECT id FROM reasoning_runtime_runs WHERE workspace_id=%s AND id=%s",
+                    (context.workspace_id, _run_id(run_id)),
+                ).fetchone()
+            )
             rows = conn.execute(
                 "SELECT * FROM reasoning_runtime_steering WHERE workspace_id=%s "
                 "AND run_id=%s ORDER BY created_at,id LIMIT 257",

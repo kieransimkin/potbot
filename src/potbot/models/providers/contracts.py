@@ -143,7 +143,9 @@ class ProviderRequest:
         if self.response_format not in {"text", "json_object"}:
             raise InvalidInputError("Unsupported hosted response format.")
         if self.response_format == "json_object" and self.selection.protocol not in {
-            "responses", "chat_completions", "gemini"
+            "responses",
+            "chat_completions",
+            "gemini",
         }:
             raise InvalidInputError("The selected protocol cannot enforce native JSON output.")
         _text(self.prompt)

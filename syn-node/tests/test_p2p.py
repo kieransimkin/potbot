@@ -18,8 +18,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 from syn_node.p2p_contracts import (
-    build_signed_offer, derive_session, new_client_hello,
-    new_server_hello, verify_advert, verify_server_hello,
+    build_signed_offer,
+    derive_session,
+    new_client_hello,
+    new_server_hello,
+    verify_advert,
+    verify_server_hello,
     verify_signed_offer,
 )
 from syn_node.p2p_inbox import PledgeInbox
@@ -65,19 +69,29 @@ def setup(tmp_path):
     master = Signer()
     identity = hashlib.sha256(master.public_key).digest()
     db_path = tmp_path / "private-inbox.sqlite"
-    inbox = PledgeInbox.create(path=db_path, service="syn.p2p", account="operator",
-                               master_hash=identity, network_id=NETWORK,
-                               lock_dir=tmp_path, backend=backend)
-    client = SynP2PClient(master_hash=identity, network_id=NETWORK,
-                          allow_loopback=True)
+    inbox = PledgeInbox.create(
+        path=db_path,
+        service="syn.p2p",
+        account="operator",
+        master_hash=identity,
+        network_id=NETWORK,
+        lock_dir=tmp_path,
+        backend=backend,
+    )
+    client = SynP2PClient(master_hash=identity, network_id=NETWORK, allow_loopback=True)
     return tmp_path, backend, master, inbox, client
 
 
 def make_server(setup):
     _, _, master, inbox, _ = setup
-    return SynP2PServer(signer=master, inbox=inbox, network_id=NETWORK,
-                        bind_host="127.0.0.1", advertised_host="127.0.0.1",
-                        allow_loopback=True)
+    return SynP2PServer(
+        signer=master,
+        inbox=inbox,
+        network_id=NETWORK,
+        bind_host="127.0.0.1",
+        advertised_host="127.0.0.1",
+        allow_loopback=True,
+    )
 
 
 class Running:
@@ -101,11 +115,20 @@ def test_private_signed_pulse_and_exact_phase41_schema(setup):
     with Running(make_server(setup)) as server:
         advert = server.pulse(now=NOW)
         assert set(advert["signed_pulse"]["pulse"]) == {
-            "schema_version", "type_ref", "network_id", "master_public_key_hash",
-            "challenge", "issued_at", "expires_at"
+            "schema_version",
+            "type_ref",
+            "network_id",
+            "master_public_key_hash",
+            "challenge",
+            "issued_at",
+            "expires_at",
         }
-        assert verify_advert(advert, master=inbox.master_hash,
-                             network_id=NETWORK, now=NOW, loopback=True) == advert
+        assert (
+            verify_advert(
+                advert, master=inbox.master_hash, network_id=NETWORK, now=NOW, loopback=True
+            )
+            == advert
+        )
         assert HARDWARE.hex() not in str(advert)
         assert master.public_key.hex() == advert["signed_pulse"]["operator_public_key"]
 
@@ -116,8 +139,9 @@ def test_end_to_end_two_agents_same_pulse_with_private_encrypted_inbox(setup):
     with Running(make_server(setup)) as server:
         advert = server.pulse()
         result_one = client.pledge(advert=advert, temporary_signer=agent_one, hardware_id=HARDWARE)
-        result_two = client.pledge(advert=advert, temporary_signer=agent_two,
-                                   hardware_id=bytes.fromhex("021122334466"))
+        result_two = client.pledge(
+            advert=advert, temporary_signer=agent_two, hardware_id=bytes.fromhex("021122334466")
+        )
         assert result_one["state"] == result_two["state"] == "pending-operator-review"
         assert result_one["activation_authorized"] is False
         assert len(inbox.pending_digests()) == 2
@@ -125,12 +149,23 @@ def test_end_to_end_two_agents_same_pulse_with_private_encrypted_inbox(setup):
         assert bytes.fromhex(value["signed_offer"]["offer"]["hardware_unique_id"]) == HARDWARE
         assert value["signed_pulse"] == advert["signed_pulse"]
         assert HARDWARE.hex().encode() not in path.joinpath("private-inbox.sqlite").read_bytes()
-        assert agent_one.public_key.hex().encode() not in path.joinpath("private-inbox.sqlite").read_bytes()
-        reopened = PledgeInbox(path=path / "private-inbox.sqlite", service="syn.p2p",
-                               account="operator", master_hash=inbox.master_hash,
-                               network_id=NETWORK, backend=backend)
+        assert (
+            agent_one.public_key.hex().encode()
+            not in path.joinpath("private-inbox.sqlite").read_bytes()
+        )
+        reopened = PledgeInbox(
+            path=path / "private-inbox.sqlite",
+            service="syn.p2p",
+            account="operator",
+            master_hash=inbox.master_hash,
+            network_id=NETWORK,
+            backend=backend,
+        )
         assert reopened.pending_digests() == inbox.pending_digests()
-        assert reopened.read_private(result_two["offer_sha256"], now=int(time.time()))["signed_pulse"] == advert["signed_pulse"]
+        assert (
+            reopened.read_private(result_two["offer_sha256"], now=int(time.time()))["signed_pulse"]
+            == advert["signed_pulse"]
+        )
 
 
 def test_replay_same_offer_and_rotated_temp_key_same_hardware_blocked(setup):
@@ -155,17 +190,34 @@ def test_tampered_operator_advert_host_endpoint_master_and_signature(setup):
             {**packet, "unknown": 3},
         ):
             with pytest.raises(SynProtocolError):
-                verify_advert(changed, master=inbox.master_hash, network_id=NETWORK,
-                              now=int(time.time()), loopback=True)
+                verify_advert(
+                    changed,
+                    master=inbox.master_hash,
+                    network_id=NETWORK,
+                    now=int(time.time()),
+                    loopback=True,
+                )
         with pytest.raises(SynProtocolError):
-            verify_advert(packet, master=bytes(32), network_id=NETWORK,
-                          now=int(time.time()), loopback=True)
+            verify_advert(
+                packet, master=bytes(32), network_id=NETWORK, now=int(time.time()), loopback=True
+            )
         with pytest.raises(SynProtocolError):
-            verify_advert(packet, master=inbox.master_hash, network_id="other-network",
-                          now=int(time.time()), loopback=True)
+            verify_advert(
+                packet,
+                master=inbox.master_hash,
+                network_id="other-network",
+                now=int(time.time()),
+                loopback=True,
+            )
         with pytest.raises(SynProtocolError):
-            verify_advert(packet, master=inbox.master_hash, network_id=NETWORK,
-                          now=int(time.time()), source_host="192.168.0.5", loopback=True)
+            verify_advert(
+                packet,
+                master=inbox.master_hash,
+                network_id=NETWORK,
+                now=int(time.time()),
+                source_host="192.168.0.5",
+                loopback=True,
+            )
 
 
 def test_pulse_has_strict_expiry_and_rejects_unpinned_operator(setup):
@@ -173,12 +225,12 @@ def test_pulse_has_strict_expiry_and_rejects_unpinned_operator(setup):
     with Running(make_server(setup)) as server:
         old = server.pulse(now=NOW - 200)
         with pytest.raises(SynProtocolError):
-            verify_advert(old, master=inbox.master_hash, network_id=NETWORK,
-                          now=NOW, loopback=True)
+            verify_advert(old, master=inbox.master_hash, network_id=NETWORK, now=NOW, loopback=True)
         packet = server.pulse(now=NOW)
         with pytest.raises(SynProtocolError):
-            verify_advert(packet, master=inbox.master_hash, network_id=NETWORK,
-                          now=NOW - 1, loopback=True)
+            verify_advert(
+                packet, master=inbox.master_hash, network_id=NETWORK, now=NOW - 1, loopback=True
+            )
 
 
 def test_hardware_id_is_signature_bound_and_never_in_public_pulse(setup):
@@ -207,10 +259,22 @@ def test_wrong_key_on_encrypted_frame_and_modified_transcript(setup):
         hello = new_client_hello(advert, priv_c)
         response = new_server_hello(server.signer, advert, hello, priv_s)
         verify_server_hello(response, advert=advert, client_hello=hello)
-        sender = derive_session(priv_c, priv_s.public_key().public_bytes(
-            serialization.Encoding.Raw, serialization.PublicFormat.Raw), hello, response)
-        recipient = derive_session(priv_s, priv_c.public_key().public_bytes(
-            serialization.Encoding.Raw, serialization.PublicFormat.Raw), hello, response)
+        sender = derive_session(
+            priv_c,
+            priv_s.public_key().public_bytes(
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw
+            ),
+            hello,
+            response,
+        )
+        recipient = derive_session(
+            priv_s,
+            priv_c.public_key().public_bytes(
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw
+            ),
+            hello,
+            response,
+        )
         frame = sender.encrypt({"secret": "signed-only"}, client=True)
         assert recipient.decrypt(frame, client=True) == {"secret": "signed-only"}
         altered = {**frame, "ciphertext": "00" * 32}
@@ -228,11 +292,13 @@ def test_udp_discovery_ignores_spoof_and_accepts_pinned_pulse(setup):
             s.bind(("127.0.0.1", 0))
             port = s.getsockname()[1]
         response = {}
+
         def scan():
             try:
                 response["advert"] = client.discover(udp_port=port, timeout_seconds=2)
             except Exception as exc:
                 response["error"] = exc
+
         worker = threading.Thread(target=scan)
         worker.start()
         time.sleep(0.07)
@@ -249,8 +315,13 @@ def test_missing_pinned_master_or_external_ip_rejected(setup):
     with pytest.raises(SynProtocolError):
         SynP2PClient(master_hash=b"", network_id=NETWORK)
     with pytest.raises(SynProtocolError):
-        SynP2PServer(signer=Signer(), inbox=inbox, network_id=NETWORK,
-                     bind_host="8.8.8.8", advertised_host="8.8.8.8")
+        SynP2PServer(
+            signer=Signer(),
+            inbox=inbox,
+            network_id=NETWORK,
+            bind_host="8.8.8.8",
+            advertised_host="8.8.8.8",
+        )
     with pytest.raises(SynProtocolError):
         SynP2PClient(master_hash=inbox.master_hash, network_id="BAD")
 
@@ -271,23 +342,47 @@ def test_expiration_destroys_ciphertext_but_retains_replay_tombstone(setup):
 def test_keystore_failure_partial_store_symlink_and_metadata_tamper(setup):
     path, backend, master, inbox, client = setup
     with pytest.raises(SynProtocolError):
-        PledgeInbox.create(path=path / "private-inbox.sqlite", service="syn.p2p",
-                           account="operator", master_hash=inbox.master_hash,
-                           network_id=NETWORK, lock_dir=path, backend=backend)
+        PledgeInbox.create(
+            path=path / "private-inbox.sqlite",
+            service="syn.p2p",
+            account="operator",
+            master_hash=inbox.master_hash,
+            network_id=NETWORK,
+            lock_dir=path,
+            backend=backend,
+        )
     wrong = Backend()
     with pytest.raises(SynProtocolError):
-        PledgeInbox(path=path / "private-inbox.sqlite", service="syn.p2p", account="operator",
-                    master_hash=inbox.master_hash, network_id=NETWORK, backend=wrong)
+        PledgeInbox(
+            path=path / "private-inbox.sqlite",
+            service="syn.p2p",
+            account="operator",
+            master_hash=inbox.master_hash,
+            network_id=NETWORK,
+            backend=wrong,
+        )
     with sqlite3.connect(inbox.path) as db:
         db.execute("UPDATE inbox_metadata SET master=? WHERE id=1", ("00" * 32,))
     with pytest.raises(SynProtocolError):
-        PledgeInbox(path=inbox.path, service="syn.p2p", account="operator",
-                    master_hash=inbox.master_hash, network_id=NETWORK, backend=backend)
+        PledgeInbox(
+            path=inbox.path,
+            service="syn.p2p",
+            account="operator",
+            master_hash=inbox.master_hash,
+            network_id=NETWORK,
+            backend=backend,
+        )
     fake = path / "redirect.db"
     fake.symlink_to(inbox.path)
     with pytest.raises(SynProtocolError):
-        PledgeInbox(path=fake, service="syn.p2p", account="operator",
-                    master_hash=inbox.master_hash, network_id=NETWORK, backend=backend)
+        PledgeInbox(
+            path=fake,
+            service="syn.p2p",
+            account="operator",
+            master_hash=inbox.master_hash,
+            network_id=NETWORK,
+            backend=backend,
+        )
 
 
 def test_wrong_packet_length_rejected_before_payload_read(setup):
@@ -332,11 +427,23 @@ def test_hardware_bytes_never_in_sqlite_metadata(setup):
 def test_private_inbox_conflicts_with_wrong_network_and_master(setup):
     path, backend, master, inbox, client = setup
     with pytest.raises(SynProtocolError):
-        PledgeInbox(path=inbox.path, service="syn.p2p", account="operator",
-                    master_hash=inbox.master_hash, network_id="other-network", backend=backend)
+        PledgeInbox(
+            path=inbox.path,
+            service="syn.p2p",
+            account="operator",
+            master_hash=inbox.master_hash,
+            network_id="other-network",
+            backend=backend,
+        )
     with pytest.raises(SynProtocolError):
-        PledgeInbox(path=inbox.path, service="syn.p2p", account="operator",
-                    master_hash=b"w" * 32, network_id=NETWORK, backend=backend)
+        PledgeInbox(
+            path=inbox.path,
+            service="syn.p2p",
+            account="operator",
+            master_hash=b"w" * 32,
+            network_id=NETWORK,
+            backend=backend,
+        )
 
 
 def test_durable_private_record_tampering_rejected(setup):
@@ -345,30 +452,36 @@ def test_durable_private_record_tampering_rejected(setup):
         advert = server.pulse()
         result = client.pledge(advert=advert, temporary_signer=Signer(), hardware_id=HARDWARE)
         with sqlite3.connect(inbox.path) as db:
-            db.execute("UPDATE pledge_inbox SET encrypted=? WHERE offer_sha=?", (b"deadbeef", result["offer_sha256"]))
+            db.execute(
+                "UPDATE pledge_inbox SET encrypted=? WHERE offer_sha=?",
+                (b"deadbeef", result["offer_sha256"]),
+            )
         with pytest.raises(SynProtocolError):
             inbox.read_private(result["offer_sha256"], now=int(time.time()))
 
 
 def test_p2p_wire_schema_structural_contract(setup):
     validator = pytest.importorskip("jsonschema")
-    schema = json.loads((Path(__file__).resolve().parents[1] / "schema" /
-                         "syn-p2p-lan-v1.schema.json").read_text())
+    schema = json.loads(
+        (Path(__file__).resolve().parents[1] / "schema" / "syn-p2p-lan-v1.schema.json").read_text()
+    )
     validator.Draft202012Validator.check_schema(schema)
     _, _, master, inbox, client = setup
     with Running(make_server(setup)) as server:
         advert = server.pulse()
         assert validator.Draft202012Validator(schema).is_valid(advert)
-        signed = build_signed_offer(Signer(), advert=advert, hardware_id=HARDWARE,
-                                    now=int(time.time()))
+        signed = build_signed_offer(
+            Signer(), advert=advert, hardware_id=HARDWARE, now=int(time.time())
+        )
         assert validator.Draft202012Validator(schema).is_valid(signed)
         private = X25519PrivateKey.generate()
         hello = new_client_hello(advert, private)
         assert validator.Draft202012Validator(schema).is_valid(hello)
         server_hello = new_server_hello(server.signer, advert, hello, X25519PrivateKey.generate())
         assert validator.Draft202012Validator(schema).is_valid(server_hello)
-        key = derive_session(private, bytes.fromhex(server_hello["server_public"]),
-                             hello, server_hello)
+        key = derive_session(
+            private, bytes.fromhex(server_hello["server_public"]), hello, server_hello
+        )
         encrypted = key.encrypt(signed, client=True)
         assert validator.Draft202012Validator(schema).is_valid(encrypted)
         assert not validator.Draft202012Validator(schema).is_valid(
@@ -382,8 +495,10 @@ def test_created_and_expiry_metadata_are_authenticated(setup):
         advert = server.pulse()
         result = client.pledge(advert=advert, temporary_signer=Signer(), hardware_id=HARDWARE)
     with sqlite3.connect(inbox.path) as db:
-        db.execute("UPDATE pledge_inbox SET created=created-1,expires=expires+1"
-                   " WHERE offer_sha=?", (result["offer_sha256"],))
+        db.execute(
+            "UPDATE pledge_inbox SET created=created-1,expires=expires+1 WHERE offer_sha=?",
+            (result["offer_sha256"],),
+        )
     with pytest.raises(SynProtocolError):
         inbox.read_private(result["offer_sha256"], now=int(time.time()))
 
@@ -394,32 +509,47 @@ def test_partial_keystore_write_stays_tombstoned(tmp_path):
     identity = hashlib.sha256(b"operator fixture").digest()
     location = tmp_path / "interrupted.sqlite"
     with pytest.raises(SynProtocolError):
-        PledgeInbox.create(path=location, service="syn.operator", account="broken",
-                           master_hash=identity, network_id=NETWORK, lock_dir=tmp_path,
-                           backend=backend)
+        PledgeInbox.create(
+            path=location,
+            service="syn.operator",
+            account="broken",
+            master_hash=identity,
+            network_id=NETWORK,
+            lock_dir=tmp_path,
+            backend=backend,
+        )
     backend.fail = False
     with pytest.raises(SynProtocolError):
-        PledgeInbox.create(path=location, service="syn.operator", account="broken",
-                           master_hash=identity, network_id=NETWORK, lock_dir=tmp_path,
-                           backend=backend)
+        PledgeInbox.create(
+            path=location,
+            service="syn.operator",
+            account="broken",
+            master_hash=identity,
+            network_id=NETWORK,
+            lock_dir=tmp_path,
+            backend=backend,
+        )
     assert not location.exists()  # No plaintext fallback or regenerated key.
 
 
 def test_quota_fail_closed_without_overwriting_older_pledge(setup, monkeypatch):
     from syn_node import p2p_inbox
+
     _, _, _, inbox, client = setup
     with Running(make_server(setup)) as server:
         advert = server.pulse()
         result = client.pledge(advert=advert, temporary_signer=Signer(), hardware_id=HARDWARE)
         monkeypatch.setattr(p2p_inbox, "MAX_PENDING", 1)
         with pytest.raises(SynProtocolError):
-            client.pledge(advert=advert, temporary_signer=Signer(),
-                          hardware_id=bytes.fromhex("021122334466"))
+            client.pledge(
+                advert=advert, temporary_signer=Signer(), hardware_id=bytes.fromhex("021122334466")
+            )
         assert inbox.pending_digests() == (result["offer_sha256"],)
 
 
 def test_cli_hardware_id_never_accepted_from_symlink_or_public_file(tmp_path):
     from syn_node.p2p_cli import _private_hardware_file
+
     data = tmp_path / "hardware.bin"
     data.write_bytes(HARDWARE)
     data.chmod(0o600)
@@ -436,6 +566,7 @@ def test_cli_hardware_id_never_accepted_from_symlink_or_public_file(tmp_path):
 
 def test_cli_does_not_echo_secrets_or_allow_activation(capsys):
     from syn_node.p2p_cli import main
+
     assert main(["agent-pledge", "--unknown-secret", HARDWARE.hex()]) == 2
     result = capsys.readouterr()
     assert HARDWARE.hex() not in result.out + result.err
@@ -445,6 +576,7 @@ def test_cli_does_not_echo_secrets_or_allow_activation(capsys):
 
 def test_rate_budget_limits_unsigned_handshake_cpu_cost(setup, monkeypatch):
     from syn_node import p2p_transport
+
     with Running(make_server(setup)) as server:
         monkeypatch.setattr(p2p_transport, "MAX_PER_PEER_PER_MINUTE", 2)
         assert server._admit_peer("127.0.0.1") is True

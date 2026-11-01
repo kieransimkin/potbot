@@ -5,6 +5,7 @@ exactly the Chromium executable reported by the installed engine. No binary path
 comes from a page, model request or environment variable. Other launch options,
 worker commands and CDP allowlists are left untouched.
 """
+
 from __future__ import annotations
 
 import argparse

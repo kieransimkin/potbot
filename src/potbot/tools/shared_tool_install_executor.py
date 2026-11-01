@@ -13,13 +13,12 @@ import hashlib
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import UUID
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.serialization import content_hash
-from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.agent_homes import AgentHomeRegistry
+from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.shared_tool_mounts import ToolWriteGrant
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
@@ -97,8 +96,10 @@ class SharedToolInstallExecutor:
     ) -> ToolInstallReceipt:
         if self.authorize(workspace_id, agent_id) is not True:
             raise ScopeDeniedError("agent is not approved to install workspace tools")
-        if not isinstance(argv, tuple) or not argv or any(
-            not isinstance(item, str) or not item or "\x00" in item for item in argv
+        if (
+            not isinstance(argv, tuple)
+            or not argv
+            or any(not isinstance(item, str) or not item or "\x00" in item for item in argv)
         ):
             raise InvalidInputError("tool installation requires a pinned argv tuple")
         exact_digest = content_hash(list(argv))
@@ -122,8 +123,13 @@ class SharedToolInstallExecutor:
         guard = WorkspaceLeaseGuard(
             self.ledger,
             AccessRequest(
-                workspace_id, agent_id, operation, idempotency_key, "write",
-                (resource,), self.runtime.image_digest,
+                workspace_id,
+                agent_id,
+                operation,
+                idempotency_key,
+                "write",
+                (resource,),
+                self.runtime.image_digest,
             ),
         )
         guard.start()
@@ -132,8 +138,10 @@ class SharedToolInstallExecutor:
             grant = ToolWriteGrant(slug, home, guard)
             # Force admission checks before constructing the supervised child.
             grant.admit(
-                runtime=self.runtime, cwd=agent_home,
-                guest_uid=home.uid, guest_gid=home.gid,
+                runtime=self.runtime,
+                cwd=agent_home,
+                guest_uid=home.uid,
+                guest_gid=home.gid,
             )
             backend = SharedWorkspaceBubblewrapBackend(
                 self.runtime, tool_write_grant=grant, ai_monitor=self.ai_monitor
@@ -142,36 +150,55 @@ class SharedToolInstallExecutor:
             if not isinstance(supervisor, ProcessSupervisor):
                 raise ScopeDeniedError("installer must use Potbot ProcessSupervisor")
             request = ProcessRequest(
-                argv=argv, cwd=agent_home,
-                workspace_root=self.runtime.home, sandbox_root=self.runtime.home,
-                guest_uid=home.uid, guest_gid=home.gid,
-                telemetry_workspace_id=workspace_id, telemetry_agent_id=agent_id,
+                argv=argv,
+                cwd=agent_home,
+                workspace_root=self.runtime.home,
+                sandbox_root=self.runtime.home,
+                guest_uid=home.uid,
+                guest_gid=home.gid,
+                telemetry_workspace_id=workspace_id,
+                telemetry_agent_id=agent_id,
                 telemetry_identity_kind="agent",
-                timeout_ms=600_000, max_output_bytes=1_048_576,
-                memory_bytes=8 * 1024**3, cpu_seconds=600,
+                timeout_ms=600_000,
+                max_output_bytes=1_048_576,
+                memory_bytes=8 * 1024**3,
+                cpu_seconds=600,
             )
             result = supervisor.run(
-                request, cancelled=lambda: guard.fenced or (
-                    self.ai_monitor is not None and not self.ai_monitor.is_healthy()
+                request,
+                cancelled=lambda: (
+                    guard.fenced
+                    or (self.ai_monitor is not None and not self.ai_monitor.is_healthy())
                 ),
             )
             if not result.processes_stopped:
                 raise StateMismatchError("installer process termination is not confirmed")
-            if result.outcome != "completed" or result.exit_code != 0 or not result.isolation_identity:
-                raise StateMismatchError("install command failed; inspect and reconcile its write lease")
+            if (
+                result.outcome != "completed"
+                or result.exit_code != 0
+                or not result.isolation_identity
+            ):
+                raise StateMismatchError(
+                    "install command failed; inspect and reconcile its write lease"
+                )
             evidence_sha = postflight(result)
             if not isinstance(evidence_sha, str) or not _DIGEST.fullmatch(evidence_sha):
                 raise StateMismatchError("postflight must return verified SHA-256 evidence")
             guard.ensure_live()
             output_sha = hashlib.sha256(result.stdout + b"\0" + result.stderr).hexdigest()
             receipt = ToolInstallReceipt(
-                workspace_id, agent_id, slug, exact_digest,
-                self.runtime.image_digest, result.isolation_identity, evidence_sha,
+                workspace_id,
+                agent_id,
+                slug,
+                exact_digest,
+                self.runtime.image_digest,
+                result.isolation_identity,
+                evidence_sha,
                 output_sha,
             )
-            guard.finish(evidence_sha256=admission_digest(
-                "installed:" + evidence_sha + ":" + exact_digest
-            ))
+            guard.finish(
+                evidence_sha256=admission_digest("installed:" + evidence_sha + ":" + exact_digest)
+            )
             uncertain = False
             return receipt
         except BaseException:
@@ -179,8 +206,9 @@ class SharedToolInstallExecutor:
                 # Even nonzero exit can leave modified tool assets. The host
                 # must reconcile; never retry a side-effecting install blindly.
                 try:
-                    guard.finish(evidence_sha256=admission_digest("tool-install-uncertain"),
-                                 uncertain=True)
+                    guard.finish(
+                        evidence_sha256=admission_digest("tool-install-uncertain"), uncertain=True
+                    )
                 except StateMismatchError:
                     guard.abandon()
             raise

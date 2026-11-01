@@ -38,7 +38,9 @@ class CompatibilityError(Exception):
 
 
 def error_document(error: CompatibilityError) -> dict[str, Any]:
-    return {"error": {"message": error.message, "type": error.code, "param": None, "code": error.code}}
+    return {
+        "error": {"message": error.message, "type": error.code, "param": None, "code": error.code}
+    }
 
 
 def _positive(value: object, name: str, default: int, maximum: int) -> int:
@@ -91,8 +93,16 @@ def parse_chat(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise CompatibilityError("Request must be a JSON object.")
     allowed = {
-        "model", "messages", "stream", "max_tokens", "max_completion_tokens",
-        "temperature", "top_p", "user", "stream_options", "potbot_task_id",
+        "model",
+        "messages",
+        "stream",
+        "max_tokens",
+        "max_completion_tokens",
+        "temperature",
+        "top_p",
+        "user",
+        "stream_options",
+        "potbot_task_id",
     }
     if set(value) - allowed:
         raise CompatibilityError("Unsupported chat-completion parameters.")
@@ -114,7 +124,11 @@ def parse_chat(value: object) -> dict[str, Any]:
     if type(stream) is not bool:
         raise CompatibilityError("stream must be a boolean.")
     option = value.get("stream_options", {})
-    if not isinstance(option, dict) or set(option) - {"include_usage"} or type(option.get("include_usage", False)) is not bool:
+    if (
+        not isinstance(option, dict)
+        or set(option) - {"include_usage"}
+        or type(option.get("include_usage", False)) is not bool
+    ):
         raise CompatibilityError("Only stream_options.include_usage is supported.")
     if "max_tokens" in value and "max_completion_tokens" in value:
         raise CompatibilityError("Choose max_tokens or max_completion_tokens, not both.")
@@ -122,7 +136,9 @@ def parse_chat(value: object) -> dict[str, Any]:
         number = value.get(param)
         if number is not None and (type(number) not in {float, int} or not 0 <= number <= upper):
             raise CompatibilityError(f"{param} is outside the supported range.")
-    if value.get("user") is not None and (not isinstance(value["user"], str) or len(value["user"]) > 128):
+    if value.get("user") is not None and (
+        not isinstance(value["user"], str) or len(value["user"]) > 128
+    ):
         raise CompatibilityError("user must be a short string.")
     return {
         "model": model,
@@ -141,7 +157,15 @@ def parse_chat(value: object) -> dict[str, Any]:
 
 def parse_responses(value: object) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) - {
-        "model", "input", "instructions", "stream", "max_output_tokens", "temperature", "top_p", "user", "potbot_task_id"
+        "model",
+        "input",
+        "instructions",
+        "stream",
+        "max_output_tokens",
+        "temperature",
+        "top_p",
+        "user",
+        "potbot_task_id",
     }:
         raise CompatibilityError("Unsupported Responses API parameters.")
     instructions = value.get("instructions", "")
@@ -153,19 +177,28 @@ def parse_responses(value: object) -> dict[str, Any]:
         raise CompatibilityError("input must be text or a list of text messages.")
     clean = []
     for message in messages:
-        if not isinstance(message, dict) or message.get("role") not in {"user", "assistant", "system", "developer"}:
+        if not isinstance(message, dict) or message.get("role") not in {
+            "user",
+            "assistant",
+            "system",
+            "developer",
+        }:
             raise CompatibilityError("Unsupported Responses API input message.")
         clean.append({"role": message["role"], "content": message.get("content")})
     if instructions:
         clean.insert(0, {"role": "system", "content": instructions})
-    return parse_chat({
-        "model": value.get("model"), "messages": clean,
-        "stream": value.get("stream", False),
-        "max_tokens": value.get("max_output_tokens"),
-        "temperature": value.get("temperature"), "top_p": value.get("top_p"),
-        "user": value.get("user"),
-        "potbot_task_id": value.get("potbot_task_id"),
-    })
+    return parse_chat(
+        {
+            "model": value.get("model"),
+            "messages": clean,
+            "stream": value.get("stream", False),
+            "max_tokens": value.get("max_output_tokens"),
+            "temperature": value.get("temperature"),
+            "top_p": value.get("top_p"),
+            "user": value.get("user"),
+            "potbot_task_id": value.get("potbot_task_id"),
+        }
+    )
 
 
 def _usage(raw: dict[str, Any] | None) -> dict[str, int]:
@@ -216,8 +249,9 @@ class OpenAICompatibility:
         from potbot.memory.local_encoder import MANIFEST, MODEL_FILES
 
         directory = project_root() / "models" / MODEL_DIRECTORY
-        return ((directory / MANIFEST).is_file()
-                and all((directory / filename).is_file() for filename in MODEL_FILES))
+        return (directory / MANIFEST).is_file() and all(
+            (directory / filename).is_file() for filename in MODEL_FILES
+        )
 
     def embeddings(self, context: WorkspaceContext, body: object, run_id: str) -> dict[str, Any]:
         # Recheck workspace credentials/membership through the standard catalogue.
@@ -225,20 +259,27 @@ class OpenAICompatibility:
         if not isinstance(body, dict) or set(body) - {"model", "input", "encoding_format", "user"}:
             raise CompatibilityError("Unsupported embedding parameters.")
         if body.get("model") != "local/" + QWEN_MODEL:
-            raise CompatibilityError("Embedding model is unavailable.", status=404,
-                                     code="model_not_found")
+            raise CompatibilityError(
+                "Embedding model is unavailable.", status=404, code="model_not_found"
+            )
         if body.get("encoding_format", "float") != "float":
             raise CompatibilityError("Only float embedding format is supported.")
         inputs = body.get("input")
         if isinstance(inputs, str):
             inputs = [inputs]
-        if (not isinstance(inputs, list) or not 1 <= len(inputs) <= 4
-                or any(not isinstance(item, str) or not item.strip()
-                       or len(item.encode()) > 16384 for item in inputs)):
+        if (
+            not isinstance(inputs, list)
+            or not 1 <= len(inputs) <= 4
+            or any(
+                not isinstance(item, str) or not item.strip() or len(item.encode()) > 16384
+                for item in inputs
+            )
+        ):
             raise CompatibilityError("Embedding inputs must contain 1 to 4 bounded text strings.")
         if self.embedding_encoder is None and not self._embedding_installed():
-            raise CompatibilityError("The pinned embedding model is not installed.", status=503,
-                                     code="model_unavailable")
+            raise CompatibilityError(
+                "The pinned embedding model is not installed.", status=503, code="model_unavailable"
+            )
         self.log.emit("embedding.start", run_id=run_id, model=body["model"], count=len(inputs))
         if self.embedding_encoder is not None:
             batch = self.embedding_encoder(tuple(inputs))
@@ -248,65 +289,100 @@ class OpenAICompatibility:
 
             model_dir = project_root() / "models" / MODEL_DIRECTORY
             batch = QwenLocalEncoder(model_dir).encode_supervised(
-                tuple(inputs), "document", timeout_ms=60_000)
-        result = {"object": "list", "model": body["model"],
-                  "data": [{"object": "embedding", "index": i, "embedding": list(vector)}
-                           for i, vector in enumerate(batch.vectors)],
-                  "usage": {"prompt_tokens": batch.input_tokens, "total_tokens": batch.input_tokens}}
-        self.log.emit("embedding.completed", run_id=run_id, model=body["model"],
-                      count=len(inputs), tokens=batch.input_tokens,
-                      elapsed_ms=batch.elapsed_ms)
+                tuple(inputs), "document", timeout_ms=60_000
+            )
+        result = {
+            "object": "list",
+            "model": body["model"],
+            "data": [
+                {"object": "embedding", "index": i, "embedding": list(vector)}
+                for i, vector in enumerate(batch.vectors)
+            ],
+            "usage": {"prompt_tokens": batch.input_tokens, "total_tokens": batch.input_tokens},
+        }
+        self.log.emit(
+            "embedding.completed",
+            run_id=run_id,
+            model=body["model"],
+            count=len(inputs),
+            tokens=batch.input_tokens,
+            elapsed_ms=batch.elapsed_ms,
+        )
         return result
 
     def _eligible(self, context: WorkspaceContext) -> list[dict[str, Any]]:
         listing = self.catalog(context)
-        return [model for model in listing.get("models", []) if model.get("generation_enabled") and model.get("text_generation") is not False and not is_known_non_text_model(model["model"])]
+        return [
+            model
+            for model in listing.get("models", [])
+            if model.get("generation_enabled")
+            and model.get("text_generation") is not False
+            and not is_known_non_text_model(model["model"])
+        ]
 
     def models(self, context: WorkspaceContext) -> dict[str, Any]:
-        entries = [
-            {"id": "potbot", "object": "model", "created": 0, "owned_by": "potbot"}
-        ]
+        entries = [{"id": "potbot", "object": "model", "created": 0, "owned_by": "potbot"}]
         entries.extend(
-            {"id": f"{record['provider']}/{record['model']}", "object": "model", "created": 0,
-             "owned_by": record["provider"]}
+            {
+                "id": f"{record['provider']}/{record['model']}",
+                "object": "model",
+                "created": 0,
+                "owned_by": record["provider"],
+            }
             for record in self._eligible(context)
         )
         if self.embedding_encoder is not None or self._embedding_installed():
-            entries.append({"id": "local/" + QWEN_MODEL, "object": "model", "created": 0,
-                            "owned_by": "potbot"})
+            entries.append(
+                {"id": "local/" + QWEN_MODEL, "object": "model", "created": 0, "owned_by": "potbot"}
+            )
         return {"object": "list", "data": sorted(entries, key=lambda entry: entry["id"])}
 
     def model(self, context: WorkspaceContext, model_id: str) -> dict[str, Any]:
         for model in self.models(context)["data"]:
             if model["id"] == model_id:
                 return model
-        raise CompatibilityError("The requested model is unavailable or disallowed.", status=404, code="model_not_found")
+        raise CompatibilityError(
+            "The requested model is unavailable or disallowed.", status=404, code="model_not_found"
+        )
 
     def _route(self, context: WorkspaceContext, model: str) -> list[dict[str, Any]]:
         records = self._eligible(context)
         if model == "potbot":
             choices = [r for r in records if "reasoning" in r.get("roles", [])]
             if not choices:
-                raise CompatibilityError("No configured reasoning model is available for potbot.", status=503, code="model_unavailable")
+                raise CompatibilityError(
+                    "No configured reasoning model is available for potbot.",
+                    status=503,
+                    code="model_unavailable",
+                )
             return choices[:8]
         for record in records:
             if f"{record['provider']}/{record['model']}" == model:
                 return [record]
-        raise CompatibilityError("The requested model is unavailable or disallowed.", status=404, code="model_not_found")
+        raise CompatibilityError(
+            "The requested model is unavailable or disallowed.", status=404, code="model_not_found"
+        )
 
     def _invoke(
         self,
-        model: dict[str, Any], system: str, prompt: str, options: dict[str, Any],
-        on_text: Callable[[str], None], operation_id: str,
+        model: dict[str, Any],
+        system: str,
+        prompt: str,
+        options: dict[str, Any],
+        on_text: Callable[[str], None],
+        operation_id: str,
         cancelled: Callable[[], bool] | None = None,
     ) -> tuple[str, dict[str, int], str]:
         provider = model["provider"]
         selection = ProviderSelection(provider, model["model"], model.get("protocol"))
         request = ProviderRequest(
-            selection, prompt=prompt, system=system,
+            selection,
+            prompt=prompt,
+            system=system,
             max_output_tokens=options["max_output_tokens"],
             timeout_seconds=min(120, self.policy.max_timeout_seconds),
-            temperature=options["temperature"], top_p=options["top_p"],
+            temperature=options["temperature"],
+            top_p=options["top_p"],
             response_format=options.get("response_format", "text"),
         )
         self.policy.authorize(request)
@@ -316,15 +392,30 @@ class OpenAICompatibility:
         protected = CaptureRedactor((key,))
         prompt_bytes = (prompt + system).encode("utf-8")
         if any(pattern in prompt_bytes for pattern in protected.patterns):
-            raise CompatibilityError("A service credential cannot appear in a model prompt.",
-                                     status=403, code="invalid_request_error")
-        self.log.emit("model.query", run_id=operation_id, provider=provider,
-                      model=model["model"], bytes=len(prompt.encode()), content=prompt)
+            raise CompatibilityError(
+                "A service credential cannot appear in a model prompt.",
+                status=403,
+                code="invalid_request_error",
+            )
+        self.log.emit(
+            "model.query",
+            run_id=operation_id,
+            provider=provider,
+            model=model["model"],
+            bytes=len(prompt.encode()),
+            content=prompt,
+        )
         rate = self.policy.rule(provider, model["model"])
         estimate_tokens = len((prompt + system).encode()) + request.max_output_tokens
-        if rate.charge(estimate_tokens, request.max_output_tokens) > self.policy.max_cost_microunits:
-            raise CompatibilityError("Estimated inference cost exceeds operator policy.",
-                                     status=403, code="budget_exceeded")
+        if (
+            rate.charge(estimate_tokens, request.max_output_tokens)
+            > self.policy.max_cost_microunits
+        ):
+            raise CompatibilityError(
+                "Estimated inference cost exceeds operator policy.",
+                status=403,
+                code="budget_exceeded",
+            )
         # Secrets stay in the resolver and the client; never appear in events.
         client = self.client_factory(self.credentials.resolve, authorize=self.policy.authorize)
         output: list[str] = []
@@ -341,20 +432,43 @@ class OpenAICompatibility:
         finally:
             client.close()
         if finish is None:
-            raise CompatibilityError("The model did not complete its response.", status=502, code="provider_error")
-        self.log.emit("model.response", run_id=operation_id, provider=provider,
-                      model=model["model"], content="".join(output), bytes=sum(len(p.encode()) for p in output))
-        self.log.emit("model.complete", run_id=operation_id, provider=provider,
-                      model=model["model"], usage=usage, finish_reason=finish)
+            raise CompatibilityError(
+                "The model did not complete its response.", status=502, code="provider_error"
+            )
+        self.log.emit(
+            "model.response",
+            run_id=operation_id,
+            provider=provider,
+            model=model["model"],
+            content="".join(output),
+            bytes=sum(len(p.encode()) for p in output),
+        )
+        self.log.emit(
+            "model.complete",
+            run_id=operation_id,
+            provider=provider,
+            model=model["model"],
+            usage=usage,
+            finish_reason=finish,
+        )
         return "".join(output), usage, finish
 
     def stream(
-        self, context: WorkspaceContext, options: dict[str, Any], on_text: Callable[[str], None],
-        operation_id: str, cancelled: Callable[[], bool] | None = None,
+        self,
+        context: WorkspaceContext,
+        options: dict[str, Any],
+        on_text: Callable[[str], None],
+        operation_id: str,
+        cancelled: Callable[[], bool] | None = None,
     ) -> FinalAnswer:
         routes = self._route(context, options["model"])
-        self.log.emit("api.query", run_id=operation_id, model=options["model"],
-                      bytes=len(options["prompt"].encode()), content=options["prompt"])
+        self.log.emit(
+            "api.query",
+            run_id=operation_id,
+            model=options["model"],
+            bytes=len(options["prompt"].encode()),
+            content=options["prompt"],
+        )
         started = time.monotonic()
         total = _usage(None)
         outputs: list[str] = []
@@ -364,46 +478,80 @@ class OpenAICompatibility:
         try:
             if options["model"] != "potbot":
                 final_text, usage, finish = self._invoke(
-                    routes[0], options["system"], options["prompt"], options,
-                    on_text, operation_id, cancelled,
+                    routes[0],
+                    options["system"],
+                    options["prompt"],
+                    options,
+                    on_text,
+                    operation_id,
+                    cancelled,
                 )
                 invocations = 1
                 total = usage
             elif self.reasoning_investigator is not None:
                 run = self.reasoning_investigator.run(
-                    context=context, run_id=operation_id, task=options["prompt"],
-                    system=options["system"], models=routes, options=options,
-                    invoke=self._invoke, on_text=on_text, emit=self.log.emit,
+                    context=context,
+                    run_id=operation_id,
+                    task=options["prompt"],
+                    system=options["system"],
+                    models=routes,
+                    options=options,
+                    invoke=self._invoke,
+                    on_text=on_text,
+                    emit=self.log.emit,
                     cancelled=cancelled,
                 )
                 final_text, total, finish = run.text, run.usage, run.finish_reason
                 invocations = run.invocations
-                self.log.emit("reasoning.tree.completed", run_id=operation_id,
-                              tree_path=str(run.tree_path), evidence_status=run.evidence_status)
+                self.log.emit(
+                    "reasoning.tree.completed",
+                    run_id=operation_id,
+                    tree_path=str(run.tree_path),
+                    evidence_status=run.evidence_status,
+                )
             else:
                 # Three bounded, auditable *outputs*: proposal, review, synthesis.
                 # No hidden chain-of-thought is returned or recorded.
                 count = self.max_potbot_calls
                 for index in range(count):
                     provider = routes[index % len(routes)]
-                    self.log.emit("reasoning.stage", run_id=operation_id,
-                                  stage=("proposal", "critique", "synthesis")[index],
-                                  provider=provider["provider"], model=provider["model"])
+                    self.log.emit(
+                        "reasoning.stage",
+                        run_id=operation_id,
+                        stage=("proposal", "critique", "synthesis")[index],
+                        provider=provider["provider"],
+                        model=provider["model"],
+                    )
                     if index == 0:
-                        system = options["system"] + "\nProvide a concise draft answer with supporting evidence and uncertainties."
+                        system = (
+                            options["system"]
+                            + "\nProvide a concise draft answer with supporting evidence and uncertainties."
+                        )
                         prompt = options["prompt"]
                     elif index == count - 1:
-                        system = options["system"] + "\nProduce the best final answer. Resolve weaknesses in the drafts. Do not reveal private intermediate deliberation."
+                        system = (
+                            options["system"]
+                            + "\nProduce the best final answer. Resolve weaknesses in the drafts. Do not reveal private intermediate deliberation."
+                        )
                         prompt = options["prompt"] + "\n\nPrior draft(s):\n" + "\n\n".join(outputs)
                     else:
-                        system = options["system"] + "\nReview the draft for mistakes, missing evidence and alternatives. Return a concise review."
+                        system = (
+                            options["system"]
+                            + "\nReview the draft for mistakes, missing evidence and alternatives. Return a concise review."
+                        )
                         prompt = options["prompt"] + "\n\nDraft:\n" + outputs[-1]
                     # Constrain intermediate output, context and cumulative calls.
-                    prompt = prompt[:min(self.policy.max_prompt_bytes // 2, 60000)]
+                    prompt = prompt[: min(self.policy.max_prompt_bytes // 2, 60000)]
                     system = system[:12000]
                     emit = on_text if index == count - 1 else (lambda _delta: None)
                     result, usage, finish = self._invoke(
-                        provider, system, prompt, options, emit, operation_id, cancelled,
+                        provider,
+                        system,
+                        prompt,
+                        options,
+                        emit,
+                        operation_id,
+                        cancelled,
                     )
                     invocations += 1
                     outputs.append(result[:18000])
@@ -413,41 +561,83 @@ class OpenAICompatibility:
                     if finish != "stop":
                         break
                 if finish != "stop":
-                    raise CompatibilityError("The reasoning workflow did not complete.", status=502, code="provider_error")
-            self.log.emit("api.response", run_id=operation_id, model=options["model"],
-                          duration_ms=int((time.monotonic() - started) * 1000),
-                          bytes=len(final_text.encode()), usage=total,
-                          invocations=invocations, content=final_text)
+                    raise CompatibilityError(
+                        "The reasoning workflow did not complete.",
+                        status=502,
+                        code="provider_error",
+                    )
+            self.log.emit(
+                "api.response",
+                run_id=operation_id,
+                model=options["model"],
+                duration_ms=int((time.monotonic() - started) * 1000),
+                bytes=len(final_text.encode()),
+                usage=total,
+                invocations=invocations,
+                content=final_text,
+            )
             return FinalAnswer(final_text, total, finish, routes[-1]["provider"], invocations)
         except Exception:
-            self.log.emit("api.failure", run_id=operation_id, model=options["model"],
-                          duration_ms=int((time.monotonic() - started) * 1000))
+            self.log.emit(
+                "api.failure",
+                run_id=operation_id,
+                model=options["model"],
+                duration_ms=int((time.monotonic() - started) * 1000),
+            )
             raise
 
 
 def chat_document(identifier: str, created: int, model: str, result: FinalAnswer) -> dict[str, Any]:
     return {
-        "id": identifier, "object": "chat.completion", "created": created,
-        "model": model, "choices": [{"index": 0, "message": {"role": "assistant", "content": result.text},
-                                "logprobs": None, "finish_reason": result.finish_reason}],
+        "id": identifier,
+        "object": "chat.completion",
+        "created": created,
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": result.text},
+                "logprobs": None,
+                "finish_reason": result.finish_reason,
+            }
+        ],
         "usage": result.usage,
     }
 
 
-def response_document(identifier: str, created: int, model: str, result: FinalAnswer) -> dict[str, Any]:
+def response_document(
+    identifier: str, created: int, model: str, result: FinalAnswer
+) -> dict[str, Any]:
     return {
-        "id": identifier, "object": "response", "created_at": created, "model": model,
-        "status": "completed", "error": None, "incomplete_details": None,
-        "output": [{"id": "msg_" + uuid4().hex, "type": "message", "status": "completed",
-                    "role": "assistant", "content": [{"type": "output_text", "text": result.text,
-                                                        "annotations": []}]}],
-        "usage": {"input_tokens": result.usage["prompt_tokens"],
-                  "output_tokens": result.usage["completion_tokens"],
-                  "total_tokens": result.usage["total_tokens"]},
+        "id": identifier,
+        "object": "response",
+        "created_at": created,
+        "model": model,
+        "status": "completed",
+        "error": None,
+        "incomplete_details": None,
+        "output": [
+            {
+                "id": "msg_" + uuid4().hex,
+                "type": "message",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": result.text, "annotations": []}],
+            }
+        ],
+        "usage": {
+            "input_tokens": result.usage["prompt_tokens"],
+            "output_tokens": result.usage["completion_tokens"],
+            "total_tokens": result.usage["total_tokens"],
+        },
     }
 
 
 def sse(event: dict[str, Any] | str, name: str | None = None) -> bytes:
     header = f"event: {name}\n" if name else ""
-    data = event if isinstance(event, str) else json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+    data = (
+        event
+        if isinstance(event, str)
+        else json.dumps(event, ensure_ascii=False, separators=(",", ":"))
+    )
     return (header + "data: " + data + "\n\n").encode("utf-8")

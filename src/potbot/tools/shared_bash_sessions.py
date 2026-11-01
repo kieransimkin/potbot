@@ -63,11 +63,20 @@ class BashSessionView:
 
 class _BashSession:
     def __init__(
-        self, *, session_id: str, workspace_id: UUID, actor_id: UUID,
-        runtime: SharedWorkspaceRuntime, isolation_identity: str,
-        process: subprocess.Popen[bytes], master: int, status_read: int,
-        guard: WorkspaceLeaseGuard, max_age_seconds: int,
-        guest_home: str = "/home", simulated_uid: int | None = None,
+        self,
+        *,
+        session_id: str,
+        workspace_id: UUID,
+        actor_id: UUID,
+        runtime: SharedWorkspaceRuntime,
+        isolation_identity: str,
+        process: subprocess.Popen[bytes],
+        master: int,
+        status_read: int,
+        guard: WorkspaceLeaseGuard,
+        max_age_seconds: int,
+        guest_home: str = "/home",
+        simulated_uid: int | None = None,
         simulated_gid: int | None = None,
         ai_healthy: Callable[[], bool] | None = None,
     ) -> None:
@@ -91,7 +100,9 @@ class _BashSession:
         self._stop = threading.Event()
         self._status_sha = hashlib.sha256()
         self._status_reader = threading.Thread(
-            target=self._drain_status, args=(status_read,), daemon=True,
+            target=self._drain_status,
+            args=(status_read,),
+            daemon=True,
             name="potbot-bash-status",
         )
         self._status_reader.start()
@@ -119,19 +130,30 @@ class _BashSession:
             if self.process.poll() is not None:
                 self.terminate()
                 return
-            if (self.guard.fenced or time.monotonic() >= self.deadline
-                    or (self._ai_healthy is not None and not self._ai_healthy())):
+            if (
+                self.guard.fenced
+                or time.monotonic() >= self.deadline
+                or (self._ai_healthy is not None and not self._ai_healthy())
+            ):
                 self.terminate(force=True)
                 return
 
     def view(self) -> BashSessionView:
         with self._lock:
             return BashSessionView(
-                self.id, self.workspace_id, self.actor_id,
-                self.runtime.image_digest, self.isolation_identity,
+                self.id,
+                self.workspace_id,
+                self.actor_id,
+                self.runtime.image_digest,
+                self.isolation_identity,
                 not self.closed and self.process.poll() is None,
-                self.detached, self.process.poll(), self.started_ns,
-                self.guest_home, self.simulated_uid, self.simulated_gid, False,
+                self.detached,
+                self.process.poll(),
+                self.started_ns,
+                self.guest_home,
+                self.simulated_uid,
+                self.simulated_gid,
+                False,
             )
 
     def require_running(self) -> None:
@@ -198,7 +220,9 @@ class _BashSession:
             self._status_reader.join(timeout=0.5)
             # A terminal may have written arbitrary files; this is only a
             # lifecycle receipt, not proof that its outputs were correct.
-            statement = f"session:{self.id}:exit:{process.poll()}:isolation:{self.isolation_identity}"
+            statement = (
+                f"session:{self.id}:exit:{process.poll()}:isolation:{self.isolation_identity}"
+            )
             try:
                 self.guard.finish(
                     evidence_sha256=hashlib.sha256(statement.encode()).hexdigest(),
@@ -216,7 +240,9 @@ class SharedBashSessionSupervisor:
     """
 
     def __init__(
-        self, *, ledger: WorkspaceLeaseLedger,
+        self,
+        *,
+        ledger: WorkspaceLeaseLedger,
         backend: SharedWorkspaceBubblewrapBackend,
         authorize: Callable[[UUID, UUID], bool],
         max_sessions_per_workspace: int = 4,
@@ -246,8 +272,13 @@ class SharedBashSessionSupervisor:
         return session
 
     def open(
-        self, *, workspace_id: UUID, actor_id: UUID,
-        max_age_seconds: int = 1800, columns: int = 80, rows: int = 24,
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        max_age_seconds: int = 1800,
+        columns: int = 80,
+        rows: int = 24,
     ) -> BashSessionView:
         if self.authorize(workspace_id, actor_id) is not True:
             raise ScopeDeniedError("Bash session creation is not authorized")
@@ -266,15 +297,17 @@ class SharedBashSessionSupervisor:
         working_directory = home if agent_home is None else home / agent_home.directory
         guest_home = "/home" if agent_home is None else agent_home.guest_path
         with self._lock:
-            current = sum(s.workspace_id == workspace_id and not s.closed
-                          for s in self._sessions.values())
+            current = sum(
+                s.workspace_id == workspace_id and not s.closed for s in self._sessions.values()
+            )
             if current >= self.max_sessions_per_workspace:
                 raise StateMismatchError("workspace terminal capacity reached")
             session_id = uuid4().hex
             guard = WorkspaceLeaseGuard.exclusive_home(
                 self.ledger,
                 WorkspaceExecutorIdentity(workspace_id, actor_id, runtime.image_digest),
-                operation="bash.session", idempotency_key=f"bash-{session_id}",
+                operation="bash.session",
+                idempotency_key=f"bash-{session_id}",
             )
             guard.start()
             master = slave = status_read = status_write = -1
@@ -286,27 +319,43 @@ class SharedBashSessionSupervisor:
                 status_read, status_write = os.pipe()
                 request = ProcessRequest(
                     argv=("/bin/bash", "--noprofile", "-i"),
-                    cwd=working_directory, workspace_root=home, sandbox_root=home,
+                    cwd=working_directory,
+                    workspace_root=home,
+                    sandbox_root=home,
                     timeout_ms=max_age_seconds * 1000,
                     max_output_bytes=1048576,
-                    memory_bytes=2 * 1024**3, cpu_seconds=max_age_seconds,
+                    memory_bytes=2 * 1024**3,
+                    cpu_seconds=max_age_seconds,
                     guest_uid=agent_home.uid if agent_home else None,
                     guest_gid=agent_home.gid if agent_home else None,
                 )
                 launch = self.backend.prepare(
-                    argv=request.argv, workspace_root=request.workspace_root,
-                    cwd=request.cwd, read_only_roots=(), writable_roots=(),
-                    sandbox_root=home, status_fd=status_write,
-                    memory_bytes=request.memory_bytes, cpu_seconds=request.cpu_seconds,
+                    argv=request.argv,
+                    workspace_root=request.workspace_root,
+                    cwd=request.cwd,
+                    read_only_roots=(),
+                    writable_roots=(),
+                    sandbox_root=home,
+                    status_fd=status_write,
+                    memory_bytes=request.memory_bytes,
+                    cpu_seconds=request.cpu_seconds,
                     max_file_bytes=request.max_file_bytes,
                     max_open_files=request.max_open_files,
-                    **({"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
-                       if request.guest_uid is not None else {}),
+                    **(
+                        {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
+                        if request.guest_uid is not None
+                        else {}
+                    ),
                 )
                 process = subprocess.Popen(
-                    launch.argv, stdin=slave, stdout=slave, stderr=slave,
-                    cwd="/", env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
-                    close_fds=True, pass_fds=launch.pass_fds,
+                    launch.argv,
+                    stdin=slave,
+                    stdout=slave,
+                    stderr=slave,
+                    cwd="/",
+                    env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
+                    close_fds=True,
+                    pass_fds=launch.pass_fds,
                     start_new_session=True,
                 )
                 os.close(slave)
@@ -322,17 +371,26 @@ class SharedBashSessionSupervisor:
                 if process.poll() is not None:
                     raise CapabilityUnavailableError("Bash exited before session establishment")
                 session = _BashSession(
-                    session_id=session_id, workspace_id=workspace_id, actor_id=actor_id,
-                    runtime=runtime, isolation_identity=launch.identity,
-                    process=process, master=master, status_read=status_read,
-                    guard=guard, max_age_seconds=max_age_seconds,
+                    session_id=session_id,
+                    workspace_id=workspace_id,
+                    actor_id=actor_id,
+                    runtime=runtime,
+                    isolation_identity=launch.identity,
+                    process=process,
+                    master=master,
+                    status_read=status_read,
+                    guard=guard,
+                    max_age_seconds=max_age_seconds,
                     guest_home=guest_home,
                     simulated_uid=agent_home.uid if agent_home else None,
                     simulated_gid=agent_home.gid if agent_home else None,
-                    ai_healthy=(self.backend.ai_monitor.is_healthy
-                                if self.backend.ai_monitor is not None
-                                else self.backend.operator_attachment.healthy
-                                if self.backend.operator_attachment is not None else None),
+                    ai_healthy=(
+                        self.backend.ai_monitor.is_healthy
+                        if self.backend.ai_monitor is not None
+                        else self.backend.operator_attachment.healthy
+                        if self.backend.operator_attachment is not None
+                        else None
+                    ),
                 )
                 self._sessions[session_id] = session
                 return session.view()
@@ -343,8 +401,13 @@ class SharedBashSessionSupervisor:
                         process.wait(timeout=2)
                     except (OSError, subprocess.TimeoutExpired):
                         pass
-                for fd in {master, slave, status_read, status_write,
-                           *(launch.pass_fds if launch is not None else ())}:
+                for fd in {
+                    master,
+                    slave,
+                    status_read,
+                    status_write,
+                    *(launch.pass_fds if launch is not None else ()),
+                }:
                     if fd >= 0:
                         try:
                             os.close(fd)
@@ -372,18 +435,25 @@ class SharedBashSessionSupervisor:
             session.detached = True
             return session.view()
 
-    def read(self, *, session_id: str, workspace_id: UUID, actor_id: UUID,
-             max_bytes: int = 16384, timeout: float = 0.0) -> bytes:
+    def read(
+        self,
+        *,
+        session_id: str,
+        workspace_id: UUID,
+        actor_id: UUID,
+        max_bytes: int = 16384,
+        timeout: float = 0.0,
+    ) -> bytes:
         return self._owned(session_id, workspace_id, actor_id).read(
             max_bytes=max_bytes, timeout=timeout
         )
 
-    def write(self, *, session_id: str, workspace_id: UUID, actor_id: UUID,
-              data: bytes) -> int:
+    def write(self, *, session_id: str, workspace_id: UUID, actor_id: UUID, data: bytes) -> int:
         return self._owned(session_id, workspace_id, actor_id).write(data)
 
-    def resize(self, *, session_id: str, workspace_id: UUID, actor_id: UUID,
-               columns: int, rows: int) -> None:
+    def resize(
+        self, *, session_id: str, workspace_id: UUID, actor_id: UUID, columns: int, rows: int
+    ) -> None:
         self._owned(session_id, workspace_id, actor_id).resize(columns=columns, rows=rows)
 
     def terminate(self, *, session_id: str, workspace_id: UUID, actor_id: UUID) -> BashSessionView:
@@ -395,6 +465,9 @@ class SharedBashSessionSupervisor:
         if self.authorize(workspace_id, actor_id) is not True:
             raise ScopeDeniedError("Bash session list is not authorized")
         with self._lock:
-            sessions = [s.view() for s in self._sessions.values()
-                        if s.workspace_id == workspace_id and s.actor_id == actor_id]
+            sessions = [
+                s.view()
+                for s in self._sessions.values()
+                if s.workspace_id == workspace_id and s.actor_id == actor_id
+            ]
         return sorted(sessions, key=lambda s: s.started_ns)

@@ -31,11 +31,15 @@ class RuntimeObject:
     state: str = "active"
 
     def __post_init__(self) -> None:
-        if (self.kind not in OBJECT_KINDS or not isinstance(self.reference, str)
-                or not 1 <= len(self.reference) <= 512
-                or any(ord(c) < 33 or ord(c) > 126 for c in self.reference)
-                or not isinstance(self.fingerprint, str) or not _HASH.fullmatch(self.fingerprint)
-                or self.state not in ("active", "retired")):
+        if (
+            self.kind not in OBJECT_KINDS
+            or not isinstance(self.reference, str)
+            or not 1 <= len(self.reference) <= 512
+            or any(ord(c) < 33 or ord(c) > 126 for c in self.reference)
+            or not isinstance(self.fingerprint, str)
+            or not _HASH.fullmatch(self.fingerprint)
+            or self.state not in ("active", "retired")
+        ):
             raise InvalidInputError("Invalid host runtime object")
 
     def name(self, principal: WorkspaceContext) -> str:
@@ -43,8 +47,9 @@ class RuntimeObject:
         return "runtime." + principal.principal_id.hex + "." + digest
 
 
-def register_runtime_objects(connection: Any, principal: WorkspaceContext,
-                             objects: Iterable[RuntimeObject]) -> tuple[UUID, ...]:
+def register_runtime_objects(
+    connection: Any, principal: WorkspaceContext, objects: Iterable[RuntimeObject]
+) -> tuple[UUID, ...]:
     """Borrow the caller's transaction; no second commit or admin connection."""
     from potbot.context.service import WorkspaceContextService
     from potbot.context.sessions import _BoundTransaction
@@ -66,8 +71,9 @@ def register_runtime_objects(connection: Any, principal: WorkspaceContext,
     ids: list[UUID] = []
     for value in sorted(chosen.values(), key=lambda v: (v.kind, v.reference)):
         name = value.name(principal)
-        result = service.provision_private(principal, value.kind, name,
-                                           idempotency_key="runtime:" + name)
+        result = service.provision_private(
+            principal, value.kind, name, idempotency_key="runtime:" + name
+        )
         object_id = UUID(result["object_id"])
         # Existing documents are NEVER rewritten to reflect an installation
         # change. The source-version journal records that separate observation.
@@ -82,14 +88,23 @@ def register_runtime_objects(connection: Any, principal: WorkspaceContext,
             (principal.workspace_id, object_id),
         ).fetchone()
         if previous is None or (previous["fingerprint"], previous["state"]) != (
-                value.fingerprint, value.state):
+            value.fingerprint,
+            value.state,
+        ):
             connection.execute(
                 "INSERT INTO workspace_context_runtime_sources "
                 "(workspace_id,object_id,owner_principal_id,kind,reference,fingerprint,state,revision) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                (principal.workspace_id, object_id, principal.principal_id, value.kind,
-                 value.reference, value.fingerprint, value.state,
-                 1 if previous is None else previous["revision"] + 1),
+                (
+                    principal.workspace_id,
+                    object_id,
+                    principal.principal_id,
+                    value.kind,
+                    value.reference,
+                    value.fingerprint,
+                    value.state,
+                    1 if previous is None else previous["revision"] + 1,
+                ),
             )
         ids.append(object_id)
     return tuple(ids)
@@ -114,24 +129,39 @@ _VISIBLE = """WITH runtime_sources AS (
 ) """
 
 
-def list_objects(connection: Any, principal: WorkspaceContext, *,
-                 after: UUID | None = None, limit: int = 25) -> dict[str, Any]:
-    if (not isinstance(principal, WorkspaceContext) or type(limit) is not int
-            or not 1 <= limit <= 100 or (after is not None and not isinstance(after, UUID))):
+def list_objects(
+    connection: Any, principal: WorkspaceContext, *, after: UUID | None = None, limit: int = 25
+) -> dict[str, Any]:
+    if (
+        not isinstance(principal, WorkspaceContext)
+        or type(limit) is not int
+        or not 1 <= limit <= 100
+        or (after is not None and not isinstance(after, UUID))
+    ):
         raise InvalidInputError("Invalid object catalogue bounds")
     rows = connection.execute(
         _VISIBLE + "SELECT * FROM visible WHERE kind=ANY(%s) AND (%s::uuid IS NULL OR id>%s) "
         "ORDER BY id LIMIT %s",
-        (principal.workspace_id, principal.workspace_id, principal.workspace_id,
-         list(OBJECT_KINDS), after, after, limit + 1),
+        (
+            principal.workspace_id,
+            principal.workspace_id,
+            principal.workspace_id,
+            list(OBJECT_KINDS),
+            after,
+            after,
+            limit + 1,
+        ),
     ).fetchall()
     page = rows[:limit]
-    return {"objects": [{**dict(row), "id": str(row["id"])} for row in page],
-            "next": str(page[-1]["id"]) if len(rows) > limit and page else None}
+    return {
+        "objects": [{**dict(row), "id": str(row["id"])} for row in page],
+        "next": str(page[-1]["id"]) if len(rows) > limit and page else None,
+    }
 
 
-def object_target(connection: Any, principal: WorkspaceContext, object_id: UUID,
-                  role: str, *, write: bool) -> tuple[str, str]:
+def object_target(
+    connection: Any, principal: WorkspaceContext, object_id: UUID, role: str, *, write: bool
+) -> tuple[str, str]:
     """An opaque ID selects an object, never an actor or authority.
 
     Agent/worker/skill/sandbox scopes retain their stronger existing checks.
@@ -141,8 +171,13 @@ def object_target(connection: Any, principal: WorkspaceContext, object_id: UUID,
         raise InvalidInputError("Invalid registered object selector")
     row = connection.execute(
         _VISIBLE + "SELECT * FROM visible WHERE id=%s AND kind=ANY(%s)",
-        (principal.workspace_id, principal.workspace_id, principal.workspace_id,
-         object_id, list(OBJECT_KINDS)),
+        (
+            principal.workspace_id,
+            principal.workspace_id,
+            principal.workspace_id,
+            object_id,
+            list(OBJECT_KINDS),
+        ),
     ).fetchone()
     if row is None:
         raise ScopeDeniedError("Registered object is not available")
@@ -192,10 +227,15 @@ def reconcile_installed_tools(service: Any, principal: WorkspaceContext, ledger:
         present = source.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='trusted_shared_tools'"
         ).fetchone()
-        rows = source.execute(
-            "SELECT slug,definition_json FROM trusted_shared_tools WHERE workspace_id=? "
-            "ORDER BY slug LIMIT 257", (str(principal.workspace_id),)
-        ).fetchall() if present is not None else ()
+        rows = (
+            source.execute(
+                "SELECT slug,definition_json FROM trusted_shared_tools WHERE workspace_id=? "
+                "ORDER BY slug LIMIT 257",
+                (str(principal.workspace_id),),
+            ).fetchall()
+            if present is not None
+            else ()
+        )
     if len(rows) > 256:
         raise InvalidInputError("Installed tool inventory exceeds its bound")
     selected = {}
@@ -222,5 +262,6 @@ def reconcile_installed_tools(service: Any, principal: WorkspaceContext, ledger:
         for row in previous:
             if row["reference"] not in selected and row["state"] == "active":
                 selected[row["reference"]] = RuntimeObject(
-                    "tool", row["reference"], row["fingerprint"], "retired")
+                    "tool", row["reference"], row["fingerprint"], "retired"
+                )
         register_runtime_objects(conn, principal, selected.values())

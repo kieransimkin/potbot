@@ -15,8 +15,9 @@ import signal
 import stat
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, BinaryIO, Callable
+from typing import Any, BinaryIO
 from uuid import UUID, uuid4
 
 
@@ -25,13 +26,24 @@ class XpraSessionError(RuntimeError):
 
 
 class XpraSeamlessSession:
-    def __init__(self, root: Path, display: str, authority: Path, *,
-                 binary: str = "xpra", startup_timeout: float = 20.0,
-                 readonly_mode: bool = False,
-                 gui_audit_factory: Callable[[str, UUID], Any] | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        display: str,
+        authority: Path,
+        *,
+        binary: str = "xpra",
+        startup_timeout: float = 20.0,
+        readonly_mode: bool = False,
+        gui_audit_factory: Callable[[str, UUID], Any] | None = None,
+    ) -> None:
         if not root.is_absolute() or not root.is_dir() or root.is_symlink():
             raise ValueError("Xpra requires an existing absolute workspace root")
-        if not display.startswith(":") or not display[1:].isdigit() or not 100 <= int(display[1:]) <= 999:
+        if (
+            not display.startswith(":")
+            or not display[1:].isdigit()
+            or not 100 <= int(display[1:]) <= 999
+        ):
             raise ValueError("Xpra requires a private display number")
         if not authority.is_absolute() or authority.is_symlink():
             raise ValueError("Xpra authority must be absolute and private")
@@ -73,9 +85,12 @@ class XpraSeamlessSession:
 
     @property
     def running(self) -> bool:
-        return (self._process is not None and self._process.poll() is None
-                and (self._gui_audit is None or self._gui_audit.healthy)
-                and (self._log_custody is None or self._log_custody.healthy))
+        return (
+            self._process is not None
+            and self._process.poll() is None
+            and (self._gui_audit is None or self._gui_audit.healthy)
+            and (self._log_custody is None or self._log_custody.healthy)
+        )
 
     @property
     def x_socket(self) -> Path:
@@ -83,28 +98,49 @@ class XpraSeamlessSession:
 
     def command(self) -> tuple[str, ...]:
         return (
-            self.binary, "seamless", self.display, "--backend=x11", "--use-display=no",
-            "--daemon=no", "--attach=no", "--exit-with-client=no",
-            "--start-new-commands=no", "--systemd-run=no", "--mdns=no",
+            self.binary,
+            "seamless",
+            self.display,
+            "--backend=x11",
+            "--use-display=no",
+            "--daemon=no",
+            "--attach=no",
+            "--exit-with-client=no",
+            "--start-new-commands=no",
+            "--systemd-run=no",
+            "--mdns=no",
             *(("--readonly=yes",) if self.readonly_mode else ()),
-            "--clipboard=no", "--printing=no", "--file-transfer=no",
-            "--speaker=off", "--microphone=off", "--webcam=no",
-            "--html=on", f"--socket-dir={self.socket_dir}",
+            "--clipboard=no",
+            "--printing=no",
+            "--file-transfer=no",
+            "--speaker=off",
+            "--microphone=off",
+            "--webcam=no",
+            "--html=on",
+            f"--socket-dir={self.socket_dir}",
         )
 
     def _environment(self) -> dict[str, str]:
         allowed = ("PATH", "LANG", "LC_ALL", "TERM")
         clean = {k: os.environ[k] for k in allowed if k in os.environ}
-        clean.update({"HOME": str(self.root), "DISPLAY": self.display,
-                      "XAUTHORITY": str(self.authority),
-                      "XDG_RUNTIME_DIR": str(self.runtime_dir)})
+        clean.update(
+            {
+                "HOME": str(self.root),
+                "DISPLAY": self.display,
+                "XAUTHORITY": str(self.authority),
+                "XDG_RUNTIME_DIR": str(self.runtime_dir),
+            }
+        )
         return clean
 
     def socket_files(self) -> tuple[Path, ...]:
         if self.socket_dir.is_symlink() or not self.socket_dir.is_dir():
             return ()
-        return tuple(p for p in self.socket_dir.iterdir() if not p.is_symlink()
-                     and stat.S_ISSOCK(p.lstat().st_mode))
+        return tuple(
+            p
+            for p in self.socket_dir.iterdir()
+            if not p.is_symlink() and stat.S_ISSOCK(p.lstat().st_mode)
+        )
 
     @property
     def protocol_socket(self) -> Path:
@@ -153,14 +189,21 @@ class XpraSeamlessSession:
         if self.gui_audit_factory is not None:
             expected = os.environ.get("POTBOT_XPRA_SHA256", "")
             candidate = Path(executable)
-            if (not re.fullmatch(r"[0-9a-f]{64}", expected)
-                    or candidate.is_symlink() or candidate.stat().st_mode & 0o022):
+            if (
+                not re.fullmatch(r"[0-9a-f]{64}", expected)
+                or candidate.is_symlink()
+                or candidate.stat().st_mode & 0o022
+            ):
                 raise XpraSessionError("host Xpra executable is not operator pinned")
             with candidate.open("rb") as src:
                 if hashlib.file_digest(src, "sha256").hexdigest() != expected:
                     raise XpraSessionError("host Xpra executable differs from operator pin")
-        for directory in (self.host_runtime_root, self.socket_dir.parent,
-                          self.socket_dir, self.runtime_dir):
+        for directory in (
+            self.host_runtime_root,
+            self.socket_dir.parent,
+            self.socket_dir,
+            self.runtime_dir,
+        ):
             if directory.is_symlink():
                 raise XpraSessionError("symlinked Xpra runtime directory")
             directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -172,8 +215,12 @@ class XpraSeamlessSession:
             if owned_path.parent == self.socket_dir and not owned_path.is_symlink():
                 try:
                     metadata = owned_path.lstat()
-                    if (metadata.st_uid == os.getuid() and stat.S_ISSOCK(metadata.st_mode)
-                            and metadata.st_dev == device and metadata.st_ino == inode):
+                    if (
+                        metadata.st_uid == os.getuid()
+                        and stat.S_ISSOCK(metadata.st_mode)
+                        and metadata.st_dev == device
+                        and metadata.st_ino == inode
+                    ):
                         owned_path.unlink()
                 except FileNotFoundError:
                     pass
@@ -195,9 +242,13 @@ class XpraSeamlessSession:
                 self._gui_audit = self.gui_audit_factory(identity, uuid4())
                 argv = self._gui_audit.command(argv)
             self._process = subprocess.Popen(
-                argv, cwd=self.root, env=self._environment(),
-                stdin=subprocess.DEVNULL, stdout=self._log,
-                stderr=subprocess.STDOUT, start_new_session=True,
+                argv,
+                cwd=self.root,
+                env=self._environment(),
+                stdin=subprocess.DEVNULL,
+                stdout=self._log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
             )
             if self._gui_audit is not None:
                 self._gui_audit.started(self._process.pid)
@@ -211,7 +262,7 @@ class XpraSeamlessSession:
                     metadata = owned.lstat()
                     self._last_owned_socket = (owned, metadata.st_dev, metadata.st_ino)
                     return
-                time.sleep(.1)
+                time.sleep(0.1)
             raise XpraSessionError("Xpra display and protocol socket startup timed out")
         except Exception:
             self.stop()
@@ -270,14 +321,21 @@ class XpraSeamlessSession:
         audit_complete = True
         if audit is not None:
             try:
-                audit_complete = bool(audit.finish(
-                    confirmed_stopped=(process is not None and process.poll() is not None)))
+                audit_complete = bool(
+                    audit.finish(
+                        confirmed_stopped=(process is not None and process.poll() is not None)
+                    )
+                )
             except Exception:
                 audit_complete = False
         if audit is not None and not audit_complete:
             self._gui_audit_faulted = True
-        self._stopped_cleanly = (process is not None and process.poll() is not None
-                                 and audit_complete and not self._gui_audit_faulted)
+        self._stopped_cleanly = (
+            process is not None
+            and process.poll() is not None
+            and audit_complete
+            and not self._gui_audit_faulted
+        )
         # The subprocess owns its X11 and protocol sockets. Never delete unknown
         # sockets or restart on top of an ambiguous leftover display.
         for folder in (self.socket_dir, self.runtime_dir, self.socket_dir.parent):

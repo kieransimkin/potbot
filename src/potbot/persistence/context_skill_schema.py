@@ -6,11 +6,14 @@ to create sandbox/operator objects or to write another author's documents.
 """
 
 WORKSPACE_TABLES = (
-    "workspace_context_skills", "workspace_context_skill_versions",
-    "workspace_context_skill_releases", "workspace_context_skill_receipts",
+    "workspace_context_skills",
+    "workspace_context_skill_versions",
+    "workspace_context_skill_releases",
+    "workspace_context_skill_receipts",
 )
 APPEND_ONLY_TABLES = (
-    "workspace_context_skill_versions", "workspace_context_skill_releases",
+    "workspace_context_skill_versions",
+    "workspace_context_skill_releases",
     "workspace_context_skill_receipts",
 )
 
@@ -164,7 +167,7 @@ MIGRATION_STATEMENTS = (
                   AND k.owner_principal_id={_PRINCIPAL} AND k.state='active')))""",
     *tuple(
         f"""ALTER POLICY context_writer_{operation.lower()} ON {table}
-            {('USING (' + predicate + ')') if operation == 'UPDATE' else ''}
+            {("USING (" + predicate + ")") if operation == "UPDATE" else ""}
             WITH CHECK ({predicate})"""
         for table, operations in (
             ("workspace_context_documents", ("UPDATE", "INSERT")),

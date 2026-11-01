@@ -1,4 +1,5 @@
 """S40 private X11 mount tests. No Xpra process or external site is launched."""
+
 from __future__ import annotations
 
 import os
@@ -114,37 +115,71 @@ def test_mount_hides_other_homes_and_transfers_only_sealed_cookie(tmp_path: Path
             assert kwargs["cwd"] == home / agent_name
             sec_fd = os.open(os.devnull, os.O_RDONLY)
             args = (
-                "prlimit", "--", "bwrap", "--unshare-all", "--ro-bind", str(rootfs), "/",
-                "--bind", str(home), "/home", "--bind", str(staging), "/var/ai",
-                "--ro-bind", str(tools), "/usr/local/tools", "--bind", str(config), "/etc/ai",
-                "--proc", "/proc", "--dev", "/dev", "--clearenv",
-                "--setenv", "HOME", f"/home/{agent_name}", "--chdir", f"/home/{agent_name}",
-                "--seccomp", str(sec_fd), "--json-status-fd", str(status_fd), "--", "/bin/bash",
+                "prlimit",
+                "--",
+                "bwrap",
+                "--unshare-all",
+                "--ro-bind",
+                str(rootfs),
+                "/",
+                "--bind",
+                str(home),
+                "/home",
+                "--bind",
+                str(staging),
+                "/var/ai",
+                "--ro-bind",
+                str(tools),
+                "/usr/local/tools",
+                "--bind",
+                str(config),
+                "/etc/ai",
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
+                "--clearenv",
+                "--setenv",
+                "HOME",
+                f"/home/{agent_name}",
+                "--chdir",
+                f"/home/{agent_name}",
+                "--seccomp",
+                str(sec_fd),
+                "--json-status-fd",
+                str(status_fd),
+                "--",
+                "/bin/bash",
             )
-            return IsolationLaunch(args, (sec_fd, status_fd), "a"*64)
+            return IsolationLaunch(args, (sec_fd, status_fd), "a" * 64)
 
     pool = object.__new__(AgentXpraDisplayPool)
     pool.runtime = SimpleNamespace(home=home, model_staging=staging, ai_config_dir=config)
     pool.workspace_id, pool.browser_gateway = uuid4(), None
     pool.backend = Qualified()
     pool.root = host_display
-    server = SimpleNamespace(socket_path=Path(socket_path), auth_file=cookie,
-           environment=lambda: {"DISPLAY": ":473"})
+    server = SimpleNamespace(
+        socket_path=Path(socket_path), auth_file=cookie, environment=lambda: {"DISPLAY": ":473"}
+    )
     pool._agent = lambda agent: SimpleNamespace(directory=agent_name, uid=420, gid=69)
     pool.acquire = lambda agent: SimpleNamespace(server=server, display=":473")
     # Test the actual kernel-file-descriptor arguments without installing a
     # seccomp filter in this pytest process.
-    monkeypatch.setattr("potbot.tools.agent_xpra_displays._seccomp_fd",
-                        lambda **kw: os.open(os.devnull, os.O_RDONLY))
+    monkeypatch.setattr(
+        "potbot.tools.agent_xpra_displays._seccomp_fd",
+        lambda **kw: os.open(os.devnull, os.O_RDONLY),
+    )
     try:
         launch = pool.prepare(agent_id, argv=("/bin/bash",), status_fd=status_fd)
         a = list(launch.argv)
-        assert ["--tmpfs", "/home"] == a[a.index("--tmpfs"):a.index("--tmpfs") + 2]
-        assert ["--bind", str(home), "/home"] not in [a[i:i+3] for i in range(len(a)-2)]
-        assert ["--bind", str(home / agent_name), f"/home/{agent_name}"] in [a[i:i+3] for i in range(len(a)-2)]
+        assert ["--tmpfs", "/home"] == a[a.index("--tmpfs") : a.index("--tmpfs") + 2]
+        assert ["--bind", str(home), "/home"] not in [a[i : i + 3] for i in range(len(a) - 2)]
+        assert ["--bind", str(home / agent_name), f"/home/{agent_name}"] in [
+            a[i : i + 3] for i in range(len(a) - 2)
+        ]
         assert f"/home/{other_name}" not in a
-        assert ["--tmpfs", "/var/ai"] in [a[i:i+2] for i in range(len(a)-1)]
-        assert ["--ro-bind", str(config), "/etc/ai"] in [a[i:i+3] for i in range(len(a)-2)]
+        assert ["--tmpfs", "/var/ai"] in [a[i : i + 2] for i in range(len(a) - 1)]
+        assert ["--ro-bind", str(config), "/etc/ai"] in [a[i : i + 3] for i in range(len(a) - 2)]
         assert len(launch.pass_fds) == 3
         cookie_fd = int(a[a.index("--ro-bind-data") + 1])
         assert cookie_fd == launch.pass_fds[1]
@@ -177,14 +212,22 @@ def test_unqualified_mount_plan_fails_before_fds_are_exposed(tmp_path: Path, mon
     pool.workspace_id, pool.browser_gateway = uuid4(), None
     pool.root = root
     pool._agent = lambda _: SimpleNamespace(directory="agent", uid=420, gid=69)
-    pool.acquire = lambda _: SimpleNamespace(server=SimpleNamespace(
-       socket_path=root/"X500", auth_file=cookie,
-       environment=lambda: {"DISPLAY": ":500"}), display=":500")
+    pool.acquire = lambda _: SimpleNamespace(
+        server=SimpleNamespace(
+            socket_path=root / "X500", auth_file=cookie, environment=lambda: {"DISPLAY": ":500"}
+        ),
+        display=":500",
+    )
+
     class Broken:
         def prepare(self, **kwargs):
             fd = os.open(os.devnull, os.O_RDONLY)
-            return IsolationLaunch(("bwrap", "--bind", str(home), "/home",
-                                    "--seccomp", str(fd)), (fd, kwargs["status_fd"]), "b"*64)
+            return IsolationLaunch(
+                ("bwrap", "--bind", str(home), "/home", "--seccomp", str(fd)),
+                (fd, kwargs["status_fd"]),
+                "b" * 64,
+            )
+
     pool.backend = Broken()
     out = os.open(os.devnull, os.O_WRONLY)
     try:
@@ -197,24 +240,39 @@ def test_unqualified_mount_plan_fails_before_fds_are_exposed(tmp_path: Path, mon
 
 def test_supervisor_adapter_rejects_foreign_agent_and_mount_overrides(tmp_path: Path):
     from potbot.tools.agent_xpra_displays import AgentXpraSandboxBackend
+
     home = tmp_path / "home"
     (home / "agent").mkdir(parents=True)
     pool = SimpleNamespace(
         runtime=SimpleNamespace(home=home),
         _agent=lambda x: SimpleNamespace(directory="agent", uid=420, gid=69),
-        prepare=lambda x, **kw: IsolationLaunch(("bwrap",), (kw["status_fd"],), "f"*64),
+        prepare=lambda x, **kw: IsolationLaunch(("bwrap",), (kw["status_fd"],), "f" * 64),
     )
     backend = object.__new__(AgentXpraSandboxBackend)
     backend.pool = pool
     backend.runtime = pool.runtime
     backend.agent_id = uuid4()
-    options = dict(argv=("/usr/bin/python3",), workspace_root=home, sandbox_root=home,
-                   cwd=home/"agent", read_only_roots=(), writable_roots=(),
-                   guest_uid=420, guest_gid=69, status_fd=3,
-                   memory_bytes=1024**3, cpu_seconds=15, max_file_bytes=1024**2,
-                   max_open_files=128)
-    assert backend.prepare(**options).identity == "f"*64
-    for mutation in ({"guest_uid": 421}, {"writable_roots": (home,)},
-                     {"ipc_profile": "private-loopback-v1"}, {"cwd": home}):
+    options = dict(
+        argv=("/usr/bin/python3",),
+        workspace_root=home,
+        sandbox_root=home,
+        cwd=home / "agent",
+        read_only_roots=(),
+        writable_roots=(),
+        guest_uid=420,
+        guest_gid=69,
+        status_fd=3,
+        memory_bytes=1024**3,
+        cpu_seconds=15,
+        max_file_bytes=1024**2,
+        max_open_files=128,
+    )
+    assert backend.prepare(**options).identity == "f" * 64
+    for mutation in (
+        {"guest_uid": 421},
+        {"writable_roots": (home,)},
+        {"ipc_profile": "private-loopback-v1"},
+        {"cwd": home},
+    ):
         with pytest.raises(ScopeDeniedError):
             backend.prepare(**{**options, **mutation})

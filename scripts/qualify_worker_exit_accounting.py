@@ -5,6 +5,7 @@ sandbox. The command returns nonzero when it cannot register on all CPUs or
 observe the exit resources of every test child. Never use an absent listener as
 permission to run unmonitored workers.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,20 +25,34 @@ def qualify(count: int = 12) -> dict[str, object]:
     try:
         stream.open()  # Entire online CPU mask registered BEFORE ANY child starts.
         for _ in range(count):
-            processes.append(subprocess.Popen([sys.executable, "-c",
-                "p=bytearray(1<<20); p[17]=1; print(sum(p), flush=True)"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            processes.append(
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-c",
+                        "p=bytearray(1<<20); p[17]=1; print(sum(p), flush=True)",
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            )
         for proc in processes:
             if proc.wait(timeout=20) != 0:
                 raise RuntimeError("accounting fixture child did not exit cleanly")
         results = stream.coverage({p.pid for p in processes}, deadline_seconds=5)
-        if len(results) != count or any(v.elapsed_usec <= 0 or v.rss_peak_bytes <= 0
-                                        or v.cpu_user_usec + v.cpu_system_usec <= 0
-                                        for v in results.values()):
+        if len(results) != count or any(
+            v.elapsed_usec <= 0 or v.rss_peak_bytes <= 0 or v.cpu_user_usec + v.cpu_system_usec <= 0
+            for v in results.values()
+        ):
             raise RuntimeError("kernel taskstats did not provide valid per-task lifetime counters")
-        return {"schema": 1, "qualified": True, "exited_tasks": count,
-                "source": "linux-generic-netlink-taskstats", "unaccounted_tasks": 0,
-                "kernel_uapi": "taskstats-v10-or-later"}
+        return {
+            "schema": 1,
+            "qualified": True,
+            "exited_tasks": count,
+            "source": "linux-generic-netlink-taskstats",
+            "unaccounted_tasks": 0,
+            "kernel_uapi": "taskstats-v10-or-later",
+        }
     finally:
         for child in processes:
             if child.poll() is None:

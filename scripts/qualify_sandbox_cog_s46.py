@@ -5,6 +5,7 @@ No automatic image admission, agent registration, privilege changes or fallback
 executor. Existing operator configuration and kernel auditing are prerequisites.
 The receipt does NOT qualify nested workflow RPC, PostgreSQL or Xpra browsers.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,7 +55,9 @@ SOURCES = (
 
 def committed_sources(root: Path = ROOT) -> tuple[str, dict[str, str]]:
     def git(*argv):
-        return subprocess.check_output(["git", *argv], cwd=root, timeout=10, stderr=subprocess.DEVNULL)
+        return subprocess.check_output(
+            ["git", *argv], cwd=root, timeout=10, stderr=subprocess.DEVNULL
+        )
 
     head = git("rev-parse", "HEAD").decode("ascii").strip()
     hashes = {}
@@ -110,8 +113,11 @@ async def qualify(config: dict, head: str, hashes: dict[str, str]) -> dict:
     actor = WorkspaceContext(workspace, principal)
     ledger_path = Path(config["ledger"])
     # Never create an unconfigured ledger and then manufacture an image pin.
-    if (not ledger_path.is_file() or ledger_path.is_symlink()
-            or ledger_path.resolve(strict=True) != ledger_path):
+    if (
+        not ledger_path.is_file()
+        or ledger_path.is_symlink()
+        or ledger_path.resolve(strict=True) != ledger_path
+    ):
         raise ValueError("existing operator ledger required")
     ledger_info = ledger_path.stat()
     if ledger_info.st_uid != os.geteuid() or ledger_info.st_mode & 0o077:
@@ -127,8 +133,12 @@ async def qualify(config: dict, head: str, hashes: dict[str, str]) -> dict:
     _outside_guest(monitor.audit_root, config)
     expected_probe = hashes["sandbox/qualification/worker_probe.py"]
     policy_pin = ExecutionPolicy(
-        content_hash({"probe": "s46", "source": head}), content_hash(config),
-        content_hash(hashes), __version__, max_wall_ms=20000, max_output_bytes=16384,
+        content_hash({"probe": "s46", "source": head}),
+        content_hash(config),
+        content_hash(hashes),
+        __version__,
+        max_wall_ms=20000,
+        max_output_bytes=16384,
     )
     binding = WorkBinding("tool", OPERATION, INPUT, OUTPUT, expected_probe, "read_only", policy_pin)
     operation = SandboxedCogOperation(binding, (GUEST_EXECUTABLE,), expected_probe)
@@ -138,6 +148,7 @@ async def qualify(config: dict, head: str, hashes: dict[str, str]) -> dict:
 
     class RecordedSupervisor(ProcessSupervisor):
         """Observation only: launch/monitor/termination remain in super().run."""
+
         def __init__(self):
             super().__init__(backend, monitor_config=monitor)
             self.results = []
@@ -161,7 +172,11 @@ async def qualify(config: dict, head: str, hashes: dict[str, str]) -> dict:
             raise ValueError("one real bounded process/result required")
         check_process(supervisor.results[0])
         observed = check_probe(
-            value.value, nonce=nonce, run_id=str(run_id), uid=home.uid, gid=home.gid,
+            value.value,
+            nonce=nonce,
+            run_id=str(run_id),
+            uid=home.uid,
+            gid=home.gid,
             guest_cwd=home.guest_path,
         )
         # Reuse the existing full trace, process-tree, file-index and TASKSTATS
@@ -171,17 +186,27 @@ async def qualify(config: dict, head: str, hashes: dict[str, str]) -> dict:
         )
         audit = check_audit(verified, workspace_id=str(workspace), run_id=str(run_id))
         validate_runtime_pin(ledger, runtime, workspace)
-        attempts.append({
-            "agent_id": str(agent), "run_id": str(run_id), "qualified": True,
-            "process_stopped": True, "observations": observed, "audit": audit,
-            "registered_identity": {"uid": home.uid, "gid": home.gid},
-            "isolation_sha256": digest(supervisor.results[0].isolation_identity.encode()),
-        })
+        attempts.append(
+            {
+                "agent_id": str(agent),
+                "run_id": str(run_id),
+                "qualified": True,
+                "process_stopped": True,
+                "observations": observed,
+                "audit": audit,
+                "registered_identity": {"uid": home.uid, "gid": home.gid},
+                "isolation_sha256": digest(supervisor.results[0].isolation_identity.encode()),
+            }
+        )
     return report(
-        source_commit=head, source_hashes=hashes,
-        image_digest=runtime.image_digest, qualification_sha256=runtime.qualification_sha256,
-        probe_sha256=expected_probe, workspace_id=str(workspace),
-        agents=config["agent_ids"], attempts=attempts,
+        source_commit=head,
+        source_hashes=hashes,
+        image_digest=runtime.image_digest,
+        qualification_sha256=runtime.qualification_sha256,
+        probe_sha256=expected_probe,
+        workspace_id=str(workspace),
+        agents=config["agent_ids"],
+        attempts=attempts,
     )
 
 
@@ -189,7 +214,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
-    parser.add_argument("--run-live", action="store_true", help="Explicitly launch registered workers")
+    parser.add_argument(
+        "--run-live", action="store_true", help="Explicitly launch registered workers"
+    )
     args = parser.parse_args(argv)
     phase = "opt_in"
     try:
@@ -203,9 +230,13 @@ def main(argv=None) -> int:
             _outside_guest(path, config)
         # Validate output directory before any launch, without touching its ACL.
         parent = args.report.parent
-        if (not args.report.is_absolute() or parent.resolve(strict=True) != parent
-                or not parent.is_dir() or parent.stat().st_uid != os.geteuid()
-                or parent.stat().st_mode & 0o077):
+        if (
+            not args.report.is_absolute()
+            or parent.resolve(strict=True) != parent
+            or not parent.is_dir()
+            or parent.stat().st_uid != os.geteuid()
+            or parent.stat().st_mode & 0o077
+        ):
             raise ValueError("private report directory required")
         phase = "committed_sources"
         head, hashes = committed_sources()
@@ -216,11 +247,28 @@ def main(argv=None) -> int:
     except Exception as exc:
         # Failed runs never overwrite or leave behind a success receipt. Detailed
         # operator traces remain in the existing audit root, not stdout.
-        print(json.dumps({"schema": SCHEMA, "qualified_smoke": False,
-                          "phase": phase, "error_class": type(exc).__name__}), file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "schema": SCHEMA,
+                    "qualified_smoke": False,
+                    "phase": phase,
+                    "error_class": type(exc).__name__,
+                }
+            ),
+            file=sys.stderr,
+        )
         return 1
-    print(json.dumps({"schema": SCHEMA, "qualified_smoke": True,
-                      "source_commit": head, "registered_workers": len(result["attempts"])}))
+    print(
+        json.dumps(
+            {
+                "schema": SCHEMA,
+                "qualified_smoke": True,
+                "source_commit": head,
+                "registered_workers": len(result["attempts"]),
+            }
+        )
+    )
     return 0
 
 

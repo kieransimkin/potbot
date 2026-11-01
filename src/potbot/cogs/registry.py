@@ -237,6 +237,7 @@ class BoundCogRegistry:
         if self.browser_profile:
             from potbot.cogs.browser import BROWSER_COGS
             from potbot.cogs.execution import EXECUTION_COGS
+
             return (*INSTALLED_COGS, *EXECUTION_COGS, *BROWSER_COGS)
         if self.artifact_upload_profile:
             from potbot.cogs.artifact_ranges import RANGE_COGS
@@ -268,9 +269,9 @@ class BoundCogRegistry:
         return INSTALLED_COGS
 
     def __post_init__(self) -> None:
-        from potbot.cogs.browser import browser_cog_snapshot
         from potbot.cogs.artifact_ranges import artifact_range_snapshot
         from potbot.cogs.artifact_uploads import artifact_upload_snapshot
+        from potbot.cogs.browser import browser_cog_snapshot
         from potbot.cogs.debugger import debugger_cog_snapshot
         from potbot.cogs.execution import execution_cog_snapshot
         from potbot.cogs.inventory import inventory_cog_snapshot
@@ -365,6 +366,7 @@ class BoundCogRegistry:
     @classmethod
     def browser(cls) -> BoundCogRegistry:
         from potbot.cogs.browser import browser_cog_snapshot
+
         return cls(browser_cog_snapshot(), browser_profile=True)
 
     @classmethod
@@ -414,6 +416,7 @@ class BoundCogRegistry:
 
         if self.browser_profile and isinstance(controller, ExecutionCogRuntime):
             from potbot.cogs.browser import BROWSER_COGS
+
             selected = next(
                 (s for s in (*EXECUTION_COGS, *BROWSER_COGS) if str(s.cog_ref) == cog_ref),
                 None,

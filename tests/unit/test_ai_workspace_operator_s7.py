@@ -22,22 +22,34 @@ pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="inotify require
 
 @pytest.fixture
 def owner(tmp_path: Path):
-    home, image, config, past, private = (tmp_path / part for part in (
-        "home", "rootfs", "config", "ai-past", "private"
-    ))
+    home, image, config, past, private = (
+        tmp_path / part for part in ("home", "rootfs", "config", "ai-past", "private")
+    )
     for path in (home, image, config, past, private):
         path.mkdir()
     workspace, actor = uuid4(), uuid4()
     ledger = WorkspaceLeaseLedger(private / "leases.sqlite", workspace_home=home)
     digest, qualification = "a" * 64, "b" * 64
-    ledger.pin_image(workspace, digest=digest,
-                     image_ref="ghcr.io/test/image@sha256:" + digest,
-                     build_commit="c" * 40, platform="linux/amd64",
-                     rootfs_path=image, qualification_sha256=qualification)
-    runtime = SharedWorkspaceRuntime(digest, image, home, qualification,
-                                     ai_config_dir=config, ai_history_dir=past)
-    return AiWorkspaceOperator(workspace_id=workspace, ledger=ledger,
-                               runtime=runtime, monitor_interval_seconds=5), actor, config, past
+    ledger.pin_image(
+        workspace,
+        digest=digest,
+        image_ref="ghcr.io/test/image@sha256:" + digest,
+        build_commit="c" * 40,
+        platform="linux/amd64",
+        rootfs_path=image,
+        qualification_sha256=qualification,
+    )
+    runtime = SharedWorkspaceRuntime(
+        digest, image, home, qualification, ai_config_dir=config, ai_history_dir=past
+    )
+    return (
+        AiWorkspaceOperator(
+            workspace_id=workspace, ledger=ledger, runtime=runtime, monitor_interval_seconds=5
+        ),
+        actor,
+        config,
+        past,
+    )
 
 
 def test_operator_starts_watcher_before_admitting_gateway(owner) -> None:
@@ -64,10 +76,17 @@ def test_operator_refuses_to_stop_with_outstanding_workspace_lease(owner) -> Non
     op, actor, _, _ = owner
     op.start()
     image = op.runtime.image_digest
-    lease = op.ledger.claim(AccessRequest(
-        op.workspace_id, actor, "bash.session", "active-terminal", "unknown",
-        (AccessResource("workspace", "*", "write"),), image,
-    ))
+    lease = op.ledger.claim(
+        AccessRequest(
+            op.workspace_id,
+            actor,
+            "bash.session",
+            "active-terminal",
+            "unknown",
+            (AccessResource("workspace", "*", "write"),),
+            image,
+        )
+    )
     try:
         with pytest.raises(StateMismatchError):
             op.close(timeout_seconds=1)
@@ -78,15 +97,21 @@ def test_operator_refuses_to_stop_with_outstanding_workspace_lease(owner) -> Non
 
 
 def test_operator_supervisor_cancels_active_runs_before_shutdown(
-    owner, monkeypatch: pytest.MonkeyPatch,
+    owner,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     op, _, _, _ = owner
     started = threading.Event()
     stopped = threading.Event()
     observations: list[object] = []
 
-    def fake_supervisor_run(self: ProcessSupervisor, request: object, *,
-                            cancelled: object = None, redactor: object = None) -> str:
+    def fake_supervisor_run(
+        self: ProcessSupervisor,
+        request: object,
+        *,
+        cancelled: object = None,
+        redactor: object = None,
+    ) -> str:
         del self, request, redactor
         assert callable(cancelled)
         started.set()

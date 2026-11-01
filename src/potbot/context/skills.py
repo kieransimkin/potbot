@@ -4,6 +4,7 @@ The backing source is never guest-writable: agents propose SKILL.md through an
 admitted controller operation. A release is published by atomic directory rename
 and cannot replace an existing release. Activation/version pinning is separate.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -68,8 +69,11 @@ class SharedSkillReleaseStore:
 
     @staticmethod
     def _write(directory: Path, name: str, data: bytes) -> None:
-        fd = os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
-                     os.O_NOFOLLOW | os.O_CLOEXEC, 0o400)
+        fd = os.open(
+            directory / name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o400,
+        )
         try:
             with os.fdopen(fd, "wb", closefd=False) as out:
                 out.write(data)
@@ -98,9 +102,12 @@ class SharedSkillReleaseStore:
             releases.mkdir(mode=0o755)
         except FileExistsError:
             pass
-        if (releases.is_symlink() or not releases.is_dir()
-                or releases.resolve(strict=True).parent != slug
-                or releases.stat().st_mode & 0o022):
+        if (
+            releases.is_symlink()
+            or not releases.is_dir()
+            or releases.resolve(strict=True).parent != slug
+            or releases.stat().st_mode & 0o022
+        ):
             raise ScopeDeniedError("Skill releases are not in a trusted real directory")
         manifest = {"schema": "potbot-skill-release/v1", "skill": name, "sha256": version}
         manifest_raw = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()

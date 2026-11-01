@@ -28,6 +28,7 @@ from potbot.domain.serialization import content_hash
 from potbot.persistence.artifacts import ArtifactStore
 from potbot.persistence.database import Database
 from potbot.persistence.evidence import append_event
+from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.isolation import runtime_roots
 from potbot.tools.receipts import RunReceiptStore
 from potbot.tools.repository import (
@@ -36,13 +37,12 @@ from potbot.tools.repository import (
     assert_lease,
     workspace_fingerprint,
 )
-from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.secrets import CaptureRedactionError, CaptureRedactor, SecretReferenceProvider
-from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
 )
+from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.worker_attribution import validate_host_agent_binding, worker_subject
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
 from potbot.tools.workspace_supervision import (
@@ -81,17 +81,24 @@ class ToolGateway:
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts
         if (shared_runtime is None) != (shared_leases is None):
             raise InvalidInputError("shared tool admission requires both runtime and lease broker")
-        validate_host_agent_binding(shared=shared_runtime is not None,
-                                    registry=agent_homes, agent_id=host_agent_id, ledger=shared_leases)
+        validate_host_agent_binding(
+            shared=shared_runtime is not None,
+            registry=agent_homes,
+            agent_id=host_agent_id,
+            ledger=shared_leases,
+        )
         if shared_runtime is None and ai_monitor is not None:
             raise InvalidInputError("AI config watcher requires a shared workspace runtime")
         if shared_runtime is not None and (workspace_sandbox is not None or read_only_roots):
             raise ScopeDeniedError("shared /home mode forbids legacy support mounts")
         if shared_runtime is not None:
             if supervisor is None:
-                supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(
-                    shared_runtime, ai_monitor=ai_monitor,
-                ))
+                supervisor = ProcessSupervisor(
+                    SharedWorkspaceBubblewrapBackend(
+                        shared_runtime,
+                        ai_monitor=ai_monitor,
+                    )
+                )
             if not isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend):
                 raise ScopeDeniedError("shared /home cannot use an unqualified legacy supervisor")
             if supervisor.backend.runtime != shared_runtime:
@@ -102,9 +109,7 @@ class ToolGateway:
         self.shared_leases = shared_leases
         self.agent_homes, self.host_agent_id = agent_homes, host_agent_id
         self.supervisor = supervisor or ProcessSupervisor()
-        self.ai_monitor = (
-            self.supervisor.backend.ai_monitor if shared_runtime is not None else None
-        )
+        self.ai_monitor = self.supervisor.backend.ai_monitor if shared_runtime is not None else None
         self.secrets = secrets or SecretReferenceProvider({})
         self.read_only_roots = read_only_roots
         self.workspace_sandbox = workspace_sandbox
@@ -369,14 +374,18 @@ class ToolGateway:
                 # repository lease rather than untrusted model-provided paths.
                 candidate_path = self.candidates.check_lease(context, lease)["path"]
             assert_shared_execution_allowed(
-                runtime=self.shared_runtime, ledger=self.shared_leases,
-                workspace_id=context.workspace_id, candidate_path=str(candidate_path),
+                runtime=self.shared_runtime,
+                ledger=self.shared_leases,
+                workspace_id=context.workspace_id,
+                candidate_path=str(candidate_path),
             )
             access_guard = WorkspaceLeaseGuard.exclusive_home(
                 self.shared_leases,
-                WorkspaceExecutorIdentity(context.workspace_id, context.principal_id,
-                                          self.shared_runtime.image_digest),
-                operation="tool.execute", idempotency_key=f"tool-{action_id.hex}",
+                WorkspaceExecutorIdentity(
+                    context.workspace_id, context.principal_id, self.shared_runtime.image_digest
+                ),
+                operation="tool.execute",
+                idempotency_key=f"tool-{action_id.hex}",
             )
             access_guard.start()
         try:
@@ -421,10 +430,16 @@ class ToolGateway:
                 )
             # A host-bound registry may identify the Cog agent. A principal
             # alone is NOT an agent and must not contribute to agent heat bars.
-            subject = (worker_subject(context, registry=getattr(self, "agent_homes", None),
-                                      agent_id=getattr(self, "host_agent_id", None),
-                                      ledger=self.shared_leases)
-                       if self.shared_runtime is not None else None)
+            subject = (
+                worker_subject(
+                    context,
+                    registry=getattr(self, "agent_homes", None),
+                    agent_id=getattr(self, "host_agent_id", None),
+                    ledger=self.shared_leases,
+                )
+                if self.shared_runtime is not None
+                else None
+            )
             request = ProcessRequest(
                 argv=(*definition.argv_prefix, *proposal.arguments),
                 cwd=self._paths(root, proposal),
@@ -449,9 +464,11 @@ class ToolGateway:
             )
             result = self.supervisor.run(
                 request,
-                cancelled=lambda: self._cancelled(context, run, lease) or (
-                    access_guard.fenced if access_guard is not None else False
-                ) or (self.ai_monitor is not None and not self.ai_monitor.is_healthy()),
+                cancelled=lambda: (
+                    self._cancelled(context, run, lease)
+                    or (access_guard.fenced if access_guard is not None else False)
+                    or (self.ai_monitor is not None and not self.ai_monitor.is_healthy())
+                ),
                 redactor=material.redactor,
             )
             if not result.processes_stopped:

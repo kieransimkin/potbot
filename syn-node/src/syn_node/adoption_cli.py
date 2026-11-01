@@ -4,6 +4,7 @@ No new daemon/socket mutators are introduced. Operator approval reads a Phase-41
 private ledger plus BOTH signatures; recipient private keys stay in the agent's
 OS credential store. CLI output contains public envelopes/receipts only.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,12 +21,16 @@ from urllib.parse import quote
 from .cli import _operator_tty, _private_json
 from .hd_keys import PythonHdOperatorSigner
 from .inherited_adoption import (
-    SynHandoffLedger, adopt_selected_key, confirm_selected_key,
-    grant_selected_key, prepare_agent_request, seal_selected_key,
+    SynHandoffLedger,
+    adopt_selected_key,
+    confirm_selected_key,
+    grant_selected_key,
+    prepare_agent_request,
+    seal_selected_key,
 )
 from .protocol import SynProtocolError, canonical, hex_bytes
 from .receipts import PublicAdoptionJournal
-from .selection_authority import SelectedPledgeAuthorizer, SELECTION_DOMAIN
+from .selection_authority import SELECTION_DOMAIN, SelectedPledgeAuthorizer
 
 
 def _redacted_parser() -> argparse.ArgumentParser:
@@ -33,9 +38,16 @@ def _redacted_parser() -> argparse.ArgumentParser:
     class Parser(argparse.ArgumentParser):
         def error(self, message: str) -> None:
             raise SynProtocolError("SYN adoption arguments are invalid or incomplete")
+
     parser = Parser(description="SYN operator-approved encrypted agent identity adoption")
     commands = parser.add_subparsers(dest="command", required=True, parser_class=Parser)
-    for name in ("operator-grant", "operator-seal", "operator-confirm", "agent-request", "agent-adopt"):
+    for name in (
+        "operator-grant",
+        "operator-seal",
+        "operator-confirm",
+        "agent-request",
+        "agent-adopt",
+    ):
         cmd = commands.add_parser(name)
         cmd.add_argument("--output", type=Path, required=True)
         if name.startswith("operator-"):
@@ -67,7 +79,8 @@ def _redacted_parser() -> argparse.ArgumentParser:
 
 def _private_output(path: Path, payload: dict[str, Any]) -> str:
     from .receipts import _private_directory
-    if (not isinstance(path, Path) or not path.is_absolute() or path.is_symlink()):
+
+    if not isinstance(path, Path) or not path.is_absolute() or path.is_symlink():
         raise SynProtocolError("SYN output must be a new absolute ordinary file")
     _private_directory(path.parent)
     data = canonical(payload)
@@ -95,20 +108,27 @@ def _operator_signer(config: Path) -> PythonHdOperatorSigner:
     raw = _private_json(config)
     if raw.get("schema_version") != 2 or raw.get("mode") != "operator":
         raise SynProtocolError("SYN adoption requires the Python HD operator mode")
-    if not isinstance(raw.get("keyring_service"), str) or not isinstance(raw.get("keyring_account"), str):
+    if not isinstance(raw.get("keyring_service"), str) or not isinstance(
+        raw.get("keyring_account"), str
+    ):
         raise SynProtocolError("SYN operator keyring identity is absent")
     return PythonHdOperatorSigner(
-        raw["keyring_service"], raw["keyring_account"],
+        raw["keyring_service"],
+        raw["keyring_account"],
         hex_bytes(raw.get("expected_base_public_key_hash"), 32, "master hash"),
     )
 
 
-def _authorization(args: argparse.Namespace, signer: PythonHdOperatorSigner,
-                   now: int) -> SelectedPledgeAuthorizer:
+def _authorization(
+    args: argparse.Namespace, signer: PythonHdOperatorSigner, now: int
+) -> SelectedPledgeAuthorizer:
     packet = _private_json(args.signed_selection)
     return SelectedPledgeAuthorizer(
-        ledger_path=args.phase41_ledger, expected_master_hash=signer.expected_public_hash,
-        network_id=args.network_id, signed_selection=packet, now=now,
+        ledger_path=args.phase41_ledger,
+        expected_master_hash=signer.expected_public_hash,
+        network_id=args.network_id,
+        signed_selection=packet,
+        now=now,
     )
 
 
@@ -138,7 +158,9 @@ def _selected_record(authorizer: SelectedPledgeAuthorizer, offer: str) -> dict[s
         "inheritance": row["inheritance"],
         "independence": row["independence"],
         "selected_public_key_hash": row["selected_public_key_hash"],
-        "selection_sha256": hashlib.sha256(SELECTION_DOMAIN + canonical(proof) + signature).hexdigest(),
+        "selection_sha256": hashlib.sha256(
+            SELECTION_DOMAIN + canonical(proof) + signature
+        ).hexdigest(),
     }
     authorizer.require_selected(values)
     return values
@@ -147,8 +169,12 @@ def _selected_record(authorizer: SelectedPledgeAuthorizer, offer: str) -> dict[s
 def _approve_on_tty(selection: dict[str, object]) -> None:
     """Require a human confirmation on the operator controlling terminal."""
     with _operator_tty() as tty:
-        tty.write("SYN selected inherited key: " + str(selection["selected_public_key_hash"]) + "\n")
-        tty.write("Issue ONE irreversible handoff for offer " + str(selection["offer_sha256"]) + "?\n")
+        tty.write(
+            "SYN selected inherited key: " + str(selection["selected_public_key_hash"]) + "\n"
+        )
+        tty.write(
+            "Issue ONE irreversible handoff for offer " + str(selection["offer_sha256"]) + "?\n"
+        )
         tty.write("Type ISSUE SYN INHERITANCE to approve: ")
         tty.flush()
         if tty.readline().strip() != "ISSUE SYN INHERITANCE":
@@ -162,47 +188,82 @@ def main(argv: list[str] | None = None) -> int:
         if args.command.startswith("operator-"):
             signer = _operator_signer(args.config)
             authorizer = _authorization(args, signer, now)
-            ledger = SynHandoffLedger(args.handoff_ledger,
-                                      operator_hash=signer.expected_public_hash)
+            ledger = SynHandoffLedger(
+                args.handoff_ledger, operator_hash=signer.expected_public_hash
+            )
             if args.command == "operator-grant":
                 selected = _selected_record(authorizer, args.offer_sha256)
                 _approve_on_tty(selected)
-                output = grant_selected_key(selection=selected, authorizer=authorizer,
-                                            signer=signer, ledger=ledger, now=now)
+                output = grant_selected_key(
+                    selection=selected, authorizer=authorizer, signer=signer, ledger=ledger, now=now
+                )
             elif args.command == "operator-seal":
-                output = seal_selected_key(grant_packet=_private_json(args.grant),
-                                           request_packet=_private_json(args.request), signer=signer,
-                                           authorizer=authorizer, ledger=ledger, now=now)
+                output = seal_selected_key(
+                    grant_packet=_private_json(args.grant),
+                    request_packet=_private_json(args.request),
+                    signer=signer,
+                    authorizer=authorizer,
+                    ledger=ledger,
+                    now=now,
+                )
             else:
-                journal = PublicAdoptionJournal(args.receipt_journal,
-                                                expected_master_hash=signer.expected_public_hash)
-                output = confirm_selected_key(grant_packet=_private_json(args.grant),
-                                              key_proof=_private_json(args.proof)["key_proof"],
-                                              signer=signer, authorizer=authorizer,
-                                              ledger=ledger, journal=journal, now=now)
+                journal = PublicAdoptionJournal(
+                    args.receipt_journal, expected_master_hash=signer.expected_public_hash
+                )
+                output = confirm_selected_key(
+                    grant_packet=_private_json(args.grant),
+                    key_proof=_private_json(args.proof)["key_proof"],
+                    signer=signer,
+                    authorizer=authorizer,
+                    ledger=ledger,
+                    journal=journal,
+                    now=now,
+                )
         elif args.command == "agent-request":
-            output = prepare_agent_request(grant_packet=_private_json(args.grant),
-                                           service=args.keyring_service,
-                                           account=args.keyring_account, lock_dir=args.lock_dir,
-                                           expected_master_hash=hex_bytes(args.expected_master_hash,
-                                                                          32, "master hash"), now=now)
+            output = prepare_agent_request(
+                grant_packet=_private_json(args.grant),
+                service=args.keyring_service,
+                account=args.keyring_account,
+                lock_dir=args.lock_dir,
+                expected_master_hash=hex_bytes(args.expected_master_hash, 32, "master hash"),
+                now=now,
+            )
         else:
-            output = adopt_selected_key(grant_packet=_private_json(args.grant),
-                                        request_packet=_private_json(args.request),
-                                        envelope=_private_json(args.envelope),
-                                        service=args.keyring_service, account=args.keyring_account,
-                                        lock_dir=args.lock_dir,
-                                        expected_master_hash=hex_bytes(args.expected_master_hash,
-                                                                       32, "master hash"), now=now)
+            output = adopt_selected_key(
+                grant_packet=_private_json(args.grant),
+                request_packet=_private_json(args.request),
+                envelope=_private_json(args.envelope),
+                service=args.keyring_service,
+                account=args.keyring_account,
+                lock_dir=args.lock_dir,
+                expected_master_hash=hex_bytes(args.expected_master_hash, 32, "master hash"),
+                now=now,
+            )
         digest = _private_output(args.output, output)
-        print(json.dumps({"schema": "syn-inherited-adoption-command/v1", "state": "complete",
-                          "output_sha256": digest, "agent_activation_authorized": False},
-                         sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "schema": "syn-inherited-adoption-command/v1",
+                    "state": "complete",
+                    "output_sha256": digest,
+                    "agent_activation_authorized": False,
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     except (SynProtocolError, OSError, ValueError, KeyError, sqlite3.Error) as exc:
-        print(json.dumps({"schema": "syn-inherited-adoption-command/v1", "state": "blocked",
-                          "error": type(exc).__name__, "agent_activation_authorized": False}),
-              file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "schema": "syn-inherited-adoption-command/v1",
+                    "state": "blocked",
+                    "error": type(exc).__name__,
+                    "agent_activation_authorized": False,
+                }
+            ),
+            file=sys.stderr,
+        )
         return 2
 
 

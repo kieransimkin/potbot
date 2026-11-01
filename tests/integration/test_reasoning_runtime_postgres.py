@@ -14,10 +14,14 @@ pytestmark = pytest.mark.postgres
 
 
 def _snapshot(status: str = "running") -> dict[str, Any]:
-    return {"run_status": status, "revision": 0, "nodes": [], "steering": [],
-            "spent_tokens": 0, "events": [
-                {"sequence": 1, "type": "node.created", "subject": "a", "revision": 0}
-            ]}
+    return {
+        "run_status": status,
+        "revision": 0,
+        "nodes": [],
+        "steering": [],
+        "spent_tokens": 0,
+        "events": [{"sequence": 1, "type": "node.created", "subject": "a", "revision": 0}],
+    }
 
 
 def test_reasoning_run_and_steering_survive_independent_transactions(app_env: Any) -> None:
@@ -36,8 +40,12 @@ def test_reasoning_run_and_steering_survive_independent_transactions(app_env: An
         inbox.submit(app_env.context, run_id, request_id="change-1", prompt="Use GPUs")
     pending = inbox.pending(app_env.context, run_id)
     assert len(pending) == 1 and pending[0]["prompt"] == "Try ARM"
-    decision = inbox.resolve(app_env.context, run_id, first,
-                             {"decision": "spawn_hypothesis", "explanation": "ARM now matters"})
+    decision = inbox.resolve(
+        app_env.context,
+        run_id,
+        first,
+        {"decision": "spawn_hypothesis", "explanation": "ARM now matters"},
+    )
     assert decision["status"] == "decided"
     assert inbox.get(app_env.context, run_id, "change-1")["decision"] == "spawn_hypothesis"
     assert not inbox.pending(app_env.context, run_id)

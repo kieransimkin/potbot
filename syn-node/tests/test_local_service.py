@@ -7,33 +7,36 @@ import json
 import os
 import socket
 import stat
-import sys
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from syn_node.custody import NativeOperatorSigner, create_agent_temporary_key
-from syn_node.local_service import SynLocalServer, create_registry_entry, publish_registry
-from syn_node.protocol import SynProtocolError, canonical, receive, send
-from syn_node.receipts import PublicAdoptionJournal, verify_adoption
-
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 from potbot.domain.syn_adoption import (
-    AdoptionReceipt, SelectedKeyProof, SignedAdoptionReceipt, SignedSelectedKeyProof,
+    AdoptionReceipt,
+    SelectedKeyProof,
+    SignedAdoptionReceipt,
+    SignedSelectedKeyProof,
 )
 from potbot.tools.syn_local_daemon import (
-    SynInstallationRegistry, SynLocalDaemonClient, SynLocalEndpoint,
+    SynInstallationRegistry,
+    SynLocalDaemonClient,
+    SynLocalEndpoint,
 )
+
+from syn_node.custody import create_agent_temporary_key
+from syn_node.local_service import SynLocalServer, create_registry_entry, publish_registry
+from syn_node.protocol import SynProtocolError
+from syn_node.receipts import PublicAdoptionJournal, verify_adoption
 
 
 def public(key: Ed25519PrivateKey) -> bytes:
     return key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw,
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
     )
 
 
@@ -61,8 +64,14 @@ def running_service(tmp_path: Path, *, mode: str = "operator", store: bool = Tru
     area = secure(tmp_path / "server")
     signer = DisposableTestSigner()
     master = hashlib.sha256(signer.public_key).digest()
-    journal = PublicAdoptionJournal(area / "public-adoptions.sqlite", expected_master_hash=master) if store else None
-    server = SynLocalServer(socket_path=area / "syn.sock", mode=mode, signer=signer, receipts=journal)
+    journal = (
+        PublicAdoptionJournal(area / "public-adoptions.sqlite", expected_master_hash=master)
+        if store
+        else None
+    )
+    server = SynLocalServer(
+        socket_path=area / "syn.sock", mode=mode, signer=signer, receipts=journal
+    )
     server.bind()
     stop = threading.Event()
     thread = threading.Thread(target=server.serve, args=(stop,), daemon=True)
@@ -83,8 +92,15 @@ def sample_receipt(master: DisposableTestSigner, *, now: int, offer: bytes | Non
     selected = public(agent)
     proof = SelectedKeyProof(pledge, h, 12_345, 3, selected, os.urandom(32), now - 1, now + 50)
     signed = SignedSelectedKeyProof(proof, agent.sign(proof.signed_bytes()))
-    rec = AdoptionReceipt(pledge, h, proof.inheritance, proof.independence,
-                          proof.selected_public_key_hash, signed.digest, now)
+    rec = AdoptionReceipt(
+        pledge,
+        h,
+        proof.inheritance,
+        proof.independence,
+        proof.selected_public_key_hash,
+        signed.digest,
+        now,
+    )
     return SignedAdoptionReceipt(rec, signed, master.public_key, master.sign(rec.signed_bytes()))
 
 
@@ -110,8 +126,11 @@ def test_syn_registry_created_privately_and_discovered_by_phase42(tmp_path):
     with running_service(tmp_path) as (signer, _journal, _server, endpoint):
         parent = secure(tmp_path / "registry")
         manifest = parent / "syn.json"
-        entry = create_registry_entry(socket_path=endpoint.socket_path, mode="operator",
-                                      base_public_key_hash=endpoint.base_public_key_hash)
+        entry = create_registry_entry(
+            socket_path=endpoint.socket_path,
+            mode="operator",
+            base_public_key_hash=endpoint.base_public_key_hash,
+        )
         publish_registry(manifest, entry)
         assert stat.S_IMODE(manifest.stat().st_mode) == 0o600
         assert SynInstallationRegistry(manifest).discover_operator() == endpoint
@@ -124,7 +143,12 @@ def test_syn_registry_created_privately_and_discovered_by_phase42(tmp_path):
 
 @pytest.mark.skipif(not hasattr(socket, "SO_PEERCRED"), reason="Linux")
 def test_agent_mode_refuses_operator_adoption_reads(tmp_path):
-    with running_service(tmp_path, mode="agent", store=False) as (_signer, journal, server, endpoint):
+    with running_service(tmp_path, mode="agent", store=False) as (
+        _signer,
+        journal,
+        server,
+        endpoint,
+    ):
         assert journal is None
         assert SynLocalDaemonClient(endpoint).attest().capabilities == ()
         with pytest.raises(ScopeDeniedError, match="operator"):
@@ -151,7 +175,10 @@ def test_immutable_public_receipt_store_rejects_conflicting_commitments(tmp_path
         resumed.inspect(first.receipt.offer_sha256)
 
 
-@pytest.mark.parametrize("fault", ["operator_signature", "selected_proof", "different_operator", "wrong_child", "time", "claim"])
+@pytest.mark.parametrize(
+    "fault",
+    ["operator_signature", "selected_proof", "different_operator", "wrong_child", "time", "claim"],
+)
 def test_signatures_and_selected_key_binding_fail_closed(tmp_path, fault):
     from copy import deepcopy
 
@@ -178,11 +205,19 @@ def test_signatures_and_selected_key_binding_fail_closed(tmp_path, fault):
 def test_original_raw_hardware_id_and_private_keys_never_enter_receipts(tmp_path):
     signer = DisposableTestSigner()
     folder = secure(tmp_path / "private")
-    store = PublicAdoptionJournal(folder / "receipts.sqlite", expected_master_hash=hashlib.sha256(signer.public_key).digest())
+    store = PublicAdoptionJournal(
+        folder / "receipts.sqlite", expected_master_hash=hashlib.sha256(signer.public_key).digest()
+    )
     sample = sample_receipt(signer, now=1_792_920_000)
     store.publish(sample.to_dict(), now=1_792_920_000)
     raw = (folder / "receipts.sqlite").read_bytes()
-    for private in (b"hardware_unique_id", b"private_key", b"entropy", b"chain_code", b"root_private"):
+    for private in (
+        b"hardware_unique_id",
+        b"private_key",
+        b"entropy",
+        b"chain_code",
+        b"root_private",
+    ):
         assert private not in raw
 
 
@@ -193,8 +228,12 @@ def test_public_service_rejects_mismatched_pinned_master_and_symlink_socket(tmp_
         with pytest.raises((ScopeDeniedError, StateMismatchError)):
             SynLocalDaemonClient(wrong).attest()
         with pytest.raises(SynProtocolError, match="different operator"):
-            SynLocalServer(socket_path=tmp_path / "unused.sock", mode="operator",
-                           signer=DisposableTestSigner(), receipts=journal)
+            SynLocalServer(
+                socket_path=tmp_path / "unused.sock",
+                mode="operator",
+                signer=DisposableTestSigner(),
+                receipts=journal,
+            )
         link = server.path.parent / "link.sock"
         link.symlink_to(server.path)
         with pytest.raises(SynProtocolError):
@@ -204,11 +243,11 @@ def test_public_service_rejects_mismatched_pinned_master_and_symlink_socket(tmp_
 def test_strict_protocol_refuses_duplicate_json_and_large_frames():
     from syn_node.protocol import parse
 
-    for bad in [b'{"x":1,"x":2}', b' {"x":1}', b'[]', b'{}\n']:
+    for bad in [b'{"x":1,"x":2}', b' {"x":1}', b"[]", b"{}\n"]:
         with pytest.raises(SynProtocolError):
             parse(bad)
     with pytest.raises(SynProtocolError):
-        parse(b'x' * 65_537)
+        parse(b"x" * 65_537)
 
 
 def test_no_native_keystore_fallback_for_new_agent_temporary_key(monkeypatch, tmp_path):
@@ -231,7 +270,10 @@ def test_no_native_keystore_fallback_for_new_agent_temporary_key(monkeypatch, tm
     assert pub["schema"] == "syn-agent-temporary-public-identity/v1"
     assert pub["custody"] == "native-os-credential-store"
     assert len(pub["temporary_public_key_hash"]) == 64
-    assert hashlib.sha256(bytes.fromhex(pub["temporary_public_key"])).hexdigest() == pub["temporary_public_key_hash"]
+    assert (
+        hashlib.sha256(bytes.fromhex(pub["temporary_public_key"])).hexdigest()
+        == pub["temporary_public_key_hash"]
+    )
     assert fake.storage[("syn.agent", "fixture-1")]
     with pytest.raises(SynProtocolError, match="already exists"):
         create_agent_temporary_key(service="syn.agent", account="fixture-1", lock_dir=lock_dir)
@@ -241,8 +283,9 @@ def test_no_native_keystore_fallback_for_new_agent_temporary_key(monkeypatch, tm
 
 
 def test_missing_native_keyring_backend_is_a_hard_error(monkeypatch):
-    from syn_node import custody
     import importlib
+
+    from syn_node import custody
 
     old = importlib.import_module
 
@@ -262,9 +305,14 @@ def test_concurrent_operator_registry_updates_remain_serialized(tmp_path):
     area = secure(tmp_path / "registry-concurrent")
     target = area / "installations.json"
     peer_area = secure(tmp_path / "agent-sockets")
-    entries = [create_registry_entry(socket_path=peer_area / f"agent-{i}.sock",
-                                     mode="agent", base_public_key_hash=hashlib.sha256(bytes((i,))).digest())
-               for i in range(8)]
+    entries = [
+        create_registry_entry(
+            socket_path=peer_area / f"agent-{i}.sock",
+            mode="agent",
+            base_public_key_hash=hashlib.sha256(bytes((i,))).digest(),
+        )
+        for i in range(8)
+    ]
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(lambda entry: publish_registry(target, entry), entries))
     assert len(json.loads(target.read_text())["installations"]) == 8
@@ -292,8 +340,9 @@ def test_agent_temporary_creation_uses_one_interprocess_lock(monkeypatch, tmp_pa
 
     def attempt(_):
         try:
-            return custody.create_agent_temporary_key(service="syn.agent", account="one",
-                                                     lock_dir=lock_dir)
+            return custody.create_agent_temporary_key(
+                service="syn.agent", account="one", lock_dir=lock_dir
+            )
         except SynProtocolError:
             return None
 
@@ -307,8 +356,9 @@ def test_registry_preserves_existing_contents_on_invalid_extension(tmp_path):
     area = secure(tmp_path / "registry-invalid")
     peer_area = secure(tmp_path / "peer-dir")
     path = area / "syn.json"
-    first = create_registry_entry(socket_path=peer_area / "op.sock", mode="operator",
-                                  base_public_key_hash=os.urandom(32))
+    first = create_registry_entry(
+        socket_path=peer_area / "op.sock", mode="operator", base_public_key_hash=os.urandom(32)
+    )
     publish_registry(path, first)
     original = path.read_bytes()
     bad = {**first, "owner_uid": -1}

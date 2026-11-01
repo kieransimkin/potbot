@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
+from potbot.domain.errors import InvalidInputError, ScopeDeniedError
 from potbot.tools.gui_resource_audit import GuiAuditFactory, GuiAuditHandle
-from potbot.tools.worker_telemetry import WorkerMonitorConfig
 
 
 class FakeMonitor:
@@ -68,8 +66,10 @@ def test_missing_task_exit_coverage_never_converts_to_success():
 
 def test_failed_audit_finalize_never_returns_complete():
     worker = FakeMonitor()
+
     def broken(*, confirmed_stopped):
         raise RuntimeError("private trace path must not surface")
+
     worker.finish = broken
     handle = GuiAuditHandle(worker)
     handle.command(("/bin/true",))
@@ -95,39 +95,62 @@ def test_gui_identity_is_operator_principal_not_fabricated_agent(tmp_path, monke
     (tmp_path / "strace").write_text("exe")
     (tmp_path / "join").write_text("exe")
     monkeypatch.setattr(module, "WorkerMonitorConfig", DummyConfig)
-    config = DummyConfig(tmp_path / "audit", tmp_path / "cgroup", tmp_path / "strace", tmp_path / "join")
+    config = DummyConfig(
+        tmp_path / "audit", tmp_path / "cgroup", tmp_path / "strace", tmp_path / "join"
+    )
     workspace, principal = uuid4(), uuid4()
     sessions = []
+
     def factory(*a, **kw):
         session = FakeMonitor(*a, **kw)
         sessions.append(session)
         return session
-    runtime = SimpleNamespace(rootfs=tmp_path / "rootfs", home=tmp_path / "home",
-        model_staging=tmp_path / "scratch", shared_tools=tmp_path / "tools",
-        shared_models=tmp_path / "models", ai_config_dir=tmp_path / "ai",
-        ai_history_dir=tmp_path / "past")
-    owner = GuiAuditFactory(config=config, runtime=runtime,
-                            workspace_id=workspace, principal_id=principal,
-                            session_factory=factory)
+
+    runtime = SimpleNamespace(
+        rootfs=tmp_path / "rootfs",
+        home=tmp_path / "home",
+        model_staging=tmp_path / "scratch",
+        shared_tools=tmp_path / "tools",
+        shared_models=tmp_path / "models",
+        ai_config_dir=tmp_path / "ai",
+        ai_history_dir=tmp_path / "past",
+    )
+    owner = GuiAuditFactory(
+        config=config,
+        runtime=runtime,
+        workspace_id=workspace,
+        principal_id=principal,
+        session_factory=factory,
+    )
     run = uuid4()
     handle = owner("a" * 64, run)
     assert isinstance(handle, GuiAuditHandle)
     assert sessions[0].arguments[1:3] == (workspace, principal)
     assert sessions[0].keywords == {"identity_kind": "principal", "run_id": run}
-    for key, name in (("audit_root", "audit"), ("cgroup_root", "cgroup"),
-                      ("strace", "strace"), ("cgroup_join", "join")):
+    for key, name in (
+        ("audit_root", "audit"),
+        ("cgroup_root", "cgroup"),
+        ("strace", "strace"),
+        ("cgroup_join", "join"),
+    ):
         intruder = tmp_path / "home" / name
         if key in {"audit_root", "cgroup_root"}:
             intruder.mkdir()
         else:
             intruder.write_bytes(b"fake")
-        values = {field: getattr(config, field)
-                  for field in ("audit_root", "cgroup_root", "strace", "cgroup_join")}
+        values = {
+            field: getattr(config, field)
+            for field in ("audit_root", "cgroup_root", "strace", "cgroup_join")
+        }
         values[key] = intruder
         with pytest.raises(ScopeDeniedError):
-            GuiAuditFactory(config=DummyConfig(**values), runtime=runtime,
-                            workspace_id=workspace, principal_id=principal,
-                            session_factory=factory)
+            GuiAuditFactory(
+                config=DummyConfig(**values),
+                runtime=runtime,
+                workspace_id=workspace,
+                principal_id=principal,
+                session_factory=factory,
+            )
 
 
 class DummyConfig:
@@ -138,17 +161,30 @@ class DummyConfig:
 
 def test_invalid_process_identity_is_rejected(tmp_path, monkeypatch):
     from potbot.tools import gui_resource_audit as module
+
     monkeypatch.setattr(module, "WorkerMonitorConfig", DummyConfig)
     for name in ("rootfs", "home", "audit", "cgroup"):
-        (tmp_path/name).mkdir()
+        (tmp_path / name).mkdir()
     for name in ("strace", "join"):
-        (tmp_path/name).write_bytes(b"X")
-    runtime = SimpleNamespace(rootfs=tmp_path/"rootfs", home=tmp_path/"home",
-        shared_tools=None, model_staging=None, shared_models=None,
-        ai_config_dir=None, ai_history_dir=None)
-    owner = GuiAuditFactory(config=DummyConfig(tmp_path/"audit",tmp_path/"cgroup",tmp_path/"strace",tmp_path/"join"),
-                            runtime=runtime, workspace_id=uuid4(), principal_id=uuid4(),
-                            session_factory=FakeMonitor)
-    for wrong in ("abc", "z"*64, "a"*63):
+        (tmp_path / name).write_bytes(b"X")
+    runtime = SimpleNamespace(
+        rootfs=tmp_path / "rootfs",
+        home=tmp_path / "home",
+        shared_tools=None,
+        model_staging=None,
+        shared_models=None,
+        ai_config_dir=None,
+        ai_history_dir=None,
+    )
+    owner = GuiAuditFactory(
+        config=DummyConfig(
+            tmp_path / "audit", tmp_path / "cgroup", tmp_path / "strace", tmp_path / "join"
+        ),
+        runtime=runtime,
+        workspace_id=uuid4(),
+        principal_id=uuid4(),
+        session_factory=FakeMonitor,
+    )
+    for wrong in ("abc", "z" * 64, "a" * 63):
         with pytest.raises(InvalidInputError):
             owner(wrong, uuid4())

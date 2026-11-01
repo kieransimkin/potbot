@@ -32,7 +32,7 @@ def _directory(path: Path, *, create: bool = False) -> Path:
     if create:
         path.mkdir(mode=0o755, exist_ok=True)
     info = path.stat(follow_symlinks=False)
-    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o022):
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o022:
         raise ScopeDeniedError("Skill projection directory has unsafe custody")
     return path
 
@@ -46,7 +46,9 @@ def prepare_skill_root(parent: Path, workspace_id: UUID) -> Path:
 
 
 def _json(value: Any) -> bytes:
-    return (json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
+    return (
+        json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")) + "\n"
+    ).encode()
 
 
 class SkillProjectionBusy(StateMismatchError):
@@ -72,12 +74,19 @@ class SkillLibraryProjector:
 
         _directory(self.root)
         _directory(self.library)
-        fd = os.open(self.library / ".projection.lock",
-                     os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        fd = os.open(
+            self.library / ".projection.lock",
+            os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+        )
         try:
             info = os.fstat(fd)
-            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                    or info.st_nlink != 1 or info.st_mode & 0o077):
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.geteuid()
+                or info.st_nlink != 1
+                or info.st_mode & 0o077
+            ):
                 raise ScopeDeniedError("Skill projection lock custody changed")
             # Never stall the operator health loop behind another projector.
             try:
@@ -109,8 +118,13 @@ class SkillLibraryProjector:
             fd = os.open(folder / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
             try:
                 info = os.fstat(fd)
-                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                        or info.st_nlink != 1 or info.st_mode & 0o222 or info.st_size != len(expected)):
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != os.geteuid()
+                    or info.st_nlink != 1
+                    or info.st_mode & 0o222
+                    or info.st_size != len(expected)
+                ):
                     raise ScopeDeniedError("Skill snapshot file is mutable or linked")
                 with os.fdopen(fd, "rb", closefd=False) as stream:
                     if stream.read(len(expected) + 1) != expected:
@@ -123,8 +137,11 @@ class SkillLibraryProjector:
             namespace = document["namespace"]
             agent_id = UUID(hex=namespace.removeprefix("agent-"))
             identity, _, name = skill_identity(context.workspace_id, agent_id, document["name"])
-            if (namespace != "agent-" + agent_id.hex or str(identity) != document["skill_id"]
-                    or name != document["context_name"]):
+            if (
+                namespace != "agent-" + agent_id.hex
+                or str(identity) != document["skill_id"]
+                or name != document["context_name"]
+            ):
                 raise ValueError
             validate_skill(document["name"], document["content"])
             if sha256(document["content"]) != document["sha256"]:
@@ -137,14 +154,22 @@ class SkillLibraryProjector:
             for role in ROLES:
                 row = docs[role]
                 validate_content(row["content"])
-                if (type(row["revision"]) is not int or row["revision"] < 1
-                        or sha256(row["content"]) != row["sha256"]):
+                if (
+                    type(row["revision"]) is not int
+                    or row["revision"] < 1
+                    or sha256(row["content"]) != row["sha256"]
+                ):
                     raise ValueError
                 files[role] = row["content"].encode("utf-8")
                 revisions[role] = {"revision": row["revision"], "sha256": row["sha256"]}
-            manifest = {"schema": "potbot-authored-skill-view/v1", "skill_id": str(identity),
-                        "release_sha256": document["sha256"], "context": revisions,
-                        "trusted": False, "automatically_activated": False}
+            manifest = {
+                "schema": "potbot-authored-skill-view/v1",
+                "skill_id": str(identity),
+                "release_sha256": document["sha256"],
+                "context": revisions,
+                "trusted": False,
+                "automatically_activated": False,
+            }
             manifest_raw = _json(manifest)
             snapshot_id = hashlib.sha256(manifest_raw).hexdigest()
             files["release.json"] = manifest_raw
@@ -173,12 +198,17 @@ class SkillLibraryProjector:
                     os.close(directory_fd)
         else:
             self._verify(target, files)
-        return {"skill_id": str(identity), "release_sha256": document["sha256"],
-                "snapshot_sha256": snapshot_id,
-                "path": target.relative_to(self.root).as_posix(), "context": revisions}
+        return {
+            "skill_id": str(identity),
+            "release_sha256": document["sha256"],
+            "snapshot_sha256": snapshot_id,
+            "path": target.relative_to(self.root).as_posix(),
+            "context": revisions,
+        }
 
-    def sync(self, service: WorkspaceContextService, context: WorkspaceContext,
-             *, max_skills: int = 256) -> dict[str, Any]:
+    def sync(
+        self, service: WorkspaceContextService, context: WorkspaceContext, *, max_skills: int = 256
+    ) -> dict[str, Any]:
         if type(max_skills) is not int or not 1 <= max_skills <= 512:
             raise InvalidInputError("Invalid skill projection bound")
         from potbot.context.sessions import _BoundTransaction
@@ -193,29 +223,50 @@ class SkillLibraryProjector:
                     for item in page["skills"]:
                         if len(entries) >= max_skills:
                             raise StateMismatchError("Skill catalogue exceeds projection bound")
-                        view = load_skill(conn, context,
+                        view = load_skill(
+                            conn,
+                            context,
                             WorkspaceContextService(_BoundTransaction(context, conn)),
-                            UUID(item["skill_id"]), item["release_sha256"])
+                            UUID(item["skill_id"]),
+                            item["release_sha256"],
+                        )
                         total_bytes += len(view["content"].encode()) + sum(
-                            len(row["content"].encode()) for row in view["context"].values())
+                            len(row["content"].encode()) for row in view["context"].values()
+                        )
                         if total_bytes > 64 * 1024 * 1024:
                             raise StateMismatchError("Skill catalogue exceeds byte allowance")
                         entries.append(self._snapshot(context, view))
                 if page["next"] is None:
                     break
                 after = UUID(page["next"])
-            raw = _json({"schema": "potbot-authored-skills/v1", "workspace_id": str(context.workspace_id),
-                         "skills": entries, "trusted": False, "automatically_activated": False})
+            raw = _json(
+                {
+                    "schema": "potbot-authored-skills/v1",
+                    "workspace_id": str(context.workspace_id),
+                    "skills": entries,
+                    "trusted": False,
+                    "automatically_activated": False,
+                }
+            )
             index = self.library / "catalogue.json"
             if index.is_symlink():
                 raise ScopeDeniedError("Skill catalogue index was redirected")
             if index.exists():
                 info = index.stat(follow_symlinks=False)
-                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                        or info.st_nlink != 1 or info.st_mode & 0o222 or info.st_size > 2*1024*1024):
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != os.geteuid()
+                    or info.st_nlink != 1
+                    or info.st_mode & 0o222
+                    or info.st_size > 2 * 1024 * 1024
+                ):
                     raise ScopeDeniedError("Skill catalogue index custody changed")
             if index.exists() and index.read_bytes() == raw:
-                return {"changed": False, "skills": len(entries), "sha256": hashlib.sha256(raw).hexdigest()}
+                return {
+                    "changed": False,
+                    "skills": len(entries),
+                    "sha256": hashlib.sha256(raw).hexdigest(),
+                }
             fd, pending = allocate_file(self.library, prefix=".catalogue-")
             try:
                 with os.fdopen(fd, "wb") as stream:
@@ -231,4 +282,8 @@ class SkillLibraryProjector:
                     os.close(parent_fd)
             finally:
                 pending.unlink(missing_ok=True)
-            return {"changed": True, "skills": len(entries), "sha256": hashlib.sha256(raw).hexdigest()}
+            return {
+                "changed": True,
+                "skills": len(entries),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }

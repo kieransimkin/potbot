@@ -39,8 +39,12 @@ class SimulatedAgentCredentials:
 
 
 def posix_mode_allows(
-    *, mode: int, owner_uid: int, group_gid: int,
-    actor: SimulatedAgentCredentials, permission: Permission,
+    *,
+    mode: int,
+    owner_uid: int,
+    group_gid: int,
+    actor: SimulatedAgentCredentials,
+    permission: Permission,
 ) -> bool:
     """For already-mediated accesses only; no symlink or sticky-dir bypass.
 
@@ -58,7 +62,10 @@ def posix_mode_allows(
 
 
 def safe_agent_rename_allowed(
-    *, parent_mode: int, owner_uid: int, actor_uid: int,
+    *,
+    parent_mode: int,
+    owner_uid: int,
+    actor_uid: int,
     entry_owner_uid: int,
 ) -> bool:
     """POSIX sticky-bit behavior for top-level /home entry operations."""

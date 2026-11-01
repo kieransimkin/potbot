@@ -1,4 +1,5 @@
 """Test-only binary selection leaves the production launch interface unchanged."""
+
 from __future__ import annotations
 
 import asyncio
@@ -33,7 +34,9 @@ def browser_type(tmp_path):
 
 def test_system_mode_does_not_import_or_patch_an_engine(monkeypatch):
     monkeypatch.delenv("POTBOT_BROWSER_TEST_BINARY", raising=False)
-    monkeypatch.setattr(runtime.importlib, "import_module", lambda _: pytest.fail("unexpected import"))
+    monkeypatch.setattr(
+        runtime.importlib, "import_module", lambda _: pytest.fail("unexpected import")
+    )
     assert runtime.selection_mode() == "system"
     with runtime.selected_browser("playwright"):
         pass
@@ -56,7 +59,9 @@ def test_engine_mode_requires_explicit_acceptance_opt_in(monkeypatch):
 
 @pytest.mark.parametrize("engine", ["unknown", "firefox", "../../module"])
 def test_unknown_engine_never_imported(monkeypatch, engine):
-    monkeypatch.setattr(runtime.importlib, "import_module", lambda _: pytest.fail("unexpected import"))
+    monkeypatch.setattr(
+        runtime.importlib, "import_module", lambda _: pytest.fail("unexpected import")
+    )
     with pytest.raises(ValueError, match="engine"):
         with runtime.selected_browser(engine):
             pass
@@ -65,8 +70,12 @@ def test_unknown_engine_never_imported(monkeypatch, engine):
 def test_adapter_changes_only_the_fixed_executable_and_restores_method(tmp_path):
     cls = browser_type(tmp_path)
     original = cls.launch
-    options = dict(executable_path="/usr/bin/chromium", headless=False, timeout=15000,
-                   args=["--no-sandbox", "--disable-dev-shm-usage"])
+    options = dict(
+        executable_path="/usr/bin/chromium",
+        headless=False,
+        timeout=15000,
+        args=["--no-sandbox", "--disable-dev-shm-usage"],
+    )
     with runtime._redirect_launch(cls):
         result = asyncio.run(cls().launch(**options))
         assert result == {**options, "executable_path": cls.executable_path}
@@ -102,9 +111,11 @@ def test_engine_adapter_uses_only_library_selected_binary(tmp_path, monkeypatch)
     imported = []
     monkeypatch.setenv("POTBOT_BROWSER_TEST_BINARY", "engine")
     monkeypatch.setenv("POTBOT_RUN_BROWSER_RENDERED", "1")
+
     def load(name):
         imported.append(name)
         return SimpleNamespace(BrowserType=cls)
+
     monkeypatch.setattr(runtime.importlib, "import_module", load)
     with runtime.selected_browser("patchright"):
         result = asyncio.run(cls().launch(executable_path="/usr/bin/chromium"))
@@ -115,8 +126,11 @@ def test_engine_adapter_uses_only_library_selected_binary(tmp_path, monkeypatch)
 def test_binary_identity_hashes_the_executable_without_exposing_its_host_path(tmp_path):
     path = executable(tmp_path)
     result = runtime.binary_identity(path, "engine")
-    assert result == {"source": "engine", "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                      "bytes": path.stat().st_size}
+    assert result == {
+        "source": "engine",
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "bytes": path.stat().st_size,
+    }
     assert str(tmp_path) not in str(result)
 
 

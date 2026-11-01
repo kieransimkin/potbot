@@ -8,8 +8,9 @@ executes it. Default is deferred work, unless a message is clearly background.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from potbot.domain.errors import InvalidInputError
 
@@ -21,24 +22,30 @@ _STOP = re.compile(
     r"^(?:please\s+)?(?:stop|pause|cancel|abort|halt|hold\s+off|"
     r"don['’]t\s+(?:do|run|send|publish|deploy|install|delete|modify|continue|proceed)|"
     r"do\s+not\s+(?:do|run|send|publish|deploy|install|delete|modify|continue|proceed)|"
-    r"instead\s+(?:do|use|try)|switch\s+to)\b", re.I
+    r"instead\s+(?:do|use|try)|switch\s+to)\b",
+    re.I,
 )
 _DEFER = re.compile(
     r"\b(?:after\s+(?:you(?:['’]re|\s+are)?\s+)?(?:done|finish|complete)|"
     r"once\s+(?:you(?:['’]re|\s+are)?\s+)?(?:done|finish|complete)|"
     r"when\s+(?:you(?:['’]re|\s+are)?\s+)?(?:done|finish|complete)|"
-    r"later\b|next\s+task|afterwards)\b", re.I
+    r"later\b|next\s+task|afterwards)\b",
+    re.I,
 )
 _CONTEXT = re.compile(
     r"^(?:oh\s+and\s+)?(?:by\s+the\s+way|for\s+(?:your\s+)?(?:information|context)|"
-    r"just\s+(?:so\s+you\s+know|fyi)|fyi|as\s+background)\b", re.I
+    r"just\s+(?:so\s+you\s+know|fyi)|fyi|as\s+background)\b",
+    re.I,
 )
 _MATERIAL = re.compile(
     r"\b(?:\d+\s*(?:gib?|mib?|gb|mb)\s*(?:ram|vram|memory)?|"
     r"budget|deadline|deployment|production|licen[cs]e|restricted|permission|"
-    r"platform|hardware|architecture|arm(?:64)?|windows|linux|data\s+loss)\b", re.I
+    r"platform|hardware|architecture|arm(?:64)?|windows|linux|data\s+loss)\b",
+    re.I,
 )
-_DIRECTIVE = re.compile(r"\b(?:do|make|add|implement|fix|change|update|create|run|deploy|use)\b", re.I)
+_DIRECTIVE = re.compile(
+    r"\b(?:do|make|add|implement|fix|change|update|create|run|deploy|use)\b", re.I
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,17 +83,27 @@ def _rules(message: str) -> SteeringClassification:
         if _STOP.match(cleaned):
             return SteeringClassification("interrupt", 1.0, "explicit_stop_directive", True, True)
     if _DEFER.search(lowered):
-        return SteeringClassification("deferred", .99, "explicit_later_dependency", False, False)
+        return SteeringClassification("deferred", 0.99, "explicit_later_dependency", False, False)
     if _CONTEXT.match(lowered):
         if _DIRECTIVE.search(lowered):
-            return SteeringClassification("deferred", .86, "background_preface_with_action", False, False)
+            return SteeringClassification(
+                "deferred", 0.86, "background_preface_with_action", False, False
+            )
         material = bool(_MATERIAL.search(lowered))
-        return SteeringClassification("background", .96, "background_material" if material else "background_note", material, False)
+        return SteeringClassification(
+            "background",
+            0.96,
+            "background_material" if material else "background_note",
+            material,
+            False,
+        )
     if _DIRECTIVE.search(lowered):
-        return SteeringClassification("deferred", .82, "default_deferred_action", False, False)
+        return SteeringClassification("deferred", 0.82, "default_deferred_action", False, False)
     if lowered.endswith("?"):
-        return SteeringClassification("clarify", .7, "question_not_explicit_steering", False, False)
-    return SteeringClassification("background", .6, "non_directive_context", True, False)
+        return SteeringClassification(
+            "clarify", 0.7, "question_not_explicit_steering", False, False
+        )
+    return SteeringClassification("background", 0.6, "non_directive_context", True, False)
 
 
 def classify_steering(
@@ -103,7 +120,7 @@ def classify_steering(
     if not isinstance(message, str) or not message.strip() or len(message.encode()) > 32768:
         raise InvalidInputError("steering input must be bounded UTF-8 text")
     preliminary = _rules(message)
-    if preliminary.confidence >= .8 or model_classifier is None:
+    if preliminary.confidence >= 0.8 or model_classifier is None:
         return preliminary
     try:
         output = model_classifier(message)
@@ -112,17 +129,27 @@ def classify_steering(
         timing, confidence = output["timing"], output["confidence"]
         if timing not in {"interrupt", "deferred", "background", "clarify"}:
             return preliminary
-        if isinstance(confidence, bool) or not isinstance(confidence, int | float) or not 0 <= confidence <= 1:
+        if (
+            isinstance(confidence, bool)
+            or not isinstance(confidence, int | float)
+            or not 0 <= confidence <= 1
+        ):
             return preliminary
-        if confidence < .8:
+        if confidence < 0.8:
             return preliminary
         return SteeringClassification(
-            timing, float(confidence), "model_suggested_timing", timing == "interrupt",
-            timing == "interrupt", True,
+            timing,
+            float(confidence),
+            "model_suggested_timing",
+            timing == "interrupt",
+            timing == "interrupt",
+            True,
         )
     except Exception:
         # Never risk silent loss or false emergency from an unavailable model.
-        return SteeringClassification("deferred", .5, "classifier_unavailable_default_deferred", False, False)
+        return SteeringClassification(
+            "deferred", 0.5, "classifier_unavailable_default_deferred", False, False
+        )
 
 
 STEERING_CLASSIFIER_PROMPT = (

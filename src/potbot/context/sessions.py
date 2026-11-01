@@ -7,8 +7,8 @@ Session authentication, CAS, journal and RPC receipt share ONE transaction.
 from __future__ import annotations
 
 import hashlib
-import json
 import hmac
+import json
 import re
 import secrets
 from collections.abc import Iterator
@@ -19,7 +19,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from potbot.context.model import sandbox_object_id, sha256
-from potbot.context.rpc_contract import CatalogueRequest, ContextRequest, OperationRequest, SkillRequest, WorkRequest
+from potbot.context.rpc_contract import (
+    CatalogueRequest,
+    ContextRequest,
+    OperationRequest,
+    SkillRequest,
+    WorkRequest,
+)
 from potbot.context.service import WorkspaceContextService
 from potbot.context.transactions import ContextDatabase
 from potbot.domain.auth import WorkspaceContext
@@ -41,11 +47,14 @@ class ContextSession:
     secret: str = field(repr=False)
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.principal, WorkspaceContext)
-                or any(not isinstance(x, UUID) for x in
-                       (self.session_id, self.agent_id, self.run_id))
-                or type(self.generation) is not int or self.generation < 1
-                or not isinstance(self.secret, str) or not _SECRET.fullmatch(self.secret)):
+        if (
+            not isinstance(self.principal, WorkspaceContext)
+            or any(not isinstance(x, UUID) for x in (self.session_id, self.agent_id, self.run_id))
+            or type(self.generation) is not int
+            or self.generation < 1
+            or not isinstance(self.secret, str)
+            or not _SECRET.fullmatch(self.secret)
+        ):
             raise InvalidInputError("Invalid host context capability")
 
 
@@ -81,13 +90,24 @@ class ContextSessionStore:
             raise ScopeDeniedError("Context database clock is unavailable")
         return value
 
-    def issue(self, principal: WorkspaceContext, agent_id: UUID, run_id: UUID, *,
-              lease_seconds: int = 60, request_limit: int = 256) -> ContextSession:
+    def issue(
+        self,
+        principal: WorkspaceContext,
+        agent_id: UUID,
+        run_id: UUID,
+        *,
+        lease_seconds: int = 60,
+        request_limit: int = 256,
+    ) -> ContextSession:
         """Host-only; caller must independently admit this registered worker run."""
         duration = _seconds(lease_seconds)
-        if (not isinstance(principal, WorkspaceContext) or not isinstance(agent_id, UUID)
-                or not isinstance(run_id, UUID) or type(request_limit) is not int
-                or not 1 <= request_limit <= 1024):
+        if (
+            not isinstance(principal, WorkspaceContext)
+            or not isinstance(agent_id, UUID)
+            or not isinstance(run_id, UUID)
+            or type(request_limit) is not int
+            or not 1 <= request_limit <= 1024
+        ):
             raise InvalidInputError("Context session needs a trusted worker binding")
         secret = secrets.token_urlsafe(32)
         session_id = uuid4()
@@ -102,7 +122,9 @@ class ContextSessionStore:
             # A run has a separate working model/history, provisioned in this
             # same transaction. Agent identity was already verified above.
             WorkspaceContextService(_BoundTransaction(principal, conn)).provision_private(
-                principal, "worker", worker_context_name(agent_id, run_id),
+                principal,
+                "worker",
+                worker_context_name(agent_id, run_id),
                 idempotency_key="worker-context:" + agent_id.hex + run_id.hex,
             )
             now = self._now(conn)
@@ -112,13 +134,26 @@ class ContextSessionStore:
                 "created_at,expires_at,deadline_at,request_limit) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s + %s * interval '1 second',"
                 "%s + interval '1 hour',%s)",
-                (principal.workspace_id, session_id, principal.principal_id, obj["id"], agent_id,
-                 run_id, hashlib.sha256(secret.encode("ascii")).hexdigest(), now, now,
-                 duration, now, request_limit),
+                (
+                    principal.workspace_id,
+                    session_id,
+                    principal.principal_id,
+                    obj["id"],
+                    agent_id,
+                    run_id,
+                    hashlib.sha256(secret.encode("ascii")).hexdigest(),
+                    now,
+                    now,
+                    duration,
+                    now,
+                    request_limit,
+                ),
             )
         return ContextSession(principal, session_id, agent_id, run_id, 1, secret)
 
-    def _lock(self, conn: Any, grant: ContextSession, *, live: bool = True, allow_result: bool = False) -> dict[str, Any]:
+    def _lock(
+        self, conn: Any, grant: ContextSession, *, live: bool = True, allow_result: bool = False
+    ) -> dict[str, Any]:
         if not isinstance(grant, ContextSession):
             raise ScopeDeniedError(_DENIED)
         row = conn.execute(
@@ -126,12 +161,20 @@ class ContextSessionStore:
             "AND principal_id=%s FOR UPDATE",
             (grant.principal.workspace_id, grant.session_id, grant.principal.principal_id),
         ).fetchone()
-        if (row is None or row["agent_id"] != grant.agent_id or row["run_id"] != grant.run_id
-                or not hmac.compare_digest(row["secret_sha256"],
-                    hashlib.sha256(grant.secret.encode("ascii")).hexdigest())):
+        if (
+            row is None
+            or row["agent_id"] != grant.agent_id
+            or row["run_id"] != grant.run_id
+            or not hmac.compare_digest(
+                row["secret_sha256"], hashlib.sha256(grant.secret.encode("ascii")).hexdigest()
+            )
+        ):
             raise ScopeDeniedError(_DENIED)
-        if live and (row["state"] != "active" or row["generation"] != grant.generation
-                     or row["expires_at"] <= self._now(conn)):
+        if live and (
+            row["state"] != "active"
+            or row["generation"] != grant.generation
+            or row["expires_at"] <= self._now(conn)
+        ):
             raise ScopeDeniedError(_DENIED)
         if live and not allow_result and row.get("result_request_id") is not None:
             raise ScopeDeniedError("Context session has completed its work")
@@ -172,9 +215,11 @@ class ContextSessionStore:
             if session["request_count"] >= session["request_limit"]:
                 raise ScopeDeniedError("Context session request budget exhausted")
             self._check_expiry(conn, session)
-            conn.execute("UPDATE workspace_context_sessions SET request_count=request_count+1 "
-                         "WHERE workspace_id=%s AND id=%s",
-                         (grant.principal.workspace_id, grant.session_id))
+            conn.execute(
+                "UPDATE workspace_context_sessions SET request_count=request_count+1 "
+                "WHERE workspace_id=%s AND id=%s",
+                (grant.principal.workspace_id, grant.session_id),
+            )
 
     def complete_work(self, grant: ContextSession, request: WorkRequest) -> dict[str, Any]:
         """Persist one final result, then fence subsequent context mutations.
@@ -182,11 +227,20 @@ class ContextSessionStore:
         A receipt only acknowledges storage. The controller still requires a
         zero exit code and independent process-tree/audit shutdown evidence.
         """
-        if not isinstance(grant, ContextSession) or not isinstance(request, WorkRequest) or request.method != "work.result":
+        if (
+            not isinstance(grant, ContextSession)
+            or not isinstance(request, WorkRequest)
+            or request.method != "work.result"
+        ):
             raise ScopeDeniedError(_DENIED)
         request = WorkRequest(request.request_id, request.method, request.result)
-        raw = json.dumps(request.result, ensure_ascii=False, allow_nan=False,
-                         sort_keys=True, separators=(",", ":"))
+        raw = json.dumps(
+            request.result,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         checksum = hashlib.sha256(raw.encode()).hexdigest()
         context = grant.principal
         with self.database.transaction(context) as conn:
@@ -197,15 +251,24 @@ class ContextSessionStore:
                 (context.workspace_id, grant.session_id),
             ).fetchone()
             if previous is not None:
-                if previous["request_id"] != request.request_id or previous["request_sha256"] != request.fingerprint:
+                if (
+                    previous["request_id"] != request.request_id
+                    or previous["request_sha256"] != request.fingerprint
+                ):
                     raise RevisionConflictError("Work already has a different result")
                 self._check_expiry(conn, session)
                 return {"revision": 1, "sha256": previous["result_sha256"]}
             reused = conn.execute(
                 "SELECT 1 FROM workspace_context_session_receipts WHERE workspace_id=%s AND session_id=%s AND request_id=%s "
                 "UNION ALL SELECT 1 FROM workspace_context_skill_receipts WHERE workspace_id=%s AND session_id=%s AND request_id=%s",
-                (context.workspace_id, grant.session_id, request.request_id,
-                 context.workspace_id, grant.session_id, request.request_id),
+                (
+                    context.workspace_id,
+                    grant.session_id,
+                    request.request_id,
+                    context.workspace_id,
+                    grant.session_id,
+                    request.request_id,
+                ),
             ).fetchone()
             if reused is not None:
                 raise RevisionConflictError("Request ID was used for another operation")
@@ -215,8 +278,14 @@ class ContextSessionStore:
                 "INSERT INTO workspace_context_work_results "
                 "(workspace_id,session_id,request_id,request_sha256,result_json,result_sha256) "
                 "VALUES (%s,%s,%s,%s,%s,%s)",
-                (context.workspace_id, grant.session_id, request.request_id,
-                 request.fingerprint, raw, checksum),
+                (
+                    context.workspace_id,
+                    grant.session_id,
+                    request.request_id,
+                    request.fingerprint,
+                    raw,
+                    checksum,
+                ),
             )
             conn.execute(
                 "UPDATE workspace_context_sessions SET result_request_id=%s,request_count=request_count+1 "
@@ -235,21 +304,30 @@ class ContextSessionStore:
         if not isinstance(principal, WorkspaceContext) or not isinstance(agent_id, UUID):
             raise ScopeDeniedError(_DENIED)
         WorkspaceContextService(self.database).provision_private(
-            principal, "agent", str(agent_id), idempotency_key="agent-context:" + agent_id.hex,
+            principal,
+            "agent",
+            str(agent_id),
+            idempotency_key="agent-context:" + agent_id.hex,
         )
 
     def execute(self, grant: ContextSession, request: OperationRequest) -> dict[str, Any]:
         """Session, ownership, CAS, skill lifecycle and receipts share one commit."""
         from potbot.context.skill_catalogue import SessionSkillCatalogue
 
-        if not isinstance(grant, ContextSession) or not isinstance(request, (ContextRequest, SkillRequest, CatalogueRequest)):
+        if not isinstance(grant, ContextSession) or not isinstance(
+            request, (ContextRequest, SkillRequest, CatalogueRequest)
+        ):
             raise ScopeDeniedError(_DENIED)
         context = grant.principal
         with self.database.transaction(context) as conn:
             session = self._lock(conn, grant)
             service = WorkspaceContextService(_BoundTransaction(context, conn))
             skills = SessionSkillCatalogue(conn, grant, session, service)
-            mutates = request.mutates if isinstance(request, SkillRequest) else request.method == "context.update"
+            mutates = (
+                request.mutates
+                if isinstance(request, SkillRequest)
+                else request.method == "context.update"
+            )
             if isinstance(request, SkillRequest):
                 skills.authorize(request)
             elif isinstance(request, CatalogueRequest):
@@ -260,7 +338,9 @@ class ContextSessionStore:
                     from potbot.context.catalogue import object_target
 
                     assert request.object_id is not None
-                    kind, name = object_target(conn, context, request.object_id, request.role, write=mutates)
+                    kind, name = object_target(
+                        conn, context, request.object_id, request.role, write=mutates
+                    )
                     object_id = request.object_id
                 elif kind == "skill":
                     assert request.skill_id is not None
@@ -270,8 +350,11 @@ class ContextSessionStore:
                     object_id = service._get_object(conn, context, kind, name)
                 else:
                     name = str(grant.agent_id if kind == "agent" else context.workspace_id)
-                    object_id = (session["agent_object_id"] if kind == "agent"
-                                 else sandbox_object_id(context.workspace_id))
+                    object_id = (
+                        session["agent_object_id"]
+                        if kind == "agent"
+                        else sandbox_object_id(context.workspace_id)
+                    )
                 if mutates and kind == "sandbox":
                     # Includes AGENTS.md: a filename grants no authority. Only an
                     # explicit operator-issued role grant permits this mutation.
@@ -289,11 +372,21 @@ class ContextSessionStore:
                 "WHERE workspace_id=%s AND session_id=%s AND request_id=%s UNION ALL "
                 "SELECT request_sha256,result FROM workspace_context_skill_receipts "
                 "WHERE workspace_id=%s AND session_id=%s AND request_id=%s",
-                (context.workspace_id, grant.session_id, request.request_id,
-                 context.workspace_id, grant.session_id, request.request_id),
+                (
+                    context.workspace_id,
+                    grant.session_id,
+                    request.request_id,
+                    context.workspace_id,
+                    grant.session_id,
+                    request.request_id,
+                ),
             ).fetchall()
             if replays:
-                if len(replays) != 1 or not mutates or replays[0]["request_sha256"] != request.fingerprint:
+                if (
+                    len(replays) != 1
+                    or not mutates
+                    or replays[0]["request_sha256"] != request.fingerprint
+                ):
                     raise RevisionConflictError("Request ID was used for a different operation")
                 self._check_expiry(conn, session)
                 return dict(replays[0]["result"])
@@ -312,8 +405,14 @@ class ContextSessionStore:
                         "INSERT INTO workspace_context_skill_receipts "
                         "(workspace_id,session_id,request_id,request_sha256,skill_id,result) "
                         "VALUES (%s,%s,%s,%s,%s,%s)",
-                        (context.workspace_id, grant.session_id, request.request_id,
-                         request.fingerprint, UUID(result["skill_id"]), Jsonb(result)),
+                        (
+                            context.workspace_id,
+                            grant.session_id,
+                            request.request_id,
+                            request.fingerprint,
+                            UUID(result["skill_id"]),
+                            Jsonb(result),
+                        ),
                     )
             elif request.method == "context.read":
                 result = service.read(context, kind, name, request.role)
@@ -325,21 +424,35 @@ class ContextSessionStore:
                 assert request.content is not None and request.expected_revision is not None
                 key = hashlib.sha256(grant.session_id.bytes + request.request_id.bytes).hexdigest()
                 result = service.update(
-                    context, kind, name, request.role, content=request.content,
-                    expected_revision=request.expected_revision, idempotency_key="agent-rpc:"+key,
+                    context,
+                    kind,
+                    name,
+                    request.role,
+                    content=request.content,
+                    expected_revision=request.expected_revision,
+                    idempotency_key="agent-rpc:" + key,
                     reason=request.reason,
                 )
                 conn.execute(
                     "INSERT INTO workspace_context_session_receipts "
                     "(workspace_id,session_id,request_id,request_sha256,object_id,role,revision,result) "
                     "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                    (context.workspace_id, grant.session_id, request.request_id, request.fingerprint,
-                     object_id, request.role, result["revision"], Jsonb(result)),
+                    (
+                        context.workspace_id,
+                        grant.session_id,
+                        request.request_id,
+                        request.fingerprint,
+                        object_id,
+                        request.role,
+                        result["revision"],
+                        Jsonb(result),
+                    ),
                 )
             self._check_expiry(conn, session)
             conn.execute(
                 "UPDATE workspace_context_sessions SET request_count=request_count+1 "
-                "WHERE workspace_id=%s AND id=%s", (context.workspace_id, grant.session_id),
+                "WHERE workspace_id=%s AND id=%s",
+                (context.workspace_id, grant.session_id),
             )
             return result
 

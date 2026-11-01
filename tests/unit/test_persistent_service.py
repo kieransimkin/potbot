@@ -37,10 +37,20 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
     monkeypatch.setattr(service, "_token_store", lambda: (True, "safe-key-not-in-config"))
     policy = tmp_path / "providers.json"
     policy.write_text(json.dumps(HostedPolicy().to_dict()))
-    opts = SimpleNamespace(workspace_id=uuid4(), principal_id=uuid4(), provider_policy=policy,
-                           schema="potbot", host="127.0.0.1", port=8765, allowed_origin=[],
-                           log_content=False, migrate=False, no_start=False, replace=False,
-                           download_embeddings=False)
+    opts = SimpleNamespace(
+        workspace_id=uuid4(),
+        principal_id=uuid4(),
+        provider_policy=policy,
+        schema="potbot",
+        host="127.0.0.1",
+        port=8765,
+        allowed_origin=[],
+        log_content=False,
+        migrate=False,
+        no_start=False,
+        replace=False,
+        download_embeddings=False,
+    )
     assert service.install(opts)["started"] is True
     assert installed == ["installed", "start"]
     assert "safe-key-not-in-config" not in service.config_path().read_text()
@@ -51,6 +61,7 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
 class _null_context:
     def __enter__(self):
         return None
+
     def __exit__(self, *args):
         return False
 

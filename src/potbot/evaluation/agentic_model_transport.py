@@ -39,10 +39,15 @@ def validate_loopback_url(value: str) -> str:
         host = parsed.hostname
         local = host == "localhost" or (host is not None and ip_address(host).is_loopback)
         valid = (
-            parsed.scheme == "http" and local and parsed.port is not None
-            and 1 <= parsed.port <= 65535 and parsed.path == "/v1"
-            and not parsed.username and not parsed.password
-            and not parsed.query and not parsed.fragment
+            parsed.scheme == "http"
+            and local
+            and parsed.port is not None
+            and 1 <= parsed.port <= 65535
+            and parsed.path == "/v1"
+            and not parsed.username
+            and not parsed.password
+            and not parsed.query
+            and not parsed.fragment
         )
     except (ValueError, TypeError):
         valid = False
@@ -55,7 +60,9 @@ class BenchmarkTransport:
     """One model call without automatic retries, credential disclosure or URL overrides."""
 
     def __init__(
-        self, *, policy: HostedPolicy | None = None,
+        self,
+        *,
+        policy: HostedPolicy | None = None,
         credentials: ServiceCredentials | None = None,
         local_key: str = "local-only",
         client_factory: Callable[..., Any] = HostedProviderClient,
@@ -77,9 +84,11 @@ class BenchmarkTransport:
             rule = self.policy.rule(target.provider, target.model)
             request = ProviderRequest(
                 selection=ProviderSelection(target.provider, target.model, rule.protocol),
-                prompt=prompt.user, system=prompt.system,
+                prompt=prompt.user,
+                system=prompt.system,
                 max_output_tokens=target.max_output_tokens,
-                timeout_seconds=90, response_format="text",
+                timeout_seconds=90,
+                response_format="text",
             )
             self.policy.authorize(request)
             client = self.client_factory(self.credentials.resolve, authorize=self.policy.authorize)
@@ -97,13 +106,20 @@ class BenchmarkTransport:
             if completed is None or completed.finish_reason != "stop":
                 raise InvalidInputError("provider output is incomplete, usage unresolved")
             usage = completed.usage
-            charged = (rule.charge(usage.input_tokens, usage.output_tokens, total_tokens=usage.total_tokens)
-                       if usage is not None else None)
+            charged = (
+                rule.charge(
+                    usage.input_tokens, usage.output_tokens, total_tokens=usage.total_tokens
+                )
+                if usage is not None
+                else None
+            )
             return Generation(
-                text="".join(pieces), elapsed_ms=round((time.monotonic() - started) * 1000),
+                text="".join(pieces),
+                elapsed_ms=round((time.monotonic() - started) * 1000),
                 input_tokens=usage.input_tokens if usage else None,
                 output_tokens=usage.output_tokens if usage else None,
-                billed_microunits=charged, returned_model=completed.model,
+                billed_microunits=charged,
+                returned_model=completed.model,
             )
         assert target.base_url is not None
         base = validate_loopback_url(target.base_url)
@@ -111,21 +127,29 @@ class BenchmarkTransport:
 
         data = {
             "model": target.model,
-            "messages": [{"role": "system", "content": prompt.system},
-                         {"role": "user", "content": prompt.user}],
+            "messages": [
+                {"role": "system", "content": prompt.system},
+                {"role": "user", "content": prompt.user},
+            ],
             "max_tokens": target.max_output_tokens,
             "stream": False,
         }
         started = time.monotonic()
         own_client = self.http_client is None
         client = self.http_client or httpx.Client(
-            timeout=httpx.Timeout(90.0, connect=5.0), follow_redirects=False,
-            trust_env=False, limits=httpx.Limits(max_connections=1),
+            timeout=httpx.Timeout(90.0, connect=5.0),
+            follow_redirects=False,
+            trust_env=False,
+            limits=httpx.Limits(max_connections=1),
         )
         try:
-            with client.stream("POST", base + "/chat/completions",
-                               headers={"Authorization": "Bearer " + self.local_key},
-                               json=data, follow_redirects=False) as response:
+            with client.stream(
+                "POST",
+                base + "/chat/completions",
+                headers={"Authorization": "Bearer " + self.local_key},
+                json=data,
+                follow_redirects=False,
+            ) as response:
                 if response.status_code != 200:
                     raise InvalidInputError("loopback model returned non-success status")
                 chunks = []
@@ -139,16 +163,21 @@ class BenchmarkTransport:
         finally:
             if own_client:
                 client.close()
-        if (not isinstance(body, dict) or not isinstance(body.get("choices"), list)
-                or len(body["choices"]) != 1):
+        if (
+            not isinstance(body, dict)
+            or not isinstance(body.get("choices"), list)
+            or len(body["choices"]) != 1
+        ):
             raise InvalidInputError("invalid loopback completion document")
         result = body["choices"][0].get("message", {}).get("content")
         if not isinstance(result, str):
             raise InvalidInputError("non-text local response is unavailable")
         usage = body.get("usage") or {}
         return Generation(
-            result, round((time.monotonic() - started) * 1000),
+            result,
+            round((time.monotonic() - started) * 1000),
             usage.get("prompt_tokens") if type(usage.get("prompt_tokens")) is int else None,
             usage.get("completion_tokens") if type(usage.get("completion_tokens")) is int else None,
-            billed_microunits=None, returned_model=body.get("model"),
+            billed_microunits=None,
+            returned_model=body.get("model"),
         )

@@ -95,8 +95,13 @@ def validate_model_destination(path: str) -> str:
     if not isinstance(path, str) or "\\" in path or "\x00" in path:
         raise InvalidInputError("model destination must be a canonical Linux absolute path")
     parts = PurePosixPath(path).parts
-    if (not path.startswith("/var/ai/") or any(p in {".", "..", ""} for p in path.split("/")[1:])
-            or path.endswith("/") or len(path.encode()) > 2048 or len(parts) < 4):
+    if (
+        not path.startswith("/var/ai/")
+        or any(p in {".", "..", ""} for p in path.split("/")[1:])
+        or path.endswith("/")
+        or len(path.encode()) > 2048
+        or len(parts) < 4
+    ):
         raise ScopeDeniedError("model downloads must target a concrete /var/ai path")
     if not path.startswith(("/var/ai/cache/", "/var/ai/downloads/", "/var/ai/models/")):
         raise ScopeDeniedError("model download path must be in an admitted /var/ai area")
@@ -104,7 +109,10 @@ def validate_model_destination(path: str) -> str:
 
 
 def validate_tool_installation(
-    tool: ModelDownloadingTool, *, env: dict[str, str], destinations: tuple[str, ...],
+    tool: ModelDownloadingTool,
+    *,
+    env: dict[str, str],
+    destinations: tuple[str, ...],
     probe_performed: bool,
 ) -> None:
     """Gate tool install; do not turn an untested env override into a claim.

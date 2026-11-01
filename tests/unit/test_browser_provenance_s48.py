@@ -4,6 +4,7 @@ The runtime tests double the journal *transport*, not the production invocation
 method, browser handler, service or evidence recorder. They do not qualify Xpra.
 The separate PostgreSQL integration tests exercise the real durable journal.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,12 +55,23 @@ def journal(signature, snapshot, *, source=None):
     context = CogRunContext(snapshot.fingerprint, uuid4(), uuid4(), uuid4())
     binding = WorkBinding(
         "browser" if signature in BROWSER_COGS else "tool",
-        "syn://thing/journal-profile-test", signature.input_type_ref,
-        signature.output_type_ref, signature.binding_hash, "read_only", selected_policy,
+        "syn://thing/journal-profile-test",
+        signature.input_type_ref,
+        signature.output_type_ref,
+        signature.binding_hash,
+        "read_only",
+        selected_policy,
     )
     return PinnedExecutionJournal(
-        object(), object(), object(), snapshot_id=uuid4(), signature=signature,
-        source=source, context=context, binding=binding, emitter=uuid4(),
+        object(),
+        object(),
+        object(),
+        snapshot_id=uuid4(),
+        signature=signature,
+        source=source,
+        context=context,
+        binding=binding,
+        emitter=uuid4(),
     )
 
 
@@ -76,7 +88,8 @@ def test_each_exact_profile_retains_only_its_installed_signatures(snapshot_facto
 @pytest.mark.parametrize("signature", BROWSER_COGS)
 @pytest.mark.parametrize("snapshot_factory", [row[0] for row in PROFILES[:3]])
 def test_browser_cog_is_not_admitted_by_an_execution_or_artifact_snapshot(
-    signature, snapshot_factory,
+    signature,
+    snapshot_factory,
 ):
     with pytest.raises(ScopeDeniedError, match="exact installed Cog"):
         journal(signature, snapshot_factory())
@@ -184,22 +197,38 @@ def runtime_fixture(monkeypatch, *, fail_at=None, deny_at=None):
 
     monkeypatch.setattr(execution_cogs, "CogWorkMonitor", Monitor)
     host.__dict__.update(
-        db=object(), artifacts=storage, actor=actor, snapshot_id=uuid4(),
-        task_revision=uuid4(), repository_state=uuid4(), emitter=uuid4(),
-        policy=service.policy, admit=admit, receipts=None, catalog=_Catalog(),
-        registry=SimpleNamespace(snapshot=snapshot), operations={},
+        db=object(),
+        artifacts=storage,
+        actor=actor,
+        snapshot_id=uuid4(),
+        task_revision=uuid4(),
+        repository_state=uuid4(),
+        emitter=uuid4(),
+        policy=service.policy,
+        admit=admit,
+        receipts=None,
+        catalog=_Catalog(),
+        registry=SimpleNamespace(snapshot=snapshot),
+        operations={},
         _direct_operations=installed_operations(service, service.policy),
-        sandbox_executor=None, sandbox_agent_id=None, browser_service=service,
-        _seen=set(), _live={}, _poisoned=False,
+        sandbox_executor=None,
+        sandbox_agent_id=None,
+        browser_service=service,
+        _seen=set(),
+        _live={},
+        _poisoned=False,
     )
-    return SimpleNamespace(host=host, actor=actor, storage=storage, apps=apps,
-                           service=service, calls=calls, work=work)
+    return SimpleNamespace(
+        host=host, actor=actor, storage=storage, apps=apps, service=service, calls=calls, work=work
+    )
 
 
 def invocation(fixture):
     return CogRunContext(
-        fixture.host.registry.snapshot.fingerprint, fixture.host.task_revision,
-        fixture.host.repository_state, uuid4(),
+        fixture.host.registry.snapshot.fingerprint,
+        fixture.host.task_revision,
+        fixture.host.repository_state,
+        uuid4(),
     )
 
 
@@ -214,16 +243,25 @@ def command(signature):
 
 
 def invoke(fixture, signature=ACT, context=None):
-    return asyncio.run(fixture.host.invoke(
-        signature, TypedCogValue(signature.input_type_ref, request(command(signature))),
-        context or invocation(fixture),
-    ))
+    return asyncio.run(
+        fixture.host.invoke(
+            signature,
+            TypedCogValue(signature.input_type_ref, request(command(signature))),
+            context or invocation(fixture),
+        )
+    )
 
 
 @pytest.mark.parametrize("signature", [ACT, PICK])
-@pytest.mark.parametrize("fail_at", [
-    "browser_evidence_persisted", "typed_result_validated", "completion", "completion-and-failure",
-])
+@pytest.mark.parametrize(
+    "fail_at",
+    [
+        "browser_evidence_persisted",
+        "typed_result_validated",
+        "completion",
+        "completion-and-failure",
+    ],
+)
 def test_post_effect_journal_failures_fence_and_do_not_retry(monkeypatch, signature, fail_at):
     fixture = runtime_fixture(monkeypatch, fail_at=fail_at)
     with pytest.raises((OSError, IndeterminateExecutionError)):
@@ -321,9 +359,13 @@ def test_cancelled_rpc_cannot_reopen_the_service(monkeypatch):
     fixture.apps.browser_command, fixture.apps.fence_browser = blocking_command, stop
 
     async def exercise():
-        task = asyncio.create_task(fixture.host.invoke(
-            ACT, TypedCogValue(ACT.input_type_ref, request(command(ACT))), invocation(fixture),
-        ))
+        task = asyncio.create_task(
+            fixture.host.invoke(
+                ACT,
+                TypedCogValue(ACT.input_type_ref, request(command(ACT))),
+                invocation(fixture),
+            )
+        )
         try:
             assert await asyncio.to_thread(started.wait, 2)
             task.cancel()

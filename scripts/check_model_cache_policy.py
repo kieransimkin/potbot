@@ -42,20 +42,33 @@ def run(tool: str, probe: Path) -> dict[str, object]:
     if tool.casefold() not in declared:
         raise StateError("tool missing from source-audited model-download inventory")
     payload = json.loads(probe.read_text(encoding="utf-8"))
-    if (not isinstance(payload, dict) or payload.get("schema") != "potbot-tool-model-probe/v1"
-            or payload.get("tool") != tool or payload.get("network_used") is not False
-            or not isinstance(payload.get("paths"), list)
-            or not all(isinstance(v, str) for v in payload["paths"])):
+    if (
+        not isinstance(payload, dict)
+        or payload.get("schema") != "potbot-tool-model-probe/v1"
+        or payload.get("tool") != tool
+        or payload.get("network_used") is not False
+        or not isinstance(payload.get("paths"), list)
+        or not all(isinstance(v, str) for v in payload["paths"])
+    ):
         raise StateError("model-download probe must be explicit, offline and schema-matched")
     env = payload.get("environment")
-    if not isinstance(env, dict) or not all(isinstance(k, str) and isinstance(v, str)
-                                            for k, v in env.items()):
+    if not isinstance(env, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in env.items()
+    ):
         raise StateError("model-download probe missing exact environment")
-    validate_tool_installation(declared[tool.casefold()], env=env,
-                               destinations=tuple(payload["paths"]), probe_performed=True)
-    return {"tool": tool, "qualified_for_model_routes": True,
-            "observed_destinations": payload["paths"],
-            "no_network_used": True, "tool_install_approved": False}
+    validate_tool_installation(
+        declared[tool.casefold()],
+        env=env,
+        destinations=tuple(payload["paths"]),
+        probe_performed=True,
+    )
+    return {
+        "tool": tool,
+        "qualified_for_model_routes": True,
+        "observed_destinations": payload["paths"],
+        "no_network_used": True,
+        "tool_install_approved": False,
+    }
 
 
 def main() -> int:

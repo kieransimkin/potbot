@@ -1,4 +1,5 @@
 """Resolve the ordinary operator's restricted login, never administrative credentials."""
+
 from __future__ import annotations
 
 import os
@@ -14,9 +15,14 @@ from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import ScopeDeniedError
 
 
-def default_context_manager(paths: Any, *, principal_id: UUID | None = None,
-                            parent: Path | None = None, schema: str | None = None,
-                            shared_skills: Path | None = None) -> ContextProjectionManager:
+def default_context_manager(
+    paths: Any,
+    *,
+    principal_id: UUID | None = None,
+    parent: Path | None = None,
+    schema: str | None = None,
+    shared_skills: Path | None = None,
+) -> ContextProjectionManager:
     """Authenticate against session_user before allocating the private projection root.
 
     Native service children inherit their existing service configuration's scope.
@@ -43,14 +49,21 @@ def default_context_manager(paths: Any, *, principal_id: UUID | None = None,
         principal_id, schema = UUID(config.principal_id), config.schema
     schema = _identifier(schema or os.environ.get("POTBOT_CONTEXT_SCHEMA", "potbot"))
     database = Database(resolve_postgres_dsn(), schema)
-    with psycopg.connect(database.dsn, row_factory=dict_row, connect_timeout=5,
-            options="-c search_path=pg_catalog -c statement_timeout=30000 -c lock_timeout=10000") as conn:
-        conn.execute(sql.SQL("SET LOCAL search_path TO {},pg_catalog").format(sql.Identifier(schema)))
+    with psycopg.connect(
+        database.dsn,
+        row_factory=dict_row,
+        connect_timeout=5,
+        options="-c search_path=pg_catalog -c statement_timeout=30000 -c lock_timeout=10000",
+    ) as conn:
+        conn.execute(
+            sql.SQL("SET LOCAL search_path TO {},pg_catalog").format(sql.Identifier(schema))
+        )
         login = conn.execute("SELECT session_user AS role").fetchone()
         _restricted_login(conn, schema, login["role"])
         identities = conn.execute(
             "SELECT p.id FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id "
-            "WHERE p.database_role=session_user AND m.workspace_id=%s", (paths.workspace_id,)
+            "WHERE p.database_role=session_user AND m.workspace_id=%s",
+            (paths.workspace_id,),
         ).fetchall()
     if len(identities) != 1 or (principal_id is not None and identities[0]["id"] != principal_id):
         raise ScopeDeniedError("Operator login has no matching workspace identity")
@@ -64,14 +77,23 @@ def default_context_manager(paths: Any, *, principal_id: UUID | None = None,
 
     runtime = replace(paths.runtime(), shared_skills=shared_skills)
     if parent is None:
-        parent = context_parent(SimpleNamespace(path=paths.controller_ledger), runtime, paths.workspace_id)
+        parent = context_parent(
+            SimpleNamespace(path=paths.controller_ledger), runtime, paths.workspace_id
+        )
     else:
         parent = Path(parent)
         # ContextProjectionManager validates ownership/mode; also reject overlap
         # before it can publish a snapshot.
-        for area in (runtime.rootfs, runtime.home, runtime.model_staging, runtime.shared_models,
-                     runtime.shared_tools, runtime.shared_skills, runtime.ai_config_dir,
-                     runtime.ai_history_dir):
+        for area in (
+            runtime.rootfs,
+            runtime.home,
+            runtime.model_staging,
+            runtime.shared_models,
+            runtime.shared_tools,
+            runtime.shared_skills,
+            runtime.ai_config_dir,
+            runtime.ai_history_dir,
+        ):
             if area is not None:
                 other = Path(area).resolve(strict=True)
                 if parent == other or parent.is_relative_to(other) or other.is_relative_to(parent):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from uuid import uuid4
+
 import pytest
 
 from potbot.domain.auth import WorkspaceContext
@@ -37,7 +38,10 @@ def test_agent_registry_and_id_must_be_paired_and_same_ledger() -> None:
     with pytest.raises(InvalidInputError):
         validate_host_agent_binding(shared=True, registry=None, agent_id=agent, ledger=object())
     with pytest.raises(ScopeDeniedError):
-        validate_host_agent_binding(shared=False, registry=SimpleNamespace(), agent_id=agent, ledger=object())
+        validate_host_agent_binding(
+            shared=False, registry=SimpleNamespace(), agent_id=agent, ledger=object()
+        )
     with pytest.raises(ScopeDeniedError):
-        validate_host_agent_binding(shared=True, registry=SimpleNamespace(ledger=object()),
-                                    agent_id=agent, ledger=object())
+        validate_host_agent_binding(
+            shared=True, registry=SimpleNamespace(ledger=object()), agent_id=agent, ledger=object()
+        )

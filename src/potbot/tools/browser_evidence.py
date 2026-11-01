@@ -5,6 +5,7 @@ observation and manifest is published through ArtifactStore.put(actor, ...).
 Execution Cog output/receipt persists the manifest reference in the normal Cog
 work ledger. Content is sensitive and remains workspace/principal scoped.
 """
+
 from __future__ import annotations
 
 import base64
@@ -34,10 +35,16 @@ class BrowserEvidenceScope:
     policy_sha256: str
 
     def __post_init__(self) -> None:
-        if (not all(isinstance(x, UUID) for x in (
-                self.workspace_id, self.principal_id, self.invocation_id))
-                or not isinstance(self.session_id, str) or not _ID.fullmatch(self.session_id)
-                or not isinstance(self.policy_sha256, str) or not _SHA.fullmatch(self.policy_sha256)):
+        if (
+            not all(
+                isinstance(x, UUID)
+                for x in (self.workspace_id, self.principal_id, self.invocation_id)
+            )
+            or not isinstance(self.session_id, str)
+            or not _ID.fullmatch(self.session_id)
+            or not isinstance(self.policy_sha256, str)
+            or not _SHA.fullmatch(self.policy_sha256)
+        ):
             raise InvalidInputError("browser evidence requires exact operator scope")
 
 
@@ -90,23 +97,36 @@ class BrowserEvidenceRecorder:
             data = base64.b64decode(token, validate=True)
         except (ValueError, binascii.Error) as error:
             raise InvalidInputError("browser image has invalid base64") from error
-        if (len(data) != frame["bytes"] or hashlib.sha256(data).hexdigest() != frame["sha256"]
-                or len(data) < 6 or not data.startswith(b"\xff\xd8\xff")
-                or not data.endswith(b"\xff\xd9")):
+        if (
+            len(data) != frame["bytes"]
+            or hashlib.sha256(data).hexdigest() != frame["sha256"]
+            or len(data) < 6
+            or not data.startswith(b"\xff\xd8\xff")
+            or not data.endswith(b"\xff\xd9")
+        ):
             raise InvalidInputError("browser image failed integrity or JPEG checks")
         projected["frame"] = frame
         return projected, data
 
     def record(
-        self, *, scope: BrowserEvidenceScope, command: dict[str, Any],
-        result: dict[str, Any], kind: str, require_image: bool = False,
+        self,
+        *,
+        scope: BrowserEvidenceScope,
+        command: dict[str, Any],
+        result: dict[str, Any],
+        kind: str,
+        require_image: bool = False,
     ) -> dict[str, Any]:
-        if (scope.workspace_id != self.actor.workspace_id
-                or scope.principal_id != self.actor.principal_id):
+        if (
+            scope.workspace_id != self.actor.workspace_id
+            or scope.principal_id != self.actor.principal_id
+        ):
             raise ScopeDeniedError("browser evidence cannot cross the authenticated workspace")
-        if kind not in ("observation", "action", "capture") or not isinstance(
-            command, dict
-        ) or not isinstance(result, dict):
+        if (
+            kind not in ("observation", "action", "capture")
+            or not isinstance(command, dict)
+            or not isinstance(result, dict)
+        ):
             raise InvalidInputError("invalid browser evidence kind")
         if require_image and (kind != "capture" or command.get("op") != "sample"):
             raise InvalidInputError("only an explicit sample may retain rendered bytes")

@@ -1,4 +1,5 @@
 """Offline end-to-end acceptance of the private GUI kernel-audit receipt."""
+
 from __future__ import annotations
 
 import hashlib
@@ -28,18 +29,37 @@ def fixture(tmp_path: Path):
         (session / name).write_bytes(b"{}\n")
         (session / name).chmod(0o600)
     digest = hashlib.sha256(b"{}\n").hexdigest()
-    identity = {"workspace_id": str(workspace_id), "agent_id": str(principal),
-                "worker_id": session.name, "run_id": str(run_id),
-                "identity_kind": "principal"}
-    receipt = {**identity, "audit_complete": True, "audit_failure": None,
-               "trace_integrity": {}, "taskstats_missing_exit_events": 0,
-               "per_pid_kernel_exit_accounting": True,
-               "traced_pid_count": 3, "per_pid_kernel_exit_count": 3,
-               "process_tree": {"sha256": digest, "nodes": 3, "tree_complete": True,
-                                "expected_untraced_count": 0, "fork_conflicts": 0},
-               "file_index": {"sha256": digest, "file_keys": 8},
-               "cgroup_usage": {"cpu_usec": 123, "read_bytes": 1000,
-                                "write_bytes": 9, "memory_peak_bytes": 65536}}
+    identity = {
+        "workspace_id": str(workspace_id),
+        "agent_id": str(principal),
+        "worker_id": session.name,
+        "run_id": str(run_id),
+        "identity_kind": "principal",
+    }
+    receipt = {
+        **identity,
+        "audit_complete": True,
+        "audit_failure": None,
+        "trace_integrity": {},
+        "taskstats_missing_exit_events": 0,
+        "per_pid_kernel_exit_accounting": True,
+        "traced_pid_count": 3,
+        "per_pid_kernel_exit_count": 3,
+        "process_tree": {
+            "sha256": digest,
+            "nodes": 3,
+            "tree_complete": True,
+            "expected_untraced_count": 0,
+            "fork_conflicts": 0,
+        },
+        "file_index": {"sha256": digest, "file_keys": 8},
+        "cgroup_usage": {
+            "cpu_usec": 123,
+            "read_bytes": 1000,
+            "write_bytes": 9,
+            "memory_peak_bytes": 65536,
+        },
+    }
     write_json(session / "identity.json", identity)
     write_json(session / "lifetime.json", receipt)
     return root, workspace_id, run_id, session, receipt
@@ -56,9 +76,11 @@ def test_valid_gui_audit_qualifies_without_exposing_private_paths(tmp_path):
 
 def test_missing_descendant_or_exit_event_fails(tmp_path):
     root, ws, run, session, receipt = fixture(tmp_path)
-    for field, value in (("per_pid_kernel_exit_count", 2),
-                         ("taskstats_missing_exit_events", 1),
-                         ("audit_complete", False)):
+    for field, value in (
+        ("per_pid_kernel_exit_count", 2),
+        ("taskstats_missing_exit_events", 1),
+        ("audit_complete", False),
+    ):
         broken = {**receipt, field: value}
         write_json(session / "lifetime.json", broken)
         with pytest.raises(ValueError):

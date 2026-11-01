@@ -1,4 +1,5 @@
 """Process-tree provenance and private per-file lifetime aggregation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -13,13 +14,15 @@ from potbot.tools.worker_audit import file_access_index, process_tree, write_pro
 
 def test_fork_tree_captures_short_lived_process_and_threads(tmp_path: Path) -> None:
     parent = tmp_path / "trace.300"
-    parent.write_text('''1793000000.000010 clone(child_stack=NULL, flags=CLONE_VM|CLONE_THREAD, child_tidptr=0x42) = 301 <0.000010>
+    parent.write_text("""1793000000.000010 clone(child_stack=NULL, flags=CLONE_VM|CLONE_THREAD, child_tidptr=0x42) = 301 <0.000010>
 1793000000.000020 clone3({flags=0}, 88 <unfinished ...>
 1793000000.000030 <... clone3 resumed>) = 302 <0.000010>
 1793000000.000100 +++ exited with 0 +++
-''')
-    (tmp_path / "trace.301").write_text('1793000000.000011 execve("/usr/bin/true", ["true"], 0x1) = 0 <0.001>\n')
-    (tmp_path / "trace.302").write_text('1793000000.000040 +++ killed by SIGKILL +++\n')
+""")
+    (tmp_path / "trace.301").write_text(
+        '1793000000.000011 execve("/usr/bin/true", ["true"], 0x1) = 0 <0.001>\n'
+    )
+    (tmp_path / "trace.302").write_text("1793000000.000040 +++ killed by SIGKILL +++\n")
     paths = sorted(tmp_path.glob("trace.*"))
     tree = process_tree(paths, sampled_processes={"301:12345": {"start_ticks": 12345}})
     assert tree["tree_complete"] is True
@@ -39,7 +42,7 @@ def test_fork_tree_captures_short_lived_process_and_threads(tmp_path: Path) -> N
 
 def test_fork_child_without_trace_fails_closed(tmp_path: Path) -> None:
     parent = tmp_path / "trace.12"
-    parent.write_text('1793000000.000010 fork() = 13 <0.000010>\n')
+    parent.write_text("1793000000.000010 fork() = 13 <0.000010>\n")
     tree = process_tree([parent])
     assert tree["tree_complete"] is False
     assert tree["expected_but_untraced_pids"] == [13]
@@ -48,7 +51,7 @@ def test_fork_child_without_trace_fails_closed(tmp_path: Path) -> None:
 
 def test_trace_symlink_and_duplicate_are_denied(tmp_path: Path) -> None:
     real = tmp_path / "trace.18"
-    real.write_text('1793000000.000010 getpid() = 18 <0.000001>\n')
+    real.write_text("1793000000.000010 getpid() = 18 <0.000001>\n")
     link = tmp_path / "trace.19"
     link.symlink_to(real)
     with pytest.raises(ScopeDeniedError):
@@ -60,10 +63,34 @@ def test_trace_symlink_and_duplicate_are_denied(tmp_path: Path) -> None:
 def test_private_file_index_preserves_modes_and_failure_counts(tmp_path: Path) -> None:
     path = tmp_path / "file-events.jsonl"
     records = [
-        {"pid": 900, "path": "somefile", "mode": "read", "time": 1793000000.01, "result_error": True},
-        {"pid": 900, "path": "somefile", "mode": "read", "time": 1793000000.02, "result_error": False},
-        {"pid": 900, "path": "somefile", "mode": "write", "time": 1793000000.03, "result_error": False},
-        {"pid": 901, "path": "/home/a", "mode": "execute", "time": 1793000000.01, "result_error": False},
+        {
+            "pid": 900,
+            "path": "somefile",
+            "mode": "read",
+            "time": 1793000000.01,
+            "result_error": True,
+        },
+        {
+            "pid": 900,
+            "path": "somefile",
+            "mode": "read",
+            "time": 1793000000.02,
+            "result_error": False,
+        },
+        {
+            "pid": 900,
+            "path": "somefile",
+            "mode": "write",
+            "time": 1793000000.03,
+            "result_error": False,
+        },
+        {
+            "pid": 901,
+            "path": "/home/a",
+            "mode": "execute",
+            "time": 1793000000.01,
+            "result_error": False,
+        },
     ]
     path.write_text("".join(json.dumps(r) + "\n" for r in records))
     output = tmp_path / "file-index.jsonl"
@@ -88,9 +115,10 @@ def test_corrupt_audit_is_not_summarised(tmp_path: Path) -> None:
 
 
 def test_reader_suppresses_unverified_agent_attribution(tmp_path: Path) -> None:
-    from uuid import uuid4
     import time
-    from potbot.tools.worker_telemetry import _safe_write, OperatorTelemetryReader
+    from uuid import uuid4
+
+    from potbot.tools.worker_telemetry import OperatorTelemetryReader, _safe_write
 
     workspace = uuid4()
     root = tmp_path / "audit"
@@ -99,10 +127,19 @@ def test_reader_suppresses_unverified_agent_attribution(tmp_path: Path) -> None:
     for agent, kind in ((known, "agent"), (unknown, "principal")):
         folder = root / str(workspace) / str(uuid4())
         folder.mkdir(parents=True, mode=0o700)
-        _safe_write(folder / "live.json", {"schema": 1, "state": "running",
-            "workspace_id": str(workspace), "worker_id": folder.name, "agent_id": str(agent),
-            "identity_kind": kind, "sampled_at": time.time(),
-            "usage": {"cpu_usec": 100, "memory_current_bytes": 10, "pids_current": 1}})
+        _safe_write(
+            folder / "live.json",
+            {
+                "schema": 1,
+                "state": "running",
+                "workspace_id": str(workspace),
+                "worker_id": folder.name,
+                "agent_id": str(agent),
+                "identity_kind": kind,
+                "sampled_at": time.time(),
+                "usage": {"cpu_usec": 100, "memory_current_bytes": 10, "pids_current": 1},
+            },
+        )
     reader = OperatorTelemetryReader(root)
     try:
         view = reader.snapshot(workspace)
@@ -115,9 +152,10 @@ def test_reader_suppresses_unverified_agent_attribution(tmp_path: Path) -> None:
 
 
 def test_active_worker_index_skips_old_history_and_prunes_heat_counters(tmp_path: Path) -> None:
-    from uuid import uuid4
     import time
-    from potbot.tools.worker_telemetry import _safe_write, OperatorTelemetryReader
+    from uuid import uuid4
+
+    from potbot.tools.worker_telemetry import OperatorTelemetryReader, _safe_write
 
     workspace, agent, worker = uuid4(), uuid4(), uuid4()
     root = tmp_path / "audit"
@@ -130,10 +168,19 @@ def test_active_worker_index_skips_old_history_and_prunes_heat_counters(tmp_path
     active = home / ".active"
     active.mkdir(mode=0o700)
     live_path = active / f"{worker}.json"
-    _safe_write(live_path, {"schema": 1, "state": "running", "workspace_id": str(workspace),
-                            "agent_id": str(agent), "worker_id": str(worker),
-                            "identity_kind": "agent", "sampled_at": time.time(),
-                            "usage": {"cpu_usec": 10, "pids_current": 1, "memory_current_bytes": 400}})
+    _safe_write(
+        live_path,
+        {
+            "schema": 1,
+            "state": "running",
+            "workspace_id": str(workspace),
+            "agent_id": str(agent),
+            "worker_id": str(worker),
+            "identity_kind": "agent",
+            "sampled_at": time.time(),
+            "usage": {"cpu_usec": 10, "pids_current": 1, "memory_current_bytes": 400},
+        },
+    )
     reader = OperatorTelemetryReader(root)
     try:
         first = reader.snapshot(workspace)
@@ -150,19 +197,31 @@ def test_active_worker_index_skips_old_history_and_prunes_heat_counters(tmp_path
 
 
 def test_index_overflow_never_reports_partial_agent_heat(tmp_path: Path) -> None:
-    from uuid import uuid4
     import time
-    from potbot.tools.worker_telemetry import _safe_write, OperatorTelemetryReader
+    from uuid import uuid4
+
+    from potbot.tools.worker_telemetry import OperatorTelemetryReader, _safe_write
 
     workspace, agent = uuid4(), uuid4()
-    root = tmp_path / "audit"; root.mkdir(mode=0o700)
-    active = root / str(workspace) / ".active"; active.mkdir(parents=True, mode=0o700)
-    for i in range(1025):
+    root = tmp_path / "audit"
+    root.mkdir(mode=0o700)
+    active = root / str(workspace) / ".active"
+    active.mkdir(parents=True, mode=0o700)
+    for _ in range(1025):
         w = uuid4()
-        _safe_write(active / f"{w}.json", {"schema": 1, "state": "running",
-            "workspace_id": str(workspace), "agent_id": str(agent), "worker_id": str(w),
-            "identity_kind": "agent", "sampled_at": time.time(),
-            "usage": {"cpu_usec": 10, "pids_current": 1, "memory_current_bytes": 1}})
+        _safe_write(
+            active / f"{w}.json",
+            {
+                "schema": 1,
+                "state": "running",
+                "workspace_id": str(workspace),
+                "agent_id": str(agent),
+                "worker_id": str(w),
+                "identity_kind": "agent",
+                "sampled_at": time.time(),
+                "usage": {"cpu_usec": 10, "pids_current": 1, "memory_current_bytes": 1},
+            },
+        )
     reader = OperatorTelemetryReader(root)
     try:
         view = reader.snapshot(workspace)
@@ -175,19 +234,19 @@ def test_index_overflow_never_reports_partial_agent_heat(tmp_path: Path) -> None
 def test_disconnected_clone_cycle_is_not_a_complete_process_tree(tmp_path):
     """A valid root and a disconnected cycle used to evade root-count validation."""
     from potbot.tools.worker_audit import process_tree
+
     (tmp_path / "trace.11").write_text(
-        '1792130000.000001 execve("/bin/true", [], []) = 0 <0.00001>\n'
-        '+++ exited with 0 +++\n'
+        '1792130000.000001 execve("/bin/true", [], []) = 0 <0.00001>\n+++ exited with 0 +++\n'
     )
     (tmp_path / "trace.12").write_text(
-        '1792130000.100000 clone(child_stack=NULL, flags=SIGCHLD) = 13 <0.00001>\n'
-        '+++ exited with 0 +++\n'
+        "1792130000.100000 clone(child_stack=NULL, flags=SIGCHLD) = 13 <0.00001>\n"
+        "+++ exited with 0 +++\n"
     )
     (tmp_path / "trace.13").write_text(
-        '1792130000.200000 clone(child_stack=NULL, flags=SIGCHLD) = 12 <0.00001>\n'
-        '+++ exited with 0 +++\n'
+        "1792130000.200000 clone(child_stack=NULL, flags=SIGCHLD) = 12 <0.00001>\n"
+        "+++ exited with 0 +++\n"
     )
-    tree = process_tree(sorted(tmp_path.glob('trace.*')))
-    assert tree['roots'] == [11]
-    assert tree['cycle_pids'] == [12, 13]
-    assert tree['tree_complete'] is False
+    tree = process_tree(sorted(tmp_path.glob("trace.*")))
+    assert tree["roots"] == [11]
+    assert tree["cycle_pids"] == [12, 13]
+    assert tree["tree_complete"] is False

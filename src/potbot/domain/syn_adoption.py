@@ -65,13 +65,16 @@ class SelectedKeyProof:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 1, "type_ref": PROOF_TYPE,
+            "schema_version": 1,
+            "type_ref": PROOF_TYPE,
             "offer_sha256": self.offer_sha256.hex(),
             "master_public_key_hash": self.master_public_key_hash.hex(),
-            "inheritance": self.inheritance, "independence": self.independence,
+            "inheritance": self.inheritance,
+            "independence": self.independence,
             "selected_public_key": self.selected_public_key.hex(),
             "challenge": self.challenge.hex(),
-            "issued_at": self.issued_at, "expires_at": self.expires_at,
+            "issued_at": self.issued_at,
+            "expires_at": self.expires_at,
         }
 
     def signed_bytes(self) -> bytes:
@@ -79,20 +82,35 @@ class SelectedKeyProof:
 
     @classmethod
     def from_dict(cls, value: object) -> SelectedKeyProof:
-        required = {"schema_version", "type_ref", "offer_sha256", "master_public_key_hash",
-                    "inheritance", "independence", "selected_public_key", "challenge",
-                    "issued_at", "expires_at"}
-        if (not isinstance(value, dict) or set(value) != required
-                or type(value["schema_version"]) is not int or value["schema_version"] != 1
-                or value["type_ref"] != PROOF_TYPE):
+        required = {
+            "schema_version",
+            "type_ref",
+            "offer_sha256",
+            "master_public_key_hash",
+            "inheritance",
+            "independence",
+            "selected_public_key",
+            "challenge",
+            "issued_at",
+            "expires_at",
+        }
+        if (
+            not isinstance(value, dict)
+            or set(value) != required
+            or type(value["schema_version"]) is not int
+            or value["schema_version"] != 1
+            or value["type_ref"] != PROOF_TYPE
+        ):
             raise InvalidInputError("SYN selected-key proof has unsupported fields")
         return cls(
             _hex(value["offer_sha256"], 32, "pledge hash"),
             _hex(value["master_public_key_hash"], 32, "master hash"),
-            value["inheritance"], value["independence"],
+            value["inheritance"],
+            value["independence"],
             _hex(value["selected_public_key"], 32, "selected public key"),
             _hex(value["challenge"], 32, "adoption challenge"),
-            value["issued_at"], value["expires_at"],
+            value["issued_at"],
+            value["expires_at"],
         )
 
 
@@ -122,7 +140,10 @@ class SignedSelectedKeyProof:
     def from_dict(cls, value: object) -> SignedSelectedKeyProof:
         if not isinstance(value, dict) or set(value) != {"proof", "signature"}:
             raise InvalidInputError("signed selected-key proof has unsupported fields")
-        return cls(SelectedKeyProof.from_dict(value["proof"]), _hex(value["signature"], 64, "proof signature"))
+        return cls(
+            SelectedKeyProof.from_dict(value["proof"]),
+            _hex(value["signature"], 64, "proof signature"),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,7 +161,12 @@ class AdoptionReceipt:
     custody_claim: str = "syn-os-keystore"
 
     def __post_init__(self) -> None:
-        for name in ("offer_sha256", "master_public_key_hash", "selected_public_key_hash", "proof_sha256"):
+        for name in (
+            "offer_sha256",
+            "master_public_key_hash",
+            "selected_public_key_hash",
+            "proof_sha256",
+        ):
             _fixed_bytes(getattr(self, name), 32, name)
         agent_key_path(self.inheritance, self.independence)
         _seconds(self.adopted_at, "adopted_at")
@@ -149,12 +175,15 @@ class AdoptionReceipt:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 1, "type_ref": ADOPTION_TYPE,
+            "schema_version": 1,
+            "type_ref": ADOPTION_TYPE,
             "offer_sha256": self.offer_sha256.hex(),
             "master_public_key_hash": self.master_public_key_hash.hex(),
-            "inheritance": self.inheritance, "independence": self.independence,
+            "inheritance": self.inheritance,
+            "independence": self.independence,
             "selected_public_key_hash": self.selected_public_key_hash.hex(),
-            "proof_sha256": self.proof_sha256.hex(), "adopted_at": self.adopted_at,
+            "proof_sha256": self.proof_sha256.hex(),
+            "adopted_at": self.adopted_at,
             "agent_installation_mode": self.agent_installation_mode,
             "custody_claim": self.custody_claim,
         }
@@ -164,20 +193,37 @@ class AdoptionReceipt:
 
     @classmethod
     def from_dict(cls, value: object) -> AdoptionReceipt:
-        required = {"schema_version", "type_ref", "offer_sha256", "master_public_key_hash",
-                    "inheritance", "independence", "selected_public_key_hash", "proof_sha256",
-                    "adopted_at", "agent_installation_mode", "custody_claim"}
-        if (not isinstance(value, dict) or set(value) != required
-                or type(value["schema_version"]) is not int or value["schema_version"] != 1
-                or value["type_ref"] != ADOPTION_TYPE):
+        required = {
+            "schema_version",
+            "type_ref",
+            "offer_sha256",
+            "master_public_key_hash",
+            "inheritance",
+            "independence",
+            "selected_public_key_hash",
+            "proof_sha256",
+            "adopted_at",
+            "agent_installation_mode",
+            "custody_claim",
+        }
+        if (
+            not isinstance(value, dict)
+            or set(value) != required
+            or type(value["schema_version"]) is not int
+            or value["schema_version"] != 1
+            or value["type_ref"] != ADOPTION_TYPE
+        ):
             raise InvalidInputError("SYN adoption receipt has unsupported fields")
         return cls(
             _hex(value["offer_sha256"], 32, "offer hash"),
             _hex(value["master_public_key_hash"], 32, "master hash"),
-            value["inheritance"], value["independence"],
+            value["inheritance"],
+            value["independence"],
             _hex(value["selected_public_key_hash"], 32, "selected hash"),
             _hex(value["proof_sha256"], 32, "key proof hash"),
-            value["adopted_at"], value["agent_installation_mode"], value["custody_claim"],
+            value["adopted_at"],
+            value["agent_installation_mode"],
+            value["custody_claim"],
         )
 
 
@@ -189,7 +235,9 @@ class SignedAdoptionReceipt:
     operator_signature: bytes
 
     def __post_init__(self) -> None:
-        if not isinstance(self.receipt, AdoptionReceipt) or not isinstance(self.key_proof, SignedSelectedKeyProof):
+        if not isinstance(self.receipt, AdoptionReceipt) or not isinstance(
+            self.key_proof, SignedSelectedKeyProof
+        ):
             raise InvalidInputError("SYN adoption requires operator receipt and agent proof")
         _fixed_bytes(self.operator_public_key, 32, "operator base public key")
         _fixed_bytes(self.operator_signature, 64, "operator signature")
@@ -203,8 +251,10 @@ class SignedAdoptionReceipt:
         proof.verify(now=now)
         p, r = proof.proof, self.receipt
         if (
-            p.offer_sha256 != r.offer_sha256 or p.master_public_key_hash != r.master_public_key_hash
-            or p.inheritance != r.inheritance or p.independence != r.independence
+            p.offer_sha256 != r.offer_sha256
+            or p.master_public_key_hash != r.master_public_key_hash
+            or p.inheritance != r.inheritance
+            or p.independence != r.independence
             or p.selected_public_key_hash != r.selected_public_key_hash
             or proof.digest != r.proof_sha256
             or not p.issued_at <= r.adopted_at <= p.expires_at
@@ -218,14 +268,20 @@ class SignedAdoptionReceipt:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "receipt": self.receipt.to_dict(), "key_proof": self.key_proof.to_dict(),
+            "receipt": self.receipt.to_dict(),
+            "key_proof": self.key_proof.to_dict(),
             "operator_public_key": self.operator_public_key.hex(),
             "operator_signature": self.operator_signature.hex(),
         }
 
     @classmethod
     def from_dict(cls, value: object) -> SignedAdoptionReceipt:
-        if not isinstance(value, dict) or set(value) != {"receipt", "key_proof", "operator_public_key", "operator_signature"}:
+        if not isinstance(value, dict) or set(value) != {
+            "receipt",
+            "key_proof",
+            "operator_public_key",
+            "operator_signature",
+        }:
             raise InvalidInputError("signed SYN adoption receipt has unsupported fields")
         return cls(
             AdoptionReceipt.from_dict(value["receipt"]),

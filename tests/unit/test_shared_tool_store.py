@@ -37,11 +37,20 @@ def store(tmp_path: Path):
     image.mkdir()
     workspace, alice, bob = uuid4(), uuid4(), uuid4()
     ledger = WorkspaceLeaseLedger(private / "leases.sqlite", workspace_home=home)
-    ledger.pin_image(workspace, digest=IMAGE, image_ref="ghcr.io/test/root@sha256:" + IMAGE,
-                     build_commit="c" * 40, platform="linux/amd64",
-                     rootfs_path=image, qualification_sha256="f" * 64)
-    manager = SharedToolStore(ledger=ledger, shared_root=tools,
-                              authorize=lambda ws, actor: ws == workspace and actor in {alice, bob})
+    ledger.pin_image(
+        workspace,
+        digest=IMAGE,
+        image_ref="ghcr.io/test/root@sha256:" + IMAGE,
+        build_commit="c" * 40,
+        platform="linux/amd64",
+        rootfs_path=image,
+        qualification_sha256="f" * 64,
+    )
+    manager = SharedToolStore(
+        ledger=ledger,
+        shared_root=tools,
+        authorize=lambda ws, actor: ws == workspace and actor in {alice, bob},
+    )
     source = tools / "stemlab"
     checkout = source / "checkout"
     checkout.mkdir(parents=True)
@@ -60,38 +69,64 @@ def store(tmp_path: Path):
     commit = git(checkout, "rev-parse", "HEAD")
     lock_sha = hashlib.sha256((checkout / "package-lock.json").read_bytes()).hexdigest()
     definition = SharedToolDefinition(
-        "stemlab", "https://github.com/kieransimkin/stemlab", commit,
-        ("build", ".pytest_cache"), (("package-lock.json", lock_sha),), True,
+        "stemlab",
+        "https://github.com/kieransimkin/stemlab",
+        commit,
+        ("build", ".pytest_cache"),
+        (("package-lock.json", lock_sha),),
+        True,
     )
     from potbot.tools.model_cache_routes import MODEL_ENV
 
-    manager.register(workspace_id=workspace, agent_id=alice, definition=definition,
-                     idempotency_key="register-one", install_probe={
-        "tool": "stemlab", "network_used": False, "observed": True,
-        "environment": dict(MODEL_ENV),
-        "model_destinations": ["/var/ai/cache/huggingface/hub/model.safetensors"],
-        "writes": ["/usr/local/tools/stemlab/environment/bin/entry",
-                   "/var/ai/cache/huggingface/hub/model.safetensors"],
-        "cleanup_test_passed": True, "normal_use_test_passed": True,
-    })
+    manager.register(
+        workspace_id=workspace,
+        agent_id=alice,
+        definition=definition,
+        idempotency_key="register-one",
+        install_probe={
+            "tool": "stemlab",
+            "network_used": False,
+            "observed": True,
+            "environment": dict(MODEL_ENV),
+            "model_destinations": ["/var/ai/cache/huggingface/hub/model.safetensors"],
+            "writes": [
+                "/usr/local/tools/stemlab/environment/bin/entry",
+                "/var/ai/cache/huggingface/hub/model.safetensors",
+            ],
+            "cleanup_test_passed": True,
+            "normal_use_test_passed": True,
+        },
+    )
     return manager, ledger, workspace, alice, bob, home, checkout, source
 
 
 def test_shared_tool_reads_overlap_but_clean_requires_exclusive(store) -> None:
     manager, ledger, ws, alice, bob, home, checkout, source = store
-    with manager.use(workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="use-1") as path:
+    with manager.use(
+        workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="use-1"
+    ) as path:
         assert path == checkout
         with manager.use(workspace_id=ws, agent_id=bob, slug="stemlab", idempotency_key="use-2"):
             with pytest.raises(StateMismatchError):
-                manager.clean_for_edit(workspace_id=ws, agent_id=alice,
-                                       slug="stemlab", idempotency_key="clean-blocked")
+                manager.clean_for_edit(
+                    workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="clean-blocked"
+                )
         assert ledger.active(ws)[0]["operation"] == "tool.use"
     assert not ledger.active(ws)
     with manager.use(workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="use-3"):
         # Unknown shell effects still take a workspace-wide lock; no bypass.
         with pytest.raises(StateMismatchError):
-            ledger.claim(AccessRequest(ws, bob, "shell.execute", "console-1", "unknown",
-                                       (AccessResource("workspace", "*", "write"),), IMAGE))
+            ledger.claim(
+                AccessRequest(
+                    ws,
+                    bob,
+                    "shell.execute",
+                    "console-1",
+                    "unknown",
+                    (AccessResource("workspace", "*", "write"),),
+                    IMAGE,
+                )
+            )
 
 
 def test_shared_tool_clean_preserves_reusable_assets(store) -> None:
@@ -104,29 +139,36 @@ def test_shared_tool_clean_preserves_reusable_assets(store) -> None:
     (checkout / "build" / "junk.o").write_bytes(b"object")
     (checkout / ".pytest_cache").mkdir()
     (checkout / ".pytest_cache" / "lastfailed").write_text("failed")
-    result = manager.clean_for_edit(workspace_id=ws, agent_id=alice,
-                                    slug="stemlab", idempotency_key="clean-first")
+    result = manager.clean_for_edit(
+        workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="clean-first"
+    )
     assert result.removed == ("build", ".pytest_cache")
     assert result.source_clean and result.static_artifacts_preserved
     assert git(checkout, "status", "--porcelain") == ""
     for relative in ("environment/bin/python", "static/render.so", "downloads/numpy.whl"):
         assert (source / relative).is_file()
-    assert manager.clean_for_edit(workspace_id=ws, agent_id=alice,
-                                  slug="stemlab", idempotency_key="clean-again").removed == ()
+    assert (
+        manager.clean_for_edit(
+            workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="clean-again"
+        ).removed
+        == ()
+    )
 
 
 def test_unknown_untracked_and_modified_source_never_deleted(store) -> None:
     manager, _, ws, alice, _, _, checkout, _ = store
     (checkout / "not-in-manifest.txt").write_text("user work")
     with pytest.raises(StateMismatchError):
-        manager.clean_for_edit(workspace_id=ws, agent_id=alice,
-                               slug="stemlab", idempotency_key="unknown-first")
+        manager.clean_for_edit(
+            workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="unknown-first"
+        )
     assert (checkout / "not-in-manifest.txt").read_text() == "user work"
     (checkout / "not-in-manifest.txt").unlink()
     (checkout / "source.py").write_text("modified\n")
     with pytest.raises(StateMismatchError):
-        manager.clean_for_edit(workspace_id=ws, agent_id=alice,
-                               slug="stemlab", idempotency_key="tracked-changed")
+        manager.clean_for_edit(
+            workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="tracked-changed"
+        )
     assert (checkout / "source.py").read_text() == "modified\n"
 
 
@@ -136,8 +178,9 @@ def test_unknown_ignored_and_symlinked_output_refused(store, tmp_path: Path) -> 
     (checkout / ".pytest_cache" / "x").write_text("yes")
     (checkout / "build").symlink_to(tmp_path)
     with pytest.raises(ScopeDeniedError):
-        manager.clean_for_edit(workspace_id=ws, agent_id=alice,
-                               slug="stemlab", idempotency_key="bad-link")
+        manager.clean_for_edit(
+            workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="bad-link"
+        )
     assert tmp_path.is_dir()
     assert (checkout / "build").is_symlink()
 
@@ -146,48 +189,74 @@ def test_clone_plan_after_cleanup_is_agent_owned(store) -> None:
     manager, _, ws, alice, _, home, checkout, _ = store
     agent = home / "alice"
     (agent / "projects").mkdir(parents=True)
-    plan = manager.edit_checkout_plan(workspace_id=ws, agent_id=alice,
-                                      slug="stemlab", agent_home=agent,
-                                      idempotency_key="clone-1")
+    plan = manager.edit_checkout_plan(
+        workspace_id=ws, agent_id=alice, slug="stemlab", agent_home=agent, idempotency_key="clone-1"
+    )
     assert plan["source"] == "/usr/local/tools/stemlab/checkout"
     assert plan["destination"] == "/home/alice/projects/stemlab"
     assert "--no-local" in plan["git_command"]
     (agent / "projects/stemlab").mkdir()
     with pytest.raises(StateMismatchError):
-        manager.edit_checkout_plan(workspace_id=ws, agent_id=alice,
-                                    slug="stemlab", agent_home=agent,
-                                    idempotency_key="clone-2")
+        manager.edit_checkout_plan(
+            workspace_id=ws,
+            agent_id=alice,
+            slug="stemlab",
+            agent_home=agent,
+            idempotency_key="clone-2",
+        )
     assert git(checkout, "status", "--porcelain") == ""
 
 
 def test_operator_approval_and_manifest_input_required(store) -> None:
     manager, _, ws, alice, bob, home, _, _ = store
     with pytest.raises(ScopeDeniedError):
-        with manager.use(workspace_id=uuid4(), agent_id=alice, slug="stemlab",
-                         idempotency_key="foreign"):
+        with manager.use(
+            workspace_id=uuid4(), agent_id=alice, slug="stemlab", idempotency_key="foreign"
+        ):
             pass
     with pytest.raises(StateMismatchError):
-        with manager.use(workspace_id=ws, agent_id=bob, slug="not-installed",
-                         idempotency_key="unknown"):
+        with manager.use(
+            workspace_id=ws, agent_id=bob, slug="not-installed", idempotency_key="unknown"
+        ):
             pass
     for path in ("../bad", "/etc", ".git", "node_modules", "models", ".venv"):
         with pytest.raises((ScopeDeniedError, InvalidInputError)):
-            SharedToolDefinition("stemlab", "https://github.com/kieransimkin/stemlab", "a" * 40,
-                                 (path,))
+            SharedToolDefinition(
+                "stemlab", "https://github.com/kieransimkin/stemlab", "a" * 40, (path,)
+            )
     assert len(SHARED_ARTIFACT_POLICIES) >= 8
 
 
 def test_write_lock_on_tool_does_not_block_other_tool(store) -> None:
     manager, ledger, ws, alice, bob, _, _, _ = store
-    ticket = ledger.claim(AccessRequest(ws, alice, "tool.upgrade", "upgrade-future", "write",
-                                        (AccessResource("shared_tool", "stemlab", "write"),), IMAGE))
+    ticket = ledger.claim(
+        AccessRequest(
+            ws,
+            alice,
+            "tool.upgrade",
+            "upgrade-future",
+            "write",
+            (AccessResource("shared_tool", "stemlab", "write"),),
+            IMAGE,
+        )
+    )
     try:
-        other = ledger.claim(AccessRequest(ws, bob, "tool.use", "danceflows", "read",
-                                           (AccessResource("shared_tool", "dancemoves", "read"),), IMAGE))
+        other = ledger.claim(
+            AccessRequest(
+                ws,
+                bob,
+                "tool.use",
+                "danceflows",
+                "read",
+                (AccessResource("shared_tool", "dancemoves", "read"),),
+                IMAGE,
+            )
+        )
         ledger.finish(other, result_sha256="0" * 64)
         with pytest.raises(StateMismatchError):
-            with manager.use(workspace_id=ws, agent_id=bob, slug="stemlab",
-                             idempotency_key="use-locked"):
+            with manager.use(
+                workspace_id=ws, agent_id=bob, slug="stemlab", idempotency_key="use-locked"
+            ):
                 pass
     finally:
         ledger.finish(ticket, result_sha256="1" * 64)
@@ -204,18 +273,34 @@ def test_clone_for_edit_executes_under_one_maintenance_lease(store) -> None:
     def admitted_clone(plan: dict[str, str]) -> None:
         calls.append(plan)
         with pytest.raises(StateMismatchError):
-            with manager.use(workspace_id=ws, agent_id=bob,
-                             slug="stemlab", idempotency_key="read-while-cloning"):
+            with manager.use(
+                workspace_id=ws, agent_id=bob, slug="stemlab", idempotency_key="read-while-cloning"
+            ):
                 pass
         git(checkout, "status", "--porcelain")
         # Test-only local Git; the real callback MUST invoke the isolated Git Cog.
-        subprocess.run(["git", "clone", "--no-local", "--no-hardlinks", "-q",
-                        str(checkout), str(agent / "projects/stemlab")], check=True)
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--no-local",
+                "--no-hardlinks",
+                "-q",
+                str(checkout),
+                str(agent / "projects/stemlab"),
+            ],
+            check=True,
+        )
         git(agent / "projects/stemlab", "checkout", "-q", "--detach", plan["expected_commit"])
 
-    result = manager.clone_for_edit(workspace_id=ws, agent_id=alice, slug="stemlab",
-                                    agent_home=agent, idempotency_key="clone-execute",
-                                    sandboxed_clone=admitted_clone)
+    result = manager.clone_for_edit(
+        workspace_id=ws,
+        agent_id=alice,
+        slug="stemlab",
+        agent_home=agent,
+        idempotency_key="clone-execute",
+        sandboxed_clone=admitted_clone,
+    )
     assert len(calls) == 1
     assert result["expected_commit"] == git(agent / "projects/stemlab", "rev-parse", "HEAD")
     assert (checkout / "build").exists() is False
@@ -227,13 +312,22 @@ def test_clone_failure_keeps_lease_indeterminate(store) -> None:
     agent = home / "alice"
     (agent / "projects").mkdir(parents=True)
     with pytest.raises(OSError):
-        manager.clone_for_edit(workspace_id=ws, agent_id=alice, slug="stemlab",
-                               agent_home=agent, idempotency_key="bad-clone",
-                               sandboxed_clone=lambda plan: (_ for _ in ()).throw(OSError("lost")))
+        manager.clone_for_edit(
+            workspace_id=ws,
+            agent_id=alice,
+            slug="stemlab",
+            agent_home=agent,
+            idempotency_key="bad-clone",
+            sandboxed_clone=lambda plan: (_ for _ in ()).throw(OSError("lost")),
+        )
     assert ledger.active(ws)[0]["state"] == "indeterminate"
     with pytest.raises(StateMismatchError):
-        manager.clean_for_edit(workspace_id=ws, agent_id=bob,
-                               slug="stemlab", idempotency_key="blocked-until-reconciled")
+        manager.clean_for_edit(
+            workspace_id=ws,
+            agent_id=bob,
+            slug="stemlab",
+            idempotency_key="blocked-until-reconciled",
+        )
 
 
 def test_tool_environment_static_shared_vs_agent_runtime() -> None:
@@ -261,11 +355,14 @@ def test_clean_cannot_remove_tracked_files_even_when_manifest_mislabels_them(sto
         import json
 
         tampered = replace(definition, cleanup_paths=("source.py",))
-        conn.execute("UPDATE trusted_shared_tools SET definition_json=? WHERE workspace_id=? AND slug=?",
-                     (json.dumps(tampered.to_dict()), str(ws), "stemlab"))
+        conn.execute(
+            "UPDATE trusted_shared_tools SET definition_json=? WHERE workspace_id=? AND slug=?",
+            (json.dumps(tampered.to_dict()), str(ws), "stemlab"),
+        )
     with pytest.raises(ScopeDeniedError):
-        manager.clean_for_edit(workspace_id=ws, agent_id=alice, slug="stemlab",
-                               idempotency_key="tracked-clean")
+        manager.clean_for_edit(
+            workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="tracked-clean"
+        )
     assert (checkout / "source.py").read_text() == "print('hello')\n"
 
 
@@ -289,14 +386,19 @@ def test_shared_tool_registration_without_probe_is_rejected(store) -> None:
     manager, _, ws, alice, _, _, _, source = store
     definition = manager.definition(ws, "stemlab")
     with pytest.raises(TypeError):
-        manager.register(workspace_id=ws, agent_id=alice, definition=definition,
-                         idempotency_key="bad-registration")
+        manager.register(
+            workspace_id=ws,
+            agent_id=alice,
+            definition=definition,
+            idempotency_key="bad-registration",
+        )
 
 
 def test_normal_use_writing_to_shared_source_is_quarantined(store) -> None:
     manager, ledger, ws, alice, _, _, checkout, _ = store
     with pytest.raises(StateMismatchError):
-        with manager.use(workspace_id=ws, agent_id=alice, slug="stemlab",
-                         idempotency_key="unexpected-write"):
+        with manager.use(
+            workspace_id=ws, agent_id=alice, slug="stemlab", idempotency_key="unexpected-write"
+        ):
             (checkout / "generated.txt").write_text("should be agent local")
     assert ledger.active(ws)[0]["state"] == "indeterminate"

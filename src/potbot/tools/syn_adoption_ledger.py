@@ -52,7 +52,9 @@ class SynAdoptionLedger:
             );
             """)
 
-    def record(self, adoption: SignedAdoptionReceipt, *, now: int | None = None) -> VerifiedSynAdoption:
+    def record(
+        self, adoption: SignedAdoptionReceipt, *, now: int | None = None
+    ) -> VerifiedSynAdoption:
         current = _now(now)
         if not isinstance(adoption, SignedAdoptionReceipt):
             raise ScopeDeniedError("SYN adoption requires a verified signed public receipt")
@@ -65,36 +67,56 @@ class SynAdoptionLedger:
             db.execute("BEGIN IMMEDIATE")
             try:
                 pledge = self.enrollment._get_locked(db, offer_hash)
-                if (pledge["state"] != "selected"
-                        or pledge["master_hash"] != self.enrollment.master_hash.hex()
-                        or pledge["inheritance"] != identity.inheritance
-                        or pledge["independence"] != identity.independence
-                        or pledge["selected_public_key_hash"] != identity.selected_public_key_hash.hex()
-                        or identity.adopted_at > pledge["expires_at"]):
-                    raise ScopeDeniedError("SYN adoption does not match a selected, retained pledge")
+                if (
+                    pledge["state"] != "selected"
+                    or pledge["master_hash"] != self.enrollment.master_hash.hex()
+                    or pledge["inheritance"] != identity.inheritance
+                    or pledge["independence"] != identity.independence
+                    or pledge["selected_public_key_hash"] != identity.selected_public_key_hash.hex()
+                    or identity.adopted_at > pledge["expires_at"]
+                ):
+                    raise ScopeDeniedError(
+                        "SYN adoption does not match a selected, retained pledge"
+                    )
                 stored = db.execute(
                     "SELECT * FROM syn_agent_adoptions WHERE offer_sha256=?", (offer_hash,)
                 ).fetchone()
                 if stored is not None:
-                    if stored["receipt_sha256"] != signature_digest or stored["signed_receipt_json"] != payload:
-                        raise StateMismatchError("SYN adoption was already recorded with different evidence")
+                    if (
+                        stored["receipt_sha256"] != signature_digest
+                        or stored["signed_receipt_json"] != payload
+                    ):
+                        raise StateMismatchError(
+                            "SYN adoption was already recorded with different evidence"
+                        )
                     # Safe idempotent readback; no second provisioning side effect.
                 else:
                     if current > pledge["expires_at"]:
-                        raise StateMismatchError("SYN adoption window expired without a durable receipt")
+                        raise StateMismatchError(
+                            "SYN adoption window expired without a durable receipt"
+                        )
                     db.execute(
                         "INSERT INTO syn_agent_adoptions "
                         "(offer_sha256,master_hash,selected_public_key_hash,inheritance,"
                         "independence,receipt_sha256,adopted_at,signed_receipt_json) "
                         "VALUES(?,?,?,?,?,?,?,?)",
-                        (offer_hash, self.enrollment.master_hash.hex(),
-                         identity.selected_public_key_hash.hex(), identity.inheritance,
-                         identity.independence, signature_digest, identity.adopted_at, payload),
+                        (
+                            offer_hash,
+                            self.enrollment.master_hash.hex(),
+                            identity.selected_public_key_hash.hex(),
+                            identity.inheritance,
+                            identity.independence,
+                            signature_digest,
+                            identity.adopted_at,
+                            payload,
+                        ),
                     )
                 db.commit()
             except sqlite3.IntegrityError as exc:
                 db.rollback()
-                raise StateMismatchError("SYN adoption conflicts with a previously committed identity") from exc
+                raise StateMismatchError(
+                    "SYN adoption conflicts with a previously committed identity"
+                ) from exc
             except BaseException:
                 db.rollback()
                 raise
@@ -124,29 +146,38 @@ class SynAdoptionLedger:
             receipt.verify(master_hash=self.enrollment.master_hash, now=receipt.receipt.adopted_at)
         except (ValueError, TypeError, KeyError) as exc:
             raise StateMismatchError("persisted SYN adoption record is malformed") from exc
-        if (receipt.digest.hex() != row["receipt_sha256"]
-                or receipt.receipt.offer_sha256.hex() != row["offer_sha256"]
-                or receipt.receipt.selected_public_key_hash.hex() != row["selected_public_key_hash"]
-                or receipt.receipt.inheritance != row["inheritance"]
-                or receipt.receipt.independence != row["independence"]
-                or receipt.receipt.adopted_at != row["adopted_at"]):
-            raise StateMismatchError("persisted SYN adoption summary differs from its signed receipt")
+        if (
+            receipt.digest.hex() != row["receipt_sha256"]
+            or receipt.receipt.offer_sha256.hex() != row["offer_sha256"]
+            or receipt.receipt.selected_public_key_hash.hex() != row["selected_public_key_hash"]
+            or receipt.receipt.inheritance != row["inheritance"]
+            or receipt.receipt.independence != row["independence"]
+            or receipt.receipt.adopted_at != row["adopted_at"]
+        ):
+            raise StateMismatchError(
+                "persisted SYN adoption summary differs from its signed receipt"
+            )
         with self.enrollment._connect() as db:
             pledge = self.enrollment._get_locked(db, offer_sha256)
-            if (pledge["state"] != "selected"
-                    or pledge["selected_public_key_hash"] != row["selected_public_key_hash"]
-                    or pledge["inheritance"] != row["inheritance"]
-                    or pledge["independence"] != row["independence"]):
+            if (
+                pledge["state"] != "selected"
+                or pledge["selected_public_key_hash"] != row["selected_public_key_hash"]
+                or pledge["inheritance"] != row["inheritance"]
+                or pledge["independence"] != row["independence"]
+            ):
                 raise StateMismatchError("SYN adoption no longer matches the selected pledge")
         from potbot.domain.syn_agent_pledge import agent_key_path
 
         return VerifiedSynAdoption(
-            row["offer_sha256"], row["selected_public_key_hash"],
-            agent_key_path(row["inheritance"], row["independence"]), row["receipt_sha256"],
+            row["offer_sha256"],
+            row["selected_public_key_hash"],
+            agent_key_path(row["inheritance"], row["independence"]),
+            row["receipt_sha256"],
         )
 
-    def reconcile(self, daemon: SynLocalDaemonClient, offer_sha256: bytes,
-                  *, now: int | None = None) -> VerifiedSynAdoption | None:
+    def reconcile(
+        self, daemon: SynLocalDaemonClient, offer_sha256: bytes, *, now: int | None = None
+    ) -> VerifiedSynAdoption | None:
         """Read only a signed public receipt; never trigger private adoption here."""
         _fixed_bytes(offer_sha256, 32, "pledge digest")
         if daemon.endpoint.base_public_key_hash != self.enrollment.master_hash:

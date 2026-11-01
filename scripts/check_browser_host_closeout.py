@@ -6,6 +6,7 @@ positive evidence, start agents or bypass operator authority. Every field is
 checked against supplied immutable host observations, but the operator must
 still establish provenance and sign off on the evidence source.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,10 +23,15 @@ from uuid import UUID
 
 SCHEMA = "potbot-browser-host-closeout/v1"
 REQUIRED = (
-    "two_registered_agents", "private_x11_and_home", "view_only_streams",
-    "ticket_replay_and_epoch_denial", "operator_loss_fencing",
-    "network_https_tls_dns_denial", "postgres_artifacts_and_rls",
-    "agent_logs_and_archive", "worker_tree_audit_and_settlement",
+    "two_registered_agents",
+    "private_x11_and_home",
+    "view_only_streams",
+    "ticket_replay_and_epoch_denial",
+    "operator_loss_fencing",
+    "network_https_tls_dns_denial",
+    "postgres_artifacts_and_rls",
+    "agent_logs_and_archive",
+    "worker_tree_audit_and_settlement",
 )
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -46,8 +52,11 @@ def unique_json(raw: bytes) -> dict[str, Any]:
         return output
 
     try:
-        obj = json.loads(raw, object_pairs_hook=pairs,
-                         parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
+        obj = json.loads(
+            raw,
+            object_pairs_hook=pairs,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")),
+        )
     except (ValueError, UnicodeError, RecursionError) as error:
         raise ValueError("invalid host manifest JSON") from error
     if not isinstance(obj, dict):
@@ -80,28 +89,37 @@ def _source(root: Path, raw: dict[str, Any]) -> None:
         raise ValueError("source commit is not a full Git SHA")
     if raw["tree_dirty"] is not False:
         raise ValueError("dirty source cannot qualify a pinned browser")
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"],
-                                   cwd=root, text=True, timeout=10).strip()
+    head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True, timeout=10
+    ).strip()
     if head != raw["commit"]:
         raise ValueError("host acceptance references a different source commit")
     files = raw["files"]
     if not isinstance(files, dict) or len(files) < 3 or len(files) > 40:
         raise ValueError("required committed source hashes absent")
     for key, expected in files.items():
-        if (not isinstance(key, str) or len(key) > 200 or key.startswith("/")
-                or any(part in {"", ".", ".."} for part in key.split("/"))):
+        if (
+            not isinstance(key, str)
+            or len(key) > 200
+            or key.startswith("/")
+            or any(part in {"", ".", ".."} for part in key.split("/"))
+        ):
             raise ValueError("invalid source path")
         _sha(expected)
-        committed = subprocess.check_output(["git", "show", f"{head}:{key}"],
-                                             cwd=root, timeout=10)
+        committed = subprocess.check_output(["git", "show", f"{head}:{key}"], cwd=root, timeout=10)
         actual = root / key
-        if (actual.is_symlink() or not actual.is_file()
-                or hashlib.sha256(actual.read_bytes()).hexdigest() != expected
-                or hashlib.sha256(committed).hexdigest() != expected):
+        if (
+            actual.is_symlink()
+            or not actual.is_file()
+            or hashlib.sha256(actual.read_bytes()).hexdigest() != expected
+            or hashlib.sha256(committed).hexdigest() != expected
+        ):
             raise ValueError("source bytes differ from committed acceptance source")
-    for required in ("src/potbot/tools/xpra_browser_worker.py",
-                     "src/potbot/tools/xpra_browser_control.py",
-                     "src/potbot/tools/agent_xpra_streams.py"):
+    for required in (
+        "src/potbot/tools/xpra_browser_worker.py",
+        "src/potbot/tools/xpra_browser_control.py",
+        "src/potbot/tools/agent_xpra_streams.py",
+    ):
         if required not in files:
             raise ValueError("missing browser/source pin")
 
@@ -109,12 +127,21 @@ def _source(root: Path, raw: dict[str, Any]) -> None:
 def _proof(path: Path, recorded_hash: str, directory: Path) -> None:
     """Evidence is read only from an operator-owned directory outside guests."""
     _sha(recorded_hash)
-    if (not path.is_absolute() or path.is_symlink() or path.parent != directory
-            or path.resolve(strict=True) != path):
+    if (
+        not path.is_absolute()
+        or path.is_symlink()
+        or path.parent != directory
+        or path.resolve(strict=True) != path
+    ):
         raise ValueError("proof must be an ordinary file in the operator report directory")
     info = path.stat()
-    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid()
-            or info.st_mode & 0o077 or not 0 < info.st_size <= MAX_EVIDENCE):
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_nlink != 1
+        or info.st_uid != os.geteuid()
+        or info.st_mode & 0o077
+        or not 0 < info.st_size <= MAX_EVIDENCE
+    ):
         raise ValueError("proof is not operator-private and bounded")
     fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
     try:
@@ -122,58 +149,94 @@ def _proof(path: Path, recorded_hash: str, directory: Path) -> None:
         with os.fdopen(os.dup(fd), "rb") as stream:
             observed_hash = hashlib.file_digest(stream, "sha256").hexdigest()
         after = os.fstat(fd)
-        if (observed_hash != recorded_hash or before.st_mtime_ns != after.st_mtime_ns
-                or before.st_size != after.st_size):
+        if (
+            observed_hash != recorded_hash
+            or before.st_mtime_ns != after.st_mtime_ns
+            or before.st_size != after.st_size
+        ):
             raise ValueError("host evidence was modified or does not match its hash")
     finally:
         os.close(fd)
 
 
 def verify(data: dict[str, Any], *, directory: Path, root: Path) -> dict[str, Any]:
-    if (not isinstance(data, dict) or set(data) != {
-        "schema", "source", "workspace_id", "agent_ids", "image_digest",
-        "qualification_sha256", "operator_epoch", "drills",
-    } or data["schema"] != SCHEMA):
+    if (
+        not isinstance(data, dict)
+        or set(data)
+        != {
+            "schema",
+            "source",
+            "workspace_id",
+            "agent_ids",
+            "image_digest",
+            "qualification_sha256",
+            "operator_epoch",
+            "drills",
+        }
+        or data["schema"] != SCHEMA
+    ):
         raise ValueError("host closeout schema is incomplete")
     _source(root, data["source"])
     _uuid(data["workspace_id"])
     agents = data["agent_ids"]
-    if (not isinstance(agents, list) or len(agents) != 2
-            or len({_uuid(agent) for agent in agents}) != 2):
+    if (
+        not isinstance(agents, list)
+        or len(agents) != 2
+        or len({_uuid(agent) for agent in agents}) != 2
+    ):
         raise ValueError("two distinct registered agents are mandatory")
     _sha(data["image_digest"])
     _sha(data["qualification_sha256"])
-    if (type(data["operator_epoch"]) is not int or data["operator_epoch"] < 1):
+    if type(data["operator_epoch"]) is not int or data["operator_epoch"] < 1:
         raise ValueError("missing positive operator epoch")
     checks = data["drills"]
     if not isinstance(checks, dict) or set(checks) != set(REQUIRED):
         raise ValueError("missing mandatory browser host drill")
     used_evidence: set[str] = set()
-    for kind, row in checks.items():
+    for _, row in checks.items():
         if not isinstance(row, dict) or set(row) != {
-            "passed", "workspace_id", "agent_ids", "image_digest",
-            "operator_epoch", "evidence_file", "evidence_sha256",
-            "observed_process_tree_stopped", "operator_observation",
+            "passed",
+            "workspace_id",
+            "agent_ids",
+            "image_digest",
+            "operator_epoch",
+            "evidence_file",
+            "evidence_sha256",
+            "observed_process_tree_stopped",
+            "operator_observation",
         }:
             raise ValueError("incomplete drill evidence")
-        if (row["passed"] is not True or row["workspace_id"] != data["workspace_id"]
-                or row["agent_ids"] != agents or row["image_digest"] != data["image_digest"]
-                or row["operator_epoch"] != data["operator_epoch"]
-                or row["observed_process_tree_stopped"] is not True
-                or row["operator_observation"] != "direct_live_host"):
+        if (
+            row["passed"] is not True
+            or row["workspace_id"] != data["workspace_id"]
+            or row["agent_ids"] != agents
+            or row["image_digest"] != data["image_digest"]
+            or row["operator_epoch"] != data["operator_epoch"]
+            or row["observed_process_tree_stopped"] is not True
+            or row["operator_observation"] != "direct_live_host"
+        ):
             raise ValueError("drill scope/exit/evidence contradicts operator qualification")
         name = row["evidence_file"]
-        if (not isinstance(name, str) or len(name) > 100 or "/" in name or "\\" in name
-                or name in {".", ".."} or not name.endswith(".json")):
+        if (
+            not isinstance(name, str)
+            or len(name) > 100
+            or "/" in name
+            or "\\" in name
+            or name in {".", ".."}
+            or not name.endswith(".json")
+        ):
             raise ValueError("invalid operator-owned evidence file name")
         if name in used_evidence:
             raise ValueError("independent host drills must have separate evidence files")
         used_evidence.add(name)
         _proof(directory / name, row["evidence_sha256"], directory)
     return {
-        "schema": SCHEMA, "manifest_valid": True,
-        "machine_checked_drills": len(REQUIRED), "source_commit": data["source"]["commit"],
-        "workspace_id": data["workspace_id"], "agent_count": len(agents),
+        "schema": SCHEMA,
+        "manifest_valid": True,
+        "machine_checked_drills": len(REQUIRED),
+        "source_commit": data["source"]["commit"],
+        "workspace_id": data["workspace_id"],
+        "agent_count": len(agents),
         "qualification": "operator_supplied_host_evidence_checked_not_remote_attestation",
         "production_qualified": False,
         "operator_signoff_required": True,
@@ -190,12 +253,18 @@ def main(argv: list[str] | None = None) -> int:
         if args.manifest.is_symlink() or not args.manifest.is_file():
             raise ValueError("missing private host manifest")
         manifest_info = args.manifest.stat()
-        if (manifest_info.st_uid != os.geteuid() or manifest_info.st_mode & 0o077
-                or manifest_info.st_nlink != 1 or manifest_info.st_size > MAX_MANIFEST):
+        if (
+            manifest_info.st_uid != os.geteuid()
+            or manifest_info.st_mode & 0o077
+            or manifest_info.st_nlink != 1
+            or manifest_info.st_size > MAX_MANIFEST
+        ):
             raise ValueError("host manifest must be an operator-private regular file")
-        result = verify(unique_json(args.manifest.read_bytes()),
-                        directory=args.manifest.resolve(strict=True).parent,
-                        root=args.root.resolve(strict=True))
+        result = verify(
+            unique_json(args.manifest.read_bytes()),
+            directory=args.manifest.resolve(strict=True).parent,
+            root=args.root.resolve(strict=True),
+        )
         if args.output.exists() or args.output.is_symlink():
             raise ValueError("host closeout result must be a fresh path")
         fd = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)

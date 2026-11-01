@@ -26,16 +26,25 @@ def main() -> int:
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--trust-local-source", action="store_true", help=(
-        "Explicitly permit importing and executing source from the selected checkout "
-        "in this current host process (not sandboxed)."))
+    parser.add_argument(
+        "--trust-local-source",
+        action="store_true",
+        help=(
+            "Explicitly permit importing and executing source from the selected checkout "
+            "in this current host process (not sandboxed)."
+        ),
+    )
     args = parser.parse_args()
     if not args.trust_local_source:
         parser.error("source execution requires --trust-local-source")
     plan = WorkflowPlan.from_dict(json.loads(args.plan.read_text(encoding="utf-8")))
     checkout = args.keywordmoves_checkout.resolve(strict=True)
-    revision = subprocess.run(["git", "-C", str(checkout), "rev-parse", "HEAD"],
-                              capture_output=True, text=True, check=True).stdout.strip()
+    revision = subprocess.run(
+        ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     if revision != plan.source_revision:
         parser.error("KeywordMoves checkout is not at the exact pinned plan revision")
     sys.path.insert(0, str(checkout / "src"))
@@ -54,14 +63,28 @@ def main() -> int:
         )
         return result.to_dict()
 
-    flow = KeywordMovesWorkflow(plan=plan, input_root=args.inputs,
-                                output_root=args.output, invoke=invoke,
-                                emit=lambda name, data: print(json.dumps({
-                                    "event": name, "data": data}, sort_keys=True), flush=True))
+    flow = KeywordMovesWorkflow(
+        plan=plan,
+        input_root=args.inputs,
+        output_root=args.output,
+        invoke=invoke,
+        emit=lambda name, data: print(
+            json.dumps({"event": name, "data": data}, sort_keys=True), flush=True
+        ),
+    )
     result = flow.run(resume=args.resume)
-    print(json.dumps({"status": result.status, "steps": result.completed,
-                      "waiting_for": result.waiting_for, "artifacts": result.artifacts,
-                      "plan_sha256": result.plan_sha256}, indent=2))
+    print(
+        json.dumps(
+            {
+                "status": result.status,
+                "steps": result.completed,
+                "waiting_for": result.waiting_for,
+                "artifacts": result.artifacts,
+                "plan_sha256": result.plan_sha256,
+            },
+            indent=2,
+        )
+    )
     return 0 if result.status == "completed" else 3
 
 

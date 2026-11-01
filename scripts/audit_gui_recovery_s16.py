@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Read-only S16 GUI monitoring restart/reconciliation inventory."""
+
 from __future__ import annotations
 
 import argparse
@@ -28,7 +29,14 @@ def main(argv: list[str] | None = None) -> int:
             output.write("\n")
             output.flush()
             os.fsync(output.fileno())
-        print(json.dumps({"inspected": result["total"], "requiresReconciliation": result["requiresReconciliation"]}))
+        print(
+            json.dumps(
+                {
+                    "inspected": result["total"],
+                    "requiresReconciliation": result["requiresReconciliation"],
+                }
+            )
+        )
         return 0
     except (OSError, ValueError, TypeError, KeyError):
         print('{"inspected":false,"error":"gui_recovery_unavailable"}', file=sys.stderr)

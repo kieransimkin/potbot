@@ -56,7 +56,9 @@ def signed_pledge_from_dict(record: object) -> SignedPledgeOffer:
     fresh operator pulse and reserve it atomically before any enrollment.
     """
     if not isinstance(record, dict) or set(record) != {
-        "offer", "temporary_public_key", "signature",
+        "offer",
+        "temporary_public_key",
+        "signature",
     }:
         raise InvalidInputError("signed SYN pledge has unsupported fields")
     return SignedPledgeOffer(
@@ -73,7 +75,9 @@ def _verify_ed25519(public_key: bytes, signature: bytes, payload: bytes) -> None
         from cryptography.exceptions import InvalidSignature
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     except ImportError as exc:
-        raise CapabilityUnavailableError("SYN public verification requires the security extra") from exc
+        raise CapabilityUnavailableError(
+            "SYN public verification requires the security extra"
+        ) from exc
     try:
         Ed25519PublicKey.from_public_bytes(public_key).verify(signature, payload)
     except (InvalidSignature, ValueError) as exc:
@@ -91,9 +95,10 @@ class OperatorPulse:
     expires_at: int
 
     def __post_init__(self) -> None:
-        if not isinstance(self.network_id, str) or re.fullmatch(
-            r"[a-z][a-z0-9-]{0,63}", self.network_id
-        ) is None:
+        if (
+            not isinstance(self.network_id, str)
+            or re.fullmatch(r"[a-z][a-z0-9-]{0,63}", self.network_id) is None
+        ):
             raise InvalidInputError("SYN network identifier is invalid")
         _fixed_bytes(self.master_public_key_hash, 32, "operator base public key hash")
         _fixed_bytes(self.challenge, 32, "operator pulse challenge")
@@ -123,16 +128,29 @@ class OperatorPulse:
 
     @classmethod
     def from_dict(cls, record: object) -> OperatorPulse:
-        if not isinstance(record, dict) or set(record) != {
-            "schema_version", "type_ref", "network_id", "master_public_key_hash",
-            "challenge", "issued_at", "expires_at",
-        } or type(record["schema_version"]) is not int or record["schema_version"] != 1 or record["type_ref"] != PULSE_TYPE:
+        if (
+            not isinstance(record, dict)
+            or set(record)
+            != {
+                "schema_version",
+                "type_ref",
+                "network_id",
+                "master_public_key_hash",
+                "challenge",
+                "issued_at",
+                "expires_at",
+            }
+            or type(record["schema_version"]) is not int
+            or record["schema_version"] != 1
+            or record["type_ref"] != PULSE_TYPE
+        ):
             raise InvalidInputError("SYN operator pulse has unsupported fields")
         return cls(
             record["network_id"],
             _hex(record["master_public_key_hash"], 32, "operator hash"),
             _hex(record["challenge"], 32, "pulse challenge"),
-            record["issued_at"], record["expires_at"],
+            record["issued_at"],
+            record["expires_at"],
         )
 
 
@@ -170,7 +188,9 @@ class SignedOperatorPulse:
     @classmethod
     def from_dict(cls, record: object) -> SignedOperatorPulse:
         if not isinstance(record, dict) or set(record) != {
-            "pulse", "operator_public_key", "signature",
+            "pulse",
+            "operator_public_key",
+            "signature",
         }:
             raise InvalidInputError("signed operator pulse has unsupported fields")
         return cls(
@@ -208,9 +228,8 @@ class SignedIdentityCandidates:
         if not isinstance(offer, PledgeOffer) or (
             self.candidates.pledge_offer_digest != hashlib.sha256(offer.signed_bytes()).digest()
             or self.candidates.offer != offer
-            or self.candidates.offer.target_master_public_key_hash != _fixed_bytes(
-                master_hash, 32, "master hash"
-            )
+            or self.candidates.offer.target_master_public_key_hash
+            != _fixed_bytes(master_hash, 32, "master hash")
         ):
             raise ScopeDeniedError("candidate announcement is not bound to the accepted pledge")
         _verify_ed25519(self.operator_public_key, self.signature, self.signed_bytes())
@@ -224,18 +243,38 @@ class SignedIdentityCandidates:
 
     @classmethod
     def from_dict(
-        cls, record: object, *, verified_pledge: PledgeOffer,
+        cls,
+        record: object,
+        *,
+        verified_pledge: PledgeOffer,
     ) -> SignedIdentityCandidates:
-        if not isinstance(record, dict) or set(record) != {
-            "candidates", "operator_public_key", "signature",
-        } or not isinstance(record["candidates"], dict):
+        if (
+            not isinstance(record, dict)
+            or set(record)
+            != {
+                "candidates",
+                "operator_public_key",
+                "signature",
+            }
+            or not isinstance(record["candidates"], dict)
+        ):
             raise InvalidInputError("signed candidate announcement has unsupported fields")
         fields = record["candidates"]
-        if set(fields) != {
-            "schema_version", "type_ref", "pledge_offer_sha256",
-            "target_master_public_key_hash", "operator_byte", "inheritance",
-            "inheritance_hex", "short_public_key_hashes",
-        } or type(fields["schema_version"]) is not int or fields["schema_version"] != 2:
+        if (
+            set(fields)
+            != {
+                "schema_version",
+                "type_ref",
+                "pledge_offer_sha256",
+                "target_master_public_key_hash",
+                "operator_byte",
+                "inheritance",
+                "inheritance_hex",
+                "short_public_key_hashes",
+            }
+            or type(fields["schema_version"]) is not int
+            or fields["schema_version"] != 2
+        ):
             raise InvalidInputError("operator candidates are not a versioned v2 announcement")
         abbreviations = fields["short_public_key_hashes"]
         if not isinstance(abbreviations, list) or len(abbreviations) != 8:
@@ -247,13 +286,16 @@ class SignedIdentityCandidates:
         ):
             raise ScopeDeniedError("operator inheritance differs from signed hardware pledge")
         typed = IdentityCandidates(
-            verified_pledge, fields["operator_byte"], fields["inheritance"],
+            verified_pledge,
+            fields["operator_byte"],
+            fields["inheritance"],
             tuple(_hex(x, 3, "candidate short hash") for x in abbreviations),
         )
         if typed.to_dict() != fields:
             raise StateMismatchError("candidate announcement is noncanonical or mismatched")
         return cls(
-            typed, _hex(record["operator_public_key"], 32, "operator public key"),
+            typed,
+            _hex(record["operator_public_key"], 32, "operator public key"),
             _hex(record["signature"], 64, "operator signature"),
         )
 
@@ -277,9 +319,11 @@ class IndependenceSelection:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 2, "type_ref": SELECTION_TYPE,
+            "schema_version": 2,
+            "type_ref": SELECTION_TYPE,
             "target_master_public_key_hash": self.target_master_public_key_hash.hex(),
-            "inheritance": self.inheritance, "independence": self.independence,
+            "inheritance": self.inheritance,
+            "independence": self.independence,
             "chosen_short_public_key_hash": self.chosen_short_public_key_hash.hex(),
             "candidate_offer_digest": self.candidate_offer_digest.hex(),
         }
@@ -289,14 +333,27 @@ class IndependenceSelection:
 
     @classmethod
     def from_dict(cls, record: object) -> IndependenceSelection:
-        if not isinstance(record, dict) or set(record) != {
-            "schema_version", "type_ref", "target_master_public_key_hash", "inheritance",
-            "independence", "chosen_short_public_key_hash", "candidate_offer_digest",
-        } or type(record["schema_version"]) is not int or record["schema_version"] != 2 or record["type_ref"] != SELECTION_TYPE:
+        if (
+            not isinstance(record, dict)
+            or set(record)
+            != {
+                "schema_version",
+                "type_ref",
+                "target_master_public_key_hash",
+                "inheritance",
+                "independence",
+                "chosen_short_public_key_hash",
+                "candidate_offer_digest",
+            }
+            or type(record["schema_version"]) is not int
+            or record["schema_version"] != 2
+            or record["type_ref"] != SELECTION_TYPE
+        ):
             raise InvalidInputError("independence selection has unsupported fields")
         return cls(
             _hex(record["target_master_public_key_hash"], 32, "master hash"),
-            record["inheritance"], record["independence"],
+            record["inheritance"],
+            record["independence"],
             _hex(record["chosen_short_public_key_hash"], 3, "chosen hash"),
             _hex(record["candidate_offer_digest"], 32, "candidate digest"),
         )
@@ -315,7 +372,10 @@ class SignedIndependenceSelection:
         _fixed_bytes(self.signature, 64, "agent selection signature")
 
     def verify(
-        self, *, candidates: SignedIdentityCandidates, expected_agent_public_key: bytes,
+        self,
+        *,
+        candidates: SignedIdentityCandidates,
+        expected_agent_public_key: bytes,
     ) -> str:
         if self.temporary_public_key != _fixed_bytes(
             expected_agent_public_key, 32, "expected temporary public key"
@@ -323,7 +383,8 @@ class SignedIndependenceSelection:
             raise ScopeDeniedError("selection signer differs from original pledge signer")
         values = self.selection
         if (
-            values.target_master_public_key_hash != candidates.candidates.offer.target_master_public_key_hash
+            values.target_master_public_key_hash
+            != candidates.candidates.offer.target_master_public_key_hash
             or values.inheritance != candidates.candidates.inheritance
             or values.candidate_offer_digest != candidates.digest
             or candidates.candidates.short_public_key_hashes[values.independence - 1]
@@ -343,7 +404,9 @@ class SignedIndependenceSelection:
     @classmethod
     def from_dict(cls, record: object) -> SignedIndependenceSelection:
         if not isinstance(record, dict) or set(record) != {
-            "selection", "temporary_public_key", "signature",
+            "selection",
+            "temporary_public_key",
+            "signature",
         }:
             raise InvalidInputError("signed agent selection has unsupported fields")
         return cls(

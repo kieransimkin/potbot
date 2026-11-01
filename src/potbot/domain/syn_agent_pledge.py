@@ -53,10 +53,7 @@ def _hardware_id(value: object) -> bytes:
     SYN must independently establish device provenance/attestation. This public
     validator can check representation and size only, not device authenticity.
     """
-    if (
-        type(value) is not bytes
-        or not MIN_HARDWARE_ID_BYTES <= len(value) <= MAX_HARDWARE_ID_BYTES
-    ):
+    if type(value) is not bytes or not MIN_HARDWARE_ID_BYTES <= len(value) <= MAX_HARDWARE_ID_BYTES:
         raise InvalidInputError("hardware unique ID must be 6..256 raw bytes")
     return value
 
@@ -93,9 +90,7 @@ def calculate_inheritance(hardware_unique_id: bytes, operator_byte: int) -> int:
     device_id = _hardware_id(hardware_unique_id)
     if type(operator_byte) is not int or not 0 <= operator_byte <= 255:
         raise InvalidInputError("operator choice must be one unsigned byte")
-    return int.from_bytes(
-        hashlib.sha256(device_id + bytes((operator_byte,))).digest()[:3], "big"
-    )
+    return int.from_bytes(hashlib.sha256(device_id + bytes((operator_byte,))).digest()[:3], "big")
 
 
 def inheritance_hex(inheritance: int) -> str:
@@ -163,13 +158,21 @@ class PledgeOffer:
     @classmethod
     def from_dict(cls, value: object) -> PledgeOffer:
         required = {
-            "schema_version", "type_ref", "temporary_public_key_hash",
-            "timestamp_unix_seconds", "target_master_public_key_hash", "pulse_challenge",
+            "schema_version",
+            "type_ref",
+            "temporary_public_key_hash",
+            "timestamp_unix_seconds",
+            "target_master_public_key_hash",
+            "pulse_challenge",
             "hardware_unique_id",
         }
         if not isinstance(value, dict) or set(value) != required:
             raise InvalidInputError("pledge offer fields differ from the versioned schema")
-        if type(value["schema_version"]) is not int or value["schema_version"] != 2 or value["type_ref"] != PLEDGE_OFFER_TYPE:
+        if (
+            type(value["schema_version"]) is not int
+            or value["schema_version"] != 2
+            or value["type_ref"] != PLEDGE_OFFER_TYPE
+        ):
             raise InvalidInputError("pledge offer uses an unknown SYN type/version")
         return cls(
             _hex_bytes(value["temporary_public_key_hash"], 32, "temporary public key hash"),
@@ -189,7 +192,10 @@ class SignedPledgeOffer:
     def __post_init__(self) -> None:
         if not isinstance(self.offer, PledgeOffer):
             raise InvalidInputError("signed pledge needs a typed SYN offer")
-        if public_key_hash(_fixed_bytes(self.temporary_public_key, 32, "temporary public key")) != self.offer.temporary_public_key_hash:
+        if (
+            public_key_hash(_fixed_bytes(self.temporary_public_key, 32, "temporary public key"))
+            != self.offer.temporary_public_key_hash
+        ):
             raise StateMismatchError("temporary public key does not match advertised hash")
         _fixed_bytes(self.signature, 64, "Ed25519 offer signature")
 
@@ -201,8 +207,12 @@ class SignedPledgeOffer:
         }
 
     def verify(
-        self, *, expected_master_hash: bytes, expected_pulse_challenge: bytes,
-        now_unix_seconds: int, max_skew_seconds: int = 120,
+        self,
+        *,
+        expected_master_hash: bytes,
+        expected_pulse_challenge: bytes,
+        now_unix_seconds: int,
+        max_skew_seconds: int = 120,
     ) -> None:
         """Validate the public offer; durable replay claiming belongs to SYN.
 
@@ -219,7 +229,8 @@ class SignedPledgeOffer:
         ):
             raise ScopeDeniedError("pledge does not bind the current operator pulse")
         if (
-            type(now_unix_seconds) is not int or type(max_skew_seconds) is not int
+            type(now_unix_seconds) is not int
+            or type(max_skew_seconds) is not int
             or not 1 <= max_skew_seconds <= 3600
         ):
             raise InvalidInputError("pledge freshness policy is invalid")
@@ -229,7 +240,9 @@ class SignedPledgeOffer:
             from cryptography.exceptions import InvalidSignature
             from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         except ImportError as exc:
-            raise CapabilityUnavailableError("Ed25519 public verification requires the security extra") from exc
+            raise CapabilityUnavailableError(
+                "Ed25519 public verification requires the security extra"
+            ) from exc
         try:
             Ed25519PublicKey.from_public_bytes(self.temporary_public_key).verify(
                 self.signature, self.offer.signed_bytes()
@@ -261,10 +274,9 @@ class IdentityCandidates:
         ):
             raise StateMismatchError("inheritance does not match signed hardware ID and byte")
         inheritance_hex(self.inheritance)
-        if (
-            not isinstance(self.short_public_key_hashes, tuple)
-            or len(self.short_public_key_hashes) != len(INDEPENDENCE_CHOICES)
-        ):
+        if not isinstance(self.short_public_key_hashes, tuple) or len(
+            self.short_public_key_hashes
+        ) != len(INDEPENDENCE_CHOICES):
             raise InvalidInputError("agent must receive exactly eight short public key hashes")
         for digest in self.short_public_key_hashes:
             _fixed_bytes(digest, 3, "candidate short public key hash")
@@ -273,7 +285,10 @@ class IdentityCandidates:
 
     @classmethod
     def from_public_hashes(
-        cls, *, offer: PledgeOffer, operator_byte: int,
+        cls,
+        *,
+        offer: PledgeOffer,
+        operator_byte: int,
         full_candidate_hashes: tuple[bytes, ...],
     ) -> IdentityCandidates:
         if not isinstance(offer, PledgeOffer):
@@ -281,7 +296,8 @@ class IdentityCandidates:
         if not isinstance(full_candidate_hashes, tuple) or len(full_candidate_hashes) != 8:
             raise InvalidInputError("SYN must supply eight actual derived candidate public hashes")
         return cls(
-            offer, operator_byte,
+            offer,
+            operator_byte,
             calculate_inheritance(offer.hardware_unique_id, operator_byte),
             tuple(shorten_public_key_hash(h) for h in full_candidate_hashes),
         )
@@ -294,7 +310,9 @@ class IdentityCandidates:
     def choose(self, independence: int) -> tuple[bytes, str]:
         """Choice index and public short hash; SYN must confirm full key/custody."""
         return (
-            self.short_public_key_hashes[INDEPENDENCE_CHOICES.index(_check_independence(independence))],
+            self.short_public_key_hashes[
+                INDEPENDENCE_CHOICES.index(_check_independence(independence))
+            ],
             agent_key_path(self.inheritance, independence),
         )
 

@@ -78,8 +78,7 @@ MIGRATION_STATEMENTS = (
         FOREIGN KEY(workspace_id,object_id,role,revision)
             REFERENCES workspace_context_revisions(workspace_id,object_id,role,revision)
     )""",
-    "CREATE INDEX workspace_context_events_stream ON "
-    "workspace_context_events(workspace_id,id)",
+    "CREATE INDEX workspace_context_events_stream ON workspace_context_events(workspace_id,id)",
     "CREATE INDEX workspace_context_revisions_recent ON "
     "workspace_context_revisions(workspace_id,object_id,role,revision DESC)",
     # The migration harness adds a workspace RLS policy later. RESTRICTIVE
@@ -102,7 +101,10 @@ MIGRATION_STATEMENTS = (
                 WHERE o.workspace_id={table}.workspace_id
                   AND o.id={table}.object_id))
         """
-        for table in ("workspace_context_documents", "workspace_context_revisions",
-                      "workspace_context_events")
+        for table in (
+            "workspace_context_documents",
+            "workspace_context_revisions",
+            "workspace_context_events",
+        )
     ),
 )

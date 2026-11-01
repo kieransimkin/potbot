@@ -1,4 +1,5 @@
 """S40+S14 integration contracts. Tests do NOT claim live kernel/Xpra qualification."""
+
 from __future__ import annotations
 
 import threading
@@ -7,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from potbot.domain.errors import ScopeDeniedError, StateMismatchError
+from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError, StateMismatchError
 from potbot.tools.browser_session_leases import BrowserSessionCoordinator
 from potbot.tools.isolation import IsolationLaunch
 from potbot.tools.xpra_app_sessions import AppRecipe, XpraApplicationSupervisor, _App
@@ -15,8 +16,10 @@ from potbot.tools.xpra_app_sessions import AppRecipe, XpraApplicationSupervisor,
 
 class FakeProcess:
     pid = 98765432
+
     def __init__(self, exited=False):
         self.exit = 0 if exited else None
+
     def poll(self):
         return self.exit
 
@@ -24,9 +27,11 @@ class FakeProcess:
 class FakeChannel:
     def __init__(self):
         self.commands = []
+
     def call(self, command):
         self.commands.append(command)
         return {"aria": "- button: Save"}
+
     def close(self):
         pass
 
@@ -34,8 +39,12 @@ class FakeChannel:
 def service(*, exited=False):
     workspace, principal, agent = uuid4(), uuid4(), uuid4()
     session = "a" * 32
-    app = _App(session, AppRecipe("controlled-browser", "Browser", ("/usr/bin/python3",)),
-               FakeProcess(exited), "image-pin")
+    app = _App(
+        session,
+        AppRecipe("controlled-browser", "Browser", ("/usr/bin/python3",)),
+        FakeProcess(exited),
+        "image-pin",
+    )
     app.agent_id = agent
     app.browser_control = FakeChannel()
     app.detached = False
@@ -70,7 +79,7 @@ def test_private_agent_session_is_hidden_from_operator_ui():
         host.detach(app.id)
     with pytest.raises(ScopeDeniedError):
         host.terminate(app.id)
-    with pytest.raises(Exception):
+    with pytest.raises(CapabilityUnavailableError):
         host.browser_reservation(app.id, "acquire")
 
 
@@ -80,16 +89,19 @@ def test_agent_lease_scopes_session_and_verified_agent_identity():
     with pytest.raises(ScopeDeniedError):
         host.browser_command(app.id, {"op": "accessibility"}, lease_token=ticket)
     with pytest.raises(ScopeDeniedError):
-        host.browser_command(app.id, {"op": "accessibility"}, lease_token=ticket,
-                             actor_agent_id=uuid4())
-    data = host.browser_command(app.id, {"op": "accessibility"},
-                                lease_token=ticket, actor_agent_id=agent)
+        host.browser_command(
+            app.id, {"op": "accessibility"}, lease_token=ticket, actor_agent_id=uuid4()
+        )
+    data = host.browser_command(
+        app.id, {"op": "accessibility"}, lease_token=ticket, actor_agent_id=agent
+    )
     assert data["aria"] == "- button: Save"
     assert len(app.browser_control.commands) == 1
     host.agent_browser_reservation(agent, app.id, "release", ticket)
     with pytest.raises(ScopeDeniedError):
-        host.browser_command(app.id, {"op": "accessibility"},
-                             lease_token=ticket, actor_agent_id=agent)
+        host.browser_command(
+            app.id, {"op": "accessibility"}, lease_token=ticket, actor_agent_id=agent
+        )
 
 
 def test_private_xpra_retirement_requires_confirmed_stop():
@@ -114,15 +126,19 @@ def test_agent_launch_uses_private_pool_not_shared_xpra(monkeypatch):
     host._settle = lambda: None
     called = []
     host.agent_displays.prepare = lambda agent_id, **options: (
-        called.append((agent_id, options)) or
-        IsolationLaunch(("qualified-bwrap",), (options["status_fd"],), "b" * 64)
+        called.append((agent_id, options))
+        or IsolationLaunch(("qualified-bwrap",), (options["status_fd"],), "b" * 64)
     )
-    host.backend = SimpleNamespace(server=SimpleNamespace(environment=lambda: {"DISPLAY": ":411"}),
-                                   prepare=lambda **_: (_ for _ in ()).throw(AssertionError("shared Xpra")),
-                                   runtime=SimpleNamespace(image_digest="a"*64))
+    host.backend = SimpleNamespace(
+        server=SimpleNamespace(environment=lambda: {"DISPLAY": ":411"}),
+        prepare=lambda **_: (_ for _ in ()).throw(AssertionError("shared Xpra")),
+        runtime=SimpleNamespace(image_digest="a" * 64),
+    )
     host.recipes = {"controlled-browser": app.recipe}
     host.popen = lambda *args, **kwargs: FakeProcess()
-    monkeypatch.setattr("potbot.tools.xpra_browser_control.BrowserControlChannel", lambda process: FakeChannel())
+    monkeypatch.setattr(
+        "potbot.tools.xpra_browser_control.BrowserControlChannel", lambda process: FakeChannel()
+    )
     launched = host.start("controlled-browser", agent_id=agent)
     assert launched["kind"] == "agent-browser"
     assert len(called) == 1 and called[0][0] == agent
@@ -137,7 +153,9 @@ def test_legacy_operator_session_still_allowed():
     host.agent_displays = None
     assert host.list_sessions()[0]["kind"] == "controlled-browser"
     token = host.browser_reservation(app.id, "acquire")["token"]
-    assert host.browser_command(app.id, {"op": "state"}, lease_token=token) == {"aria": "- button: Save"}
+    assert host.browser_command(app.id, {"op": "state"}, lease_token=token) == {
+        "aria": "- button: Save"
+    }
 
 
 def test_host_only_clean_agent_stop_and_reattachment_inventory():

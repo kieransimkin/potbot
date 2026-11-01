@@ -8,7 +8,10 @@ from potbot.models.prompt_compiler import profile_for_model
 
 
 def test_steering_atomicity_cases_are_disjoint_holdouts() -> None:
-    path = Path(__file__).resolve().parents[2] / "examples/agentic-benchmark/atomic-steering-suite.json"
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "examples/agentic-benchmark/atomic-steering-suite.json"
+    )
     suite = RoleSuite.from_dict(json.loads(path.read_text(encoding="utf-8")))
     assert len(suite.cases) >= 12
     assert len({c.id for c in suite.cases}) == len(suite.cases)

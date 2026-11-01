@@ -3,6 +3,7 @@
 These are tool *descriptors*, never permission to attach to Chromium or run JS.
 The operator pins a live Xpra application/session in BrowserControlService.
 """
+
 from __future__ import annotations
 
 import copy
@@ -30,9 +31,13 @@ OP_GROUPS = {
 
 
 def validate_request(group: str, request: object) -> tuple[str, dict[str, Any]]:
-    if group not in OP_GROUPS or not isinstance(request, dict) or set(request) != {
-        "schema_version", "session_id", "command"
-    } or type(request["schema_version"]) is not int or request["schema_version"] != 1:
+    if (
+        group not in OP_GROUPS
+        or not isinstance(request, dict)
+        or set(request) != {"schema_version", "session_id", "command"}
+        or type(request["schema_version"]) is not int
+        or request["schema_version"] != 1
+    ):
         raise InvalidInputError("browser Cog input differs from its sealed versioned contract")
     session = request["session_id"]
     if not isinstance(session, str) or SESSION_ID.fullmatch(session) is None:
@@ -65,36 +70,67 @@ def schemas() -> dict[str, dict[str, Any]]:
     maybe_id = {"anyOf": [artifact_id, {"type": "null"}]}
     maybe_sha = {"anyOf": [sha, {"type": "null"}]}
     request = {
-        "type": "object", "additionalProperties": False,
+        "type": "object",
+        "additionalProperties": False,
         "required": ["schema_version", "session_id", "command"],
         "properties": {
-            "schema_version": {"const": 1}, "session_id": uri,
-            "command": {"type": "object", "minProperties": 1, "maxProperties": 10,
-                        "required": ["op"], "properties": {"op": {"type": "string", "maxLength": 32}}},
+            "schema_version": {"const": 1},
+            "session_id": uri,
+            "command": {
+                "type": "object",
+                "minProperties": 1,
+                "maxProperties": 10,
+                "required": ["op"],
+                "properties": {"op": {"type": "string", "maxLength": 32}},
+            },
         },
     }
     result = {
-        "type": "object", "additionalProperties": False,
+        "type": "object",
+        "additionalProperties": False,
         "required": [
-            "schema_version", "session_id", "status", "kind", "command_sha256",
-            "observation_artifact_id", "observation_sha256", "image_artifact_id",
-            "image_sha256", "manifest_artifact_id", "manifest_sha256", "preview",
+            "schema_version",
+            "session_id",
+            "status",
+            "kind",
+            "command_sha256",
+            "observation_artifact_id",
+            "observation_sha256",
+            "image_artifact_id",
+            "image_sha256",
+            "manifest_artifact_id",
+            "manifest_sha256",
+            "preview",
         ],
         "properties": {
-            "schema_version": {"const": 1}, "session_id": uri,
+            "schema_version": {"const": 1},
+            "session_id": uri,
             "status": {"const": "recorded"},
             "kind": {"enum": ["observation", "action", "capture"]},
-            "command_sha256": sha, "observation_artifact_id": artifact_id,
-            "observation_sha256": sha, "image_artifact_id": maybe_id,
-            "image_sha256": maybe_sha, "manifest_artifact_id": artifact_id,
+            "command_sha256": sha,
+            "observation_artifact_id": artifact_id,
+            "observation_sha256": sha,
+            "image_artifact_id": maybe_id,
+            "image_sha256": maybe_sha,
+            "manifest_artifact_id": artifact_id,
             "manifest_sha256": sha,
-            "preview": {"anyOf": [{"type": "null"}, {"type": "object", "maxProperties": 8,
-                                   "additionalProperties": {"type": ["string", "boolean", "number", "null", "array", "object"]}}]},
+            "preview": {
+                "anyOf": [
+                    {"type": "null"},
+                    {
+                        "type": "object",
+                        "maxProperties": 8,
+                        "additionalProperties": {
+                            "type": ["string", "boolean", "number", "null", "array", "object"]
+                        },
+                    },
+                ]
+            },
         },
     }
-    mapping = {ref: request for ref in (
-        OBSERVE_REQUEST, ACT_REQUEST, PICK_REQUEST, CAPTURE_REQUEST
-    )}
+    mapping = {
+        ref: request for ref in (OBSERVE_REQUEST, ACT_REQUEST, PICK_REQUEST, CAPTURE_REQUEST)
+    }
     mapping[EVIDENCE_RESULT] = result
     # Provide an independent schema instance for each semantic Type.
     for ref in mapping:

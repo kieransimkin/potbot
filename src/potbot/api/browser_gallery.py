@@ -4,6 +4,7 @@ Never serve an arbitrary artifact ID or filesystem path supplied by the caller.
 The gallery index resolves an invocation under the authenticated principal and
 verifies the S37 manifest and immutable bytes before returning any content.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -17,8 +18,12 @@ from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError
 from potbot.tools.browser_gallery import BrowserEvidenceGallery
 
-_HEADERS = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
-            "Referrer-Policy": "no-referrer", "Content-Security-Policy": "default-src 'none'"}
+_HEADERS = {
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'",
+}
 
 
 def _integer(raw: str | None, default: int, maximum: int) -> int:
@@ -33,7 +38,8 @@ def _integer(raw: str | None, default: int, maximum: int) -> int:
 
 
 def install_gallery_routes(
-    app: FastAPI, authenticate_request: Callable[[Request], WorkspaceContext],
+    app: FastAPI,
+    authenticate_request: Callable[[Request], WorkspaceContext],
     gallery: BrowserEvidenceGallery,
 ) -> None:
     if not isinstance(gallery, BrowserEvidenceGallery):
@@ -44,13 +50,17 @@ def install_gallery_routes(
         actor = authenticate_request(request)
         params = request.query_params.multi_items()
         if len(params) != len(dict(params)) or any(k not in {"before", "limit"} for k, _ in params):
-            raise InvalidInputError("browser gallery query contains unsupported or duplicate fields")
+            raise InvalidInputError(
+                "browser gallery query contains unsupported or duplicate fields"
+            )
         count = _integer(request.query_params.get("limit"), 20, 50)
         before_raw = request.query_params.get("before")
         before = _integer(before_raw, 1, 2**53 - 1) if before_raw is not None else None
         page = await run_in_threadpool(gallery.list, actor, before=before, limit=count)
-        return JSONResponse({"schema_version": 1, "request_id": str(uuid4()),
-                             "data": page, "error": None}, headers=_HEADERS)
+        return JSONResponse(
+            {"schema_version": 1, "request_id": str(uuid4()), "data": page, "error": None},
+            headers=_HEADERS,
+        )
 
     @app.get("/v1/browser/evidence/{invocation_id}/{part}")
     async def browser_evidence_part(request: Request, invocation_id: str, part: str) -> Response:
@@ -66,5 +76,8 @@ def install_gallery_routes(
         if part not in {"observation", "image"}:
             raise InvalidInputError("unknown browser evidence format")
         data = await run_in_threadpool(gallery.read, actor, invocation_id, part)
-        return Response(data, media_type="image/jpeg" if part == "image" else "application/json",
-                        headers=_HEADERS)
+        return Response(
+            data,
+            media_type="image/jpeg" if part == "image" else "application/json",
+            headers=_HEADERS,
+        )

@@ -23,25 +23,38 @@ from potbot.tools.ai_history_audit import audit_ai_history
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--past", required=True, type=Path,
-                        help="Operator-owned backing path for guest /etc/ai-past")
-    parser.add_argument("--config", type=Path,
-                        help="Optional backing path for live guest /etc/ai comparison")
+    parser.add_argument(
+        "--past",
+        required=True,
+        type=Path,
+        help="Operator-owned backing path for guest /etc/ai-past",
+    )
+    parser.add_argument(
+        "--config", type=Path, help="Optional backing path for live guest /etc/ai comparison"
+    )
     parser.add_argument("--max-revisions", type=int, default=50_000)
     parser.add_argument("--max-archive-bytes", type=int, default=2 * 1024**3)
     args = parser.parse_args(argv)
     try:
         report = audit_ai_history(
-            args.past, config_dir=args.config,
+            args.past,
+            config_dir=args.config,
             max_revisions=args.max_revisions,
             max_archive_bytes=args.max_archive_bytes,
         )
         print(json.dumps(report.to_dict(), sort_keys=True))
         return 0
-    except (CapabilityUnavailableError, InvalidInputError, ScopeDeniedError,
-            StateMismatchError, OSError, ValueError, TypeError, KeyError) as exc:
-        print("AI history audit failed: " + type(exc).__name__ + ": " + str(exc),
-              file=sys.stderr)
+    except (
+        CapabilityUnavailableError,
+        InvalidInputError,
+        ScopeDeniedError,
+        StateMismatchError,
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+    ) as exc:
+        print("AI history audit failed: " + type(exc).__name__ + ": " + str(exc), file=sys.stderr)
         return 2
 
 

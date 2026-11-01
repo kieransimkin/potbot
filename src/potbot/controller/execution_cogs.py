@@ -11,7 +11,11 @@ from uuid import UUID, uuid4
 
 from potbot.cogs.contracts import CogOutcome, CogReceipt, CogRunContext, CogSignature, TypedCogValue
 from potbot.cogs.execution import EXECUTION_COGS, SEAL, WORK_COGS, execute
-from potbot.controller.child_plans import InstalledChildPlan, compile_child_plans, execute_child_plan
+from potbot.controller.child_plans import (
+    InstalledChildPlan,
+    compile_child_plans,
+    execute_child_plan,
+)
 from potbot.controller.cog_work import CogWorkMonitor, CogWorkRun
 from potbot.controller.execution_journal import PinnedExecutionJournal
 from potbot.domain.errors import (
@@ -23,7 +27,9 @@ from potbot.domain.errors import (
 from potbot.domain.serialization import canonical_json
 from potbot.tools.execution_contracts import EVENT, WORK_KINDS, ExecutionPolicy, WorkBinding, fields
 from potbot.tools.sandbox_cog_worker import (
-    SandboxedCogExecutor, SandboxedCogOperation, require_isolated_work,
+    SandboxedCogExecutor,
+    SandboxedCogOperation,
+    require_isolated_work,
 )
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
 
@@ -164,11 +170,17 @@ class ExecutionCogRuntime:
         # The only installed *worker* implementation is an admitted sandbox
         # executable. Legacy HostOperation callbacks cannot dispatch model work.
         require_isolated_work(operations)
-        if operations and (not isinstance(sandbox_executor, SandboxedCogExecutor)
-                           or not isinstance(sandbox_agent_id, UUID)):
-            raise ScopeDeniedError("Cog worker requires a qualified sandbox executor and registered agent")
+        if operations and (
+            not isinstance(sandbox_executor, SandboxedCogExecutor)
+            or not isinstance(sandbox_agent_id, UUID)
+        ):
+            raise ScopeDeniedError(
+                "Cog worker requires a qualified sandbox executor and registered agent"
+            )
         self.sandbox_executor, self.sandbox_agent_id = sandbox_executor, sandbox_agent_id
-        if browser_service is not None and (artifact_ranges is not None or artifact_uploads is not None):
+        if browser_service is not None and (
+            artifact_ranges is not None or artifact_uploads is not None
+        ):
             raise ScopeDeniedError("Browser and artifact profiles need distinct sealed catalogues")
         if artifact_uploads is not None and artifact_ranges is None:
             raise ScopeDeniedError("Upload profile requires its matching range service")
@@ -207,11 +219,16 @@ class ExecutionCogRuntime:
                 ember_bundle = artifact_upload_ember_bundle
                 self._direct_operations.update(upload_operations(artifact_uploads, policy))
         elif browser_service is not None:
-            from potbot.cogs.browser import browser_ember_bundle, installed_operations as browser_operations
+            from potbot.cogs.browser import browser_ember_bundle
+            from potbot.cogs.browser import installed_operations as browser_operations
             from potbot.controller.browser_cogs import BrowserControlService
-            if (not isinstance(browser_service, BrowserControlService)
-                    or browser_service.actor != actor or browser_service.policy != policy
-                    or browser_service.artifacts is not artifacts):
+
+            if (
+                not isinstance(browser_service, BrowserControlService)
+                or browser_service.actor != actor
+                or browser_service.policy != policy
+                or browser_service.artifacts is not artifacts
+            ):
                 raise ScopeDeniedError("browser service differs from the pinned controller scope")
             self.registry = BoundCogRegistry.browser()
             ember_bundle = browser_ember_bundle
@@ -406,17 +423,28 @@ class ExecutionCogRuntime:
                                 raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
                             call.progress("sandbox_worker_dispatched")
                             response = await self.sandbox_executor.execute(
-                                op, typed, context, self.actor, self.sandbox_agent_id,
+                                op,
+                                typed,
+                                context,
+                                self.actor,
+                                self.sandbox_agent_id,
                             )
                             # Validate the parent result before authorizing *any*
                             # planned child effect. A malformed guest response
                             # must never fan out into independently admitted work.
-                            if (not isinstance(response, TypedCogValue)
-                                    or response.type_ref != op.binding.output_type_ref
-                                    or typed.fingerprint != typed_hash):
-                                raise StateMismatchError("Parent sandbox result is not the pinned typed port")
+                            if (
+                                not isinstance(response, TypedCogValue)
+                                or response.type_ref != op.binding.output_type_ref
+                                or typed.fingerprint != typed_hash
+                            ):
+                                raise StateMismatchError(
+                                    "Parent sandbox result is not the pinned typed port"
+                                )
                             self.catalog.validate(response)
-                            if len(canonical_json(response.value).encode("utf-8")) > self.policy.max_output_bytes:
+                            if (
+                                len(canonical_json(response.value).encode("utf-8"))
+                                > self.policy.max_output_bytes
+                            ):
                                 raise InvalidInputError("Parent output exceeds inline policy bound")
                             plan = self.child_plans.get((op.binding.kind, op.binding.operation_ref))
                             if plan is not None:
@@ -424,7 +452,9 @@ class ExecutionCogRuntime:
                             return response
                         # Only independently constructed trusted controller
                         # artifact services may remain in this process.
-                        if signature not in self._direct_operations or not isinstance(op, HostOperation):
+                        if signature not in self._direct_operations or not isinstance(
+                            op, HostOperation
+                        ):
                             raise ScopeDeniedError("in-process Cog worker handler rejected")
                         return await execute(call, op.handler, typed)
                     finally:
@@ -433,9 +463,9 @@ class ExecutionCogRuntime:
                 budget_s = self.policy.max_wall_ms / 1000
                 # The child has its own hard wall deadline. Allow its supervisor
                 # time to confirm process-tree shutdown and forensic audit.
-                result = await asyncio.wait_for(run(), timeout=budget_s + (
-                    10 if isinstance(op, SandboxedCogOperation) else 0
-                ))
+                result = await asyncio.wait_for(
+                    run(), timeout=budget_s + (10 if isinstance(op, SandboxedCogOperation) else 0)
+                )
                 if typed.fingerprint != typed_hash:
                     raise StateMismatchError("Handler mutated its pinned semantic input")
                 if (
@@ -501,8 +531,10 @@ class ExecutionCogRuntime:
             # its process tree/audit is indeterminate; never emit a clean retry.
             uncertain = dispatched and (
                 binding.effect_class != "read_only"
-                or (isinstance(op, SandboxedCogOperation)
-                    and isinstance(error, (IndeterminateExecutionError, asyncio.CancelledError)))
+                or (
+                    isinstance(op, SandboxedCogOperation)
+                    and isinstance(error, (IndeterminateExecutionError, asyncio.CancelledError))
+                )
             )
             self._poisoned |= uncertain
             if (

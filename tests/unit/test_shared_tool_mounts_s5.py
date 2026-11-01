@@ -33,15 +33,28 @@ def admission(tmp_path: Path):
     ledger = WorkspaceLeaseLedger(private / "leases.sqlite", workspace_home=workspace_home)
     workspace_id, actor_id = uuid4(), uuid4()
     image_digest = "a" * 64
-    ledger.pin_image(workspace_id, digest=image_digest,
-                     image_ref="ghcr.io/test/system@sha256:" + image_digest,
-                     build_commit="c" * 40, platform="linux/amd64",
-                     rootfs_path=rootfs, qualification_sha256="f" * 64)
-    runtime = SharedWorkspaceRuntime(image_digest, rootfs, workspace_home, "f" * 64,
-                                     shared_tools=tools)
+    ledger.pin_image(
+        workspace_id,
+        digest=image_digest,
+        image_ref="ghcr.io/test/system@sha256:" + image_digest,
+        build_commit="c" * 40,
+        platform="linux/amd64",
+        rootfs_path=rootfs,
+        qualification_sha256="f" * 64,
+    )
+    runtime = SharedWorkspaceRuntime(
+        image_digest, rootfs, workspace_home, "f" * 64, shared_tools=tools
+    )
     agent = AgentHome(workspace_id, actor_id, "alice", 1, 420, 69, "testing")
-    request = AccessRequest(workspace_id, actor_id, "tool.install", "install-a", "write",
-                            (AccessResource("shared_tool", "stemlab", "write"),), image_digest)
+    request = AccessRequest(
+        workspace_id,
+        actor_id,
+        "tool.install",
+        "install-a",
+        "write",
+        (AccessResource("shared_tool", "stemlab", "write"),),
+        image_digest,
+    )
     guard = WorkspaceLeaseGuard(ledger, request)
     return runtime, agent, guard, alice, tools
 
@@ -53,7 +66,10 @@ def test_tool_write_mount_requires_live_matching_lease_and_agent(admission):
         grant.admit(runtime=runtime, cwd=alice, guest_uid=420, guest_gid=69)
     guard.start()
     try:
-        assert grant.admit(runtime=runtime, cwd=alice, guest_uid=420, guest_gid=69) == tools / "stemlab"
+        assert (
+            grant.admit(runtime=runtime, cwd=alice, guest_uid=420, guest_gid=69)
+            == tools / "stemlab"
+        )
         with pytest.raises(ScopeDeniedError):
             grant.admit(runtime=runtime, cwd=alice, guest_uid=421, guest_gid=69)
         with pytest.raises(ScopeDeniedError):

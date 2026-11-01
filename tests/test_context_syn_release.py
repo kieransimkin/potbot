@@ -1,4 +1,5 @@
 """An opt-in catalog must preserve every historical protected data alias."""
+
 import json
 from pathlib import Path
 

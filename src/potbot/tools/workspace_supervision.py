@@ -112,7 +112,9 @@ class WorkspaceLeaseGuard:
             if lease.state != "active":
                 raise StateMismatchError("previous tool attempt requires reconciliation")
             self.lease = lease
-            self._thread = threading.Thread(target=self._renew, daemon=True, name="potbot-home-lease")
+            self._thread = threading.Thread(
+                target=self._renew, daemon=True, name="potbot-home-lease"
+            )
             self._thread.start()
             return lease
 
@@ -168,8 +170,12 @@ def admission_digest(reason: str) -> str:
 
 
 def assert_shared_execution_allowed(
-    *, runtime: SharedWorkspaceRuntime, ledger: WorkspaceLeaseLedger,
-    workspace_id: UUID, candidate_path: str, authorization: Callable[[UUID], bool] | None = None,
+    *,
+    runtime: SharedWorkspaceRuntime,
+    ledger: WorkspaceLeaseLedger,
+    workspace_id: UUID,
+    candidate_path: str,
+    authorization: Callable[[UUID], bool] | None = None,
 ) -> None:
     if authorization is not None and authorization(workspace_id) is not True:
         raise ScopeDeniedError("workspace shell/tool execution not authorized")

@@ -29,7 +29,11 @@ from potbot.tools.concurrency_profiles import (
     sqlite_footprint,
     unknown_shell_footprint,
 )
-from potbot.tools.github_concurrency import GitHubChangeIntent, GitHubFileChangePlan, GitHubFileVersion
+from potbot.tools.github_concurrency import (
+    GitHubChangeIntent,
+    GitHubFileChangePlan,
+    GitHubFileVersion,
+)
 from potbot.tools.workspace_concurrency import (
     AccessRequest,
     AccessResource,
@@ -52,8 +56,12 @@ def host(tmp_path: Path):
     ledger = WorkspaceLeaseLedger(private / "controller.sqlite", workspace_home=home)
     workspace_id = uuid4()
     ledger.pin_image(
-        workspace_id, digest=DIGEST, image_ref="ghcr.io/owner/image@sha256:" + DIGEST,
-        build_commit="f" * 40, platform="linux/amd64", rootfs_path=rootfs,
+        workspace_id,
+        digest=DIGEST,
+        image_ref="ghcr.io/owner/image@sha256:" + DIGEST,
+        build_commit="f" * 40,
+        platform="linux/amd64",
+        rootfs_path=rootfs,
         qualification_sha256=QUAL,
     )
     return ledger, workspace_id
@@ -109,10 +117,12 @@ def test_model_downloads_by_digest_and_readers(host):
     ledger.finish(a, result_sha256=QUAL)
     ledger.finish(b, result_sha256=QUAL)
     readers = model_artifact_footprint("/home/PixelCue/models", digest="c" * 64, writer=False)
-    one = ledger.claim(request(ws, uuid4(), idempotency="read-1", resources=readers.resources,
-                                     effect="read"))
-    two = ledger.claim(request(ws, uuid4(), idempotency="read-2", resources=readers.resources,
-                                     effect="read"))
+    one = ledger.claim(
+        request(ws, uuid4(), idempotency="read-1", resources=readers.resources, effect="read")
+    )
+    two = ledger.claim(
+        request(ws, uuid4(), idempotency="read-2", resources=readers.resources, effect="read")
+    )
     ledger.finish(one, result_sha256=QUAL)
     ledger.finish(two, result_sha256=QUAL)
 
@@ -123,8 +133,7 @@ def test_sqlite_wal_shm_family_serializes(host):
     b = sqlite_footprint("/home/keywordmoves/watch.sqlite-wal", write=False)
     lease = ledger.claim(request(ws, uuid4(), idempotency="sql", resources=a.resources))
     with pytest.raises(StateMismatchError):
-        ledger.claim(request(ws, uuid4(), idempotency="wal", resources=b.resources,
-                             effect="read"))
+        ledger.claim(request(ws, uuid4(), idempotency="wal", resources=b.resources, effect="read"))
     ledger.finish(lease, result_sha256=QUAL)
 
 
@@ -135,8 +144,15 @@ def test_directories_and_unknown_shell_conflicts(host):
     lease_a = ledger.claim(request(ws, uuid4(), idempotency="render-a", resources=a.resources))
     lease_b = ledger.claim(request(ws, uuid4(), idempotency="render-b", resources=b.resources))
     with pytest.raises(StateMismatchError):
-        ledger.claim(request(ws, uuid4(), idempotency="shell", effect="unknown",
-                             resources=unknown_shell_footprint().resources))
+        ledger.claim(
+            request(
+                ws,
+                uuid4(),
+                idempotency="shell",
+                effect="unknown",
+                resources=unknown_shell_footprint().resources,
+            )
+        )
     ledger.finish(lease_a, result_sha256=QUAL)
     ledger.finish(lease_b, result_sha256=QUAL)
 
@@ -148,8 +164,9 @@ def test_github_file_edits_disjoint_but_branch_cas_exclusive():
     branch = AccessResource("github", base, "write")
     assert not conflict(first, second, same_workspace=False)
     assert conflict(first, branch, same_workspace=False)
-    assert conflict(first, AccessResource("github_file", base + ":src/a.py", "read"),
-                    same_workspace=False)
+    assert conflict(
+        first, AccessResource("github_file", base + ":src/a.py", "read"), same_workspace=False
+    )
     with pytest.raises(InvalidInputError):
         AccessResource("github_file", base + ":../secrets", "write")
 
@@ -158,10 +175,13 @@ def test_github_file_plan_requires_base_blob_and_agent_branch():
     ws, agent = uuid4(), uuid4()
     branch = f"potbot/{ws.hex[:12]}/{agent.hex[:12]}"
     intent = GitHubChangeIntent(ws, agent, "owner/repo", branch, "a" * 40, "d" * 64)
-    plan = GitHubFileChangePlan(intent, (
-        GitHubFileVersion("src/a.py", "e" * 40),
-        GitHubFileVersion("src/b.py", None),
-    ))
+    plan = GitHubFileChangePlan(
+        intent,
+        (
+            GitHubFileVersion("src/a.py", "e" * 40),
+            GitHubFileVersion("src/b.py", None),
+        ),
+    )
     assert len(plan.access_request(image_digest=DIGEST, idempotency_key="gh-files").resources) == 2
     with pytest.raises(InvalidInputError):
         GitHubFileChangePlan(intent, (GitHubFileVersion("src/a.py", None),) * 2)
@@ -209,17 +229,28 @@ def test_simulated_modes_do_not_claim_os_isolation():
     peer = SimulatedAgentCredentials(FIRST_AGENT_UID + 1, WORKSPACE_GID, "danceflow")
     assert DEFAULT_DIRECTORY_MODE == 0o775
     assert DEFAULT_FILE_MODE == 0o644
-    assert posix_mode_allows(mode=0o775, owner_uid=owner.uid, group_gid=69,
-                             actor=peer, permission="write")
-    assert not posix_mode_allows(mode=0o755, owner_uid=owner.uid, group_gid=69,
-                                 actor=peer, permission="write")
-    assert not posix_mode_allows(mode=DEFAULT_FILE_MODE, owner_uid=owner.uid,
-                                 group_gid=69, actor=peer, permission="write")
-    assert posix_mode_allows(mode=COLLABORATIVE_FILE_MODE, owner_uid=owner.uid,
-                             group_gid=69, actor=peer, permission="write")
-    assert not safe_agent_rename_allowed(parent_mode=SHARED_HOME_STICKY_MODE,
-                                        owner_uid=1, actor_uid=peer.uid,
-                                        entry_owner_uid=owner.uid)
+    assert posix_mode_allows(
+        mode=0o775, owner_uid=owner.uid, group_gid=69, actor=peer, permission="write"
+    )
+    assert not posix_mode_allows(
+        mode=0o755, owner_uid=owner.uid, group_gid=69, actor=peer, permission="write"
+    )
+    assert not posix_mode_allows(
+        mode=DEFAULT_FILE_MODE, owner_uid=owner.uid, group_gid=69, actor=peer, permission="write"
+    )
+    assert posix_mode_allows(
+        mode=COLLABORATIVE_FILE_MODE,
+        owner_uid=owner.uid,
+        group_gid=69,
+        actor=peer,
+        permission="write",
+    )
+    assert not safe_agent_rename_allowed(
+        parent_mode=SHARED_HOME_STICKY_MODE,
+        owner_uid=1,
+        actor_uid=peer.uid,
+        entry_owner_uid=owner.uid,
+    )
 
 
 def test_shared_file_broker_cas_and_644_default(host):
@@ -233,26 +264,42 @@ def test_shared_file_broker_cas_and_644_default(host):
     project.mkdir(mode=0o775)
     project.chmod(0o775)
     broker = SharedFileBroker(
-        ledger=ledger, agent_homes=group,
+        ledger=ledger,
+        agent_homes=group,
         authorize=lambda workspace, actor: workspace == ws and actor == agent,
     )
     path = own.guest_path + "/src/file.py"
     result = broker.replace(
-        workspace_id=ws, actor_id=agent, image_digest=DIGEST, guest_path=path,
-        expected_sha256=None, data=b"print(42)\n", idempotency_key="create-1",
+        workspace_id=ws,
+        actor_id=agent,
+        image_digest=DIGEST,
+        guest_path=path,
+        expected_sha256=None,
+        data=b"print(42)\n",
+        idempotency_key="create-1",
     )
     assert result.before_sha256 is None
     assert (project / "file.py").read_bytes() == b"print(42)\n"
     assert (project / "file.py").stat().st_mode & 0o777 == 0o644
     with pytest.raises(StateMismatchError):
         broker.replace(
-            workspace_id=ws, actor_id=agent, image_digest=DIGEST, guest_path=path,
-            expected_sha256=None, data=b"print(99)\n", idempotency_key="create-2",
+            workspace_id=ws,
+            actor_id=agent,
+            image_digest=DIGEST,
+            guest_path=path,
+            expected_sha256=None,
+            data=b"print(99)\n",
+            idempotency_key="create-2",
         )
     assert (project / "file.py").read_bytes() == b"print(42)\n"
     updated = broker.replace(
-        workspace_id=ws, actor_id=agent, image_digest=DIGEST, guest_path=path,
-        expected_sha256=result.after_sha256, data=b"print(99)\n", idempotency_key="update-1",
+        workspace_id=ws,
+        actor_id=agent,
+        image_digest=DIGEST,
+        guest_path=path,
+        expected_sha256=result.after_sha256,
+        data=b"print(99)\n",
+        idempotency_key="update-1",
     )
     assert updated.before_sha256 == result.after_sha256
     assert (project / "file.py").read_bytes() == b"print(99)\n"
@@ -267,31 +314,52 @@ def test_shared_file_broker_respects_peer_755_directory(host):
     alice_home = identities.provision(ws, alice)
     identities.provision(ws, bob)
     broker = SharedFileBroker(
-        ledger=ledger, agent_homes=identities,
+        ledger=ledger,
+        agent_homes=identities,
         authorize=lambda workspace, actor: workspace == ws and actor in {alice, bob},
     )
     path = alice_home.guest_path + "/note.txt"
     # Shared 775 directory means peers can replace a 644 file atomically.
     first = broker.replace(
-        workspace_id=ws, actor_id=alice, image_digest=DIGEST, guest_path=path,
-        expected_sha256=None, data=b"hi", idempotency_key="own-note",
+        workspace_id=ws,
+        actor_id=alice,
+        image_digest=DIGEST,
+        guest_path=path,
+        expected_sha256=None,
+        data=b"hi",
+        idempotency_key="own-note",
     )
     peer = broker.replace(
-        workspace_id=ws, actor_id=bob, image_digest=DIGEST, guest_path=path,
-        expected_sha256=first.after_sha256, data=b"hello", idempotency_key="peer-note",
+        workspace_id=ws,
+        actor_id=bob,
+        image_digest=DIGEST,
+        guest_path=path,
+        expected_sha256=first.after_sha256,
+        data=b"hello",
+        idempotency_key="peer-note",
     )
     assert peer.before_sha256 == first.after_sha256
     # Removing group-write permission from a directory blocks new peer edits.
     (ledger.home / alice_home.directory).chmod(0o755)
     with pytest.raises(ScopeDeniedError):
         broker.replace(
-            workspace_id=ws, actor_id=bob, image_digest=DIGEST, guest_path=path,
-            expected_sha256=peer.after_sha256, data=b"not permitted", idempotency_key="deny-note",
+            workspace_id=ws,
+            actor_id=bob,
+            image_digest=DIGEST,
+            guest_path=path,
+            expected_sha256=peer.after_sha256,
+            data=b"not permitted",
+            idempotency_key="deny-note",
         )
     # The owning agent still has permission to update the file.
     broker.replace(
-        workspace_id=ws, actor_id=alice, image_digest=DIGEST, guest_path=path,
-        expected_sha256=peer.after_sha256, data=b"owner ok", idempotency_key="owner-note",
+        workspace_id=ws,
+        actor_id=alice,
+        image_digest=DIGEST,
+        guest_path=path,
+        expected_sha256=peer.after_sha256,
+        data=b"owner ok",
+        idempotency_key="owner-note",
     )
 
 
@@ -305,21 +373,30 @@ def test_shared_file_broker_does_not_follow_symlinks(host):
     own = ledger.home / owner.directory
     (own / "shortcut").symlink_to(ledger.home.parent)
     broker = SharedFileBroker(
-        ledger=ledger, agent_homes=identities,
+        ledger=ledger,
+        agent_homes=identities,
         authorize=lambda workspace, agent: workspace == ws and agent == actor,
     )
     with pytest.raises((OSError, ScopeDeniedError)):
         broker.replace(
-            workspace_id=ws, actor_id=actor, image_digest=DIGEST,
+            workspace_id=ws,
+            actor_id=actor,
+            image_digest=DIGEST,
             guest_path=owner.guest_path + "/shortcut/outside.txt",
-            expected_sha256=None, data=b"unexpected", idempotency_key="symlink-parent",
+            expected_sha256=None,
+            data=b"unexpected",
+            idempotency_key="symlink-parent",
         )
     (own / "target.txt").symlink_to(ledger.home.parent / "private")
     with pytest.raises((OSError, ScopeDeniedError)):
         broker.replace(
-            workspace_id=ws, actor_id=actor, image_digest=DIGEST,
+            workspace_id=ws,
+            actor_id=actor,
+            image_digest=DIGEST,
             guest_path=owner.guest_path + "/target.txt",
-            expected_sha256=None, data=b"unexpected", idempotency_key="symlink-target",
+            expected_sha256=None,
+            data=b"unexpected",
+            idempotency_key="symlink-target",
         )
 
 
@@ -331,30 +408,44 @@ def test_danceflow_hazard_catalogue_covers_every_component_and_hub():
     assert len(set(names)) == 18
     assert names.count("ThumbMoves") == 1
     assert any("uv.lock" in r.package_locks for r in DANCEFLOW_RISKS if r.name == "Potbot")
-    assert any("Library/" in r.mutable_areas for r in DANCEFLOW_RISKS if r.name == "DanceFlow for Unity")
-    assert any("SQLite" in e for r in DANCEFLOW_RISKS if r.name == "KeywordMoves" for e in r.global_effects)
-    assert all(len(r.source_commit) == 40 and len(r.repository.split("/")) == 2 for r in DANCEFLOW_RISKS)
+    assert any(
+        "Library/" in r.mutable_areas for r in DANCEFLOW_RISKS if r.name == "DanceFlow for Unity"
+    )
+    assert any(
+        "SQLite" in e for r in DANCEFLOW_RISKS if r.name == "KeywordMoves" for e in r.global_effects
+    )
+    assert all(
+        len(r.source_commit) == 40 and len(r.repository.split("/")) == 2 for r in DANCEFLOW_RISKS
+    )
 
 
 def test_global_package_cache_conflicts_across_two_workspaces(host, tmp_path: Path):
     ledger, first_workspace = host
     second_workspace = uuid4()
     ledger.pin_image(
-        second_workspace, digest=DIGEST,
+        second_workspace,
+        digest=DIGEST,
         image_ref="ghcr.io/owner/image@sha256:" + DIGEST,
-        build_commit="f" * 40, platform="linux/amd64",
-        rootfs_path=tmp_path / "rootfs", qualification_sha256=QUAL,
+        build_commit="f" * 40,
+        platform="linux/amd64",
+        rootfs_path=tmp_path / "rootfs",
+        qualification_sha256=QUAL,
     )
     first = package_footprint("/home/stemlab", manager="uv", shared_cache="cache:uv/shared")
     second = package_footprint("/home/rastermoves", manager="uv", shared_cache="cache:uv/shared")
-    a = ledger.claim(request(first_workspace, uuid4(), idempotency="shared-cache-a",
-                             resources=first.resources))
+    a = ledger.claim(
+        request(first_workspace, uuid4(), idempotency="shared-cache-a", resources=first.resources)
+    )
     with pytest.raises(StateMismatchError):
-        ledger.claim(request(second_workspace, uuid4(), idempotency="shared-cache-b",
-                             resources=second.resources))
+        ledger.claim(
+            request(
+                second_workspace, uuid4(), idempotency="shared-cache-b", resources=second.resources
+            )
+        )
     ledger.finish(a, result_sha256=QUAL)
-    b = ledger.claim(request(second_workspace, uuid4(), idempotency="shared-cache-c",
-                             resources=second.resources))
+    b = ledger.claim(
+        request(second_workspace, uuid4(), idempotency="shared-cache-c", resources=second.resources)
+    )
     ledger.finish(b, result_sha256=QUAL)
 
 

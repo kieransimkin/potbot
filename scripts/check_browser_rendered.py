@@ -12,13 +12,15 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
-EXPECTED_TESTS = frozenset({
-    "test_accessibility_role_actions_and_verified_render_change",
-    "test_picker_click_maps_css_script_and_accessibility_without_activating",
-    "test_keyboard_pointer_cdp_and_exact_locator_rejection",
-    "test_two_real_browser_contexts_do_not_share_form_or_picker_state",
-    "test_real_worker_stdio_rejects_duplicate_and_nonfinite_frames",
-})
+EXPECTED_TESTS = frozenset(
+    {
+        "test_accessibility_role_actions_and_verified_render_change",
+        "test_picker_click_maps_css_script_and_accessibility_without_activating",
+        "test_keyboard_pointer_cdp_and_exact_locator_rejection",
+        "test_two_real_browser_contexts_do_not_share_form_or_picker_state",
+        "test_real_worker_stdio_rejects_duplicate_and_nonfinite_frames",
+    }
+)
 PROFILES = {
     "playwright": ("playwright",),
     "patchright": ("patchright",),
@@ -76,8 +78,11 @@ def validate_report(raw: bytes, profile: str) -> dict:
     for case in cases:
         if not case.get("classname", "").endswith("test_rendered_worker"):
             raise ValueError("browser case belongs to an unexpected suite")
-    first = next(c for c in cases if c.get("name") ==
-                 "test_accessibility_role_actions_and_verified_render_change")
+    first = next(
+        c
+        for c in cases
+        if c.get("name") == "test_accessibility_role_actions_and_verified_render_change"
+    )
     props = {}
     for prop in first.findall("./properties/property"):
         name = prop.get("name")
@@ -95,23 +100,31 @@ def validate_report(raw: bytes, profile: str) -> dict:
         binary = json.loads(props["browser_binary"], object_pairs_hook=_unique_object)
     except (TypeError, ValueError) as error:
         raise ValueError("invalid package metadata") from error
-    if not isinstance(packages, dict) or set(packages) != set(PROFILES[profile]) or any(
-        not isinstance(v, str) or re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}", v) is None
-        for v in packages.values()
+    if (
+        not isinstance(packages, dict)
+        or set(packages) != set(PROFILES[profile])
+        or any(
+            not isinstance(v, str) or re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,3}", v) is None
+            for v in packages.values()
+        )
     ):
         raise ValueError("selected package versions are absent or invalid")
     if not isinstance(binary, dict) or set(binary) != {"source", "sha256", "bytes"}:
         raise ValueError("browser executable identity is incomplete")
-    if (binary["source"] not in ("system", "engine")
-            or not isinstance(binary["sha256"], str)
-            or re.fullmatch(r"[0-9a-f]{64}", binary["sha256"]) is None
-            or type(binary["bytes"]) is not int
-            or not 0 < binary["bytes"] <= 2 * 1024**3):
+    if (
+        binary["source"] not in ("system", "engine")
+        or not isinstance(binary["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", binary["sha256"]) is None
+        or type(binary["bytes"]) is not int
+        or not 0 < binary["bytes"] <= 2 * 1024**3
+    ):
         raise ValueError("invalid browser executable identity")
     return {
         "browser_binary": binary,
-        "profile": profile, "browser_version": props["browser_version"],
-        "packages": packages, "test_count": len(cases),
+        "profile": profile,
+        "browser_version": props["browser_version"],
+        "packages": packages,
+        "test_count": len(cases),
     }
 
 
@@ -124,8 +137,14 @@ def image_pins(root: Path) -> dict[str, str]:
     return pins
 
 
-def verify(root: Path, report: Path, profile: str, *, require_image_pins: bool = False,
-           require_engine_binary: bool = False) -> dict:
+def verify(
+    root: Path,
+    report: Path,
+    profile: str,
+    *,
+    require_image_pins: bool = False,
+    require_engine_binary: bool = False,
+) -> dict:
     with report.open("rb") as stream:
         raw = stream.read(4 * 1024 * 1024 + 1)
     identity = validate_report(raw, profile)
@@ -142,10 +161,16 @@ def verify(root: Path, report: Path, profile: str, *, require_image_pins: bool =
             raise ValueError("browser acceptance source is missing or not a bounded regular file")
         hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=root, text=True, timeout=10,
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        text=True,
+        timeout=10,
     ).strip()
     dirty = subprocess.check_output(
-        ["git", "status", "--porcelain", "--", *SOURCE_FILES], cwd=root, text=True, timeout=10,
+        ["git", "status", "--porcelain", "--", *SOURCE_FILES],
+        cwd=root,
+        text=True,
+        timeout=10,
     ).strip()
     return {
         "schema_version": 1,
@@ -177,11 +202,17 @@ def main() -> int:
     parser.add_argument("--require-engine-binary", action="store_true")
     args = parser.parse_args()
     try:
-        result = verify(args.root, args.report, args.profile,
-                        require_image_pins=args.require_image_pins,
-                        require_engine_binary=args.require_engine_binary)
+        result = verify(
+            args.root,
+            args.report,
+            args.profile,
+            require_image_pins=args.require_image_pins,
+            require_engine_binary=args.require_engine_binary,
+        )
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        args.output.write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         # Never leave an older successful result after a failing recheck.
         args.output.unlink(missing_ok=True)

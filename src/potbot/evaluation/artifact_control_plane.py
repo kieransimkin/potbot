@@ -81,7 +81,9 @@ def control_plane_summary(
         _require("parent_run_id" in event and "parent_event_id" in event, "missing causal fields")
         _require(telemetry.get("child_runs") == [], "nested workers are outside this qualification")
         for key in _PINNED:
-            valid = _uuid(telemetry.get(key)) if key.endswith("_id") else _digest(telemetry.get(key))
+            valid = (
+                _uuid(telemetry.get(key)) if key.endswith("_id") else _digest(telemetry.get(key))
+            )
             _require(valid, "invalid pinned " + key)
         runs.setdefault(run, []).append(event)
 

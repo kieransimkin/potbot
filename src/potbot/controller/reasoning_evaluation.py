@@ -41,8 +41,11 @@ def _load_json(raw: str) -> Any:
         return result
 
     try:
-        return json.loads(raw, object_pairs_hook=unique,
-                          parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+        return json.loads(
+            raw,
+            object_pairs_hook=unique,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+        )
     except (ValueError, TypeError):
         raise InvalidInputError("invalid reasoning critique JSON") from None
 
@@ -56,38 +59,61 @@ def parse_critiques(raw: str, expected: set[str]) -> dict[str, BranchCritique]:
     if not isinstance(items, list) or len(items) != len(expected) or len(items) > 12:
         raise InvalidInputError("critique must address every branch exactly once")
     result: dict[str, BranchCritique] = {}
-    keys = {"node_id", "relevance", "evidence_alignment", "falsification_risk",
-            "uncertainty", "recommendation", "rationale", "issues", "tests"}
+    keys = {
+        "node_id",
+        "relevance",
+        "evidence_alignment",
+        "falsification_risk",
+        "uncertainty",
+        "recommendation",
+        "rationale",
+        "issues",
+        "tests",
+    }
     for item in items:
         if not isinstance(item, dict) or set(item) != keys:
             raise InvalidInputError("unsupported branch critique fields")
         node_id = item["node_id"]
         if node_id not in expected or node_id in result:
             raise InvalidInputError("unknown or duplicate critique branch")
-        if any(type(item[name]) is not int or not 0 <= item[name] <= 4 for name in (
-                "relevance", "evidence_alignment", "falsification_risk", "uncertainty")):
+        if any(
+            type(item[name]) is not int or not 0 <= item[name] <= 4
+            for name in ("relevance", "evidence_alignment", "falsification_risk", "uncertainty")
+        ):
             raise InvalidInputError("critique ratings must be integers from 0 to 4")
         if item["recommendation"] not in {"keep", "prune", "reject"}:
             raise InvalidInputError("unsupported critique recommendation")
         if not isinstance(item["rationale"], str) or not 1 <= len(item["rationale"]) <= 1000:
             raise InvalidInputError("critique requires bounded rationale")
         for field in ("issues", "tests"):
-            if not isinstance(item[field], list) or len(item[field]) > 6 or any(
-                not isinstance(value, str) or not 1 <= len(value) <= 300 for value in item[field]
+            if (
+                not isinstance(item[field], list)
+                or len(item[field]) > 6
+                or any(
+                    not isinstance(value, str) or not 1 <= len(value) <= 300
+                    for value in item[field]
+                )
             ):
                 raise InvalidInputError("critique lists must be bounded")
         result[node_id] = BranchCritique(
-            node_id=node_id, relevance=item["relevance"],
+            node_id=node_id,
+            relevance=item["relevance"],
             evidence_alignment=item["evidence_alignment"],
-            falsification_risk=item["falsification_risk"], uncertainty=item["uncertainty"],
-            recommendation=item["recommendation"], rationale=item["rationale"],
-            issues=tuple(item["issues"]), tests=tuple(item["tests"]),
+            falsification_risk=item["falsification_risk"],
+            uncertainty=item["uncertainty"],
+            recommendation=item["recommendation"],
+            rationale=item["rationale"],
+            issues=tuple(item["issues"]),
+            tests=tuple(item["tests"]),
         )
     return result
 
 
 def rank_branches(
-    branches: list[dict[str, Any]], critiques: dict[str, BranchCritique], *, beam_width: int = 2,
+    branches: list[dict[str, Any]],
+    critiques: dict[str, BranchCritique],
+    *,
+    beam_width: int = 2,
 ) -> list[dict[str, Any]]:
     """Deterministic beam admission; model assertions never become evidence.
 
@@ -108,23 +134,42 @@ def rank_branches(
             for entry in record.get("findings", [])
             if isinstance(entry, dict) and entry.get("receipt_ref")
         }
-        coverage = len({r["channel"] for r in branch["investigation"] if r.get("status") == "completed"})
+        coverage = len(
+            {r["channel"] for r in branch["investigation"] if r.get("status") == "completed"}
+        )
         # Ratings are bounded advisory input. Independent source receipts are
         # required for the extra evidence contribution and are never fabricated.
-        score = max(0, min(100, 10 + 10 * critique.relevance
-                           + 4 * critique.evidence_alignment
-                           - 7 * critique.falsification_risk
-                           - 4 * critique.uncertainty
-                           + 6 * min(len(findings), 3) + 2 * min(coverage, 3)))
-        results.append({**branch, "score": score, "evidence_count": len(findings),
-                        "critique": {"recommendation": critique.recommendation,
-                                     "rationale": critique.rationale,
-                                     "issues": list(critique.issues),
-                                     "tests": list(critique.tests)},
-                        "evaluation_status": "advisory_scored"})
+        score = max(
+            0,
+            min(
+                100,
+                10
+                + 10 * critique.relevance
+                + 4 * critique.evidence_alignment
+                - 7 * critique.falsification_risk
+                - 4 * critique.uncertainty
+                + 6 * min(len(findings), 3)
+                + 2 * min(coverage, 3),
+            ),
+        )
+        results.append(
+            {
+                **branch,
+                "score": score,
+                "evidence_count": len(findings),
+                "critique": {
+                    "recommendation": critique.recommendation,
+                    "rationale": critique.rationale,
+                    "issues": list(critique.issues),
+                    "tests": list(critique.tests),
+                },
+                "evaluation_status": "advisory_scored",
+            }
+        )
     ranked = sorted(results, key=lambda entry: (-entry["score"], entry["node_id"]))
     for index, branch in enumerate(ranked):
         branch["selected"] = index < beam_width
-        branch["prune_reason"] = ("outside bounded evidence-weighted beam" if not branch["selected"]
-                                  else None)
+        branch["prune_reason"] = (
+            "outside bounded evidence-weighted beam" if not branch["selected"] else None
+        )
     return ranked

@@ -18,19 +18,27 @@ def test_new_migration_is_append_only_and_workspace_scoped() -> None:
     migration = next(m for m in revisions if m.version == 24)
     assert migration.version == 24 and migration.name == "reasoning_runtime_schema"
     assert set(migration.workspace_tables) == {
-        "reasoning_runtime_runs", "reasoning_runtime_steering", "reasoning_runtime_events"
+        "reasoning_runtime_runs",
+        "reasoning_runtime_steering",
+        "reasoning_runtime_events",
     }
     assert migration.append_only_tables == ("reasoning_runtime_events",)
-    assert "FOR UPDATE SKIP LOCKED" in __import__(
-        "inspect"
-    ).getsource(PostgresReasoningStore.expire)
+    assert "FOR UPDATE SKIP LOCKED" in __import__("inspect").getsource(
+        PostgresReasoningStore.expire
+    )
 
 
 def test_json_only_model_calls_use_native_provider_protocols() -> None:
-    for provider, protocol in (("openai", "responses"), ("openai", "chat_completions"),
-                               ("gemini", "gemini")):
-        request = ProviderRequest(ProviderSelection(provider, "test-model", protocol),
-                                  prompt="Return a JSON object", response_format="json_object")
+    for provider, protocol in (
+        ("openai", "responses"),
+        ("openai", "chat_completions"),
+        ("gemini", "gemini"),
+    ):
+        request = ProviderRequest(
+            ProviderSelection(provider, "test-model", protocol),
+            prompt="Return a JSON object",
+            response_format="json_object",
+        )
         path, body = request_body(request)
         if protocol == "responses":
             assert path == "/v1/responses"
@@ -40,12 +48,20 @@ def test_json_only_model_calls_use_native_provider_protocols() -> None:
         else:
             assert path.endswith(":streamGenerateContent?alt=sse")
             assert body["generationConfig"]["responseMimeType"] == "application/json"
-        _, ordinary = request_body(ProviderRequest(ProviderSelection(provider, "test-model", protocol), prompt="Hello"))
+        _, ordinary = request_body(
+            ProviderRequest(ProviderSelection(provider, "test-model", protocol), prompt="Hello")
+        )
         assert "text" not in ordinary or protocol != "responses"
     with pytest.raises(InvalidInputError):
-        ProviderRequest(ProviderSelection("anthropic", "claude-test"), prompt="hi", response_format="json_object")
+        ProviderRequest(
+            ProviderSelection("anthropic", "claude-test"),
+            prompt="hi",
+            response_format="json_object",
+        )
     with pytest.raises(InvalidInputError):
-        ProviderRequest(ProviderSelection("gemini", "gemini-test"), prompt="hi", response_format="yaml")
+        ProviderRequest(
+            ProviderSelection("gemini", "gemini-test"), prompt="hi", response_format="yaml"
+        )
 
 
 def test_reasoning_runtime_validates_run_ids_and_steering_keys() -> None:

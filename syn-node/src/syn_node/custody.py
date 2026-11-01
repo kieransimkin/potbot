@@ -50,13 +50,17 @@ def _native_backend() -> object:
 
 def _entry(service: str, account: str) -> None:
     for name, value in (("service", service), ("account", account)):
-        if not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", value) is None:
+        if (
+            not isinstance(value, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", value) is None
+        ):
             raise SynProtocolError(f"invalid SYN keystore {name}")
 
 
 def _raw_public(private: Ed25519PrivateKey) -> bytes:
     return private.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw,
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
     )
 
 
@@ -112,8 +116,12 @@ def _agent_key_lock(directory: Path, service: str, account: str):
         import fcntl
     except ImportError as exc:
         raise SynProtocolError("SYN agent provisioning requires a qualified OS lock") from exc
-    if (not isinstance(directory, Path) or not directory.is_absolute() or directory.is_symlink()
-            or directory.resolve() != directory):
+    if (
+        not isinstance(directory, Path)
+        or not directory.is_absolute()
+        or directory.is_symlink()
+        or directory.resolve() != directory
+    ):
         raise SynProtocolError("SYN agent installation lock directory must be absolute")
     st = directory.stat()
     if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
@@ -123,8 +131,12 @@ def _agent_key_lock(directory: Path, service: str, account: str):
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
         details = os.fstat(fd)
-        if (not stat.S_ISREG(details.st_mode) or details.st_nlink != 1
-                or details.st_uid != os.getuid() or details.st_mode & 0o077):
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_nlink != 1
+            or details.st_uid != os.getuid()
+            or details.st_mode & 0o077
+        ):
             raise SynProtocolError("SYN agent singleton lock changed")
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield
@@ -147,7 +159,9 @@ def create_agent_temporary_key(*, service: str, account: str, lock_dir: Path) ->
         try:
             existing = backend.get_password(service, account)
         except Exception as exc:
-            raise SynProtocolError("SYN keystore cannot confirm whether key already exists") from exc
+            raise SynProtocolError(
+                "SYN keystore cannot confirm whether key already exists"
+            ) from exc
         if existing is not None:
             raise SynProtocolError("SYN temporary key already exists; refuse replacement")
         private = Ed25519PrivateKey.generate()  # OS CSPRNG, not a hardware identifier
@@ -191,14 +205,25 @@ class NativeOperatorSigner:
         import stat
         from pathlib import Path
 
-        if not isinstance(self.executable, Path) or not self.executable.is_absolute() or self.executable.is_symlink():
+        if (
+            not isinstance(self.executable, Path)
+            or not self.executable.is_absolute()
+            or self.executable.is_symlink()
+        ):
             raise SynProtocolError("SYN signer must have an absolute pinned native executable")
         st = self.executable.stat(follow_symlinks=False)
-        if not stat.S_ISREG(st.st_mode) or st.st_mode & 0o022 or not os.access(self.executable, os.X_OK):
+        if (
+            not stat.S_ISREG(st.st_mode)
+            or st.st_mode & 0o022
+            or not os.access(self.executable, os.X_OK)
+        ):
             raise SynProtocolError("SYN native signing executable is writable or unavailable")
-        if (not isinstance(self.executable_sha256, str)
-                or re.fullmatch(r"[0-9a-f]{64}", self.executable_sha256) is None
-                or type(self.expected_public_hash) is not bytes or len(self.expected_public_hash) != 32):
+        if (
+            not isinstance(self.executable_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", self.executable_sha256) is None
+            or type(self.expected_public_hash) is not bytes
+            or len(self.expected_public_hash) != 32
+        ):
             raise SynProtocolError("SYN native signer pin is invalid")
         self._pin()
         if hashlib.sha256(self.public_key).digest() != self.expected_public_hash:
@@ -207,10 +232,13 @@ class NativeOperatorSigner:
     def _pin(self) -> None:
         with self.executable.open("rb") as stream:
             if hashlib.file_digest(stream, "sha256").hexdigest() != self.executable_sha256:
-                raise SynProtocolError("SYN native signer executable differs from its pinned source")
+                raise SynProtocolError(
+                    "SYN native signer executable differs from its pinned source"
+                )
 
     def _call(self, method: str, payload: bytes = b"") -> dict[str, str]:
         import subprocess
+
         from .protocol import canonical, exact, parse
 
         if method not in {"public", "sign"} or type(payload) is not bytes or len(payload) > 65_536:
@@ -219,16 +247,28 @@ class NativeOperatorSigner:
         # inherited /proc/self/fd reference avoids a path-swap race after pinning.
         if sys.platform != "linux":
             raise SynProtocolError("pinned SYN native signer requires qualified Linux fd exec")
-        request = canonical({"schema_version": 1, "type_ref": "synny://type/syn-native-keystore-sign-v1",
-                             "method": method, "payload_hex": payload.hex()})
+        request = canonical(
+            {
+                "schema_version": 1,
+                "type_ref": "synny://type/syn-native-keystore-sign-v1",
+                "method": method,
+                "payload_hex": payload.hex(),
+            }
+        )
         try:
             fd = os.open(self.executable, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
         except OSError as exc:
-            raise SynProtocolError("SYN native signer is not an existing ordinary executable") from exc
+            raise SynProtocolError(
+                "SYN native signer is not an existing ordinary executable"
+            ) from exc
         try:
             info = os.fstat(fd)
-            if (not stat.S_ISREG(info.st_mode) or info.st_mode & 0o022
-                    or not info.st_mode & 0o111 or info.st_nlink != 1):
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_mode & 0o022
+                or not info.st_mode & 0o111
+                or info.st_nlink != 1
+            ):
                 raise SynProtocolError("SYN native signer executable inode is insecure")
             digest = hashlib.sha256()
             while True:
@@ -239,22 +279,33 @@ class NativeOperatorSigner:
             if digest.hexdigest() != self.executable_sha256:
                 raise SynProtocolError("SYN native signer inode differs from its pinned source")
             try:
-                child = subprocess.run([f"/proc/self/fd/{fd}"], input=request,
-                                       pass_fds=(fd,), capture_output=True,
-                                       timeout=3, cwd="/",
-                                       env={"PATH": "/usr/bin:/bin", "LANG": "C"},
-                                       check=False)
+                child = subprocess.run(
+                    [f"/proc/self/fd/{fd}"],
+                    input=request,
+                    pass_fds=(fd,),
+                    capture_output=True,
+                    timeout=3,
+                    cwd="/",
+                    env={"PATH": "/usr/bin:/bin", "LANG": "C"},
+                    check=False,
+                )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 raise SynProtocolError("SYN native signing broker unavailable") from exc
         finally:
             os.close(fd)
         if child.returncode != 0 or not 0 < len(child.stdout) <= 4096 or child.stderr:
             raise SynProtocolError("SYN native signing broker failed closed")
-        result = exact(parse(child.stdout), {"schema_version", "type_ref", "method",
-                                              "public_key", "signature"}, "native signer response")
-        if (type(result["schema_version"]) is not int or result["schema_version"] != 1
-                or result["type_ref"] != "synny://type/syn-native-keystore-sign-result-v1"
-                or result["method"] != method):
+        result = exact(
+            parse(child.stdout),
+            {"schema_version", "type_ref", "method", "public_key", "signature"},
+            "native signer response",
+        )
+        if (
+            type(result["schema_version"]) is not int
+            or result["schema_version"] != 1
+            or result["type_ref"] != "synny://type/syn-native-keystore-sign-result-v1"
+            or result["method"] != method
+        ):
             raise SynProtocolError("SYN native signing broker returned a mismatched reply")
         pub = hex_bytes(result["public_key"], 32, "signer public key")
         if hashlib.sha256(pub).digest() != self.expected_public_hash:
@@ -265,10 +316,13 @@ class NativeOperatorSigner:
             sig = hex_bytes(result["signature"], 64, "native signature")
             from cryptography.exceptions import InvalidSignature
             from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
             try:
                 Ed25519PublicKey.from_public_bytes(pub).verify(sig, payload)
             except (InvalidSignature, ValueError) as exc:
-                raise SynProtocolError("SYN native signing broker produced an invalid signature") from exc
+                raise SynProtocolError(
+                    "SYN native signing broker produced an invalid signature"
+                ) from exc
         return result
 
     @property

@@ -3,6 +3,7 @@
 Principal-private contexts remain RPC-only and are NEVER copied into the shared
 mount. The catalogue is advisory. It does not grant write or execution rights.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -39,14 +40,22 @@ class ObjectContextProjector(SkillLibraryProjector):
         for role in ROLES:
             row = docs[role]
             validate_content(row["content"])
-            if (type(row["revision"]) is not int or row["revision"] < 1
-                    or sha256(row["content"]) != row["sha256"]):
+            if (
+                type(row["revision"]) is not int
+                or row["revision"] < 1
+                or sha256(row["content"]) != row["sha256"]
+            ):
                 raise StateMismatchError("Object context integrity mismatch")
             files[role] = row["content"].encode()
             revisions[role] = {"revision": row["revision"], "sha256": row["sha256"]}
-        metadata = {"schema": "potbot-object-context-view/v1", "object_id": str(identity),
-                    "kind": item["kind"], "name": item["name"], "context": revisions,
-                    "instructions_authoritative": False}
+        metadata = {
+            "schema": "potbot-object-context-view/v1",
+            "object_id": str(identity),
+            "kind": item["kind"],
+            "name": item["name"],
+            "context": revisions,
+            "instructions_authoritative": False,
+        }
         raw = _json(metadata)
         digest = hashlib.sha256(raw).hexdigest()
         files["object.json"] = raw
@@ -70,11 +79,19 @@ class ObjectContextProjector(SkillLibraryProjector):
                 finally:
                     os.close(fd)
         self._verify(target, files)
-        return {**metadata, "snapshot_sha256": digest,
-                "path": target.relative_to(self.root).as_posix()}
+        return {
+            **metadata,
+            "snapshot_sha256": digest,
+            "path": target.relative_to(self.root).as_posix(),
+        }
 
-    def sync(self, service: WorkspaceContextService, context: WorkspaceContext, *,
-             max_objects: int = 4096) -> dict[str, Any]:
+    def sync(
+        self,
+        service: WorkspaceContextService,
+        context: WorkspaceContext,
+        *,
+        max_objects: int = 4096,
+    ) -> dict[str, Any]:
         if type(max_objects) is not int or not 1 <= max_objects <= 16384:
             raise InvalidInputError("Invalid object inventory bound")
         with self._lock():
@@ -94,7 +111,9 @@ class ObjectContextProjector(SkillLibraryProjector):
                         docs = bound.read_triple(context, item["kind"], item["name"])
                         total += sum(len(doc["content"].encode()) for doc in docs.values())
                         if total > 64 * 1024**2:
-                            raise StateMismatchError("Object context exceeds projection byte budget")
+                            raise StateMismatchError(
+                                "Object context exceeds projection byte budget"
+                            )
                         entries.append(self._object_snapshot(item, docs))
                 if page["next"] is None:
                     break
@@ -107,15 +126,20 @@ class ObjectContextProjector(SkillLibraryProjector):
             if target.exists() or target.is_symlink():
                 # Same no-follow, owner, mode and bounded read checks as snapshots.
                 import stat
+
                 fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
                 try:
                     info = os.fstat(fd)
-                    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
-                            or info.st_nlink != 1 or info.st_mode & 0o222
-                            or info.st_size > 8 * 1024**2):
+                    if (
+                        not stat.S_ISREG(info.st_mode)
+                        or info.st_uid != os.geteuid()
+                        or info.st_nlink != 1
+                        or info.st_mode & 0o222
+                        or info.st_size > 8 * 1024**2
+                    ):
                         raise StateMismatchError("Object catalogue custody changed")
                     with os.fdopen(fd, "rb", closefd=False) as stream:
-                        if stream.read(len(raw)+1) == raw:
+                        if stream.read(len(raw) + 1) == raw:
                             return catalogue
                 finally:
                     os.close(fd)

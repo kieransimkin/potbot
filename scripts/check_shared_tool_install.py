@@ -18,8 +18,6 @@ from potbot.domain.errors import InvalidInputError, ScopeDeniedError
 from potbot.tools.shared_tool_store import review_manifest
 
 
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", type=Path, required=True)

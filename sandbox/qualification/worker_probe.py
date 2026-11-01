@@ -5,6 +5,7 @@ Install in a newly qualified immutable image. It cannot choose an executable,
 read arbitrary files or make outbound connections. --wire-only is for protocol
 unit tests and deliberately cannot produce a qualified inspection response.
 """
+
 from __future__ import annotations
 
 import errno
@@ -36,32 +37,46 @@ def decode(raw: bytes) -> dict:
     if not isinstance(raw, bytes) or not 0 < len(raw) <= LIMIT:
         raise ValueError("wire size")
     request = json.loads(
-        raw.decode("utf-8"), object_pairs_hook=_pairs,
+        raw.decode("utf-8"),
+        object_pairs_hook=_pairs,
         parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite number")),
     )
-    if (not isinstance(request, dict)
-            or set(request) != {"schema_version", "operation_ref", "input", "invocation_id"}
-            or type(request["schema_version"]) is not int or request["schema_version"] != 1
-            or request["operation_ref"] != OPERATION):
+    if (
+        not isinstance(request, dict)
+        or set(request) != {"schema_version", "operation_ref", "input", "invocation_id"}
+        or type(request["schema_version"]) is not int
+        or request["schema_version"] != 1
+        or request["operation_ref"] != OPERATION
+    ):
         raise ValueError("wire envelope")
     invocation = request["invocation_id"]
     if not isinstance(invocation, str) or str(UUID(invocation)) != invocation:
         raise ValueError("invocation identity")
     source = request["input"]
-    if (not isinstance(source, dict) or set(source) != {"type_ref", "value"}
-            or source["type_ref"] != INPUT):
+    if (
+        not isinstance(source, dict)
+        or set(source) != {"type_ref", "value"}
+        or source["type_ref"] != INPUT
+    ):
         raise ValueError("semantic input")
     value = source["value"]
-    if (not isinstance(value, dict) or set(value) != {"nonce"}
-            or not isinstance(value["nonce"], str) or not NONCE.fullmatch(value["nonce"])):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"nonce"}
+        or not isinstance(value["nonce"], str)
+        or not NONCE.fullmatch(value["nonce"])
+    ):
         raise ValueError("nonce")
     return request
 
 
 def root_is_readonly(mountinfo: str) -> bool:
     # mountinfo fields: id parent major:minor root mountpoint mount-options ...
-    roots = [line.split() for line in mountinfo.splitlines()
-             if len(line.split()) >= 7 and line.split()[4] == "/"]
+    roots = [
+        line.split()
+        for line in mountinfo.splitlines()
+        if len(line.split()) >= 7 and line.split()[4] == "/"
+    ]
     return len(roots) == 1 and "ro" in roots[0][5].split(",")
 
 
@@ -77,7 +92,9 @@ def socket_denied(family: int) -> bool:
 
 def inspect() -> dict:
     return {
-        "uid": os.getuid(), "gid": os.getgid(), "pid": os.getpid(),
+        "uid": os.getuid(),
+        "gid": os.getgid(),
+        "pid": os.getpid(),
         "cwd": os.getcwd(),
         "root_readonly": root_is_readonly(Path("/proc/self/mountinfo").read_text()),
         "inet_denied": socket_denied(socket.AF_INET),
@@ -87,7 +104,8 @@ def inspect() -> dict:
 
 def response(request: dict, observation: dict | None) -> dict:
     return {
-        "schema_version": 1, "type_ref": OUTPUT,
+        "schema_version": 1,
+        "type_ref": OUTPUT,
         "value": {
             "nonce": request["input"]["value"]["nonce"],
             "invocation_id": request["invocation_id"],

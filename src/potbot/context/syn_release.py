@@ -4,10 +4,11 @@ The historical 0.1.0 data-type catalog and its pinned SHA-256 remain immutable.
 A caller must explicitly request this extension when publishing a new Syn
 snapshot. Exact filenames indicate roles, never validity, policy, or trust.
 """
+
 from __future__ import annotations
 
 from potbot.context.semantic_roles import ROLE_TYPES
-from potbot.domain.syn import SynSnapshot, SynType, SynnyRef
+from potbot.domain.syn import SynnyRef, SynSnapshot, SynType
 from potbot.semantics import catalog
 
 _RELEASE = "potbot-context-document-roles/1.0.0"

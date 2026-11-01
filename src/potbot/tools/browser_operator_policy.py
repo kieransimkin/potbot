@@ -3,6 +3,7 @@
 The full application policy is parsed again by its own loader after startup.
 A missing/malformed policy NEVER starts an input-capable display accidentally.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,9 +32,11 @@ def server_readonly_required(path: Path) -> bool:
         raw = json.loads(candidate.read_text(encoding="utf-8"), object_pairs_hook=unique)
     except (UnicodeError, ValueError) as error:
         raise ValueError("invalid operator Xpra policy") from error
-    if not isinstance(raw, dict) or (
-            "strictXpraInput" in raw and type(raw["strictXpraInput"]) is not bool
-    ) or ("browserLeases" in raw and type(raw["browserLeases"]) is not bool):
+    if (
+        not isinstance(raw, dict)
+        or ("strictXpraInput" in raw and type(raw["strictXpraInput"]) is not bool)
+        or ("browserLeases" in raw and type(raw["browserLeases"]) is not bool)
+    ):
         raise ValueError("invalid operator Xpra input mode")
     strict = raw.get("strictXpraInput") is True
     if raw.get("browserLeases") is True and not strict:

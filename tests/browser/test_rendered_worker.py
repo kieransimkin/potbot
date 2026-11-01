@@ -7,6 +7,7 @@ CI adapter redirects that one launch argument to the installed engine binary;
 its identity is recorded, and neither system files nor production permissions
 are changed. System mode exercises the ordinary worker entrypoint unchanged.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -76,10 +77,14 @@ async def browser(html):
         # is only test hygiene, not evidence of the production egress boundary.
         await worker.context.route("**/*", lambda route: route.abort())
         await worker.page.set_content(html)
-        await worker.page.add_style_tag(content=(FIXTURES / "probe.css").read_text()
-                                        + "\n/*# sourceURL=https://potbot.invalid/probe.css */")
-        await worker.page.add_script_tag(content=(FIXTURES / "probe.js").read_text()
-                                         + "\n//# sourceURL=https://potbot.invalid/probe.js")
+        await worker.page.add_style_tag(
+            content=(FIXTURES / "probe.css").read_text()
+            + "\n/*# sourceURL=https://potbot.invalid/probe.css */"
+        )
+        await worker.page.add_script_tag(
+            content=(FIXTURES / "probe.js").read_text()
+            + "\n//# sourceURL=https://potbot.invalid/probe.js"
+        )
         yield worker
     finally:
         await worker.close()
@@ -111,15 +116,25 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             record_property("browser_version", worker.browser.version)
             record_property("packages", json.dumps(packages, sort_keys=True))
             mode = selection_mode()
-            executable = (worker.playwright.chromium.executable_path
-                          if mode == "engine" else "/usr/bin/chromium")
-            record_property("browser_binary", json.dumps(
-                binary_identity(executable, mode), sort_keys=True))
+            executable = (
+                worker.playwright.chromium.executable_path
+                if mode == "engine"
+                else "/usr/bin/chromium"
+            )
+            record_property(
+                "browser_binary", json.dumps(binary_identity(executable, mode), sort_keys=True)
+            )
             before = await worker.execute({"op": "sample", "image": True})
             assert 'textbox "Username"' in before["aria"]
             assert 'button "Save"' in (await worker.execute({"op": "accessibility"}))["aria"]
-            await worker.execute({"op": "role.fill", "role": "textbox", "name": "Username",
-                                  "text": "synthetic-probe"})
+            await worker.execute(
+                {
+                    "op": "role.fill",
+                    "role": "textbox",
+                    "name": "Username",
+                    "text": "synthetic-probe",
+                }
+            )
             assert await worker.page.locator("#username").input_value() == "synthetic-probe"
             await worker.execute({"op": "role.click", "role": "button", "name": "Save"})
             assert await worker.page.locator("#count").text_content() == "1"
@@ -128,6 +143,7 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             assert "synthetic-probe" in after["aria"]
             without_pixels = await worker.execute({"op": "sample", "image": False})
             assert "base64" not in without_pixels["frame"]
+
     asyncio.run(scenario())
 
 
@@ -149,12 +165,17 @@ def test_picker_click_maps_css_script_and_accessibility_without_activating(probe
             assert selected["tag"] == "BUTTON"
             assert selected["attributes"]["id"] == "save"
             assert selected["attributes"]["data-component"] == "SettingsForm"
-            assert any(a["role"] == "button" and a["name"] == "Save"
-                       for a in selected["accessibility"])
-            assert any(s["source"].endswith("probe.css") and ".action" in s["selector"]
-                       for s in selected["styles"])
-            assert any(e["type"] == "click" and e["source"].endswith("probe.js")
-                       and type(e["line"]) is int for e in selected["events"])
+            assert any(
+                a["role"] == "button" and a["name"] == "Save" for a in selected["accessibility"]
+            )
+            assert any(
+                s["source"].endswith("probe.css") and ".action" in s["selector"]
+                for s in selected["styles"]
+            )
+            assert any(
+                e["type"] == "click" and e["source"].endswith("probe.js") and type(e["line"]) is int
+                for e in selected["events"]
+            )
             assert selected["box"]["width"] > 0
             # The picker must consume the selection click, not submit the page.
             assert await worker.page.locator("#count").text_content() == "0"
@@ -162,6 +183,7 @@ def test_picker_click_maps_css_script_and_accessibility_without_activating(probe
             await worker.execute({"op": "input.pointer", "action": "click", "x": x, "y": y})
             assert await worker.page.locator("#count").text_content() == "1"
             assert (await worker.execute({"op": "inspect.poll"}))["selected"] is None
+
     asyncio.run(scenario())
 
 
@@ -171,42 +193,70 @@ def test_keyboard_pointer_cdp_and_exact_locator_rejection(probe_page):
             await worker.execute({"op": "input.keyboard", "action": "press", "key": "Tab"})
             await worker.execute({"op": "input.keyboard", "action": "type", "text": "typed"})
             assert await worker.page.locator("#username").input_value() == "typed"
-            await worker.execute({"op": "cdp", "method": "Input.dispatchKeyEvent",
-                                  "params": {"type": "char", "text": "!"}})
+            await worker.execute(
+                {
+                    "op": "cdp",
+                    "method": "Input.dispatchKeyEvent",
+                    "params": {"type": "char", "text": "!"},
+                }
+            )
             assert await worker.page.locator("#username").input_value() == "typed!"
             x, y = await save_position(worker)
             for event in ("mousePressed", "mouseReleased"):
-                await worker.execute({"op": "cdp", "method": "Input.dispatchMouseEvent",
-                                      "params": {"type": event, "x": x, "y": y,
-                                                 "button": "left", "clickCount": 1}})
+                await worker.execute(
+                    {
+                        "op": "cdp",
+                        "method": "Input.dispatchMouseEvent",
+                        "params": {
+                            "type": event,
+                            "x": x,
+                            "y": y,
+                            "button": "left",
+                            "clickCount": 1,
+                        },
+                    }
+                )
             assert await worker.page.locator("#count").text_content() == "1"
             metrics = await worker.execute({"op": "cdp", "method": "Page.getLayoutMetrics"})
             # The scrollbar occupies part of the configured 1280px viewport.
             assert 1200 <= metrics["result"]["cssLayoutViewport"]["clientWidth"] <= 1280
             for bad in (
                 {"op": "role.click", "role": "button", "name": "Duplicate"},
-                {"op": "cdp", "method": "Runtime.evaluate",
-                 "params": {"expression": "document.getElementById('save').click()"}},
+                {
+                    "op": "cdp",
+                    "method": "Runtime.evaluate",
+                    "params": {"expression": "document.getElementById('save').click()"},
+                },
             ):
                 with pytest.raises(ValueError):
                     await worker.execute(bad)
             assert await worker.page.locator("#count").text_content() == "1"
-            await worker.execute({"op": "input.pointer", "action": "wheel", "x": 200, "y": 400,
-                                  "deltaY": 500})
+            await worker.execute(
+                {"op": "input.pointer", "action": "wheel", "x": 200, "y": 400, "deltaY": 500}
+            )
             async with asyncio.timeout(3):
                 while True:
-                    scrolled = await worker.execute({"op": "cdp", "method": "Page.getLayoutMetrics"})
+                    scrolled = await worker.execute(
+                        {"op": "cdp", "method": "Page.getLayoutMetrics"}
+                    )
                     if scrolled["result"]["cssLayoutViewport"]["pageY"] > 0:
                         break
                     await asyncio.sleep(0.025)
+
     asyncio.run(scenario())
 
 
 def test_two_real_browser_contexts_do_not_share_form_or_picker_state(probe_page):
     async def scenario():
         async with browser(probe_page) as first, browser(probe_page) as second:
-            await first.execute({"op": "role.fill", "role": "textbox", "name": "Username",
-                                 "text": "first-context-only"})
+            await first.execute(
+                {
+                    "op": "role.fill",
+                    "role": "textbox",
+                    "name": "Username",
+                    "text": "first-context-only",
+                }
+            )
             await first.execute({"op": "inspect.start"})
             assert (await first.execute({"op": "state"}))["picker"] is True
             assert (await second.execute({"op": "state"}))["picker"] is False
@@ -215,24 +265,32 @@ def test_two_real_browser_contexts_do_not_share_form_or_picker_state(probe_page)
             await second.execute({"op": "role.click", "role": "button", "name": "Save"})
             assert await second.page.locator("#count").text_content() == "1"
             decode_frame(await second.execute({"op": "sample", "image": True}))
+
     asyncio.run(scenario())
 
 
 def test_real_worker_stdio_rejects_duplicate_and_nonfinite_frames():
     async def scenario():
         _, engine, stealth, _ = profile()
-        entrypoint = ("scripts.browser_rendered_runtime" if selection_mode() == "engine"
-                      else "potbot.tools.xpra_browser_worker")
+        entrypoint = (
+            "scripts.browser_rendered_runtime"
+            if selection_mode() == "engine"
+            else "potbot.tools.xpra_browser_worker"
+        )
         args = [sys.executable, "-m", entrypoint, "--engine", engine]
         if stealth:
             args.append("--stealth")
         # No raw browser diagnostics are published as acceptance artifacts.
         with tempfile.TemporaryFile() as diagnostics:
             process = await asyncio.create_subprocess_exec(
-                *args, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
-                stderr=diagnostics, limit=1_500_001,
+                *args,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=diagnostics,
+                limit=1_500_001,
             )
             try:
+
                 async def raw(message):
                     process.stdin.write(message + b"\n")
                     await process.stdin.drain()
@@ -270,4 +328,5 @@ def test_real_worker_stdio_rejects_duplicate_and_nonfinite_frames():
                     except TimeoutError:
                         process.kill()
                         await process.wait()
+
     asyncio.run(scenario())

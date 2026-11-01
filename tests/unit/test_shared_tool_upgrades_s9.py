@@ -45,9 +45,16 @@ def install(parent: Path, version: str) -> SharedToolDefinition:
     app.write_bytes(version.encode())
     app.chmod(0o755)
     return SharedToolDefinition(
-        "stemlab", "https://github.com/kieransimkin/stemlab", git(repo, "rev-parse", "HEAD"),
+        "stemlab",
+        "https://github.com/kieransimkin/stemlab",
+        git(repo, "rev-parse", "HEAD"),
         ("build", ".pytest_cache"),
-        (("requirements.lock", hashlib.sha256((repo / "requirements.lock").read_bytes()).hexdigest()),),
+        (
+            (
+                "requirements.lock",
+                hashlib.sha256((repo / "requirements.lock").read_bytes()).hexdigest(),
+            ),
+        ),
         False,
         (("static/stemlab", hashlib.sha256(app.read_bytes()).hexdigest()),),
     )
@@ -58,8 +65,18 @@ class FixtureTestExecutor:
         self.calls: list[tuple[str, tuple[str, ...]]] = []
         self.fail = False
 
-    def run(self, *, case: ToolTestCase, argv: tuple[str, ...], workspace_id: UUID,
-            agent_id: UUID, agent_dir: Path, uid: int, gid: int, cancelled):
+    def run(
+        self,
+        *,
+        case: ToolTestCase,
+        argv: tuple[str, ...],
+        workspace_id: UUID,
+        agent_id: UUID,
+        agent_dir: Path,
+        uid: int,
+        gid: int,
+        cancelled,
+    ):
         assert not cancelled()
         assert uid == 420 and gid == 69
         assert argv[0] == "/usr/bin/python3"
@@ -68,11 +85,18 @@ class FixtureTestExecutor:
         assert argv[3].startswith("/usr/local/tools/.potbot-s9-stage-stemlab-")
         assert agent_dir.is_dir()
         self.calls.append((case.name, argv))
-        return dict(name=case.name, kind=case.kind, passed=not self.fail,
-                    outcome="completed" if not self.fail else "nonzero_exit",
-                    exit_code=0 if not self.fail else 1, elapsed_ms=32,
-                    dispatched=True, stopped=True, isolation_identity="unit-fixture-only",
-                    output_sha256=hashlib.sha256(case.name.encode()).hexdigest())
+        return dict(
+            name=case.name,
+            kind=case.kind,
+            passed=not self.fail,
+            outcome="completed" if not self.fail else "nonzero_exit",
+            exit_code=0 if not self.fail else 1,
+            elapsed_ms=32,
+            dispatched=True,
+            stopped=True,
+            isolation_identity="unit-fixture-only",
+            output_sha256=hashlib.sha256(case.name.encode()).hexdigest(),
+        )
 
 
 @pytest.fixture
@@ -88,63 +112,91 @@ def rig(tmp_path: Path):
     workspace_id, agent_id, operation_id = uuid4(), uuid4(), uuid4()
     ledger = WorkspaceLeaseLedger(private / "ledger.sqlite", workspace_home=home)
     ledger.pin_image(
-        workspace_id, digest="a" * 64,
+        workspace_id,
+        digest="a" * 64,
         image_ref="ghcr.io/test/root@sha256:" + "a" * 64,
-        build_commit="c" * 40, platform="linux/amd64",
-        rootfs_path=rootfs, qualification_sha256="b" * 64,
+        build_commit="c" * 40,
+        platform="linux/amd64",
+        rootfs_path=rootfs,
+        qualification_sha256="b" * 64,
     )
-    store = SharedToolStore(ledger=ledger, shared_root=tools,
-                            authorize=lambda w, a: (w, a) == (workspace_id, agent_id))
+    store = SharedToolStore(
+        ledger=ledger, shared_root=tools, authorize=lambda w, a: (w, a) == (workspace_id, agent_id)
+    )
     old = install(tools / "stemlab", "v1")
     new = install(tools / stage_name("stemlab", operation_id), "v2")
     with ledger._connect() as db:
-        db.execute("INSERT INTO trusted_shared_tools VALUES(?,?,?)",
-                   (str(workspace_id), "stemlab", json.dumps(old.to_dict(), sort_keys=True)))
+        db.execute(
+            "INSERT INTO trusted_shared_tools VALUES(?,?,?)",
+            (str(workspace_id), "stemlab", json.dumps(old.to_dict(), sort_keys=True)),
+        )
     homes = AgentHomeRegistry(ledger, workspace_name="studio")
     homes.provision(workspace_id, agent_id)
     runtime = SharedWorkspaceRuntime("a" * 64, rootfs, home, "b" * 64, shared_tools=tools)
     executor = FixtureTestExecutor()
     manager = SharedToolUpgradeManager(
-        store=store, runtime=runtime, homes=homes,
-        authorize=lambda w, a: (w, a) == (workspace_id, agent_id), executor=executor,
+        store=store,
+        runtime=runtime,
+        homes=homes,
+        authorize=lambda w, a: (w, a) == (workspace_id, agent_id),
+        executor=executor,
     )
-    suite = ToolTestSuite((
-        ToolTestCase("startup", "smoke", ("/usr/bin/python3", "-c", "pass", "{checkout}")),
-        ToolTestCase("regression", "unit", ("/usr/bin/python3", "-c", "pass", "{checkout}")),
-    ))
+    suite = ToolTestSuite(
+        (
+            ToolTestCase("startup", "smoke", ("/usr/bin/python3", "-c", "pass", "{checkout}")),
+            ToolTestCase("regression", "unit", ("/usr/bin/python3", "-c", "pass", "{checkout}")),
+        )
+    )
     return locals()
 
 
 def prepare(rig):
     return rig["manager"].prepare(
-        workspace_id=rig["workspace_id"], agent_id=rig["agent_id"],
-        operation_id=rig["operation_id"], expected_old_commit=rig["old"].commit,
-        replacement=rig["new"], suite=rig["suite"],
+        workspace_id=rig["workspace_id"],
+        agent_id=rig["agent_id"],
+        operation_id=rig["operation_id"],
+        expected_old_commit=rig["old"].commit,
+        replacement=rig["new"],
+        suite=rig["suite"],
     )
 
 
 def activate(rig, *, confirm=True):
     return rig["manager"].activate(
-        workspace_id=rig["workspace_id"], agent_id=rig["agent_id"],
-        operation_id=rig["operation_id"], slug="stemlab",
-        expected_old_commit=rig["old"].commit, confirm=confirm,
+        workspace_id=rig["workspace_id"],
+        agent_id=rig["agent_id"],
+        operation_id=rig["operation_id"],
+        slug="stemlab",
+        expected_old_commit=rig["old"].commit,
+        confirm=confirm,
     )
 
 
 def rollback(rig, *, confirm=True, current=None):
     return rig["manager"].rollback(
-        workspace_id=rig["workspace_id"], agent_id=rig["agent_id"],
-        operation_id=rig["operation_id"], slug="stemlab",
-        expected_current_commit=current or rig["new"].commit, confirm=confirm,
+        workspace_id=rig["workspace_id"],
+        agent_id=rig["agent_id"],
+        operation_id=rig["operation_id"],
+        slug="stemlab",
+        expected_current_commit=current or rig["new"].commit,
+        confirm=confirm,
     )
 
 
 def hold_reader(rig):
     """Exercise the real shared-tool read lease rather than an obsolete fake map."""
-    return rig["ledger"].claim(AccessRequest(
-        rig["workspace_id"], rig["agent_id"], "tool.read", uuid4().hex, "read",
-        (AccessResource("shared_tool", "stemlab", "read"),), rig["runtime"].image_digest,
-    ), replay_existing=False)
+    return rig["ledger"].claim(
+        AccessRequest(
+            rig["workspace_id"],
+            rig["agent_id"],
+            "tool.read",
+            uuid4().hex,
+            "read",
+            (AccessResource("shared_tool", "stemlab", "read"),),
+            rig["runtime"].image_digest,
+        ),
+        replay_existing=False,
+    )
 
 
 def reconcile_uncertain(rig):
@@ -167,11 +219,18 @@ def test_real_git_stage_tests_and_clean_probe(rig):
     assert prepared["passed_tests"] == 2
     assert len(rig["executor"].calls) == 2
     assert rig["store"].definition(rig["workspace_id"], "stemlab").commit == rig["old"].commit
-    assert git(rig["tools"] / stage_name("stemlab", rig["operation_id"]) / "checkout",
-               "status", "--porcelain") == ""
+    assert (
+        git(
+            rig["tools"] / stage_name("stemlab", rig["operation_id"]) / "checkout",
+            "status",
+            "--porcelain",
+        )
+        == ""
+    )
     assert not (rig["tools"] / "stemlab" / "checkout" / "build").exists()
-    again = rig["manager"].inspect(workspace_id=rig["workspace_id"],
-                                    agent_id=rig["agent_id"],operation_id=rig["operation_id"])
+    again = rig["manager"].inspect(
+        workspace_id=rig["workspace_id"], agent_id=rig["agent_id"], operation_id=rig["operation_id"]
+    )
     assert again["state"] == "ready" and len(again["test_results"]) == 2
     with pytest.raises(StateMismatchError):
         prepare(rig)
@@ -186,9 +245,12 @@ def test_atomic_switch_and_rollback_preserve_previous_release(rig):
     stage = rig["tools"] / stage_name("stemlab", rig["operation_id"])
     assert (stage / "static/stemlab").read_bytes() == b"v1"
     planned = rig["manager"].runtime_entrypoint_updates(
-        workspace_id=rig["workspace_id"], agent_id=rig["agent_id"],
-        operation_id=rig["operation_id"])
-    assert planned["pins"]["/usr/local/tools/stemlab/static/stemlab"] == hashlib.sha256(b"v2").hexdigest()
+        workspace_id=rig["workspace_id"], agent_id=rig["agent_id"], operation_id=rig["operation_id"]
+    )
+    assert (
+        planned["pins"]["/usr/local/tools/stemlab/static/stemlab"]
+        == hashlib.sha256(b"v2").hexdigest()
+    )
     assert planned["requires_operator_runtime_repin"] is True
     final = rollback(rig)
     assert final["state"] == "rolled_back"
@@ -204,9 +266,12 @@ def test_reject_unauthorized_and_wrong_previous_commit(rig):
         prepare(bad)
     with pytest.raises(StateMismatchError):
         rig["manager"].prepare(
-            workspace_id=rig["workspace_id"], agent_id=rig["agent_id"],
-            operation_id=rig["operation_id"], expected_old_commit="0" * 40,
-            replacement=rig["new"], suite=rig["suite"],
+            workspace_id=rig["workspace_id"],
+            agent_id=rig["agent_id"],
+            operation_id=rig["operation_id"],
+            expected_old_commit="0" * 40,
+            replacement=rig["new"],
+            suite=rig["suite"],
         )
 
 
@@ -252,35 +317,53 @@ def test_atomic_activation_rejects_active_shared_tool_reader(rig):
 def test_interrupted_activation_requires_explicit_recovery(rig, monkeypatch):
     prepare(rig)
     original = rig["manager"]._commit_swap
-    monkeypatch.setattr(rig["manager"], "_commit_swap",
-                        lambda *a, **kw: (_ for _ in ()).throw(OSError("simulated DB outage")))
+    monkeypatch.setattr(
+        rig["manager"],
+        "_commit_swap",
+        lambda *a, **kw: (_ for _ in ()).throw(OSError("simulated DB outage")),
+    )
     with pytest.raises(OSError):
         activate(rig)
     with rig["ledger"]._connect() as db:
-        row = db.execute("SELECT state FROM trusted_tool_upgrades WHERE operation_id=?",
-                         (str(rig["operation_id"]),)).fetchone()
+        row = db.execute(
+            "SELECT state FROM trusted_tool_upgrades WHERE operation_id=?",
+            (str(rig["operation_id"]),),
+        ).fetchone()
         assert row["state"] == "switching"
     assert (rig["tools"] / "stemlab/static/stemlab").read_bytes() == b"v2"
     with pytest.raises(StateMismatchError):
         rig["store"].definition(rig["workspace_id"], "stemlab")
     # An indeterminate lease blocks all other activity until host reconciliation.
     with pytest.raises(StateMismatchError):
-        rig["manager"].reconcile(workspace_id=rig["workspace_id"],agent_id=rig["agent_id"],
-                                  operation_id=rig["operation_id"],slug="stemlab",confirm=True)
+        rig["manager"].reconcile(
+            workspace_id=rig["workspace_id"],
+            agent_id=rig["agent_id"],
+            operation_id=rig["operation_id"],
+            slug="stemlab",
+            confirm=True,
+        )
     reconcile_uncertain(rig)
     monkeypatch.setattr(rig["manager"], "_commit_swap", original)
     recovered = rig["manager"].reconcile(
-        workspace_id=rig["workspace_id"],agent_id=rig["agent_id"],
-        operation_id=rig["operation_id"],slug="stemlab",confirm=True)
+        workspace_id=rig["workspace_id"],
+        agent_id=rig["agent_id"],
+        operation_id=rig["operation_id"],
+        slug="stemlab",
+        confirm=True,
+    )
     assert recovered["state"] == "aborted"
     assert (rig["tools"] / "stemlab/static/stemlab").read_bytes() == b"v1"
 
 
 def test_interrupted_rollback_reconciles_db(rig, monkeypatch):
-    prepare(rig); activate(rig)
+    prepare(rig)
+    activate(rig)
     original = rig["manager"]._commit_swap
-    monkeypatch.setattr(rig["manager"], "_commit_swap",
-                        lambda *a, **kw: (_ for _ in ()).throw(OSError("simulated outage")))
+    monkeypatch.setattr(
+        rig["manager"],
+        "_commit_swap",
+        lambda *a, **kw: (_ for _ in ()).throw(OSError("simulated outage")),
+    )
     with pytest.raises(OSError):
         rollback(rig)
     reconcile_uncertain(rig)
@@ -288,17 +371,22 @@ def test_interrupted_rollback_reconciles_db(rig, monkeypatch):
         rig["store"].definition(rig["workspace_id"], "stemlab")
     monkeypatch.setattr(rig["manager"], "_commit_swap", original)
     final = rig["manager"].reconcile(
-        workspace_id=rig["workspace_id"],agent_id=rig["agent_id"],
-        operation_id=rig["operation_id"],slug="stemlab",confirm=True)
+        workspace_id=rig["workspace_id"],
+        agent_id=rig["agent_id"],
+        operation_id=rig["operation_id"],
+        slug="stemlab",
+        confirm=True,
+    )
     assert final["state"] == "rolled_back"
-    assert rig["store"].definition(rig["workspace_id"],"stemlab").commit == rig["old"].commit
+    assert rig["store"].definition(rig["workspace_id"], "stemlab").commit == rig["old"].commit
 
 
 def test_rollback_cannot_revert_an_unrelated_newer_pin(rig):
-    prepare(rig); activate(rig)
+    prepare(rig)
+    activate(rig)
     with pytest.raises(StateMismatchError):
         rollback(rig, current="0" * 40)
-    assert rig["store"].definition(rig["workspace_id"],"stemlab").commit == rig["new"].commit
+    assert rig["store"].definition(rig["workspace_id"], "stemlab").commit == rig["new"].commit
 
 
 def test_missing_unit_or_smoke_suite_and_bad_stage_identity(rig):
@@ -306,7 +394,7 @@ def test_missing_unit_or_smoke_suite_and_bad_stage_identity(rig):
     with pytest.raises(InvalidInputError):
         ToolTestSuite((case, case))
     with pytest.raises(InvalidInputError):
-        stage_name("../escape",uuid4())
+        stage_name("../escape", uuid4())
     with pytest.raises(InvalidInputError):
         ToolTestCase("bad", "smoke", ("/home/private.sh",))
 

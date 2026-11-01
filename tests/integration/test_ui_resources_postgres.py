@@ -1,4 +1,5 @@
 """Authenticated PostgreSQL preferences, transfer lifecycle and workspace isolation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -15,12 +16,17 @@ pytestmark = pytest.mark.postgres
 
 
 def sample_artifact(payload=b"synthetic-integration-checksum") -> TransferArtifact:
-    return TransferArtifact.parse({
-        "model_id": "Qwen/Qwen3-0.6B", "artifact_repository": "Qwen/Qwen3-0.6B",
-        "revision": "a" * 40, "filename": "weights.Q4_K_M.gguf",
-        "quantization": "Q4_K_M", "sha256": hashlib.sha256(payload).hexdigest(),
-        "size_bytes": len(payload),
-    })
+    return TransferArtifact.parse(
+        {
+            "model_id": "Qwen/Qwen3-0.6B",
+            "artifact_repository": "Qwen/Qwen3-0.6B",
+            "revision": "a" * 40,
+            "filename": "weights.Q4_K_M.gguf",
+            "quantization": "Q4_K_M",
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "size_bytes": len(payload),
+        }
+    )
 
 
 def test_preferences_revisions_are_workspace_and_principal_scoped(app_env):
@@ -47,8 +53,12 @@ def test_real_download_worker_writes_only_verified_bytes(app_env, tmp_path: Path
     assert UiResourceStore(app_env.other_db).transfers(app_env.other_context) == []
     model_root = tmp_path / "models"
     model_root.mkdir()
-    worker = TransferWorker(app_env.db, app_env.context, model_root,
-        downloader=lambda *_: iter([artifact_bytes[:11], artifact_bytes[11:]]))
+    worker = TransferWorker(
+        app_env.db,
+        app_env.context,
+        model_root,
+        downloader=lambda *_: iter([artifact_bytes[:11], artifact_bytes[11:]]),
+    )
     assert worker.once() == {"status": "installed", "bytes": len(artifact_bytes)}
     completed = store.transfers(app_env.context)[0]
     assert completed["state"] == "installed"
@@ -64,8 +74,12 @@ def test_checksum_failure_never_publishes_an_installation(app_env, tmp_path: Pat
     store.add_transfer(app_env.context, request_id=uuid4(), artifact=item)
     model_root = tmp_path / "models"
     model_root.mkdir()
-    worker = TransferWorker(app_env.db, app_env.context, model_root,
-                            downloader=lambda *_: iter([b"synthetic-but-wrong-contents"]))
+    worker = TransferWorker(
+        app_env.db,
+        app_env.context,
+        model_root,
+        downloader=lambda *_: iter([b"synthetic-but-wrong-contents"]),
+    )
     assert worker.once()["status"] == "failed"
     assert store.transfers(app_env.context)[0]["verifiedBytes"] == 0
     assert not list(model_root.rglob("*.gguf"))

@@ -11,19 +11,35 @@ from potbot.domain.errors import InvalidInputError
 
 
 def _review(ids: list[str]) -> str:
-    return json.dumps({"evaluations": [
-        {"node_id": node_id, "relevance": 3, "evidence_alignment": 2,
-         "falsification_risk": 1, "uncertainty": 2, "recommendation": "keep",
-         "rationale": "Needs independent verification", "issues": [], "tests": []}
-        for node_id in ids
-    ]})
+    return json.dumps(
+        {
+            "evaluations": [
+                {
+                    "node_id": node_id,
+                    "relevance": 3,
+                    "evidence_alignment": 2,
+                    "falsification_risk": 1,
+                    "uncertainty": 2,
+                    "recommendation": "keep",
+                    "rationale": "Needs independent verification",
+                    "issues": [],
+                    "tests": [],
+                }
+                for node_id in ids
+            ]
+        }
+    )
 
 
 def test_rejects_missing_unknown_duplicate_or_invented_scores() -> None:
     assert len(parse_critiques(_review(["a", "b"]), {"a", "b"})) == 2
-    for bad in (_review(["a", "a"]), _review(["a", "unknown"]), _review(["a"]),
-                _review(["a", "b"]).replace('"relevance": 3', '"relevance": 100'),
-                _review(["a", "b"]).replace('"rationale"', '"shell_command"')):
+    for bad in (
+        _review(["a", "a"]),
+        _review(["a", "unknown"]),
+        _review(["a"]),
+        _review(["a", "b"]).replace('"relevance": 3', '"relevance": 100'),
+        _review(["a", "b"]).replace('"rationale"', '"shell_command"'),
+    ):
         with pytest.raises(InvalidInputError):
             parse_critiques(bad, {"a", "b"})
 
@@ -31,15 +47,33 @@ def test_rejects_missing_unknown_duplicate_or_invented_scores() -> None:
 def test_source_receipts_improve_rank_but_do_not_fabricate_evidence() -> None:
     critiques = parse_critiques(_review(["a", "b", "c"]), {"a", "b", "c"})
     branches = [
-        {"node_id": "a", "hypothesis": "Evidence-backed", "investigation": [
-            {"channel": "external_tools", "status": "completed", "findings": [
-                {"source_ref": "syn://source/a", "source_sha256": "a" * 64,
-                 "receipt_ref": "sha256:" + "f" * 64},
-            ]}]},
-        {"node_id": "b", "hypothesis": "No source", "investigation": [
-            {"channel": "external_tools", "status": "unavailable"}]},
-        {"node_id": "c", "hypothesis": "No budget", "investigation": [
-            {"channel": "external_tools", "status": "budget_limited"}]},
+        {
+            "node_id": "a",
+            "hypothesis": "Evidence-backed",
+            "investigation": [
+                {
+                    "channel": "external_tools",
+                    "status": "completed",
+                    "findings": [
+                        {
+                            "source_ref": "syn://source/a",
+                            "source_sha256": "a" * 64,
+                            "receipt_ref": "sha256:" + "f" * 64,
+                        },
+                    ],
+                }
+            ],
+        },
+        {
+            "node_id": "b",
+            "hypothesis": "No source",
+            "investigation": [{"channel": "external_tools", "status": "unavailable"}],
+        },
+        {
+            "node_id": "c",
+            "hypothesis": "No budget",
+            "investigation": [{"channel": "external_tools", "status": "budget_limited"}],
+        },
     ]
     scores = rank_branches(branches, critiques, beam_width=2)
     assert scores[0]["node_id"] == "a"

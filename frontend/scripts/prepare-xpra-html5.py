@@ -17,11 +17,18 @@ from pathlib import Path
 REVISION = "3752e59b7bb3120a5f20794ce754b3b76ac96c4b"
 MARK = '<script type="text/javascript" src="js/Client.js"></script>'
 CLIENT_HOOKS = (
-    "  _new_window(", "  _process_lost_window(",
-    "  _process_window_metadata(", "  send_configure_window(",
-    "  on_mousemove(", "  on_mousedown(", "  on_mouseup(",
-    "  on_mousescroll(", "  _keyb_onkeydown(", "  _keyb_onkeyup(",
-    "  release_keys(", "  set_focus(",
+    "  _new_window(",
+    "  _process_lost_window(",
+    "  _process_window_metadata(",
+    "  send_configure_window(",
+    "  on_mousemove(",
+    "  on_mousedown(",
+    "  on_mouseup(",
+    "  on_mousescroll(",
+    "  _keyb_onkeydown(",
+    "  _keyb_onkeyup(",
+    "  release_keys(",
+    "  set_focus(",
 )
 WINDOW_HOOKS = ("class XpraWindow", "  draw()", "  do_paint(", "  resize(", "this.draw_canvas")
 
@@ -38,12 +45,21 @@ def check_protocol_hooks(client_js: str, window_js: str) -> None:
 
 def patch_html(source: str) -> str:
     hooks = (
-        (MARK, MARK + '\n    <script type="text/javascript" src="potbot-window-bridge.js"></script>'),
-        ('const client = new XpraClient("screen");',
-         'const client = new XpraClient("screen");\n        window.PotbotXpraBridge.bindClient(client);'),
-        ('const path = getstrparam("path", ALLOWED_CHARS + "/") || window.location.pathname;',
-         'const path = getstrparam("path", ALLOWED_CHARS + "/?=&") || window.location.pathname;'),
-        ('client.connect();', '''client.reconnect = false;
+        (
+            MARK,
+            MARK + '\n    <script type="text/javascript" src="potbot-window-bridge.js"></script>',
+        ),
+        (
+            'const client = new XpraClient("screen");',
+            'const client = new XpraClient("screen");\n        window.PotbotXpraBridge.bindClient(client);',
+        ),
+        (
+            'const path = getstrparam("path", ALLOWED_CHARS + "/") || window.location.pathname;',
+            'const path = getstrparam("path", ALLOWED_CHARS + "/?=&") || window.location.pathname;',
+        ),
+        (
+            "client.connect();",
+            """client.reconnect = false;
             client.open_url = false;
             client.file_transfer = false;
             client.clipboard_enabled = false;
@@ -52,10 +68,15 @@ def patch_html(source: str) -> str:
             client.remote_logging = false;
             client.on_connect = () => window.PotbotXpraBridge.ready();
             client.callback_close = () => window.PotbotXpraBridge.onClose();
-            client.connect();'''),
-        ('<div id="screen" style="width: 100%; height: 100%">',
-         '<div id="screen" style="width: 1920px; height: 1200px; position: fixed; left: -22000px; top: 0">'),
-        ('</head>', '''<style>
+            client.connect();""",
+        ),
+        (
+            '<div id="screen" style="width: 100%; height: 100%">',
+            '<div id="screen" style="width: 1920px; height: 1200px; position: fixed; left: -22000px; top: 0">',
+        ),
+        (
+            "</head>",
+            """<style>
       /* Upstream decoding happens offscreen; ONLY Dockview paints visible windows. */
       body { overflow: hidden !important; background: transparent !important; }
       #float_menu, #window_preview, #login-overlay, #progress, #about,
@@ -63,7 +84,8 @@ def patch_html(source: str) -> str:
       .windowhead, .ui-resizable-handle { display: none !important; }
       #screen { pointer-events: none !important; }
     </style>
-  </head>'''),
+  </head>""",
+        ),
     )
     current = source
     for needle, substitute in hooks:
@@ -79,13 +101,19 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("frontend/public/xpra-html5"))
     arguments = parser.parse_args()
     upstream = arguments.upstream.resolve(strict=True)
-    result = subprocess.run(["git", "-C", str(upstream), "rev-parse", "HEAD"],
-                            capture_output=True, check=True, text=True)
+    result = subprocess.run(
+        ["git", "-C", str(upstream), "rev-parse", "HEAD"],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
     if result.stdout.strip() != REVISION:
         parser.error(f"expected exact Xpra HTML5 revision {REVISION}")
     dirty = subprocess.run(
         ["git", "-C", str(upstream), "status", "--porcelain", "--untracked-files=no"],
-        capture_output=True, check=True, text=True,
+        capture_output=True,
+        check=True,
+        text=True,
     )
     if dirty.stdout.strip():
         parser.error("upstream Xpra HTML5 checkout has uncommitted tracked changes")
@@ -101,13 +129,17 @@ def main() -> int:
     contents = patch_html(original.read_text(encoding="utf-8"))
     output = arguments.output.resolve()
     if output.exists():
-        parser.error("client destination exists: remove your old generated vendor directory explicitly")
+        parser.error(
+            "client destination exists: remove your old generated vendor directory explicitly"
+        )
     shutil.copytree(source, output, symlinks=False)
     (output / "index.html").write_text(contents, encoding="utf-8")
     (output / "potbot-window-bridge.js").write_bytes(
-        Path(__file__).resolve().parents[1].joinpath(
-            "vendor/xpra-html5/potbot-window-bridge.js"
-        ).read_bytes()
+        Path(__file__)
+        .resolve()
+        .parents[1]
+        .joinpath("vendor/xpra-html5/potbot-window-bridge.js")
+        .read_bytes()
     )
     (output / "LICENSE").write_bytes(license_file.read_bytes())
     (output / "UPSTREAM-REVISION").write_text(REVISION + "\n")

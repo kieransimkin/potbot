@@ -59,8 +59,12 @@ def test_exact_quantization_download_requires_hash_and_pinned_revision(tmp_path)
     root.mkdir()
     payload = b"synthetic model weights - never a real deployment"
     artifact = QuantizedArtifact(
-        "Qwen/Qwen3-0.6B", "Q4_K_M", "a" * 40, "model.Q4_K_M.gguf",
-        hashlib.sha256(payload).hexdigest(), len(payload),
+        "Qwen/Qwen3-0.6B",
+        "Q4_K_M",
+        "a" * 40,
+        "model.Q4_K_M.gguf",
+        hashlib.sha256(payload).hexdigest(),
+        len(payload),
     )
     calls = []
 
@@ -87,7 +91,12 @@ def test_invalid_download_does_not_claim_installation(tmp_path) -> None:
     root = tmp_path / "models"
     root.mkdir()
     artifact = QuantizedArtifact(
-        "Qwen/Qwen3-0.6B", "Q4_K_M", "a" * 40, "weights.gguf", "b" * 64, 6,
+        "Qwen/Qwen3-0.6B",
+        "Q4_K_M",
+        "a" * 40,
+        "weights.gguf",
+        "b" * 64,
+        6,
     )
 
     def fetch(_artifact, destination):
@@ -100,7 +109,9 @@ def test_invalid_download_does_not_claim_installation(tmp_path) -> None:
 
 
 def test_catalog_cli_reports_estimates_as_unqualified(capsys) -> None:
-    assert models_cli(["specialists", "--model", "Qwen/Qwen3-0.6B", "--quantization", "Q5_K_M"]) == 0
+    assert (
+        models_cli(["specialists", "--model", "Qwen/Qwen3-0.6B", "--quantization", "Q5_K_M"]) == 0
+    )
     report = json.loads(capsys.readouterr().out)
     assert report["advisory"] is True
     assert report["models"][0]["selected_preview"]["quantization"] == "Q5_K_M"

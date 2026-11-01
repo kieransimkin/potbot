@@ -3,16 +3,13 @@
 These tests use fake launchers; they validate wiring, not a real kernel sandbox.
 The accompanying live host acceptance must qualify cgroup/taskstats/strace.
 """
+
 from __future__ import annotations
 
 import sys
 import types
-from pathlib import Path
 from uuid import uuid4
 
-import pytest
-
-from potbot.domain.errors import CapabilityUnavailableError
 from potbot.tools.isolation import IsolationLaunch
 from potbot.tools.xpra_app_sessions import AppRecipe, XpraApplicationSupervisor
 
@@ -53,11 +50,18 @@ def test_gui_launch_is_wrapped_and_lease_waits_for_kernel_audit(monkeypatch):
 
     class Guard:
         fenced = False
-        def start(self): leases.append("start")
-        def ensure_live(self): pass
+
+        def start(self):
+            leases.append("start")
+
+        def ensure_live(self):
+            pass
+
         def finish(self, *, evidence_sha256, uncertain=False):
             leases.append(("finish", uncertain))
-        def abandon(self): leases.append("abandon")
+
+        def abandon(self):
+            leases.append("abandon")
 
     fake_supervision = types.SimpleNamespace(
         WorkspaceLeaseGuard=types.SimpleNamespace(exclusive_home=lambda *a, **k: Guard()),
@@ -67,9 +71,11 @@ def test_gui_launch_is_wrapped_and_lease_waits_for_kernel_audit(monkeypatch):
     monkeypatch.setitem(sys.modules, "potbot.tools.workspace_supervision", fake_supervision)
 
     class Backend:
-        server = types.SimpleNamespace(workspace_id=workspace,
-                                        environment=lambda: {"DISPLAY": ":412"})
+        server = types.SimpleNamespace(
+            workspace_id=workspace, environment=lambda: {"DISPLAY": ":412"}
+        )
         runtime = types.SimpleNamespace(image_digest="a" * 64)
+
         def prepare(self, *, argv, status_fd):
             return IsolationLaunch(("/operator/bwrap", *argv), (status_fd,), "b" * 64)
 
@@ -86,9 +92,12 @@ def test_gui_launch_is_wrapped_and_lease_waits_for_kernel_audit(monkeypatch):
         return monitor
 
     apps = XpraApplicationSupervisor(
-        workspace_id=workspace, principal_id=principal,
+        workspace_id=workspace,
+        principal_id=principal,
         recipes=(AppRecipe("terminal", "Terminal", ("/usr/bin/xterm",)),),
-        backend=Backend(), ledger=object(), popen=launch,
+        backend=Backend(),
+        ledger=object(),
+        popen=launch,
         gui_audit_factory=audit,
     )
     try:
@@ -113,33 +122,49 @@ def test_failed_gui_audit_cannot_be_reported_as_clean(monkeypatch):
 
     class Guard:
         fenced = False
-        def start(self): pass
-        def finish(self, *, evidence_sha256, uncertain=False): receipts.append(uncertain)
-        def abandon(self): receipts.append(True)
 
-    monkeypatch.setitem(sys.modules, "potbot.tools.workspace_supervision", types.SimpleNamespace(
-        WorkspaceLeaseGuard=types.SimpleNamespace(exclusive_home=lambda *a, **k: Guard()),
-        WorkspaceExecutorIdentity=lambda *a: a,
-        admission_digest=lambda x: "a" * 64,
-    ))
+        def start(self):
+            pass
+
+        def finish(self, *, evidence_sha256, uncertain=False):
+            receipts.append(uncertain)
+
+        def abandon(self):
+            receipts.append(True)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "potbot.tools.workspace_supervision",
+        types.SimpleNamespace(
+            WorkspaceLeaseGuard=types.SimpleNamespace(exclusive_home=lambda *a, **k: Guard()),
+            WorkspaceExecutorIdentity=lambda *a: a,
+            admission_digest=lambda x: "a" * 64,
+        ),
+    )
 
     class Backend:
-        server = types.SimpleNamespace(workspace_id=workspace,
-                                       environment=lambda: {"DISPLAY": ":412"})
+        server = types.SimpleNamespace(
+            workspace_id=workspace, environment=lambda: {"DISPLAY": ":412"}
+        )
         runtime = types.SimpleNamespace(image_digest="a" * 64)
+
         def prepare(self, *, argv, status_fd):
             return IsolationLaunch(("/operator/bwrap", *argv), (status_fd,), "b" * 64)
 
     proc = FakeProcess()
+
     def audit(identity, run_id):
         m = FakeAudit(identity, run_id)
         m.complete = False
         return m
 
     apps = XpraApplicationSupervisor(
-        workspace_id=workspace, principal_id=principal,
+        workspace_id=workspace,
+        principal_id=principal,
         recipes=(AppRecipe("terminal", "Terminal", ("/usr/bin/xterm",)),),
-        backend=Backend(), ledger=object(), popen=lambda *a, **k: proc,
+        backend=Backend(),
+        ledger=object(),
+        popen=lambda *a, **k: proc,
         gui_audit_factory=audit,
     )
     try:

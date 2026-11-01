@@ -42,8 +42,12 @@ class ToolWriteGrant:
     guard: WorkspaceLeaseGuard
 
     def admit(
-        self, *, runtime: SharedWorkspaceRuntime, cwd: Path,
-        guest_uid: int | None, guest_gid: int | None,
+        self,
+        *,
+        runtime: SharedWorkspaceRuntime,
+        cwd: Path,
+        guest_uid: int | None,
+        guest_gid: int | None,
     ) -> Path:
         """Return the real tool directory; fail before any Bubblewrap dispatch."""
         # Avoid a module-level circular import (workspace_supervision imports
@@ -55,13 +59,9 @@ class ToolWriteGrant:
 
         if not isinstance(self.slug, str) or not _TOOL.fullmatch(self.slug):
             raise InvalidInputError("maintenance tool must have an exact canonical slug")
-        if not isinstance(self.agent, AgentHome) or not isinstance(
-            self.guard, WorkspaceLeaseGuard
-        ):
+        if not isinstance(self.agent, AgentHome) or not isinstance(self.guard, WorkspaceLeaseGuard):
             raise ScopeDeniedError("writable tool mounts require a host-issued agent and lease")
-        if not isinstance(self.agent.directory, str) or not _AGENT.fullmatch(
-            self.agent.directory
-        ):
+        if not isinstance(self.agent.directory, str) or not _AGENT.fullmatch(self.agent.directory):
             raise ScopeDeniedError("maintenance agent home is not a canonical directory")
         if guest_uid != self.agent.uid or guest_gid != self.agent.gid or guest_gid != 69:
             raise ScopeDeniedError("writable mount requires the admitted agent UID and group 69")
@@ -95,7 +95,11 @@ class ToolWriteGrant:
             raise ScopeDeniedError("workspace tool store is not a verified physical directory")
         tools = runtime.shared_tools.resolve(strict=True)
         target = tools / self.slug
-        if target.is_symlink() or not target.is_dir() or target.resolve(strict=True).parent != tools:
+        if (
+            target.is_symlink()
+            or not target.is_dir()
+            or target.resolve(strict=True).parent != tools
+        ):
             raise StateMismatchError("tool installer destination must be provisioned by the host")
         metadata = target.stat(follow_symlinks=False)
         if not stat.S_ISDIR(metadata.st_mode) or not metadata.st_mode & stat.S_IWGRP:

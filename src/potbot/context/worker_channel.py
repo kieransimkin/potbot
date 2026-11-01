@@ -13,13 +13,13 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from potbot.context.rpc_contract import OperationRequest, WorkRequest
-from potbot.context.work_exchange import ContextWorkExchange
 from potbot.context.rpc_transport import ChannelResult, serve_context_streams
 from potbot.context.sessions import ContextSession, ContextSessionStore
+from potbot.context.work_exchange import ContextWorkExchange
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
 
@@ -28,10 +28,8 @@ if TYPE_CHECKING:
     from potbot.tools.interactive_supervisor import InteractiveExit, IsolatedInteractiveProcess
     from potbot.tools.workspace_supervision import WorkspaceLeaseGuard
 
-_T = TypeVar("_T")
 
-
-async def _settle(operation: Callable[[], _T]) -> _T:
+async def _settle[T](operation: Callable[[], T]) -> T:
     task = asyncio.create_task(asyncio.to_thread(operation))
     try:
         return await asyncio.shield(task)
@@ -57,12 +55,22 @@ class ContextWorkerResult:
 
 
 class ContextWorkerChannel:
-    def __init__(self, *, store: ContextSessionStore, principal: WorkspaceContext,
-                 agent_id: UUID, guard: WorkspaceLeaseGuard, registry: AgentHomeRegistry,
-                 check_operator: Callable[[], None],
-                 work_exchange: ContextWorkExchange | None = None) -> None:
-        if (not isinstance(principal, WorkspaceContext) or not isinstance(agent_id, UUID)
-                or not callable(check_operator)):
+    def __init__(
+        self,
+        *,
+        store: ContextSessionStore,
+        principal: WorkspaceContext,
+        agent_id: UUID,
+        guard: WorkspaceLeaseGuard,
+        registry: AgentHomeRegistry,
+        check_operator: Callable[[], None],
+        work_exchange: ContextWorkExchange | None = None,
+    ) -> None:
+        if (
+            not isinstance(principal, WorkspaceContext)
+            or not isinstance(agent_id, UUID)
+            or not callable(check_operator)
+        ):
             raise ScopeDeniedError("Context channel requires trusted host admission")
         if work_exchange is not None and not isinstance(work_exchange, ContextWorkExchange):
             raise ScopeDeniedError("Work exchange must be host-bound")
@@ -79,20 +87,27 @@ class ContextWorkerChannel:
             raise ScopeDeniedError("Operator admission must fail by raising")
         self.guard.ensure_live()
         lease, request = self.guard.lease, self.guard.request
-        if (lease is None or self.registry.ledger is not self.guard.ledger
-                or lease.workspace_id != self.principal.workspace_id
-                or request.workspace_id != self.principal.workspace_id
-                or request.actor_id != self.agent_id):
+        if (
+            lease is None
+            or self.registry.ledger is not self.guard.ledger
+            or lease.workspace_id != self.principal.workspace_id
+            or request.workspace_id != self.principal.workspace_id
+            or request.actor_id != self.agent_id
+        ):
             raise ScopeDeniedError("Context channel lease does not match the admitted agent")
 
     def _validate_process(self, process: IsolatedInteractiveProcess) -> UUID:
         self._authorize()
-        if (process.closed or not isinstance(process.isolation_identity, str)
-                or not re.fullmatch(r"[0-9a-f]{64}", process.isolation_identity)):
+        if (
+            process.closed
+            or not isinstance(process.isolation_identity, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", process.isolation_identity)
+        ):
             raise ScopeDeniedError("Context worker has no live isolation receipt")
         home = self.registry.lookup(self.principal.workspace_id, self.agent_id)
         run_id = validate_worker_binding(
-            process.request, home, Path(self.registry.ledger.home), self.principal, self.agent_id)
+            process.request, home, Path(self.registry.ledger.home), self.principal, self.agent_id
+        )
         pin = self.guard.ledger.image_status(self.principal.workspace_id)
         if pin is None or pin.get("digest") != self.guard.request.image_digest:
             raise ScopeDeniedError("Context worker image admission changed")
@@ -139,23 +154,30 @@ class ContextWorkerChannel:
                     await _settle(lambda: self.store.renew(bound))
 
             heartbeat = asyncio.create_task(renew())
-            channel_task = asyncio.create_task(serve_context_streams(
-                process.reader, process.writer, execute,
-            ))
-            done, _ = await asyncio.wait((channel_task, heartbeat),
-                                         return_when=asyncio.FIRST_COMPLETED)
+            channel_task = asyncio.create_task(
+                serve_context_streams(
+                    process.reader,
+                    process.writer,
+                    execute,
+                )
+            )
+            done, _ = await asyncio.wait(
+                (channel_task, heartbeat), return_when=asyncio.FIRST_COMPLETED
+            )
             if heartbeat in done:
                 heartbeat.result()  # fail closed on the first failed independent lease check
             result = await channel_task
         except BaseException as exc:
             failure = exc
         finally:
+
             async def cleanup_all() -> None:
                 for task in (heartbeat, channel_task):
                     if task is not None and not task.done():
                         task.cancel()
-                await asyncio.gather(*(t for t in (heartbeat, channel_task) if t is not None),
-                                     return_exceptions=True)
+                await asyncio.gather(
+                    *(t for t in (heartbeat, channel_task) if t is not None), return_exceptions=True
+                )
                 # No DB mutation remains detached when we get here.
                 try:
                     self.exit_receipt = await process.close(force=failure is not None)
@@ -184,33 +206,52 @@ class ContextWorkerChannel:
                 cleanup.append(exc)
         if failure is not None:
             if cleanup:
-                failure.add_note("Context cleanup needs host reconciliation; do not release the lease")
+                failure.add_note(
+                    "Context cleanup needs host reconciliation; do not release the lease"
+                )
             raise failure
         if cleanup:
             raise IndeterminateExecutionError(
                 "Context cleanup needs host reconciliation; do not release the lease"
             ) from None
         assert grant is not None and result is not None and self.exit_receipt is not None
-        return ContextWorkerResult(grant.session_id, result, self.exit_receipt,
-                                   self.work_exchange.result if self.work_exchange is not None else None)
+        return ContextWorkerResult(
+            grant.session_id,
+            result,
+            self.exit_receipt,
+            self.work_exchange.result if self.work_exchange is not None else None,
+        )
 
 
-def validate_worker_binding(request: Any, home: Any, root: Path,
-                            principal: WorkspaceContext, agent_id: UUID) -> UUID:
+def validate_worker_binding(
+    request: Any, home: Any, root: Path, principal: WorkspaceContext, agent_id: UUID
+) -> UUID:
     """Validate identity/home/pipe policy before spawn AND again before RPC issuance."""
-    if (home is None or home.workspace_id != principal.workspace_id or home.agent_id != agent_id
-            or request.telemetry_workspace_id != principal.workspace_id
-            or request.telemetry_agent_id != agent_id or request.telemetry_identity_kind != "agent"
-            or not isinstance(request.telemetry_run_id, UUID)
-            or request.guest_uid != home.uid or request.guest_gid != home.gid
-            or request.stdin != b"" or request.ipc_profile != "none"
-            or request.read_only_roots or request.writable_roots):
+    if (
+        home is None
+        or home.workspace_id != principal.workspace_id
+        or home.agent_id != agent_id
+        or request.telemetry_workspace_id != principal.workspace_id
+        or request.telemetry_agent_id != agent_id
+        or request.telemetry_identity_kind != "agent"
+        or not isinstance(request.telemetry_run_id, UUID)
+        or request.guest_uid != home.uid
+        or request.guest_gid != home.gid
+        or request.stdin != b""
+        or request.ipc_profile != "none"
+        or request.read_only_roots
+        or request.writable_roots
+    ):
         raise ScopeDeniedError("Context worker is not the isolated registered agent")
     root = root.resolve(strict=True)
     target = root / home.directory
-    if (target.is_symlink() or not target.is_dir() or target.resolve(strict=True).parent != root
-            or Path(request.workspace_root).resolve(strict=True) != root
-            or Path(request.sandbox_root or request.workspace_root).resolve(strict=True) != root
-            or not Path(request.cwd).resolve(strict=True).is_relative_to(target)):
+    if (
+        target.is_symlink()
+        or not target.is_dir()
+        or target.resolve(strict=True).parent != root
+        or Path(request.workspace_root).resolve(strict=True) != root
+        or Path(request.sandbox_root or request.workspace_root).resolve(strict=True) != root
+        or not Path(request.cwd).resolve(strict=True).is_relative_to(target)
+    ):
         raise ScopeDeniedError("Context worker home differs from its registration")
     return request.telemetry_run_id

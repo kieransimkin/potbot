@@ -4,6 +4,7 @@ Only an operator-admitted, leased Xpra *application session* can receive a
 browser command. No CDP TCP endpoint or host process/socket identifier leaks to
 callers. No retries for actions with indeterminate outcomes.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,7 +41,10 @@ class BrowserControlChannel:
                 raise StateMismatchError("controlled browser has exited or been fenced")
             self._sequence += 1
             seq = self._sequence
-            outgoing = json.dumps({"id": seq, "command": approved}, separators=(",", ":")).encode("utf-8") + b"\n"
+            outgoing = (
+                json.dumps({"id": seq, "command": approved}, separators=(",", ":")).encode("utf-8")
+                + b"\n"
+            )
             if len(outgoing) > MAX_REQUEST:
                 raise InvalidInputError("browser operation is too large")
             try:
@@ -52,12 +56,19 @@ class BrowserControlChannel:
                         line, _, leftover = self._buffer.partition(b"\n")
                         self._buffer = bytearray(leftover)
                         data = json.loads(line)
-                        if not isinstance(data, dict) or data.get("id") != seq or type(data.get("ok")) is not bool:
+                        if (
+                            not isinstance(data, dict)
+                            or data.get("id") != seq
+                            or type(data.get("ok")) is not bool
+                        ):
                             raise ValueError("unexpected browser worker response")
                         if not data["ok"]:
                             # Older rootfs workers may not report an
                             # indeterminate flag. Mutation is STILL uncertain.
-                            if browser_operation_may_mutate(approved) or data.get("indeterminate") is True:
+                            if (
+                                browser_operation_may_mutate(approved)
+                                or data.get("indeterminate") is True
+                            ):
                                 raise TimeoutError("browser action outcome is indeterminate")
                             raise InvalidInputError("browser command was rejected or failed")
                         if not isinstance(data.get("result"), dict):
@@ -68,7 +79,9 @@ class BrowserControlChannel:
                         raise TimeoutError("browser command outcome is indeterminate")
                     if not select.select([self.process.stdout.fileno()], [], [], remain)[0]:
                         raise TimeoutError("browser command outcome is indeterminate")
-                    chunk = os.read(self.process.stdout.fileno(), min(8192, MAX_REPLY - len(self._buffer)))
+                    chunk = os.read(
+                        self.process.stdout.fileno(), min(8192, MAX_REPLY - len(self._buffer))
+                    )
                     if not chunk:
                         raise EOFError("browser worker response channel closed")
                     self._buffer.extend(chunk)
@@ -77,11 +90,20 @@ class BrowserControlChannel:
             except InvalidInputError:
                 # An explicit worker rejection is a definite failed action.
                 raise
-            except (BrokenPipeError, OSError, TimeoutError, EOFError, ValueError, json.JSONDecodeError) as exc:
+            except (
+                BrokenPipeError,
+                OSError,
+                TimeoutError,
+                EOFError,
+                ValueError,
+                json.JSONDecodeError,
+            ) as exc:
                 # Do not retry! The worker might have clicked/submitted before a
                 # disconnect. The operator must reconcile/terminate the session.
                 self._fenced = True
-                raise StateMismatchError("browser outcome is indeterminate; session fenced") from exc
+                raise StateMismatchError(
+                    "browser outcome is indeterminate; session fenced"
+                ) from exc
 
     def close(self) -> None:
         self._fenced = True

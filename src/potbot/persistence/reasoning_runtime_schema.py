@@ -4,7 +4,11 @@ Reasoning workspace authority remains PostgreSQL RLS; a run lease fences stale
 writers. External provider calls are never retried after uncertain dispatch.
 """
 
-WORKSPACE_TABLES = ("reasoning_runtime_runs", "reasoning_runtime_steering", "reasoning_runtime_events")
+WORKSPACE_TABLES = (
+    "reasoning_runtime_runs",
+    "reasoning_runtime_steering",
+    "reasoning_runtime_events",
+)
 APPEND_ONLY_TABLES = ("reasoning_runtime_events",)
 
 MIGRATION_STATEMENTS = (

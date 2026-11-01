@@ -14,8 +14,15 @@ from potbot.tools.operator_cli import parse_manifest
 
 def manifest(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     fields: dict[str, str] = {}
-    for name in ("rootfs", "home", "model_staging", "shared_models", "shared_tools",
-                 "ai_config_dir", "ai_history_dir"):
+    for name in (
+        "rootfs",
+        "home",
+        "model_staging",
+        "shared_models",
+        "shared_tools",
+        "ai_config_dir",
+        "ai_history_dir",
+    ):
         directory = tmp_path / name
         directory.mkdir()
         fields[name] = str(directory)
@@ -50,13 +57,16 @@ def test_operator_pins_are_bounded_and_pass_to_runtime(tmp_path: Path) -> None:
     assert options.runtime().tool_entrypoints == options.tool_entrypoints
 
 
-@pytest.mark.parametrize("value", [
-    {"/etc/shadow": "a" * 64},
-    {"/usr/local/tools/stemlab/checkout/main.py": "a" * 64},
-    {"/usr/local/tools/stemlab/static/../escape": "a" * 64},
-    {"/usr/local/tools/stemlab/static/app": "bad-digest"},
-    ["not", "a", "map"],
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"/etc/shadow": "a" * 64},
+        {"/usr/local/tools/stemlab/checkout/main.py": "a" * 64},
+        {"/usr/local/tools/stemlab/static/../escape": "a" * 64},
+        {"/usr/local/tools/stemlab/static/app": "bad-digest"},
+        ["not", "a", "map"],
+    ],
+)
 def test_invalid_runtime_pins_rejected(tmp_path: Path, value) -> None:
     path, record = manifest(tmp_path)
     record["tool_entrypoints"] = value

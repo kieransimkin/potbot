@@ -39,10 +39,15 @@ def registry(tmp_path: Path):
     private.mkdir()
     ledger = WorkspaceLeaseLedger(private / "controller.sqlite", workspace_home=home)
     workspace = uuid4()
-    ledger.pin_image(workspace, digest=DIGEST,
-                     image_ref="ghcr.io/test/rootfs@sha256:" + DIGEST,
-                     build_commit="f" * 40, platform="linux/amd64",
-                     rootfs_path=rootfs, qualification_sha256=QUALIFICATION)
+    ledger.pin_image(
+        workspace,
+        digest=DIGEST,
+        image_ref="ghcr.io/test/rootfs@sha256:" + DIGEST,
+        build_commit="f" * 40,
+        platform="linux/amd64",
+        rootfs_path=rootfs,
+        qualification_sha256=QUALIFICATION,
+    )
     return AgentHomeRegistry(ledger, workspace_name="danceflow"), workspace, home
 
 
@@ -88,7 +93,9 @@ def test_copy_once_preserves_customizations_and_rename(registry):
     assert bashrc.read_text() == "# Owned by agent, do not overwrite\n"
     renamed = owner.rename(workspace, actor, "my-creative-name", expected_revision=1)
     assert renamed.guest_path == "/home/my-creative-name"
-    assert (home / renamed.directory / ".bashrc").read_text() == "# Owned by agent, do not overwrite\n"
+    assert (
+        home / renamed.directory / ".bashrc"
+    ).read_text() == "# Owned by agent, do not overwrite\n"
     assert not path.exists()
 
 
@@ -138,8 +145,13 @@ def test_bash_startup_is_silent_for_noninteractive_tools(registry):
     owner, workspace, home = registry
     agent = owner.provision(workspace, uuid4())
     env = {"HOME": str(home / agent.directory), "PATH": "/usr/bin:/bin", "POTBOT_WELCOME": "1"}
-    result = subprocess.run(["bash", "--noprofile", "-c", "source \"$HOME/.bashrc\"; printf 'clean\\n'"],
-                            env=env, capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        ["bash", "--noprofile", "-c", "source \"$HOME/.bashrc\"; printf 'clean\\n'"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     assert result.stdout == "clean\n"
     for script in sorted((home / agent.directory / ".local/share/potbot/motd.d").iterdir()):
         result = subprocess.run(["bash", "-n", str(script)], capture_output=True)
@@ -169,9 +181,16 @@ def test_interactive_pty_sources_the_agent_bashrc(registry):
     try:
         process = subprocess.Popen(
             ["bash", "--noprofile", "-i", "-c", "printf 'SHELL-RAN\\n'"],
-            env={"HOME": str(path), "PATH": "/usr/bin:/bin", "POTBOT_WELCOME": "1",
-                 "TERM": "xterm-256color"},
-            stdin=slave, stdout=slave, stderr=slave, start_new_session=True,
+            env={
+                "HOME": str(path),
+                "PATH": "/usr/bin:/bin",
+                "POTBOT_WELCOME": "1",
+                "TERM": "xterm-256color",
+            },
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            start_new_session=True,
         )
         os.close(slave)
         slave = -1
@@ -215,9 +234,16 @@ def _interactive_banner(agent_home: Path) -> str:
     try:
         process = subprocess.Popen(
             ["bash", "--noprofile", "-i", "-c", ":"],
-            env={"HOME": str(agent_home), "PATH": "/usr/bin:/bin",
-                 "POTBOT_WELCOME": "1", "TERM": "xterm-256color"},
-            stdin=slave, stdout=slave, stderr=slave, start_new_session=True,
+            env={
+                "HOME": str(agent_home),
+                "PATH": "/usr/bin:/bin",
+                "POTBOT_WELCOME": "1",
+                "TERM": "xterm-256color",
+            },
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            start_new_session=True,
         )
         os.close(slave)
         slave = -1
@@ -275,7 +301,7 @@ def test_invalid_banner_customization_is_not_executed(registry):
         pytest.skip("Bash not installed")
     owner, workspace, home = registry
     agent_id = uuid4()
-    anon = owner.provision(workspace, agent_id)
+    owner.provision(workspace, agent_id)
     named = owner.rename(workspace, agent_id, "safe-agent", expected_revision=1)
     root = home / named.directory
     (root / ".config/potbot/banner.title").write_text("Hi$(touch /tmp/UNSAFE)\n")

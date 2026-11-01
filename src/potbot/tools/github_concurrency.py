@@ -87,7 +87,6 @@ class GitHubChangeIntent:
         }
 
 
-
 class GitHubRefClient(Protocol):
     """Trusted server-side transport; update MUST use GraphQL updateRefs.beforeOid.
 
@@ -97,8 +96,9 @@ class GitHubRefClient(Protocol):
 
     def head(self, repository: str, branch: str) -> str: ...
 
-    def compare_and_swap(self, repository: str, branch: str, *,
-                         before_oid: str, after_oid: str) -> str: ...
+    def compare_and_swap(
+        self, repository: str, branch: str, *, before_oid: str, after_oid: str
+    ) -> str: ...
 
 
 def graphql_update_refs_variables(
@@ -114,8 +114,9 @@ def graphql_update_refs_variables(
         raise InvalidInputError("GitHub CAS requires immutable commit OIDs")
     return {
         "repositoryId": repository_id,
-        "refUpdates": [{"name": branch, "beforeOid": before_oid,
-                        "afterOid": after_oid, "force": False}],
+        "refUpdates": [
+            {"name": branch, "beforeOid": before_oid, "afterOid": after_oid, "force": False}
+        ],
     }
 
 
@@ -144,7 +145,11 @@ class ConcurrentGitHubTool:
         self.client = client
 
     def update_agent_branch(
-        self, intent: GitHubChangeIntent, *, new_commit: str, image_digest: str,
+        self,
+        intent: GitHubChangeIntent,
+        *,
+        new_commit: str,
+        image_digest: str,
         idempotency_key: str,
     ) -> GitHubMutationReceipt:
         if intent.target_branch != intent.agent_branch:
@@ -152,9 +157,13 @@ class ConcurrentGitHubTool:
         if not isinstance(new_commit, str) or not _SHA.fullmatch(new_commit):
             raise InvalidInputError("publish requires a verified new commit SHA")
         request = AccessRequest(
-            workspace_id=intent.workspace_id, actor_id=intent.agent_id,
-            operation="github.update_ref", idempotency_key=idempotency_key,
-            effect="write", resources=(intent.branch_resource,), image_digest=image_digest,
+            workspace_id=intent.workspace_id,
+            actor_id=intent.agent_id,
+            operation="github.update_ref",
+            idempotency_key=idempotency_key,
+            effect="write",
+            resources=(intent.branch_resource,),
+            image_digest=image_digest,
         )
         lease = self.ledger.claim(request)
         if lease.state != "active":
@@ -168,18 +177,23 @@ class ConcurrentGitHubTool:
             intent.verify_head(self.client.head(intent.repository, intent.target_branch))
             dispatched = True
             returned_oid = self.client.compare_and_swap(
-                intent.repository, intent.target_branch,
-                before_oid=intent.expected_head, after_oid=new_commit,
+                intent.repository,
+                intent.target_branch,
+                before_oid=intent.expected_head,
+                after_oid=new_commit,
             )
             if returned_oid != new_commit:
                 raise StateMismatchError("GitHub mutation response cannot be verified")
             if self.client.head(intent.repository, intent.target_branch) != new_commit:
                 raise StateMismatchError("GitHub mutation readback cannot be verified")
             receipt = GitHubMutationReceipt(
-                repository=intent.repository, branch=intent.target_branch,
-                before_oid=intent.expected_head, after_oid=new_commit,
+                repository=intent.repository,
+                branch=intent.target_branch,
+                before_oid=intent.expected_head,
+                after_oid=new_commit,
                 patch_sha256=intent.patch_sha256,
-                workspace_id=str(intent.workspace_id), agent_id=str(intent.agent_id),
+                workspace_id=str(intent.workspace_id),
+                agent_id=str(intent.agent_id),
                 lease_generation=lease.generation,
             )
             digest = sha256(dumps(asdict(receipt), sort_keys=True).encode()).hexdigest()
@@ -190,7 +204,8 @@ class ConcurrentGitHubTool:
             # is uncertain and MUST be reconciled before any new attempt.
             try:
                 self.ledger.finish(
-                    lease, result_sha256=sha256(
+                    lease,
+                    result_sha256=sha256(
                         b"github-unresolved-v1" if dispatched else b"github-preflight-rejected-v1"
                     ).hexdigest(),
                     uncertain=dispatched,
@@ -208,13 +223,18 @@ class GitHubGraphQLClient:
     HTTP/GraphQL error bodies (which may contain private data) are discarded.
     """
 
-    def __init__(self, *, token_supplier: Callable[[], str],
-                 allowed_repositories: frozenset[str]) -> None:
-        if not callable(token_supplier) or not allowed_repositories or any(
-            not isinstance(repo, str)
-            or len(repo.split("/")) != 2
-            or not all(_NAME.fullmatch(x) for x in repo.split("/"))
-            for repo in allowed_repositories
+    def __init__(
+        self, *, token_supplier: Callable[[], str], allowed_repositories: frozenset[str]
+    ) -> None:
+        if (
+            not callable(token_supplier)
+            or not allowed_repositories
+            or any(
+                not isinstance(repo, str)
+                or len(repo.split("/")) != 2
+                or not all(_NAME.fullmatch(x) for x in repo.split("/"))
+                for repo in allowed_repositories
+            )
         ):
             raise InvalidInputError("GitHub client requires vault and allowed repositories")
         self._token_supplier = token_supplier
@@ -228,20 +248,30 @@ class GitHubGraphQLClient:
         if repository.casefold() not in self._allowlist:
             raise InvalidInputError("GitHub repository is not authorized")
         token = self._token_supplier()
-        if (not isinstance(token, str) or not (20 <= len(token) <= 4096)
-                or any(ord(char) < 33 or ord(char) > 126 for char in token)):
+        if (
+            not isinstance(token, str)
+            or not (20 <= len(token) <= 4096)
+            or any(ord(char) < 33 or ord(char) > 126 for char in token)
+        ):
             raise InvalidInputError("GitHub credential is unavailable")
         body = json.dumps({"query": query, "variables": variables}, separators=(",", ":"))
         if len(body) > 100000:
             raise InvalidInputError("GitHub query exceeds size bound")
-        conn = http.client.HTTPSConnection("api.github.com", timeout=15, context=ssl.create_default_context())
+        conn = http.client.HTTPSConnection(
+            "api.github.com", timeout=15, context=ssl.create_default_context()
+        )
         try:
-            conn.request("POST", "/graphql", body=body.encode(), headers={
-                "Authorization": "Bearer " + token,
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/json",
-                "User-Agent": "potbot-workspace-broker",
-            })
+            conn.request(
+                "POST",
+                "/graphql",
+                body=body.encode(),
+                headers={
+                    "Authorization": "Bearer " + token,
+                    "Accept": "application/vnd.github+json",
+                    "Content-Type": "application/json",
+                    "User-Agent": "potbot-workspace-broker",
+                },
+            )
             response = conn.getresponse()
             raw = response.read(1_048_577)
             if response.status != 200 or len(raw) > 1_048_576:
@@ -250,8 +280,10 @@ class GitHubGraphQLClient:
                 payload = json.loads(raw)
             except (UnicodeDecodeError, ValueError) as exc:
                 raise StateMismatchError("GitHub GraphQL response is invalid") from exc
-            if not isinstance(payload, dict) or payload.get("errors") or not isinstance(
-                payload.get("data"), dict
+            if (
+                not isinstance(payload, dict)
+                or payload.get("errors")
+                or not isinstance(payload.get("data"), dict)
             ):
                 raise StateMismatchError("GitHub rejected the authorized operation")
             return payload["data"]
@@ -260,11 +292,15 @@ class GitHubGraphQLClient:
 
     def _ref(self, repository: str, branch: str) -> tuple[str, str]:
         owner, name = repository.split("/")
-        result = self._query(repository, """query($owner:String!,$name:String!,$ref:String!){
+        result = self._query(
+            repository,
+            """query($owner:String!,$name:String!,$ref:String!){
             repository(owner:$owner,name:$name){
               id ref(qualifiedName:$ref){target{oid}}
             }
-          }""", {"owner": owner, "name": name, "ref": "refs/heads/" + branch})
+          }""",
+            {"owner": owner, "name": name, "ref": "refs/heads/" + branch},
+        )
         entry = result.get("repository")
         ref = entry.get("ref") if isinstance(entry, dict) else None
         oid = ref.get("target", {}).get("oid") if isinstance(ref, dict) else None
@@ -276,18 +312,25 @@ class GitHubGraphQLClient:
     def head(self, repository: str, branch: str) -> str:
         return self._ref(repository, branch)[1]
 
-    def compare_and_swap(self, repository: str, branch: str, *,
-                         before_oid: str, after_oid: str) -> str:
+    def compare_and_swap(
+        self, repository: str, branch: str, *, before_oid: str, after_oid: str
+    ) -> str:
         node_id, observed = self._ref(repository, branch)
         if observed != before_oid:
             raise StateMismatchError("GitHub HEAD moved before CAS")
         variables = graphql_update_refs_variables(
-            repository_id=node_id, branch="refs/heads/" + branch,
-            before_oid=before_oid, after_oid=after_oid,
+            repository_id=node_id,
+            branch="refs/heads/" + branch,
+            before_oid=before_oid,
+            after_oid=after_oid,
         )
-        result = self._query(repository, """mutation($input:UpdateRefsInput!){
+        result = self._query(
+            repository,
+            """mutation($input:UpdateRefsInput!){
             updateRefs(input:$input){clientMutationId}
-          }""", {"input": variables})
+          }""",
+            {"input": variables},
+        )
         if not isinstance(result.get("updateRefs"), dict):
             raise StateMismatchError("GitHub did not acknowledge the ref transaction")
         actual = self.head(repository, branch)
@@ -333,15 +376,22 @@ class GitHubFileChangePlan:
 
     def resources(self, *, read_only: bool = False) -> tuple[AccessResource, ...]:
         mode: Mode = "read" if read_only else "write"
-        return tuple(AccessResource(
-            "github_file",
-            f"{self.intent.repository}#refs/heads/{self.intent.target_branch}:{item.path}",
-            mode,
-        ) for item in self.files)
+        return tuple(
+            AccessResource(
+                "github_file",
+                f"{self.intent.repository}#refs/heads/{self.intent.target_branch}:{item.path}",
+                mode,
+            )
+            for item in self.files
+        )
 
     def access_request(self, *, image_digest: str, idempotency_key: str) -> AccessRequest:
         return AccessRequest(
-            self.intent.workspace_id, self.intent.agent_id,
-            "github.stage_files", idempotency_key, "write",
-            self.resources(), image_digest,
+            self.intent.workspace_id,
+            self.intent.agent_id,
+            "github.stage_files",
+            idempotency_key,
+            "write",
+            self.resources(),
+            image_digest,
         )

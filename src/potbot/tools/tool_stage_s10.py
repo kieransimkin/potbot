@@ -40,17 +40,27 @@ _MAX_FILE = 4 * 1024**3
 
 
 def _canonical(value: object) -> bytes:
-    return (json.dumps(value, sort_keys=True, separators=(",", ":"),
-                       ensure_ascii=True) + "\n").encode("ascii")
+    return (
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
+    ).encode("ascii")
 
 
 def command_digest(argv: tuple[str, ...]) -> str:
     """Pin an exact argv; never string-join and invoke a shell."""
-    if not isinstance(argv, tuple) or not 1 <= len(argv) <= 64 or any(
-        not isinstance(x, str) or not x or "\x00" in x or "\r" in x
-        or "\n" in x or len(x.encode()) > 8192 for x in argv
-    ) or not argv[0].startswith("/") or argv[0].startswith(
-        ("/home/", "/usr/local/tools/", "/var/ai/")
+    if (
+        not isinstance(argv, tuple)
+        or not 1 <= len(argv) <= 64
+        or any(
+            not isinstance(x, str)
+            or not x
+            or "\x00" in x
+            or "\r" in x
+            or "\n" in x
+            or len(x.encode()) > 8192
+            for x in argv
+        )
+        or not argv[0].startswith("/")
+        or argv[0].startswith(("/home/", "/usr/local/tools/", "/var/ai/"))
     ):
         raise InvalidInputError("S10 requires an exact rootfs build command")
     return hashlib.sha256(_canonical(list(argv))).hexdigest()
@@ -90,16 +100,20 @@ class ToolBuildPlan:
     timeout_ms: int = 600_000
 
     def __post_init__(self) -> None:
-        if not all(isinstance(x, UUID) for x in (
-            self.workspace_id, self.agent_id, self.operation_id
-        )) or not _SLUG.fullmatch(self.slug):
+        if not all(
+            isinstance(x, UUID) for x in (self.workspace_id, self.agent_id, self.operation_id)
+        ) or not _SLUG.fullmatch(self.slug):
             raise InvalidInputError("S10 requires trusted operation identities")
-        if not all(isinstance(x, str) and re.fullmatch(r"[a-f0-9]{40}", x)
-                   for x in (self.expected_old_commit, self.source_commit)):
+        if not all(
+            isinstance(x, str) and re.fullmatch(r"[a-f0-9]{40}", x)
+            for x in (self.expected_old_commit, self.source_commit)
+        ):
             raise InvalidInputError("S10 requires exact Git revisions")
-        if not isinstance(self.approved_argv_sha256, str) or not _HEX.fullmatch(
-            self.approved_argv_sha256
-        ) or command_digest(self.build_argv) != self.approved_argv_sha256:
+        if (
+            not isinstance(self.approved_argv_sha256, str)
+            or not _HEX.fullmatch(self.approved_argv_sha256)
+            or command_digest(self.build_argv) != self.approved_argv_sha256
+        ):
             raise ScopeDeniedError("S10 build command differs from operator approval")
         if type(self.timeout_ms) is not int or not 100 <= self.timeout_ms <= 900_000:
             raise InvalidInputError("S10 build deadline is outside policy")
@@ -131,16 +145,24 @@ class _SafeCopy:
         finally:
             os.close(src_fd)
             os.close(dst_fd)
-        return {"files_and_directories": self.entries, "bytes": self.bytes,
-                "tree_sha256": self.digest.hexdigest()}
+        return {
+            "files_and_directories": self.entries,
+            "bytes": self.bytes,
+            "tree_sha256": self.digest.hexdigest(),
+        }
 
     def _walk(self, source_fd: int, dest_fd: int, prefix: str, depth: int) -> None:
         if depth > 28:
             raise ScopeDeniedError("S10 source tree is too deep")
         names = sorted(os.listdir(source_fd))
         for name in names:
-            if name in {".", ".."} or not name or "/" in name or "\x00" in name \
-                    or len(name.encode()) > 240:
+            if (
+                name in {".", ".."}
+                or not name
+                or "/" in name
+                or "\x00" in name
+                or len(name.encode()) > 240
+            ):
                 raise ScopeDeniedError("S10 source has an unsafe component")
             path = f"{prefix}/{name}" if prefix else name
             self.entries += 1
@@ -151,14 +173,19 @@ class _SafeCopy:
             if mode & 0o6000:
                 raise ScopeDeniedError("S10 source includes privileged mode bits")
             if stat.S_ISDIR(info.st_mode):
-                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                dir_fd=source_fd)
+                child = os.open(
+                    name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=source_fd
+                )
                 try:
-                    if os.fstat(child).st_ino != info.st_ino or os.fstat(child).st_dev != info.st_dev:
+                    if (
+                        os.fstat(child).st_ino != info.st_ino
+                        or os.fstat(child).st_dev != info.st_dev
+                    ):
                         raise StateMismatchError("S10 directory changed while staging")
                     os.mkdir(name, 0o700, dir_fd=dest_fd)
-                    new_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                     dir_fd=dest_fd)
+                    new_fd = os.open(
+                        name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dest_fd
+                    )
                     try:
                         self.digest.update(_canonical([path, "dir", mode]))
                         self._walk(child, new_fd, path, depth + 1)
@@ -169,16 +196,28 @@ class _SafeCopy:
                 finally:
                     os.close(child)
             elif stat.S_ISREG(info.st_mode):
-                if info.st_nlink != 1 or info.st_size > _MAX_FILE or self.bytes + info.st_size > _MAX_BYTES:
+                if (
+                    info.st_nlink != 1
+                    or info.st_size > _MAX_FILE
+                    or self.bytes + info.st_size > _MAX_BYTES
+                ):
                     raise ScopeDeniedError("S10 source file exceeds bounds or is hardlinked")
                 from_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=source_fd)
                 try:
                     before = os.fstat(from_fd)
                     if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
-                            info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns):
+                        info.st_dev,
+                        info.st_ino,
+                        info.st_size,
+                        info.st_mtime_ns,
+                    ):
                         raise StateMismatchError("S10 file changed before transfer")
-                    to_fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                                    0o600, dir_fd=dest_fd)
+                    to_fd = os.open(
+                        name,
+                        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                        0o600,
+                        dir_fd=dest_fd,
+                    )
                     hasher = hashlib.sha256()
                     count = 0
                     try:
@@ -197,14 +236,20 @@ class _SafeCopy:
                             raise StateMismatchError("S10 file was shortened")
                         after = os.fstat(from_fd)
                         if (after.st_ino, after.st_dev, after.st_size, after.st_mtime_ns) != (
-                                before.st_ino, before.st_dev, before.st_size, before.st_mtime_ns):
+                            before.st_ino,
+                            before.st_dev,
+                            before.st_size,
+                            before.st_mtime_ns,
+                        ):
                             raise StateMismatchError("S10 file changed during transfer")
                         os.fchmod(to_fd, 0o755 if mode & 0o111 else 0o644)
                         os.fsync(to_fd)
                     finally:
                         os.close(to_fd)
                     self.bytes += count
-                    self.digest.update(_canonical([path, "file", count, hasher.hexdigest(), bool(mode & 0o111)]))
+                    self.digest.update(
+                        _canonical([path, "file", count, hasher.hexdigest(), bool(mode & 0o111)])
+                    )
                 finally:
                     os.close(from_fd)
             else:
@@ -239,8 +284,12 @@ class OfflineToolStager:
         return record
 
     def stage(
-        self, *, plan: ToolBuildPlan, built_tree: Path,
-        result: object, expected_source_commit: str,
+        self,
+        *,
+        plan: ToolBuildPlan,
+        built_tree: Path,
+        result: object,
+        expected_source_commit: str,
     ) -> dict[str, Any]:
         """Accept only a real supervisor result; stage is atomic, not an upgrade.
 
@@ -249,13 +298,15 @@ class OfflineToolStager:
         """
         if expected_source_commit != plan.source_commit:
             raise StateMismatchError("S10 build source revision differs from plan")
-        if not (getattr(result, "dispatched", None) is True
-                and getattr(result, "processes_stopped", None) is True
-                and getattr(result, "outcome", None) == "completed"
-                and getattr(result, "exit_code", None) == 0
-                and isinstance(getattr(result, "isolation_identity", None), str)
-                and len(result.isolation_identity) == 64
-                and _HEX.fullmatch(result.isolation_identity)):
+        if not (
+            getattr(result, "dispatched", None) is True
+            and getattr(result, "processes_stopped", None) is True
+            and getattr(result, "outcome", None) == "completed"
+            and getattr(result, "exit_code", None) == 0
+            and isinstance(getattr(result, "isolation_identity", None), str)
+            and len(result.isolation_identity) == 64
+            and _HEX.fullmatch(result.isolation_identity)
+        ):
             raise StateMismatchError("S10 build lacks a qualified completed process receipt")
         root = self.shared_tools
         output = _directory(built_tree)
@@ -263,9 +314,15 @@ class OfflineToolStager:
             raise ScopeDeniedError("S10 build must originate outside the shared tool store")
         target = stage_name(plan.slug, plan.operation_id)
         incoming = f".potbot-s10-incoming-{plan.operation_id.hex}"
-        if ((root / target).exists() or (root / target).is_symlink()
-                or (root / incoming).exists() or (root / incoming).is_symlink()):
-            raise StateMismatchError("S10 previous stage or interrupted transfer needs reconciliation")
+        if (
+            (root / target).exists()
+            or (root / target).is_symlink()
+            or (root / incoming).exists()
+            or (root / incoming).is_symlink()
+        ):
+            raise StateMismatchError(
+                "S10 previous stage or interrupted transfer needs reconciliation"
+            )
         if self._receipt_path(plan.operation_id).exists():
             raise StateMismatchError("S10 operation ID is already recorded")
         os.mkdir(root / incoming, 0o700)
@@ -286,8 +343,10 @@ class OfflineToolStager:
             os.close(fd)
         record = {
             "schema": "potbot-tool-stage-s10/v1",
-            "workspace_id": str(plan.workspace_id), "agent_id": str(plan.agent_id),
-            "operation_id": str(plan.operation_id), "slug": plan.slug,
+            "workspace_id": str(plan.workspace_id),
+            "agent_id": str(plan.agent_id),
+            "operation_id": str(plan.operation_id),
+            "slug": plan.slug,
             "expected_old_commit": plan.expected_old_commit,
             "new_commit": plan.source_commit,
             "command_sha256": plan.approved_argv_sha256,
@@ -297,8 +356,7 @@ class OfflineToolStager:
             "recorded_ns": time.time_ns(),
         }
         path = self._receipt_path(plan.operation_id)
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                             0o600)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         try:
             encoded = _canonical(record)
             offset = 0
@@ -319,9 +377,13 @@ class OfflineToolStager:
 
 
 def build_and_stage(
-    *, plan: ToolBuildPlan, operator: AiWorkspaceOperator,
-    store: SharedToolStore, homes: AgentHomeRegistry,
-    evidence_dir: Path, built_tree: Path,
+    *,
+    plan: ToolBuildPlan,
+    operator: AiWorkspaceOperator,
+    store: SharedToolStore,
+    homes: AgentHomeRegistry,
+    evidence_dir: Path,
+    built_tree: Path,
 ) -> dict[str, Any]:
     """Run one pinned offline builder under the operator, then stage its output.
 
@@ -349,20 +411,32 @@ def build_and_stage(
     if runtime.ai_config_dir is None or runtime.ai_history_dir is None:
         raise CapabilityUnavailableError("S10 requires the managed S7 AI history watcher")
     operator.monitor.require_active()
-    guard = WorkspaceLeaseGuard(store.ledger, AccessRequest(
-        plan.workspace_id, plan.agent_id, "tool.stage_s10", "s10-" + plan.operation_id.hex,
-        "write", (AccessResource("shared_tool", plan.slug, "write"),), runtime.image_digest,
-    ))
+    guard = WorkspaceLeaseGuard(
+        store.ledger,
+        AccessRequest(
+            plan.workspace_id,
+            plan.agent_id,
+            "tool.stage_s10",
+            "s10-" + plan.operation_id.hex,
+            "write",
+            (AccessResource("shared_tool", plan.slug, "write"),),
+            runtime.image_digest,
+        ),
+    )
     guard.start()
     uncertain = True
     try:
         request = ProcessRequest(
-            argv=plan.build_argv, cwd=build_root,
-            workspace_root=runtime.home, sandbox_root=runtime.home,
-            timeout_ms=plan.timeout_ms, max_output_bytes=262_144,
+            argv=plan.build_argv,
+            cwd=build_root,
+            workspace_root=runtime.home,
+            sandbox_root=runtime.home,
+            timeout_ms=plan.timeout_ms,
+            max_output_bytes=262_144,
             memory_bytes=8 * 1024**3,
             cpu_seconds=min(900, max(1, (plan.timeout_ms + 999) // 1000)),
-            guest_uid=agent.uid, guest_gid=agent.gid,
+            guest_uid=agent.uid,
+            guest_gid=agent.gid,
             telemetry_workspace_id=plan.workspace_id,
             telemetry_agent_id=plan.agent_id,
         )
@@ -370,15 +444,21 @@ def build_and_stage(
         guard.ensure_live()
         stager = OfflineToolStager(shared_tools=store.root, evidence_dir=evidence_dir)
         record = stager.stage(
-            plan=plan, built_tree=build_root, result=result,
+            plan=plan,
+            built_tree=build_root,
+            result=result,
             expected_source_commit=plan.source_commit,
         )
-        guard.finish(evidence_sha256=admission_digest("s10-staged:" + record["inventory"]["tree_sha256"]))
+        guard.finish(
+            evidence_sha256=admission_digest("s10-staged:" + record["inventory"]["tree_sha256"])
+        )
         uncertain = False
         return record
     finally:
         if uncertain:
             try:
-                guard.finish(evidence_sha256=admission_digest("s10-staging-uncertain"), uncertain=True)
+                guard.finish(
+                    evidence_sha256=admission_digest("s10-staging-uncertain"), uncertain=True
+                )
             except StateMismatchError:
                 guard.abandon()

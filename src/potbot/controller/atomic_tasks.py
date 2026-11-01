@@ -93,10 +93,14 @@ class AtomicOperation:
 
     def __post_init__(self) -> None:
         if (
-            not self.name or self.name not in {x.name for x in ATOMIC_KINDS}
-            or not isinstance(self.category, str) or not self.category
-            or type(self.max_input_bytes) is not int or not 1 <= self.max_input_bytes <= 16_777_216
-            or type(self.max_runtime_ms) is not int or not 1 <= self.max_runtime_ms <= 3_600_000
+            not self.name
+            or self.name not in {x.name for x in ATOMIC_KINDS}
+            or not isinstance(self.category, str)
+            or not self.category
+            or type(self.max_input_bytes) is not int
+            or not 1 <= self.max_input_bytes <= 16_777_216
+            or type(self.max_runtime_ms) is not int
+            or not 1 <= self.max_runtime_ms <= 3_600_000
             or type(self.requires_approval) is not bool
         ):
             raise InvalidInputError("atomic operations require an exact bounded host contract")
@@ -136,16 +140,23 @@ class TaskGraph:
         proposed: dict[str, TaskNode] = {}
         for name, description, dependencies in children:
             if (
-                not isinstance(name, str) or not name or not name.isascii()
-                or len(name) > 64 or not name.replace("_", "").replace("-", "").isalnum()
-                or name in known or name in proposed
-                or not isinstance(description, str) or not description.strip()
+                not isinstance(name, str)
+                or not name
+                or not name.isascii()
+                or len(name) > 64
+                or not name.replace("_", "").replace("-", "").isalnum()
+                or name in known
+                or name in proposed
+                or not isinstance(description, str)
+                or not description.strip()
                 or len(description.encode("utf-8")) > 4096
-                or not isinstance(dependencies, tuple) or len(dependencies) > 16
+                or not isinstance(dependencies, tuple)
+                or len(dependencies) > 16
             ):
                 raise InvalidInputError("invalid or duplicate decomposition node")
-            proposed[name] = TaskNode(name, description, parent.task_id, parent.depth + 1,
-                                      depends_on=dependencies)
+            proposed[name] = TaskNode(
+                name, description, parent.task_id, parent.depth + 1, depends_on=dependencies
+            )
         allowed = known | set(proposed)
         for node in proposed.values():
             if node.task_id in node.depends_on or len(set(node.depends_on)) != len(node.depends_on):
@@ -156,6 +167,7 @@ class TaskGraph:
         combined = {**self.nodes, **proposed}
         visiting: set[str] = set()
         visited: set[str] = set()
+
         def walk(current: str) -> None:
             if current in visiting:
                 raise InvalidInputError("cyclic execution graph")
@@ -166,33 +178,53 @@ class TaskGraph:
                 walk(dep)
             visiting.remove(current)
             visited.add(current)
+
         for name in proposed:
             walk(name)
         self.nodes.update(proposed)
         # Parent remains a decomposition record; it is not an executable leaf.
         self.nodes[task_id] = TaskNode(
-            parent.task_id, parent.description, parent.parent_id, parent.depth,
+            parent.task_id,
+            parent.description,
+            parent.parent_id,
+            parent.depth,
             state="blocked",
         )
 
-    def admit_leaf(self, task_id: str, *, operation: AtomicOperation,
-                   estimated_input_bytes: int, approved: bool = False) -> None:
+    def admit_leaf(
+        self,
+        task_id: str,
+        *,
+        operation: AtomicOperation,
+        estimated_input_bytes: int,
+        approved: bool = False,
+    ) -> None:
         """Only exact registered operations can stop recursive decomposition."""
         node = self.nodes.get(task_id)
         if node is None or node.state != "needs_decomposition" or node.operation:
             raise InvalidInputError("only an unresolved leaf can be made atomic")
         if (
-            type(estimated_input_bytes) is not int or not 0 <= estimated_input_bytes <= operation.max_input_bytes
+            type(estimated_input_bytes) is not int
+            or not 0 <= estimated_input_bytes <= operation.max_input_bytes
             or (operation.requires_approval and approved is not True)
         ):
             raise InvalidInputError("leaf violates resource or approval policy")
-        self.nodes[task_id] = TaskNode(node.task_id, node.description, node.parent_id, node.depth,
-                                       operation.name, node.depends_on, "ready")
+        self.nodes[task_id] = TaskNode(
+            node.task_id,
+            node.description,
+            node.parent_id,
+            node.depth,
+            operation.name,
+            node.depends_on,
+            "ready",
+        )
 
     def unresolved(self) -> tuple[str, ...]:
         return tuple(x.task_id for x in self.nodes.values() if x.state == "needs_decomposition")
 
     def executable(self, completed: set[str]) -> tuple[str, ...]:
-        return tuple(x.task_id for x in self.nodes.values()
-                     if x.state == "ready" and x.task_id not in completed
-                     and set(x.depends_on) <= completed)
+        return tuple(
+            x.task_id
+            for x in self.nodes.values()
+            if x.state == "ready" and x.task_id not in completed and set(x.depends_on) <= completed
+        )

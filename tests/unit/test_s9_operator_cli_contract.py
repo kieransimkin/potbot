@@ -25,10 +25,18 @@ def document() -> dict[str, object]:
             "reusable_artifacts": [],
         },
         "tests": [
-            {"name": "smoke-test", "kind": "smoke", "argv": ["/bin/bash", "-c", "true"],
-             "timeout_ms": 2000},
-            {"name": "unit-test", "kind": "unit", "argv": ["/usr/bin/git", "--version"],
-             "timeout_ms": 2000},
+            {
+                "name": "smoke-test",
+                "kind": "smoke",
+                "argv": ["/bin/bash", "-c", "true"],
+                "timeout_ms": 2000,
+            },
+            {
+                "name": "unit-test",
+                "kind": "unit",
+                "argv": ["/usr/bin/git", "--version"],
+                "timeout_ms": 2000,
+            },
         ],
     }
 

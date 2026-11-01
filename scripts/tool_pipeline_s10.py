@@ -18,8 +18,13 @@ from potbot.tools.tool_stage_s10 import ToolBuildPlan, build_and_stage, command_
 
 
 def _json_file(path: Path) -> dict[str, object]:
-    if (not path.is_absolute() or path.is_symlink() or not path.is_file()
-            or path.stat().st_size > 16384 or path.stat().st_mode & 0o022):
+    if (
+        not path.is_absolute()
+        or path.is_symlink()
+        or not path.is_file()
+        or path.stat().st_size > 16384
+        or path.stat().st_mode & 0o022
+    ):
         raise ScopeDeniedError("Operator build plan must be an exact private file")
 
     def unique(items: list[tuple[str, object]]) -> dict[str, object]:
@@ -66,39 +71,72 @@ def main() -> int:
         replacement, suite, expected_old = _plan(args.upgrade_plan)
         build = _json_file(args.build_plan)
         if not isinstance(build["argv"], list) or any(
-                not isinstance(item, str) for item in build["argv"]):
+            not isinstance(item, str) for item in build["argv"]
+        ):
             raise InvalidInputError("S10 argv must be an exact list")
         argv = tuple(build["argv"])
         if command_digest(argv) != build["sha256"]:
             raise ScopeDeniedError("S10 build command hash mismatch")
         plan = ToolBuildPlan(
-            operator_paths.workspace_id, args.agent_id, args.operation_id,
-            replacement.slug, argv, build["sha256"], expected_old,
-            replacement.commit, build["timeoutMs"],
+            operator_paths.workspace_id,
+            args.agent_id,
+            args.operation_id,
+            replacement.slug,
+            argv,
+            build["sha256"],
+            expected_old,
+            replacement.commit,
+            build["timeoutMs"],
         )
-        ledger = WorkspaceLeaseLedger(operator_paths.controller_ledger,
-                                      workspace_home=operator_paths.home)
+        ledger = WorkspaceLeaseLedger(
+            operator_paths.controller_ledger, workspace_home=operator_paths.home
+        )
         homes = AgentHomeRegistry(ledger, workspace_name=args.workspace_name)
+
         def authorized(workspace: UUID, agent: UUID) -> bool:
-            return workspace == operator_paths.workspace_id and agent == args.agent_id \
+            return (
+                workspace == operator_paths.workspace_id
+                and agent == args.agent_id
                 and homes.lookup(workspace, agent) is not None
-        store = SharedToolStore(ledger=ledger, shared_root=operator_paths.shared_tools,
-                                authorize=authorized)
-        with AiWorkspaceOperator(workspace_id=operator_paths.workspace_id,
-                                 ledger=ledger, runtime=operator_paths.runtime()) as operator:
-            receipt = build_and_stage(plan=plan, operator=operator, store=store, homes=homes,
-                                      evidence_dir=args.evidence_dir, built_tree=args.build_root)
+            )
+
+        store = SharedToolStore(
+            ledger=ledger, shared_root=operator_paths.shared_tools, authorize=authorized
+        )
+        with AiWorkspaceOperator(
+            workspace_id=operator_paths.workspace_id,
+            ledger=ledger,
+            runtime=operator_paths.runtime(),
+        ) as operator:
+            receipt = build_and_stage(
+                plan=plan,
+                operator=operator,
+                store=store,
+                homes=homes,
+                evidence_dir=args.evidence_dir,
+                built_tree=args.build_root,
+            )
             manager = SharedToolUpgradeManager(
-                store=store, runtime=operator.runtime, homes=homes,
-                authorize=authorized, ai_monitor=operator.monitor,
+                store=store,
+                runtime=operator.runtime,
+                homes=homes,
+                authorize=authorized,
+                ai_monitor=operator.monitor,
             )
             tested = manager.prepare(
-                workspace_id=operator_paths.workspace_id, agent_id=args.agent_id,
-                operation_id=args.operation_id, expected_old_commit=expected_old,
-                replacement=replacement, suite=suite,
+                workspace_id=operator_paths.workspace_id,
+                agent_id=args.agent_id,
+                operation_id=args.operation_id,
+                expected_old_commit=expected_old,
+                replacement=replacement,
+                suite=suite,
             )
-        print(json.dumps({"schema": "potbot-s10-pipeline/v1", "staging": receipt,
-                          "tests": tested}, sort_keys=True))
+        print(
+            json.dumps(
+                {"schema": "potbot-s10-pipeline/v1", "staging": receipt, "tests": tested},
+                sort_keys=True,
+            )
+        )
         return 0
     except Exception as exc:
         code = exc.code.value if isinstance(exc, DomainError) else "internal_error"

@@ -3,6 +3,7 @@
 Snapshots are outside every guest mount. Guests can read them through individual
 Bubblewrap read-only file binds; updates go through the authenticated DB service.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -41,7 +42,11 @@ class ContextProjection:
             raise ScopeDeniedError("Context snapshot is unavailable") from exc
         if not stat.S_ISDIR(meta.st_mode) or meta.st_mode & 0o022:
             raise ScopeDeniedError("Context snapshot directory must not be guest writable")
-        if not isinstance(self.workspace_id, UUID) or len(self.revisions) != 3 or len(self.digests) != 3:
+        if (
+            not isinstance(self.workspace_id, UUID)
+            or len(self.revisions) != 3
+            or len(self.digests) != 3
+        ):
             raise InvalidInputError("Context snapshot metadata is malformed")
         for excluded in excluded_roots:
             resolved = Path(excluded).resolve(strict=True)
@@ -56,8 +61,12 @@ class ContextProjection:
             try:
                 fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
                 info = os.fstat(fd)
-                if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
-                        or info.st_mode & 0o222 or info.st_size > 1_048_576):
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_nlink != 1
+                    or info.st_mode & 0o222
+                    or info.st_size > 1_048_576
+                ):
                     raise ScopeDeniedError("Context source must be a read-only regular file")
                 data = bytearray()
                 while len(data) <= 1_048_576:
@@ -83,8 +92,9 @@ class ContextProjectionManager:
     manager must remain open until all guests mounting its snapshots have exited.
     """
 
-    def __init__(self, *, service: WorkspaceContextService, principal: WorkspaceContext,
-                 parent: Path) -> None:
+    def __init__(
+        self, *, service: WorkspaceContextService, principal: WorkspaceContext, parent: Path
+    ) -> None:
         if not isinstance(principal, WorkspaceContext):
             raise ScopeDeniedError("Context snapshot needs an authenticated principal")
         directory = Path(parent)
@@ -113,6 +123,7 @@ class ContextProjectionManager:
         guests never get to choose the object identity or snapshot parent.
         """
         from potbot.context.model import validate_identity
+
         validate_identity(kind, name)
         if self._closed:
             raise StateMismatchError("Snapshot manager is closed")
@@ -128,12 +139,18 @@ class ContextProjectionManager:
             content = item["content"]
             validate_content(content)
             checksum = sha256(content)
-            if (checksum != item["sha256"] or type(item["revision"]) is not int
-                    or item["revision"] < 1):
+            if (
+                checksum != item["sha256"]
+                or type(item["revision"]) is not int
+                or item["revision"] < 1
+            ):
                 raise StateMismatchError("Context database digest or revision is inconsistent")
             data = content.encode("utf-8")
-            fd = os.open(directory / role, os.O_WRONLY | os.O_CREAT | os.O_EXCL |
-                         os.O_NOFOLLOW | os.O_CLOEXEC, 0o400)
+            fd = os.open(
+                directory / role,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                0o400,
+            )
             try:
                 with os.fdopen(fd, "wb", closefd=False) as output:
                     output.write(data)
@@ -150,7 +167,8 @@ class ContextProjectionManager:
         finally:
             os.close(rootfd)
         projection = ContextProjection(
-            self.principal.workspace_id, directory,
+            self.principal.workspace_id,
+            directory,
             (revisions[0], revisions[1], revisions[2]),
             (hashes[0], hashes[1], hashes[2]),
         )
@@ -183,12 +201,16 @@ class AgentContextProjection:
     directory: str
     projection: ContextProjection
 
-    def inspect(self, *, home: Path,
-                excluded_roots: tuple[Path, ...] = ()) -> tuple[Path, Path, Path]:
+    def inspect(
+        self, *, home: Path, excluded_roots: tuple[Path, ...] = ()
+    ) -> tuple[Path, Path, Path]:
         import re
 
-        if (not isinstance(self.agent_id, UUID) or not isinstance(self.directory, str)
-                or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,127}", self.directory)):
+        if (
+            not isinstance(self.agent_id, UUID)
+            or not isinstance(self.directory, str)
+            or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,127}", self.directory)
+        ):
             raise InvalidInputError("Invalid agent context directory or identity")
         base = Path(home)
         if base.is_symlink() or not base.is_dir():
@@ -196,13 +218,16 @@ class AgentContextProjection:
         directory = base / self.directory
         if directory.is_symlink() or not directory.is_dir():
             raise ScopeDeniedError("Agent home is not a real registered directory")
-        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
-                     os.O_CLOEXEC)
+        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
         try:
             for role in ROLES:
                 meta = os.stat(role, dir_fd=fd, follow_symlinks=False)
-                if (not stat.S_ISREG(meta.st_mode) or meta.st_size != 0
-                        or meta.st_nlink != 1 or meta.st_mode & 0o222):
+                if (
+                    not stat.S_ISREG(meta.st_mode)
+                    or meta.st_size != 0
+                    or meta.st_nlink != 1
+                    or meta.st_mode & 0o222
+                ):
                     raise ScopeDeniedError("Agent context target must be a safe empty placeholder")
         except OSError as exc:
             raise ScopeDeniedError("Agent context target is unavailable") from exc

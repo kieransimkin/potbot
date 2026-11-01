@@ -31,28 +31,50 @@ def main() -> int:
     try:
         planner = SynStartupPlanner(SynInstallationRegistry(arguments.registry))
         decision = (
-            planner.new_agent(target_master_hash=master) if arguments.new_agent
+            planner.new_agent(target_master_hash=master)
+            if arguments.new_agent
             else planner.potbot_first_run(expected_master_hash=master)
         )
-        print(json.dumps({
-            "schema": "potbot-syn-bootstrap-preflight/v1",
-            "state": decision.state,
-            "required_mode": decision.required_mode,
-            "operator_master_hash": decision.operator_master_hash,
-            "verified_local_identity": decision.verified_local_identity,
-            "private_keys_created": False,
-            "pledge_completed": False,
-        }, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "schema": "potbot-syn-bootstrap-preflight/v1",
+                    "state": decision.state,
+                    "required_mode": decision.required_mode,
+                    "operator_master_hash": decision.operator_master_hash,
+                    "verified_local_identity": decision.verified_local_identity,
+                    "private_keys_created": False,
+                    "pledge_completed": False,
+                },
+                sort_keys=True,
+            )
+        )
         # Preflight has verified an existing operator but cannot claim pledge
         # complete. An explicit installer/pledge service is still required.
         return 0 if decision.verified_local_identity else 2
     except DomainError as exc:
-        print(json.dumps({"schema":"potbot-syn-bootstrap-preflight/v1",
-                          "state":"blocked", "reason":exc.code.value}), file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "schema": "potbot-syn-bootstrap-preflight/v1",
+                    "state": "blocked",
+                    "reason": exc.code.value,
+                }
+            ),
+            file=sys.stderr,
+        )
         return 2
     except OSError:
-        print(json.dumps({"schema":"potbot-syn-bootstrap-preflight/v1",
-                          "state":"blocked", "reason":"host_io_failure"}), file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "schema": "potbot-syn-bootstrap-preflight/v1",
+                    "state": "blocked",
+                    "reason": "host_io_failure",
+                }
+            ),
+            file=sys.stderr,
+        )
         return 2
 
 

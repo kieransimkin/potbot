@@ -28,9 +28,13 @@ class ReceiptSupervisor(ProcessSupervisor):
         assert not cancelled()
         self.request = request
         return SimpleNamespace(
-            stdout=b"smoke", stderr=b"", exit_code=1 if self.should_fail else 0,
+            stdout=b"smoke",
+            stderr=b"",
+            exit_code=1 if self.should_fail else 0,
             outcome="nonzero_exit" if self.should_fail else "completed",
-            dispatched=True, processes_stopped=True, isolation_identity="qualified-fixture",
+            dispatched=True,
+            processes_stopped=True,
+            isolation_identity="qualified-fixture",
             elapsed_ms=12,
         )
 
@@ -38,7 +42,8 @@ class ReceiptSupervisor(ProcessSupervisor):
 def test_supervised_tool_case_binds_agent_and_resource_limits(tmp_path: Path):
     rootfs = tmp_path / "root"
     home = tmp_path / "home"
-    rootfs.mkdir(); (home / "alice").mkdir(parents=True)
+    rootfs.mkdir()
+    (home / "alice").mkdir(parents=True)
     runtime = SharedWorkspaceRuntime("a" * 64, rootfs, home, "b" * 64)
     record = []
 
@@ -50,8 +55,16 @@ def test_supervised_tool_case_binds_agent_and_resource_limits(tmp_path: Path):
     runner = SandboxedToolTestExecutor(runtime, supervisor_factory=factory)
     case = ToolTestCase("startup", "smoke", ("/bin/bash", "-c", "true"), 10_000)
     ws, actor = uuid4(), uuid4()
-    data = runner.run(case=case, argv=case.argv, workspace_id=ws, agent_id=actor,
-                      agent_dir=home / "alice", uid=420, gid=69, cancelled=lambda: False)
+    data = runner.run(
+        case=case,
+        argv=case.argv,
+        workspace_id=ws,
+        agent_id=actor,
+        agent_dir=home / "alice",
+        uid=420,
+        gid=69,
+        cancelled=lambda: False,
+    )
     assert data["passed"] is True
     assert data["dispatched"] is True and data["stopped"] is True
     request = record[0].request
@@ -63,7 +76,8 @@ def test_supervised_tool_case_binds_agent_and_resource_limits(tmp_path: Path):
 
 def test_supervised_test_nonzero_is_not_qualified(tmp_path: Path):
     rootfs, home = tmp_path / "image", tmp_path / "home"
-    rootfs.mkdir(); home.mkdir()
+    rootfs.mkdir()
+    home.mkdir()
     supervisor = None
 
     def factory(backend):
@@ -77,25 +91,40 @@ def test_supervised_test_nonzero_is_not_qualified(tmp_path: Path):
         supervisor_factory=factory,
     )
     case = ToolTestCase("regression", "unit", ("/bin/bash", "-c", "exit 1"))
-    value = runner.run(case=case, argv=case.argv, workspace_id=uuid4(),
-                       agent_id=uuid4(), agent_dir=home, uid=420, gid=69,
-                       cancelled=lambda: False)
+    value = runner.run(
+        case=case,
+        argv=case.argv,
+        workspace_id=uuid4(),
+        agent_id=uuid4(),
+        agent_dir=home,
+        uid=420,
+        gid=69,
+        cancelled=lambda: False,
+    )
     assert value["passed"] is False
     assert value["exit_code"] == 1
 
 
 def test_supervisor_factory_must_be_qualified(tmp_path: Path):
     rootfs, home = tmp_path / "image", tmp_path / "home"
-    rootfs.mkdir(); home.mkdir()
+    rootfs.mkdir()
+    home.mkdir()
     runner = SandboxedToolTestExecutor(
         SharedWorkspaceRuntime("a" * 64, rootfs, home, "b" * 64),
         supervisor_factory=lambda _: object(),
     )
     case = ToolTestCase("unit", "unit", ("/bin/bash", "-c", "true"))
     with pytest.raises(ScopeDeniedError):
-        runner.run(case=case, argv=case.argv, workspace_id=uuid4(),
-                   agent_id=uuid4(), agent_dir=home, uid=420, gid=69,
-                   cancelled=lambda: False)
+        runner.run(
+            case=case,
+            argv=case.argv,
+            workspace_id=uuid4(),
+            agent_id=uuid4(),
+            agent_dir=home,
+            uid=420,
+            gid=69,
+            cancelled=lambda: False,
+        )
 
 
 def test_case_templates_and_suite_require_exact_names():
@@ -106,7 +135,9 @@ def test_case_templates_and_suite_require_exact_names():
     with pytest.raises(ValueError):
         ToolTestCase("bad", "unit", ("/usr/local/tools/agent/bin/python",))
     with pytest.raises(ValueError):
-        ToolTestSuite((
-            ToolTestCase("smoke", "smoke", ("/bin/bash",)),
-            ToolTestCase("smoke", "unit", ("/bin/bash",)),
-        ))
+        ToolTestSuite(
+            (
+                ToolTestCase("smoke", "smoke", ("/bin/bash",)),
+                ToolTestCase("smoke", "unit", ("/bin/bash",)),
+            )
+        )

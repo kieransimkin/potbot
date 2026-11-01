@@ -424,6 +424,7 @@ def create_app(
 
     if browser_gallery is not None:
         from potbot.api.browser_gallery import install_gallery_routes
+
         install_gallery_routes(app, context, browser_gallery)
 
     @app.get("/v1/system/utilisation")
@@ -573,25 +574,29 @@ def create_app(
     # the native catalogue at /v1/potbot/models for the dashboard and older tools.
     def openai_error(error: Exception) -> JSONResponse:
         from potbot.models.providers.contracts import ProviderAPIError
+
         if isinstance(error, CompatibilityError):
             failure = error
         elif isinstance(error, ProviderAPIError):
             status = 429 if error.status_code == 429 else 502
-            failure = CompatibilityError("Hosted provider request failed.", status=status,
-                                         code="provider_error")
+            failure = CompatibilityError(
+                "Hosted provider request failed.", status=status, code="provider_error"
+            )
         elif isinstance(error, (InvalidInputError, SchemaViolationError)):
             failure = CompatibilityError("Invalid or unsupported request.")
         elif isinstance(error, ScopeDeniedError):
-            failure = CompatibilityError("The resource is unavailable.", status=404,
-                                         code="model_not_found")
+            failure = CompatibilityError(
+                "The resource is unavailable.", status=404, code="model_not_found"
+            )
         elif isinstance(error, CapabilityUnavailableError):
-            failure = CompatibilityError("The requested model is unavailable.", status=403,
-                                         code="model_unavailable")
+            failure = CompatibilityError(
+                "The requested model is unavailable.", status=403, code="model_unavailable"
+            )
         else:
-            failure = CompatibilityError("Inference failed.", status=500,
-                                         code="internal_error")
-        return JSONResponse(error_document(failure), status_code=failure.status,
-                            headers=_JSON_HEADERS)
+            failure = CompatibilityError("Inference failed.", status=500, code="internal_error")
+        return JSONResponse(
+            error_document(failure), status_code=failure.status, headers=_JSON_HEADERS
+        )
 
     async def openai_body(request: Request) -> Any:
         if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
@@ -626,8 +631,9 @@ def create_app(
             _queries(request, set())
             if openai_compat is None:
                 raise CompatibilityError("Inference gateway is not configured.", status=503)
-            return JSONResponse(await _call(openai_compat.model, actor, model_id),
-                                headers=_JSON_HEADERS)
+            return JSONResponse(
+                await _call(openai_compat.model, actor, model_id), headers=_JSON_HEADERS
+            )
         except Exception as error:
             return openai_error(error)
 
@@ -638,8 +644,9 @@ def create_app(
             _queries(request, set())
             if reasoning_store is None:
                 raise CompatibilityError("Reasoning state is not configured.", status=503)
-            return JSONResponse(await _call(reasoning_store.inspect, actor, run_id),
-                                headers=_JSON_HEADERS)
+            return JSONResponse(
+                await _call(reasoning_store.inspect, actor, run_id), headers=_JSON_HEADERS
+            )
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Reasoning run not found.", status=404))
         except Exception as error:
@@ -656,8 +663,7 @@ def create_app(
             limit = _integer(request.query_params.get("limit"), 100, 200)
             if not limit:
                 raise CompatibilityError("Page size must be positive.")
-            events = await _call(reasoning_store.events, actor, run_id, after=after,
-                                 limit=limit)
+            events = await _call(reasoning_store.events, actor, run_id, after=after, limit=limit)
             return JSONResponse({"object": "list", "data": events}, headers=_JSON_HEADERS)
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Reasoning run not found.", status=404))
@@ -671,10 +677,13 @@ def create_app(
             actor = context(request)
             _queries(request, set())
             if reasoning_budget is None:
-                raise CompatibilityError("Reasoning budget accounting is not configured.", status=503)
+                raise CompatibilityError(
+                    "Reasoning budget accounting is not configured.", status=503
+                )
             items = await _call(reasoning_budget.list_for_run, actor, run_id)
-            return JSONResponse({"object": "list", "data": json_record(items)},
-                                headers=_JSON_HEADERS)
+            return JSONResponse(
+                {"object": "list", "data": json_record(items)}, headers=_JSON_HEADERS
+            )
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Reasoning run not found.", status=404))
         except Exception as error:
@@ -692,11 +701,18 @@ def create_app(
             if not isinstance(body, dict) or set(body) != {"request_id", "prompt"}:
                 raise CompatibilityError("Expected request_id and prompt only.")
             inbox = openai_compat.reasoning_investigator.steering_inbox
-            result = await _call(inbox.submit,
-                                 actor if getattr(inbox, "uses_context", False) else actor.workspace_id, run_id,
-                                 request_id=body["request_id"], prompt=body["prompt"])
-            return JSONResponse(result, status_code=202 if result["status"] == "queued" else 200,
-                                headers=_JSON_HEADERS)
+            result = await _call(
+                inbox.submit,
+                actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
+                run_id,
+                request_id=body["request_id"],
+                prompt=body["prompt"],
+            )
+            return JSONResponse(
+                result,
+                status_code=202 if result["status"] == "queued" else 200,
+                headers=_JSON_HEADERS,
+            )
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Reasoning run not found.", status=404))
         except InvalidInputError:
@@ -712,9 +728,12 @@ def create_app(
             if openai_compat is None or openai_compat.reasoning_investigator is None:
                 raise CompatibilityError("Live reasoning steering is not configured.", status=503)
             inbox = openai_compat.reasoning_investigator.steering_inbox
-            result = await _call(inbox.get,
-                                 actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
-                                 run_id, request_id)
+            result = await _call(
+                inbox.get,
+                actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
+                run_id,
+                request_id,
+            )
             return JSONResponse(result, headers=_JSON_HEADERS)
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Steering prompt not found.", status=404))
@@ -731,9 +750,11 @@ def create_app(
             if openai_compat is None or openai_compat.reasoning_investigator is None:
                 raise CompatibilityError("Live reasoning steering is not configured.", status=503)
             inbox = openai_compat.reasoning_investigator.steering_inbox
-            result = await _call(inbox.history,
-                                 actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
-                                 run_id)
+            result = await _call(
+                inbox.history,
+                actor if getattr(inbox, "uses_context", False) else actor.workspace_id,
+                run_id,
+            )
             return JSONResponse({"object": "list", "data": result}, headers=_JSON_HEADERS)
         except ScopeDeniedError:
             return openai_error(CompatibilityError("Reasoning run not found.", status=404))
@@ -757,10 +778,12 @@ def create_app(
             run_id = uuid4().hex
             if not options["stream"]:
                 result = await _call(openai_compat.stream, actor, options, lambda _: None, run_id)
-                data = (response_document(identifier, created, options["model"], result)
-                        if responses else chat_document(identifier, created, options["model"], result))
-                return JSONResponse(data, headers={**_JSON_HEADERS,
-                                                   "X-Potbot-Run-Id": run_id})
+                data = (
+                    response_document(identifier, created, options["model"], result)
+                    if responses
+                    else chat_document(identifier, created, options["model"], result)
+                )
+                return JSONResponse(data, headers={**_JSON_HEADERS, "X-Potbot-Run-Id": run_id})
 
             def events() -> Any:
                 # A bounded producer queue keeps the provider's blocking HTTP
@@ -781,8 +804,9 @@ def create_app(
 
                 def work() -> None:
                     try:
-                        result = openai_compat.stream(actor, options, emit, run_id,
-                                                      cancelled=stopped.is_set)
+                        result = openai_compat.stream(
+                            actor, options, emit, run_id, cancelled=stopped.is_set
+                        )
                         send("done", result)
                     except Exception as error:
                         send("error", error)
@@ -791,14 +815,35 @@ def create_app(
                 worker.start()
                 try:
                     if responses:
-                        yield sse({"type": "response.created", "response": {
-                            "id": identifier, "object": "response", "model": options["model"],
-                            "status": "in_progress", "created_at": created}}, "response.created")
+                        yield sse(
+                            {
+                                "type": "response.created",
+                                "response": {
+                                    "id": identifier,
+                                    "object": "response",
+                                    "model": options["model"],
+                                    "status": "in_progress",
+                                    "created_at": created,
+                                },
+                            },
+                            "response.created",
+                        )
                     else:
-                        yield sse({"id": identifier, "object": "chat.completion.chunk",
-                                   "created": created, "model": options["model"],
-                                   "choices": [{"index": 0, "delta": {"role": "assistant"},
-                                                "finish_reason": None}]})
+                        yield sse(
+                            {
+                                "id": identifier,
+                                "object": "chat.completion.chunk",
+                                "created": created,
+                                "model": options["model"],
+                                "choices": [
+                                    {
+                                        "index": 0,
+                                        "delta": {"role": "assistant"},
+                                        "finish_reason": None,
+                                    }
+                                ],
+                            }
+                        )
                     while True:
                         try:
                             kind, value = queue.get(timeout=0.5)
@@ -808,41 +853,91 @@ def create_app(
                             continue
                         if kind == "delta":
                             if responses:
-                                yield sse({"type": "response.output_text.delta", "delta": value,
-                                           "output_index": 0, "content_index": 0},
-                                          "response.output_text.delta")
+                                yield sse(
+                                    {
+                                        "type": "response.output_text.delta",
+                                        "delta": value,
+                                        "output_index": 0,
+                                        "content_index": 0,
+                                    },
+                                    "response.output_text.delta",
+                                )
                             else:
-                                yield sse({"id": identifier, "object": "chat.completion.chunk",
-                                           "created": created, "model": options["model"],
-                                           "choices": [{"index": 0, "delta": {"content": value},
-                                                        "finish_reason": None}]})
+                                yield sse(
+                                    {
+                                        "id": identifier,
+                                        "object": "chat.completion.chunk",
+                                        "created": created,
+                                        "model": options["model"],
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {"content": value},
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                )
                         elif kind == "done":
                             if responses:
-                                yield sse({"type": "response.completed", "response":
-                                           response_document(identifier, created, options["model"], value)},
-                                          "response.completed")
+                                yield sse(
+                                    {
+                                        "type": "response.completed",
+                                        "response": response_document(
+                                            identifier, created, options["model"], value
+                                        ),
+                                    },
+                                    "response.completed",
+                                )
                             else:
-                                yield sse({"id": identifier, "object": "chat.completion.chunk",
-                                           "created": created, "model": options["model"],
-                                           "choices": [{"index": 0, "delta": {},
-                                                        "finish_reason": value.finish_reason}]})
+                                yield sse(
+                                    {
+                                        "id": identifier,
+                                        "object": "chat.completion.chunk",
+                                        "created": created,
+                                        "model": options["model"],
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {},
+                                                "finish_reason": value.finish_reason,
+                                            }
+                                        ],
+                                    }
+                                )
                                 if options["include_usage"]:
-                                    yield sse({"id": identifier, "object": "chat.completion.chunk",
-                                               "created": created, "model": options["model"],
-                                               "choices": [], "usage": value.usage})
+                                    yield sse(
+                                        {
+                                            "id": identifier,
+                                            "object": "chat.completion.chunk",
+                                            "created": created,
+                                            "model": options["model"],
+                                            "choices": [],
+                                            "usage": value.usage,
+                                        }
+                                    )
                             yield sse("[DONE]")
                             break
                         elif kind == "error":
-                            yield sse(error_document(CompatibilityError("Inference failed.",
-                                                                           status=502, code="provider_error")), "error")
+                            yield sse(
+                                error_document(
+                                    CompatibilityError(
+                                        "Inference failed.", status=502, code="provider_error"
+                                    )
+                                ),
+                                "error",
+                            )
                             yield sse("[DONE]")
                             break
                 finally:
                     stopped.set()
                     worker.join(timeout=0.2)
 
-            return StreamingResponse(events(), media_type="text/event-stream", headers={
-                **_JSON_HEADERS, "X-Accel-Buffering": "no", "X-Potbot-Run-Id": run_id})
+            return StreamingResponse(
+                events(),
+                media_type="text/event-stream",
+                headers={**_JSON_HEADERS, "X-Accel-Buffering": "no", "X-Potbot-Run-Id": run_id},
+            )
         except Exception as error:
             return openai_error(error)
 

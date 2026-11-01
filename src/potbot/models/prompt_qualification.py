@@ -28,9 +28,15 @@ class PromptTrial:
     expected: str
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.case_id, str) or not 1 <= len(self.case_id) <= 128
-                or not isinstance(self.task, str) or not self.task or len(self.task) > 65536
-                or not isinstance(self.expected, str) or not 1 <= len(self.expected) <= 4096):
+        if (
+            not isinstance(self.case_id, str)
+            or not 1 <= len(self.case_id) <= 128
+            or not isinstance(self.task, str)
+            or not self.task
+            or len(self.task) > 65536
+            or not isinstance(self.expected, str)
+            or not 1 <= len(self.expected) <= 4096
+        ):
             raise InvalidInputError("prompt trial requires bounded held-out evidence")
 
 
@@ -47,9 +53,13 @@ class PromptTrialResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "model": self.model, "case_id": self.case_id, "role": self.role,
-            "variant": self.variant, "prompt_hash": self.prompt_hash,
-            "passed": self.passed, "output_tokens": self.output_tokens,
+            "model": self.model,
+            "case_id": self.case_id,
+            "role": self.role,
+            "variant": self.variant,
+            "prompt_hash": self.prompt_hash,
+            "passed": self.passed,
+            "output_tokens": self.output_tokens,
             "output_hash": self.output_hash,
         }
 
@@ -61,13 +71,19 @@ class PromptQualification:
     qualified: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        payload = {"schema_version": 1, "evaluator_revision": self.evaluator_revision,
-                   "qualified": False, "results": [r.to_dict() for r in self.results]}
+        payload = {
+            "schema_version": 1,
+            "evaluator_revision": self.evaluator_revision,
+            "qualified": False,
+            "results": [r.to_dict() for r in self.results],
+        }
         return {**payload, "sha256": content_hash(payload)}
 
 
 def compare_prompt_variants(
-    *, model: str, cases: Sequence[PromptTrial],
+    *,
+    model: str,
+    cases: Sequence[PromptTrial],
     generate: Callable[[CompiledPrompt], tuple[str, int]],
     evaluate: Callable[[PromptTrial, str], bool],
     evaluator_revision: str,
@@ -80,8 +96,10 @@ def compare_prompt_variants(
     """
     if not callable(generate) or not callable(evaluate) or not evaluator_revision:
         raise InvalidInputError("qualification requires an independent scoring harness")
-    if not isinstance(cases, Sequence) or not 1 <= len(cases) <= 200 or any(
-        not isinstance(case, PromptTrial) for case in cases
+    if (
+        not isinstance(cases, Sequence)
+        or not 1 <= len(cases) <= 200
+        or any(not isinstance(case, PromptTrial) for case in cases)
     ):
         raise InvalidInputError("qualification cases are missing or unbounded")
     if len({case.case_id for case in cases}) != len(cases):
@@ -91,7 +109,9 @@ def compare_prompt_variants(
     for case in cases:
         for variant in variants:
             packet = compile_reasoning_prompt(
-                model=model, role=case.role, task=case.task,
+                model=model,
+                role=case.role,
+                task=case.task,
                 variant=variant,
             )
             output, tokens = generate(packet)
@@ -100,8 +120,16 @@ def compare_prompt_variants(
             passed = evaluate(case, output)
             if type(passed) is not bool:
                 raise InvalidInputError("qualification evaluator must return a boolean")
-            findings.append(PromptTrialResult(
-                model, case.case_id, case.role, variant, packet.identity,
-                passed, tokens, content_hash(output),
-            ))
+            findings.append(
+                PromptTrialResult(
+                    model,
+                    case.case_id,
+                    case.role,
+                    variant,
+                    packet.identity,
+                    passed,
+                    tokens,
+                    content_hash(output),
+                )
+            )
     return PromptQualification(tuple(findings), evaluator_revision)

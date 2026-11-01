@@ -1,4 +1,5 @@
 """No-Postgres safety checks for the packaged context model."""
+
 from uuid import uuid4
 
 import pytest

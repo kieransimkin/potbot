@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import re
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
@@ -40,9 +41,11 @@ class GuiAuditHandle:
         self._finished: bool | None = None
 
     def command(self, argv: tuple[str, ...]) -> tuple[str, ...]:
-        if (not isinstance(argv, tuple) or not argv or not all(
-            isinstance(value, str) and value and "\x00" not in value for value in argv
-        )):
+        if (
+            not isinstance(argv, tuple)
+            or not argv
+            or not all(isinstance(value, str) and value and "\x00" not in value for value in argv)
+        ):
             raise InvalidInputError("GUI monitor needs a bounded pinned child command")
         with self._lock:
             if self._prepared or self._finished is not None:
@@ -52,8 +55,13 @@ class GuiAuditHandle:
 
     def started(self, pid: int) -> None:
         with self._lock:
-            if (not self._prepared or self._started or self._finished is not None
-                    or type(pid) is not int or not 0 < pid < 2**31):
+            if (
+                not self._prepared
+                or self._started
+                or self._finished is not None
+                or type(pid) is not int
+                or not 0 < pid < 2**31
+            ):
                 raise InvalidInputError("GUI monitor start must match one spawned process")
             self._started = True
             self._session.start(pid)
@@ -88,8 +96,12 @@ class GuiAuditFactory:
     """
 
     def __init__(
-        self, *, config: WorkerMonitorConfig, runtime: SharedWorkspaceRuntime,
-        workspace_id: UUID, principal_id: UUID,
+        self,
+        *,
+        config: WorkerMonitorConfig,
+        runtime: SharedWorkspaceRuntime,
+        workspace_id: UUID,
+        principal_id: UUID,
         session_factory: Callable[..., WorkerMonitorSession] = WorkerMonitorSession,
     ) -> None:
         if not isinstance(workspace_id, UUID) or not isinstance(principal_id, UUID):
@@ -98,9 +110,15 @@ class GuiAuditFactory:
             raise CapabilityUnavailableError("GUI telemetry requires qualified kernel collection")
         if not callable(session_factory):
             raise InvalidInputError("GUI monitor factory must be host-supplied")
-        guest_roots = (runtime.rootfs, runtime.home, runtime.model_staging,
-                       runtime.shared_models, runtime.shared_tools,
-                       runtime.ai_config_dir, runtime.ai_history_dir)
+        guest_roots = (
+            runtime.rootfs,
+            runtime.home,
+            runtime.model_staging,
+            runtime.shared_models,
+            runtime.shared_tools,
+            runtime.ai_config_dir,
+            runtime.ai_history_dir,
+        )
         selected = [Path(root).resolve(strict=True) for root in guest_roots if root is not None]
         assets = (config.audit_root, config.cgroup_root, config.strace, config.cgroup_join)
         for asset in assets:
@@ -114,15 +132,27 @@ class GuiAuditFactory:
 
     @classmethod
     def from_environment(
-        cls, *, runtime: SharedWorkspaceRuntime, workspace_id: UUID, principal_id: UUID,
+        cls,
+        *,
+        runtime: SharedWorkspaceRuntime,
+        workspace_id: UUID,
+        principal_id: UUID,
     ) -> GuiAuditFactory:
         # Host-only environment chosen by the service manager, not guest input.
-        return cls(config=WorkerMonitorConfig.from_environment(), runtime=runtime,
-                   workspace_id=workspace_id, principal_id=principal_id)
+        return cls(
+            config=WorkerMonitorConfig.from_environment(),
+            runtime=runtime,
+            workspace_id=workspace_id,
+            principal_id=principal_id,
+        )
 
     def __call__(
-        self, isolation_identity: str, run_id: UUID, *,
-        agent_id: UUID | None = None, agent_registry: object | None = None,
+        self,
+        isolation_identity: str,
+        run_id: UUID,
+        *,
+        agent_id: UUID | None = None,
+        agent_registry: object | None = None,
     ) -> GuiAuditHandle:
         if not isinstance(isolation_identity, str) or not _SHA.fullmatch(isolation_identity):
             raise InvalidInputError("GUI audit needs a pinned isolation hash")
@@ -133,16 +163,25 @@ class GuiAuditFactory:
             # Only the controller-owned S40 registry may establish that a
             # browser really belongs to a specific enrolled agent.
             from potbot.tools.agent_homes import AgentHomeRegistry
+
             if not isinstance(agent_id, UUID) or not isinstance(agent_registry, AgentHomeRegistry):
                 raise ScopeDeniedError("GUI attribution requires an admitted agent registry")
             identity = agent_registry.lookup(self.workspace_id, agent_id)
-            if identity is None or identity.workspace_id != self.workspace_id or identity.agent_id != agent_id:
+            if (
+                identity is None
+                or identity.workspace_id != self.workspace_id
+                or identity.agent_id != agent_id
+            ):
                 raise ScopeDeniedError("GUI agent identity is not registered")
             subject, kind = agent_id, "agent"
         elif agent_registry is not None:
             raise ScopeDeniedError("GUI attribution must not accept an unused agent registry")
         session = self.session_factory(
-            self.config, self.workspace_id, subject, isolation_identity,
-            identity_kind=kind, run_id=run_id,
+            self.config,
+            self.workspace_id,
+            subject,
+            isolation_identity,
+            identity_kind=kind,
+            run_id=run_id,
         )
         return GuiAuditHandle(session)

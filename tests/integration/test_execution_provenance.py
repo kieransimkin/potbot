@@ -146,6 +146,7 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         worker, executable hash, UID, lease and syscall audit have independent
         S46 + live-host gates; no production admission is relaxed here.
         """
+
         def __init__(self, mode: str = "normal"):
             self.mode = mode
             self.dispatched = []
@@ -169,9 +170,11 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
             effects.append(op.binding.kind)
             if op.binding.kind == "script":
                 proc = await asyncio.create_subprocess_exec(
-                    sys.executable, "-c",
+                    sys.executable,
+                    "-c",
                     "import json,os; print(json.dumps({'sum':7,'pid':os.getpid()}))",
-                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
                 process_ids.append(proc.pid)
                 try:
@@ -184,12 +187,14 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
             elif op.binding.kind == "mcp_tool":
                 async for client, catalog in serve():
                     response = await client.call_tool(
-                        "add", {"a": 3, "b": 4},
+                        "add",
+                        {"a": 3, "b": 4},
                         pinned_catalog_hash=catalog.fingerprint,
                         pinned_tool_hash=catalog.tool("add").fingerprint,
                     )
                     assert response.structured_content == {"sum": 7}
             elif op.binding.kind == "maintenance":
+
                 def workload():
                     return sum(i * i for i in range(100000))
 
@@ -201,35 +206,54 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
                 measured = profiler.runcall(workload)
                 profiled_ns = time.perf_counter_ns() - start
                 assert plain == measured and profiler.getstats()
-                profiling.append({
-                    "plain_ns": plain_ns, "profiled_ns": profiled_ns,
-                    "difference_ns": profiled_ns - plain_ns,
-                    "output_hash": content_hash(plain), "sample_count": 1,
-                    "qualification": "host_fixture_transport_double_not_sandbox",
-                    "target_ram_bytes": None,
-                    "uncertainty": "single_sample_noise_not_estimated",
-                })
+                profiling.append(
+                    {
+                        "plain_ns": plain_ns,
+                        "profiled_ns": profiled_ns,
+                        "difference_ns": profiled_ns - plain_ns,
+                        "output_hash": content_hash(plain),
+                        "sample_count": 1,
+                        "qualification": "host_fixture_transport_double_not_sandbox",
+                        "target_ram_bytes": None,
+                        "uncertainty": "single_sample_noise_not_estimated",
+                    }
+                )
             return result("Recorded sandbox transport response for " + op.binding.kind)
 
     for kind in WORK_KINDS:
-        operations.append(SandboxedCogOperation(
-            WorkBinding(kind, operation_ref(kind), QUERY, RESULTS,
-                        content_hash({"fixture_handler": kind}), "read_only", policy),
-            ("/usr/local/libexec/fixture-worker",),
-            content_hash({"fixture_binary": kind}),
-        ))
+        operations.append(
+            SandboxedCogOperation(
+                WorkBinding(
+                    kind,
+                    operation_ref(kind),
+                    QUERY,
+                    RESULTS,
+                    content_hash({"fixture_handler": kind}),
+                    "read_only",
+                    policy,
+                ),
+                ("/usr/local/libexec/fixture-worker",),
+                content_hash({"fixture_binary": kind}),
+            )
+        )
     steps = [ChildWorkStep("script", "script", operation_ref("script"))]
     for kind in WORK_KINDS:
         if kind not in {"script", "workflow"}:
-            steps.append(ChildWorkStep(
-                kind, kind, operation_ref(kind),
-                links=("script",) if kind == "mcp_tool" else (),
-            ))
+            steps.append(
+                ChildWorkStep(
+                    kind,
+                    kind,
+                    operation_ref(kind),
+                    links=("script",) if kind == "mcp_tool" else (),
+                )
+            )
     child_plans = (
         InstalledChildPlan("workflow", operation_ref("workflow"), tuple(steps)),
-        InstalledChildPlan("subagent", operation_ref("subagent"), (
-            ChildWorkStep("tool", "tool", operation_ref("tool")),
-        )),
+        InstalledChildPlan(
+            "subagent",
+            operation_ref("subagent"),
+            (ChildWorkStep("tool", "tool", operation_ref("tool")),),
+        ),
     )
     sandbox_agent = uuid4()
     sandbox_executor = FixtureSandboxTransport()
@@ -471,9 +495,17 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
 
     write_effects = []
     write_operation = SandboxedCogOperation(
-        WorkBinding("tool", "syn://thing/fixture-failed-write", QUERY, RESULTS,
-                    "f" * 64, "non_idempotent_write", policy),
-        ("/usr/local/libexec/fixture-worker",), "e" * 64,
+        WorkBinding(
+            "tool",
+            "syn://thing/fixture-failed-write",
+            QUERY,
+            RESULTS,
+            "f" * 64,
+            "non_idempotent_write",
+            policy,
+        ),
+        ("/usr/local/libexec/fixture-worker",),
+        "e" * 64,
     )
     writer = ExecutionCogRuntime(
         database=app_env.db,
@@ -528,10 +560,13 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
         repository_state_id=state["id"],
         emitter_run_id=runtime.emitter,
         policy=policy,
-        operations=(SandboxedCogOperation(
-            replace(write_operation.binding, effect_class="read_only"),
-            write_operation.argv, write_operation.executable_sha256,
-        ),),
+        operations=(
+            SandboxedCogOperation(
+                replace(write_operation.binding, effect_class="read_only"),
+                write_operation.argv,
+                write_operation.executable_sha256,
+            ),
+        ),
         admit=admit,
         sandbox_executor=FixtureSandboxTransport("mutate"),
         sandbox_agent_id=sandbox_agent,

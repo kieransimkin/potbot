@@ -3,6 +3,7 @@
 All requests use Potbot's restricted PostgreSQL transaction identity; passing
 principal UUIDs does not bypass the database's session_user membership check.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,10 +57,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(service.diff(*target, args.before, args.after), end="")
             return 0
         else:
-            result = service.restore(*target, source_revision=args.source,
-                                     expected_revision=args.expected,
-                                     idempotency_key=args.idempotency_key,
-                                     reason=args.reason)
+            result = service.restore(
+                *target,
+                source_revision=args.source,
+                expected_revision=args.expected,
+                idempotency_key=args.idempotency_key,
+                reason=args.reason,
+            )
         print(json.dumps(result, sort_keys=True, default=str))
         return 0
     except DomainError as exc:

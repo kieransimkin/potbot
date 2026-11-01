@@ -16,30 +16,81 @@ from potbot.domain.errors import InvalidInputError
 from potbot.tools.workspace_concurrency import AccessResource, Mode
 
 OperationKind = Literal[
-    "file_read", "file_edit", "file_create", "file_remove", "file_rename",
-    "package_install", "package_lock_update", "model_install", "cache_update",
-    "sqlite_transaction", "memory_update", "media_render", "build", "git_worktree",
-    "github_file_read", "github_file_write", "unclassified_command",
+    "file_read",
+    "file_edit",
+    "file_create",
+    "file_remove",
+    "file_rename",
+    "package_install",
+    "package_lock_update",
+    "model_install",
+    "cache_update",
+    "sqlite_transaction",
+    "memory_update",
+    "media_render",
+    "build",
+    "git_worktree",
+    "github_file_read",
+    "github_file_write",
+    "unclassified_command",
 ]
 
 # A read of an SQLite database normally goes through SQLite's own snapshot
 # protocol, not through a direct read of -wal, -shm, or a copied db file.
 _DATABASE_SUFFIXES = ("-wal", "-shm", "-journal")
-_LOCK_NAMES = frozenset({
-    "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock",
-    "uv.lock", "poetry.lock", "pdm.lock", "pipfile.lock", "cargo.lock",
-    "composer.lock", "bun.lock", "bun.lockb", "flake.lock", "pubspec.lock",
-    "packages.lock.json", "gemfile.lock", "song-lock.json", "asset-lock.json",
-})
+_LOCK_NAMES = frozenset(
+    {
+        "package-lock.json",
+        "npm-shrinkwrap.json",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+        "uv.lock",
+        "poetry.lock",
+        "pdm.lock",
+        "pipfile.lock",
+        "cargo.lock",
+        "composer.lock",
+        "bun.lock",
+        "bun.lockb",
+        "flake.lock",
+        "pubspec.lock",
+        "packages.lock.json",
+        "gemfile.lock",
+        "song-lock.json",
+        "asset-lock.json",
+    }
+)
 _ENV_NAMES = frozenset({"node_modules", ".venv", "venv", ".tox", ".next", ".npm"})
-_CACHE_NAMES = frozenset({
-    ".cache", ".npm-cache", ".uv-cache", ".huggingface", "models",
-    "model-cache", "motion-packs", "optional-motion-packs", "cache",
-})
-_BUILD_NAMES = frozenset({
-    "build", "dist", "release", "release-output", "generated", "outputs",
-    "results", "library", "temp", "obj", "logs", "builds", ".build",
-})
+_CACHE_NAMES = frozenset(
+    {
+        ".cache",
+        ".npm-cache",
+        ".uv-cache",
+        ".huggingface",
+        "models",
+        "model-cache",
+        "motion-packs",
+        "optional-motion-packs",
+        "cache",
+    }
+)
+_BUILD_NAMES = frozenset(
+    {
+        "build",
+        "dist",
+        "release",
+        "release-output",
+        "generated",
+        "outputs",
+        "results",
+        "library",
+        "temp",
+        "obj",
+        "logs",
+        "builds",
+        ".build",
+    }
+)
 _MEMORY_NAMES = frozenset({"memory", "memories", "embeddings", "vectors", "vector-index"})
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -62,9 +113,9 @@ def classify_home_path(path: str) -> str:
     leaf = parts[-1] if parts else ""
     if leaf in _LOCK_NAMES:
         return "package-lock"
-    if leaf.endswith((".sqlite", ".sqlite3", ".db", ".sqlite-wal", ".sqlite-shm", ".db-wal")) or any(
-        leaf.endswith(suffix) for suffix in _DATABASE_SUFFIXES
-    ):
+    if leaf.endswith(
+        (".sqlite", ".sqlite3", ".db", ".sqlite-wal", ".sqlite-shm", ".db-wal")
+    ) or any(leaf.endswith(suffix) for suffix in _DATABASE_SUFFIXES):
         return "sqlite-store"
     if ".git" in parts:
         return "git-metadata"
@@ -126,8 +177,11 @@ def file_footprint(
 
 
 def package_footprint(
-    root: str, *, manager: Literal["npm", "pnpm", "yarn", "uv", "pip", "cargo"],
-    change_lock: bool = False, shared_cache: str | None = None,
+    root: str,
+    *,
+    manager: Literal["npm", "pnpm", "yarn", "uv", "pip", "cargo"],
+    change_lock: bool = False,
+    shared_cache: str | None = None,
 ) -> Footprint:
     """Installation writes environment but reads lockfile unless resolving it.
 
@@ -152,12 +206,18 @@ def package_footprint(
     }
     if shared_cache is not None:
         resources.add(AccessResource("external", shared_cache, "write"))
-    return Footprint("package_lock_update" if change_lock else "package_install",
-                     tuple(sorted(resources, key=lambda r: (r.kind, r.name, r.mode))))
+    return Footprint(
+        "package_lock_update" if change_lock else "package_install",
+        tuple(sorted(resources, key=lambda r: (r.kind, r.name, r.mode))),
+    )
 
 
 def model_artifact_footprint(
-    location: str, *, digest: str, writer: bool, cache_scope: str | None = None,
+    location: str,
+    *,
+    digest: str,
+    writer: bool,
+    cache_scope: str | None = None,
 ) -> Footprint:
     """Independent model versions can download concurrently, identical ones cannot.
 
@@ -172,20 +232,26 @@ def model_artifact_footprint(
     resource = AccessResource("home", f"{root}/{digest}", "write" if writer else "read")
     resources = [resource]
     if cache_scope is not None:
-        resources.append(AccessResource("external", cache_scope + "/" + digest,
-                                        "write" if writer else "read"))
+        resources.append(
+            AccessResource("external", cache_scope + "/" + digest, "write" if writer else "read")
+        )
     return Footprint("model_install" if writer else "file_read", tuple(resources))
 
 
 def sqlite_footprint(db_path: str, *, write: bool) -> Footprint:
     """Coordinate SQLite schema/backup writers on the same logical DB family."""
     root = _sqlite_key(_path(db_path))
-    return Footprint("sqlite_transaction" if write else "file_read", (
-        AccessResource("home", root, "write" if write else "read"),
-    ))
+    return Footprint(
+        "sqlite_transaction" if write else "file_read",
+        (AccessResource("home", root, "write" if write else "read"),),
+    )
 
 
-def directory_footprint(path: str, *, kind: Literal["cache_update", "memory_update", "media_render", "build"] = "cache_update") -> Footprint:
+def directory_footprint(
+    path: str,
+    *,
+    kind: Literal["cache_update", "memory_update", "media_render", "build"] = "cache_update",
+) -> Footprint:
     if kind not in {"cache_update", "memory_update", "media_render", "build"}:
         raise InvalidInputError("unknown directory operation")
     canonical = _path(path)

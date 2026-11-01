@@ -11,9 +11,9 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
-from typing import Callable
+from pathlib import PurePosixPath
 from uuid import UUID, uuid4
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
@@ -44,8 +44,11 @@ class SharedFileBroker:
     """
 
     def __init__(
-        self, *, ledger: WorkspaceLeaseLedger,
-        authorize: Callable[[UUID, UUID], bool], max_file_bytes: int = 4 * 1024**2,
+        self,
+        *,
+        ledger: WorkspaceLeaseLedger,
+        authorize: Callable[[UUID, UUID], bool],
+        max_file_bytes: int = 4 * 1024**2,
         agent_homes: AgentHomeRegistry | None = None,
     ) -> None:
         if not callable(authorize):
@@ -74,7 +77,8 @@ class SharedFileBroker:
         try:
             for name in parts[2:-1]:
                 next_fd = os.open(
-                    name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                     dir_fd=current,
                 )
                 os.close(current)
@@ -85,7 +89,11 @@ class SharedFileBroker:
             raise
 
     def _check_agent_directory_permissions(
-        self, *, workspace_id: UUID, actor_id: UUID, guest_path: str,
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        guest_path: str,
     ) -> None:
         """Simulated group/UID checks for a trusted, mediated write.
 
@@ -102,8 +110,9 @@ class SharedFileBroker:
         owner = self.agent_homes.owner_for_directory(workspace_id, relative[0])
         if owner is None:
             raise ScopeDeniedError("file path is not under a registered agent directory")
-        credentials = SimulatedAgentCredentials(actor_home.uid, actor_home.gid,
-                                                 actor_home.group_name)
+        credentials = SimulatedAgentCredentials(
+            actor_home.uid, actor_home.gid, actor_home.group_name
+        )
         current = self.ledger.home
         # A writer needs (w,x) in the *parent* directory and (x) in every
         # ancestor. An existing file with mode 0644 may still be replaced under
@@ -113,10 +122,13 @@ class SharedFileBroker:
             info = os.stat(current, follow_symlinks=False)
             if not stat.S_ISDIR(info.st_mode):
                 raise ScopeDeniedError("agent path has a non-directory parent")
-            for bit in (("write", "execute") if index == len(relative) - 2 else ("execute",)):
+            for bit in ("write", "execute") if index == len(relative) - 2 else ("execute",):
                 if not posix_mode_allows(
-                    mode=stat.S_IMODE(info.st_mode), owner_uid=owner.uid,
-                    group_gid=owner.gid, actor=credentials, permission=bit,
+                    mode=stat.S_IMODE(info.st_mode),
+                    owner_uid=owner.uid,
+                    group_gid=owner.gid,
+                    actor=credentials,
+                    permission=bit,
                 ):
                     raise ScopeDeniedError("agent directory mode denies shared file mutation")
             if info.st_mode & stat.S_ISVTX and actor_home.uid != owner.uid:
@@ -125,8 +137,7 @@ class SharedFileBroker:
     @staticmethod
     def _existing(fd: int, name: str, *, max_bytes: int) -> str | None:
         try:
-            opened = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
-                             dir_fd=fd)
+            opened = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
         except FileNotFoundError:
             return None
         try:
@@ -145,25 +156,39 @@ class SharedFileBroker:
             os.close(opened)
 
     def replace(
-        self, *, workspace_id: UUID, actor_id: UUID, image_digest: str,
-        guest_path: str, expected_sha256: str | None, data: bytes,
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        image_digest: str,
+        guest_path: str,
+        expected_sha256: str | None,
+        data: bytes,
         idempotency_key: str,
     ) -> FileWriteReceipt:
         if not isinstance(data, bytes) or len(data) > self.max_file_bytes:
             raise InvalidInputError("file bytes exceed the bounded write limit")
         if expected_sha256 is not None and (
-            not isinstance(expected_sha256, str) or len(expected_sha256) != 64
+            not isinstance(expected_sha256, str)
+            or len(expected_sha256) != 64
             or any(char not in "0123456789abcdef" for char in expected_sha256)
         ):
             raise InvalidInputError("expected file SHA-256 is not canonical")
         self._require(workspace_id, actor_id, image_digest)
         footprint = file_footprint("file_edit", (guest_path,))
         self._check_agent_directory_permissions(
-            workspace_id=workspace_id, actor_id=actor_id, guest_path=guest_path,
+            workspace_id=workspace_id,
+            actor_id=actor_id,
+            guest_path=guest_path,
         )
         request = AccessRequest(
-            workspace_id, actor_id, "file.atomic_replace", idempotency_key,
-            "write", footprint.resources, image_digest,
+            workspace_id,
+            actor_id,
+            "file.atomic_replace",
+            idempotency_key,
+            "write",
+            footprint.resources,
+            image_digest,
         )
         lease = self.ledger.claim(request, replay_existing=False)
         parent_fd = -1
@@ -177,8 +202,10 @@ class SharedFileBroker:
             # Staged name is unique, owned by this broker, and never supplied by
             # the agent. The protected parent must already exist.
             created_fd = os.open(
-                temp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                0o600, dir_fd=parent_fd,
+                temp_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=parent_fd,
             )
             try:
                 with os.fdopen(created_fd, "wb") as stream:
@@ -202,9 +229,15 @@ class SharedFileBroker:
             # The new file could have been published before an exception was
             # raised (e.g. fsync). Never announce a successful final state then.
             try:
-                self.ledger.finish(lease, result_sha256=hashlib.sha256(
-                    b"atomic-file-operation-unresolved" if physical_effect
-                    else b"file-write-preflight-rejected").hexdigest(), uncertain=physical_effect)
+                self.ledger.finish(
+                    lease,
+                    result_sha256=hashlib.sha256(
+                        b"atomic-file-operation-unresolved"
+                        if physical_effect
+                        else b"file-write-preflight-rejected"
+                    ).hexdigest(),
+                    uncertain=physical_effect,
+                )
             except StateMismatchError:
                 pass
             raise

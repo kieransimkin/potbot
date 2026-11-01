@@ -51,14 +51,18 @@ class EvidenceFinding:
         if not isinstance(self.excerpt, str) or not 1 <= len(self.excerpt.encode()) <= 4096:
             raise InvalidInputError("evidence excerpt must be bounded")
         if not isinstance(self.receipt_ref, str) or not (
-            re.fullmatch(r"sha256:[0-9a-f]{64}", self.receipt_ref) or
-            re.fullmatch(r"syn://event/[a-zA-Z0-9_.:/-]{1,128}", self.receipt_ref)
+            re.fullmatch(r"sha256:[0-9a-f]{64}", self.receipt_ref)
+            or re.fullmatch(r"syn://event/[a-zA-Z0-9_.:/-]{1,128}", self.receipt_ref)
         ):
             raise InvalidInputError("evidence requires a bounded invocation receipt")
 
     def to_dict(self) -> dict[str, str]:
-        return {"source_ref": self.source_ref, "source_sha256": self.source_sha256,
-                "excerpt": self.excerpt, "receipt_ref": self.receipt_ref}
+        return {
+            "source_ref": self.source_ref,
+            "source_sha256": self.source_sha256,
+            "excerpt": self.excerpt,
+            "receipt_ref": self.receipt_ref,
+        }
 
 
 class EvidenceInvoker(Protocol):
@@ -75,9 +79,14 @@ class RegisteredEvidenceTool:
     invoke: EvidenceInvoker
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.tool_id, str) or not self.tool_id or len(self.tool_id) > 128
-                or self.channel not in _CHANNELS or not _SOURCE.fullmatch(self.type_ref)
-                or not callable(self.invoke)):
+        if (
+            not isinstance(self.tool_id, str)
+            or not self.tool_id
+            or len(self.tool_id) > 128
+            or self.channel not in _CHANNELS
+            or not _SOURCE.fullmatch(self.type_ref)
+            or not callable(self.invoke)
+        ):
             raise InvalidInputError("evidence tool must be a typed, admitted registration")
 
 
@@ -99,12 +108,20 @@ class EvidenceGateway:
         self._tools = tools
 
     def available(self) -> tuple[dict[str, str], ...]:
-        return tuple({"tool_id": tool.tool_id, "channel": tool.channel,
-                      "type_ref": tool.type_ref} for tool in self._tools)
+        return tuple(
+            {"tool_id": tool.tool_id, "channel": tool.channel, "type_ref": tool.type_ref}
+            for tool in self._tools
+        )
 
-    def search(self, *, channel: SearchChannel, query: str, run_id: str,
-               limit: int = 3) -> tuple[EvidenceFinding, ...]:
-        if channel not in _CHANNELS or not isinstance(query, str) or not query.strip() or len(query) > 512:
+    def search(
+        self, *, channel: SearchChannel, query: str, run_id: str, limit: int = 3
+    ) -> tuple[EvidenceFinding, ...]:
+        if (
+            channel not in _CHANNELS
+            or not isinstance(query, str)
+            or not query.strip()
+            or len(query) > 512
+        ):
             raise InvalidInputError("evidence query is invalid or unbounded")
         if type(limit) is not int or not 1 <= limit <= 5:
             raise InvalidInputError("evidence query result bound is invalid")
@@ -115,8 +132,10 @@ class EvidenceGateway:
             return ()
         # An installed Cog binding is *not* implied by a model's chosen name.
         result = tools[0].invoke(query=query, limit=limit, run_id=run_id)
-        if not isinstance(result, tuple) or len(result) > limit or any(
-            not isinstance(entry, EvidenceFinding) for entry in result
+        if (
+            not isinstance(result, tuple)
+            or len(result) > limit
+            or any(not isinstance(entry, EvidenceFinding) for entry in result)
         ):
             raise InvalidInputError("admitted evidence tool returned invalid records")
         return result
@@ -139,6 +158,7 @@ def parse_hypotheses(raw: str) -> tuple[Hypothesis, ...]:
     """Validate model proposals as data; reject extra authority or tool commands."""
     if not isinstance(raw, str) or len(raw.encode()) > 32768:
         raise InvalidInputError("hypothesis response must be bounded text")
+
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         record: dict[str, Any] = {}
         for key, value in pairs:
@@ -148,8 +168,11 @@ def parse_hypotheses(raw: str) -> tuple[Hypothesis, ...]:
         return record
 
     try:
-        record = json.loads(raw, object_pairs_hook=reject_duplicate_keys,
-                            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+        record = json.loads(
+            raw,
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+        )
     except (ValueError, TypeError):
         raise InvalidInputError("hypothesis response must be a JSON object") from None
     if not isinstance(record, dict) or set(record) != {"hypotheses"}:
@@ -166,20 +189,27 @@ def parse_hypotheses(raw: str) -> tuple[Hypothesis, ...]:
             raise InvalidInputError("hypothesis text is missing or unbounded")
         assumptions = item["assumptions"]
         questions = item["questions"]
-        if not isinstance(assumptions, list) or len(assumptions) > 3 or any(
-            not isinstance(value, str) or not value.strip() or len(value) > 512
-            for value in assumptions
+        if (
+            not isinstance(assumptions, list)
+            or len(assumptions) > 3
+            or any(
+                not isinstance(value, str) or not value.strip() or len(value) > 512
+                for value in assumptions
+            )
         ):
             raise InvalidInputError("hypothesis assumptions must be bounded")
         if not isinstance(questions, list) or len(questions) > 3:
             raise InvalidInputError("hypothesis questions must be bounded")
         parsed: list[EvidenceQuery] = []
         for question in questions:
-            if (not isinstance(question, dict) or set(question) != {"channel", "query"}
-                    or question["channel"] not in _CHANNELS
-                    or not isinstance(question["query"], str)
-                    or not question["query"].strip()
-                    or len(question["query"]) > 512):
+            if (
+                not isinstance(question, dict)
+                or set(question) != {"channel", "query"}
+                or question["channel"] not in _CHANNELS
+                or not isinstance(question["query"], str)
+                or not question["query"].strip()
+                or len(question["query"]) > 512
+            ):
                 raise InvalidInputError("hypothesis evidence query must select a known channel")
             parsed.append(EvidenceQuery(question["channel"], question["query"]))
         found.append(Hypothesis(title.strip(), tuple(assumptions), tuple(parsed)))
@@ -200,16 +230,25 @@ def parse_steering(raw: str) -> dict[str, Any]:
         return result
 
     try:
-        value = json.loads(raw, object_pairs_hook=no_duplicates,
-                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+        value = json.loads(
+            raw,
+            object_pairs_hook=no_duplicates,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+        )
     except (ValueError, TypeError):
         raise InvalidInputError("steering decision must be valid JSON") from None
     if not isinstance(value, dict) or set(value) != {
-        "decision", "explanation", "branch_id", "hypothesis"
+        "decision",
+        "explanation",
+        "branch_id",
+        "hypothesis",
     }:
         raise InvalidInputError("steering decision has unsupported fields")
     if value["decision"] not in {
-        "spawn_hypothesis", "reopen_branch", "no_change", "needs_clarification"
+        "spawn_hypothesis",
+        "reopen_branch",
+        "no_change",
+        "needs_clarification",
     }:
         raise InvalidInputError("invalid steering decision")
     if not isinstance(value["explanation"], str) or not 1 <= len(value["explanation"]) <= 2000:
@@ -223,10 +262,16 @@ def parse_steering(raw: str) -> dict[str, Any]:
 
 
 class InferenceCallback(Protocol):
-    def __call__(self, model: dict[str, Any], system: str, prompt: str,
-                 options: dict[str, Any], on_text: Callable[[str], None],
-                 run_id: str, cancelled: Callable[[], bool] | None,
-                 ) -> tuple[str, dict[str, int], str]: ...
+    def __call__(
+        self,
+        model: dict[str, Any],
+        system: str,
+        prompt: str,
+        options: dict[str, Any],
+        on_text: Callable[[str], None],
+        run_id: str,
+        cancelled: Callable[[], bool] | None,
+    ) -> tuple[str, dict[str, int], str]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,13 +293,19 @@ class ReasoningInvestigator:
     replay them. No private reasoning trace or raw chain of thought is stored.
     """
 
-    def __init__(self, *, root: Path, gateway: EvidenceGateway | None = None,
-                 max_hypotheses: int = 6, max_tool_calls: int = 12,
-                 token_budget: int = 40000,
-                 max_rounds: int = 1,
-                 state_store: PostgresReasoningStore | None = None,
-                 steering_inbox: Any | None = None,
-                 budget_journal: ReasoningBudgetJournal | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        root: Path,
+        gateway: EvidenceGateway | None = None,
+        max_hypotheses: int = 6,
+        max_tool_calls: int = 12,
+        token_budget: int = 40000,
+        max_rounds: int = 1,
+        state_store: PostgresReasoningStore | None = None,
+        steering_inbox: Any | None = None,
+        budget_journal: ReasoningBudgetJournal | None = None,
+    ) -> None:
         if type(max_hypotheses) is not int or not 1 <= max_hypotheses <= 12:
             raise InvalidInputError("hypothesis budget is invalid")
         if type(max_tool_calls) is not int or not 0 <= max_tool_calls <= 64:
@@ -275,17 +326,34 @@ class ReasoningInvestigator:
         self.token_budget = token_budget
         self.steering_inbox = steering_inbox or SteeringInbox(self.root)
 
-    def run(self, *, context: Any, run_id: str, task: str, system: str,
-            models: list[dict[str, Any]], options: dict[str, Any],
-            invoke: InferenceCallback, on_text: Callable[[str], None],
-            emit: Callable[..., None], cancelled: Callable[[], bool] | None = None,
-            ) -> InvestigationResult:
+    def run(
+        self,
+        *,
+        context: Any,
+        run_id: str,
+        task: str,
+        system: str,
+        models: list[dict[str, Any]],
+        options: dict[str, Any],
+        invoke: InferenceCallback,
+        on_text: Callable[[str], None],
+        emit: Callable[..., None],
+        cancelled: Callable[[], bool] | None = None,
+    ) -> InvestigationResult:
         """Close a failed interactive run rather than accepting orphan steering."""
         try:
-            return self._run_impl(context=context, run_id=run_id, task=task,
-                                  system=system, models=models, options=options,
-                                  invoke=invoke, on_text=on_text, emit=emit,
-                                  cancelled=cancelled)
+            return self._run_impl(
+                context=context,
+                run_id=run_id,
+                task=task,
+                system=system,
+                models=models,
+                options=options,
+                invoke=invoke,
+                on_text=on_text,
+                emit=emit,
+                cancelled=cancelled,
+            )
         except Exception:
             if isinstance(run_id, str) and re.fullmatch(r"[a-f0-9]{32}", run_id):
                 workspace = getattr(context, "workspace_id", None)
@@ -302,11 +370,20 @@ class ReasoningInvestigator:
                             pass
             raise
 
-    def _run_impl(self, *, context: Any, run_id: str, task: str, system: str,
-                  models: list[dict[str, Any]], options: dict[str, Any],
-                  invoke: InferenceCallback, on_text: Callable[[str], None],
-                  emit: Callable[..., None], cancelled: Callable[[], bool] | None = None,
-                  ) -> InvestigationResult:
+    def _run_impl(
+        self,
+        *,
+        context: Any,
+        run_id: str,
+        task: str,
+        system: str,
+        models: list[dict[str, Any]],
+        options: dict[str, Any],
+        invoke: InferenceCallback,
+        on_text: Callable[[str], None],
+        emit: Callable[..., None],
+        cancelled: Callable[[], bool] | None = None,
+    ) -> InvestigationResult:
         from potbot.domain.errors import CapabilityUnavailableError
 
         if not isinstance(context.workspace_id, UUID) or not isinstance(context.principal_id, UUID):
@@ -332,15 +409,21 @@ class ReasoningInvestigator:
         if task_identity is not None and self.budget_journal is None:
             raise InvalidInputError("Task budgeting is not configured for reasoning")
         episode_id = UUID(task_identity) if task_identity is not None else None
-        lease_token = (self.state_store.start(context, run_id)
-                       if self.state_store is not None else None)
+        lease_token = (
+            self.state_store.start(context, run_id) if self.state_store is not None else None
+        )
         checkpoint = (
             (lambda data: self.state_store.checkpoint(context, run_id, lease_token, data))
-            if self.state_store is not None and lease_token is not None else None
+            if self.state_store is not None and lease_token is not None
+            else None
         )
-        tree = ReasoningTree(tree_path, max_nodes=self.max_hypotheses * 3 + 24,
-                             max_depth=max(3, self.max_rounds + 2),
-                             token_budget=self.token_budget, checkpoint=checkpoint)
+        tree = ReasoningTree(
+            tree_path,
+            max_nodes=self.max_hypotheses * 3 + 24,
+            max_depth=max(3, self.max_rounds + 2),
+            token_budget=self.token_budget,
+            checkpoint=checkpoint,
+        )
         tree.save()  # Make the run discoverable by the steering API immediately.
         usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         invocations = 0
@@ -360,25 +443,43 @@ class ReasoningInvestigator:
             if cancelled is not None and cancelled():
                 raise CapabilityUnavailableError("reasoning run cancelled before dispatch")
 
-        def model_call(model: dict[str, Any], role: ReasoningRole, payload: dict[str, Any],
-                       parent: str | None, final: bool = False) -> str:
+        def model_call(
+            model: dict[str, Any],
+            role: ReasoningRole,
+            payload: dict[str, Any],
+            parent: str | None,
+            final: bool = False,
+        ) -> str:
             nonlocal invocations
             stopped()
             packet = compile_reasoning_prompt(
-                model=f"{model['provider']}/{model['model']}", role=role, task=task,
-                constraints=tuple(system[i:i+2000] for i in range(0, len(system), 2000)),
+                model=f"{model['provider']}/{model['model']}",
+                role=role,
+                task=task,
+                constraints=tuple(system[i : i + 2000] for i in range(0, len(system), 2000)),
                 context=payload,
             )
             allowance = min(8192, max(1024, self.token_budget // 4))
             output_limit = min(options["max_output_tokens"], 2048, allowance // 2)
-            node = tree.add(f"{role}:{model['provider']}/{model['model']}",
-                            parent_id=parent, model_id=f"{model['provider']}/{model['model']}", max_tokens=allowance,
-                            prompt_hash=packet.identity, role=role)
+            node = tree.add(
+                f"{role}:{model['provider']}/{model['model']}",
+                parent_id=parent,
+                model_id=f"{model['provider']}/{model['model']}",
+                max_tokens=allowance,
+                prompt_hash=packet.identity,
+                role=role,
+            )
             claim = tree.claim(node.id)
             if claim is None or claim.claim_token is None:
                 raise InvalidInputError("reasoning token reservation unavailable")
-            emit("reasoning.node.started", run_id=run_id, node_id=node.id, role=role,
-                 model=model["model"], prompt_hash=packet.identity)
+            emit(
+                "reasoning.node.started",
+                run_id=run_id,
+                node_id=node.id,
+                role=role,
+                model=model["model"],
+                prompt_hash=packet.identity,
+            )
             selection_options = {**options, "max_output_tokens": output_limit}
             # OpenAI and Gemini expose native JSON-only generation constraints;
             # other providers still receive the canonical JSON prompt contract.
@@ -388,10 +489,17 @@ class ReasoningInvestigator:
             if episode_id is not None:
                 assert self.budget_journal is not None and lease_token is not None
                 ticket = self.budget_journal.prepare(
-                    context, run_id=run_id, node_id=node.id, lease_token=lease_token,
-                    episode_id=episode_id, provider=model["provider"], model=model["model"],
-                    protocol=model.get("protocol"), prompt_hash=packet.identity,
-                    system=packet.system, prompt=packet.user,
+                    context,
+                    run_id=run_id,
+                    node_id=node.id,
+                    lease_token=lease_token,
+                    episode_id=episode_id,
+                    provider=model["provider"],
+                    model=model["model"],
+                    protocol=model.get("protocol"),
+                    prompt_hash=packet.identity,
+                    system=packet.system,
+                    prompt=packet.user,
                     max_output_tokens=output_limit,
                     timeout_seconds=min(120, self.budget_journal.policy.max_timeout_seconds),
                 )
@@ -402,15 +510,23 @@ class ReasoningInvestigator:
                     self.budget_journal.dispatch(context, ticket, lease_token)
                 started_at = time.monotonic()
                 output, measured, finish = invoke(
-                    model, packet.system, packet.user, selection_options,
-                    on_text if final else (lambda _delta: None), run_id, cancelled,
+                    model,
+                    packet.system,
+                    packet.user,
+                    selection_options,
+                    on_text if final else (lambda _delta: None),
+                    run_id,
+                    cancelled,
                 )
                 invocations += 1
                 if ticket is not None:
                     self.budget_journal.observe(
-                        context, ticket, measured,
+                        context,
+                        ticket,
+                        measured,
                         elapsed_ms=int((time.monotonic() - started_at) * 1000),
-                        rate_provider=model["provider"], rate_model=model["model"],
+                        rate_provider=model["provider"],
+                        rate_model=model["model"],
                     )
             except Exception:
                 if ticket is not None:
@@ -422,34 +538,64 @@ class ReasoningInvestigator:
                 raise InvalidInputError("provider returned invalid usage")
             if measured["total_tokens"] > allowance:
                 raise InvalidInputError("reported tokens exceed the reserved node allowance")
-            tree.finish(node.id, claim.claim_token, output[:32768],
-                        tokens=measured["total_tokens"])
+            tree.finish(node.id, claim.claim_token, output[:32768], tokens=measured["total_tokens"])
             for key in usage:
                 usage[key] += measured[key]
-            emit("reasoning.node.completed", run_id=run_id, node_id=node.id,
-                 role=role, usage=measured, prompt_hash=packet.identity)
+            emit(
+                "reasoning.node.completed",
+                run_id=run_id,
+                node_id=node.id,
+                role=role,
+                usage=measured,
+                prompt_hash=packet.identity,
+            )
             return output
 
         def steering_actor() -> Any:
-            return context if getattr(self.steering_inbox, "uses_context", False) else context.workspace_id
+            return (
+                context
+                if getattr(self.steering_inbox, "uses_context", False)
+                else context.workspace_id
+            )
 
         def drain_steering() -> bool:
             """Single-owner checkpoint: evaluate and respond to every queued input."""
             changed = False
             for request in self.steering_inbox.pending(steering_actor(), run_id):
                 stopped()
-                emit("reasoning.steering.evaluating", run_id=run_id,
-                     prompt_id=request["id"], task_revision=tree.revision)
-                proposals = [{"id": n.id, "hypothesis": n.hypothesis,
-                              "state": n.state, "rejection_reason": n.rejection_reason,
-                              "assessment": n.assessment}
-                             for n in tree.nodes.values() if n.role == "investigator"]
-                raw = model_call(generators[0], "steering_evaluator", {
-                    "steering_prompt": request["prompt"], "task_revision": tree.revision,
-                    "current_hypotheses": proposals,
-                    "allowed_actions": ["spawn_hypothesis", "reopen_branch",
-                                        "no_change", "needs_clarification"],
-                }, None)
+                emit(
+                    "reasoning.steering.evaluating",
+                    run_id=run_id,
+                    prompt_id=request["id"],
+                    task_revision=tree.revision,
+                )
+                proposals = [
+                    {
+                        "id": n.id,
+                        "hypothesis": n.hypothesis,
+                        "state": n.state,
+                        "rejection_reason": n.rejection_reason,
+                        "assessment": n.assessment,
+                    }
+                    for n in tree.nodes.values()
+                    if n.role == "investigator"
+                ]
+                raw = model_call(
+                    generators[0],
+                    "steering_evaluator",
+                    {
+                        "steering_prompt": request["prompt"],
+                        "task_revision": tree.revision,
+                        "current_hypotheses": proposals,
+                        "allowed_actions": [
+                            "spawn_hypothesis",
+                            "reopen_branch",
+                            "no_change",
+                            "needs_clarification",
+                        ],
+                    },
+                    None,
+                )
                 candidate = parse_steering(raw)
                 decision = candidate["decision"]
                 branch_id = candidate["branch_id"]
@@ -470,17 +616,22 @@ class ReasoningInvestigator:
                     not hypothesis or len(tree.nodes) >= tree.max_nodes
                 ):
                     decision = "needs_clarification"
-                    candidate["explanation"] = "A valid new hypothesis or tree capacity is required."
+                    candidate["explanation"] = (
+                        "A valid new hypothesis or tree capacity is required."
+                    )
                 if decision == "spawn_hypothesis" and hypothesis:
                     if " ".join(hypothesis.casefold().split()) in seen:
                         decision = "no_change"
                         candidate["explanation"] = "This hypothesis is already under investigation."
                 before = set(tree.nodes)
-                item = tree.steer(request["prompt"], decision=decision,
-                                  explanation=candidate["explanation"],
-                                  branch_id=branch_id if decision == "reopen_branch" else None,
-                                  hypothesis=hypothesis if decision == "spawn_hypothesis" else None,
-                                  request_id=request["id"])
+                item = tree.steer(
+                    request["prompt"],
+                    decision=decision,
+                    explanation=candidate["explanation"],
+                    branch_id=branch_id if decision == "reopen_branch" else None,
+                    hypothesis=hypothesis if decision == "spawn_hypothesis" else None,
+                    request_id=request["id"],
+                )
                 if decision == "spawn_hypothesis" and hypothesis:
                     created = (set(tree.nodes) - before).pop()
                     tree.nodes[created].role = "investigator"
@@ -498,36 +649,58 @@ class ReasoningInvestigator:
                     claim = tree.claim(branch_id)
                     if claim is None or claim.claim_token is None:
                         raise InvalidInputError("reopened branch cannot be claimed")
-                    tree.finish(branch_id, claim.claim_token, old_result,
-                                tokens=0, evidence=old_receipts)
+                    tree.finish(
+                        branch_id, claim.claim_token, old_result, tokens=0, evidence=old_receipts
+                    )
                     changed = True
-                response = self.steering_inbox.resolve(steering_actor(), run_id,
-                    request, {"decision": decision, "explanation": candidate["explanation"],
-                              "branch_id": branch_id, "hypothesis": hypothesis,
-                              "task_revision": item["revision"]})
-                emit("reasoning.steering.responded", run_id=run_id,
-                     prompt_id=response["id"], decision=decision,
-                     task_revision=tree.revision)
+                response = self.steering_inbox.resolve(
+                    steering_actor(),
+                    run_id,
+                    request,
+                    {
+                        "decision": decision,
+                        "explanation": candidate["explanation"],
+                        "branch_id": branch_id,
+                        "hypothesis": hypothesis,
+                        "task_revision": item["revision"],
+                    },
+                )
+                emit(
+                    "reasoning.steering.responded",
+                    run_id=run_id,
+                    prompt_id=response["id"],
+                    decision=decision,
+                    task_revision=tree.revision,
+                )
             return changed
 
         steered_nodes: dict[str, str] = {}
         lineage: dict[str, str] = {}
         for model in generators:
             drain_steering()
-            output = model_call(model, "hypothesis_generator", {
-                "task_revision": tree.revision,
-                "registered_tools": list(self.gateway.available()),
-            }, None)
+            output = model_call(
+                model,
+                "hypothesis_generator",
+                {
+                    "task_revision": tree.revision,
+                    "registered_tools": list(self.gateway.available()),
+                },
+                None,
+            )
             for item in parse_hypotheses(output):
                 normalized = " ".join(item.hypothesis.casefold().split())
                 if normalized in seen:
-                    emit("reasoning.hypothesis.duplicate", run_id=run_id,
-                         hypothesis_hash=content_hash(normalized))
+                    emit(
+                        "reasoning.hypothesis.duplicate",
+                        run_id=run_id,
+                        hypothesis_hash=content_hash(normalized),
+                    )
                     continue
                 seen.add(normalized)
                 # Reserve capacity for an adaptive R6 expansion after R5 critique.
-                initial_cap = (max(2, self.max_hypotheses - 2)
-                               if self.max_rounds > 1 else self.max_hypotheses)
+                initial_cap = (
+                    max(2, self.max_hypotheses - 2) if self.max_rounds > 1 else self.max_hypotheses
+                )
                 if len(hypotheses) >= initial_cap:
                     break
                 hypotheses.append((item, f"{model['provider']}/{model['model']}"))
@@ -539,6 +712,7 @@ class ReasoningInvestigator:
         configured_channels = {t["channel"] for t in self.gateway.available()}
         investigated: set[str] = set()
         cursor = 0
+
         def investigate_pending() -> None:
             nonlocal cursor, tool_calls
             while cursor < len(hypotheses):
@@ -552,8 +726,13 @@ class ReasoningInvestigator:
                 if item.hypothesis in steered_nodes:
                     node = tree.nodes[steered_nodes[item.hypothesis]]
                 else:
-                    node = tree.add(item.hypothesis, parent_id=lineage.get(item.hypothesis),
-                                    model_id=model_id, max_tokens=1, role="investigator")
+                    node = tree.add(
+                        item.hypothesis,
+                        parent_id=lineage.get(item.hypothesis),
+                        model_id=model_id,
+                        max_tokens=1,
+                        role="investigator",
+                    )
                 claim = tree.claim(node.id)
                 if claim is None or claim.claim_token is None:
                     raise InvalidInputError("evidence node could not be claimed")
@@ -571,49 +750,96 @@ class ReasoningInvestigator:
                     cache_key = (channel, question.casefold().strip())
                     if cache_key in per_run_cache:
                         found = per_run_cache[cache_key]
-                        records.append({"channel": channel, "status": "completed",
-                                        "reused": True,
-                                        "findings": [entry.to_dict() for entry in found]})
+                        records.append(
+                            {
+                                "channel": channel,
+                                "status": "completed",
+                                "reused": True,
+                                "findings": [entry.to_dict() for entry in found],
+                            }
+                        )
                         continue
                     tool_calls += 1
-                    emit("reasoning.evidence.started", run_id=run_id, node_id=node.id,
-                         channel=channel, query_hash=content_hash(question))
+                    emit(
+                        "reasoning.evidence.started",
+                        run_id=run_id,
+                        node_id=node.id,
+                        channel=channel,
+                        query_hash=content_hash(question),
+                    )
                     # An exception here leaves an indeterminate node on recovery;
                     # never retry an uncertain external action automatically.
-                    found = self.gateway.search(channel=channel, query=question,
-                                                run_id=run_id, limit=3)
+                    found = self.gateway.search(
+                        channel=channel, query=question, run_id=run_id, limit=3
+                    )
                     per_run_cache[cache_key] = found
-                    records.append({"channel": channel, "status": "completed",
-                                    "findings": [entry.to_dict() for entry in found]})
-                    emit("reasoning.evidence.completed", run_id=run_id, node_id=node.id,
-                         channel=channel, count=len(found))
-                receipts = tuple(result["receipt_ref"] for record in records
-                                 for result in record.get("findings", []))
-                tree.finish(node.id, claim.claim_token,
-                            json.dumps({"investigation": records}, sort_keys=True),
-                            tokens=0, evidence=receipts)
-                investigation.append({"hypothesis": item.hypothesis,
-                                      "assumptions": list(item.assumptions),
-                                      "investigation": records,
-                                      "node_id": node.id})
+                    records.append(
+                        {
+                            "channel": channel,
+                            "status": "completed",
+                            "findings": [entry.to_dict() for entry in found],
+                        }
+                    )
+                    emit(
+                        "reasoning.evidence.completed",
+                        run_id=run_id,
+                        node_id=node.id,
+                        channel=channel,
+                        count=len(found),
+                    )
+                receipts = tuple(
+                    result["receipt_ref"]
+                    for record in records
+                    for result in record.get("findings", [])
+                )
+                tree.finish(
+                    node.id,
+                    claim.claim_token,
+                    json.dumps({"investigation": records}, sort_keys=True),
+                    tokens=0,
+                    evidence=receipts,
+                )
+                investigation.append(
+                    {
+                        "hypothesis": item.hypothesis,
+                        "assumptions": list(item.assumptions),
+                        "investigation": records,
+                        "node_id": node.id,
+                    }
+                )
+
         investigate_pending()
-        emit("reasoning.investigation.complete", run_id=run_id,
-             branches=len(investigation), tool_calls=tool_calls,
-             missing_channels=sorted(_CHANNELS - configured_channels))
+        emit(
+            "reasoning.investigation.complete",
+            run_id=run_id,
+            branches=len(investigation),
+            tool_calls=tool_calls,
+            missing_channels=sorted(_CHANNELS - configured_channels),
+        )
 
         def evaluate() -> list[dict[str, Any]]:
             if not investigation:
                 raise InvalidInputError("no evidence branches to evaluate")
             # Independent provider where available, otherwise a distinct model.
-            critic = next((model for model in preferred
-                           if model["provider"] != generators[0]["provider"]),
-                          generators[-1])
-            raw = model_call(critic, "critic", {
-                "branches": investigation, "task_revision": tree.revision,
-                "rule": "Evidence requires source_sha256 and admitted tool receipt."
-            }, None)
-            eligible = [branch for branch in investigation
-                        if tree.nodes[branch["node_id"]].state == "completed"]
+            critic = next(
+                (model for model in preferred if model["provider"] != generators[0]["provider"]),
+                generators[-1],
+            )
+            raw = model_call(
+                critic,
+                "critic",
+                {
+                    "branches": investigation,
+                    "task_revision": tree.revision,
+                    "rule": "Evidence requires source_sha256 and admitted tool receipt.",
+                },
+                None,
+            )
+            eligible = [
+                branch
+                for branch in investigation
+                if tree.nodes[branch["node_id"]].state == "completed"
+            ]
             critiques = parse_critiques(raw, {b["node_id"] for b in investigation})
             ranked = rank_branches(eligible, critiques, beam_width=2)
             for branch in ranked:
@@ -622,14 +848,28 @@ class ReasoningInvestigator:
                     # Historical pruning remains visible; steering may reopen.
                     continue
                 if node.state == "completed":
-                    tree.assess(node.id, {"score": branch["score"],
-                                          "evidence_count": branch["evidence_count"],
-                                          "critique": branch["critique"]})
+                    tree.assess(
+                        node.id,
+                        {
+                            "score": branch["score"],
+                            "evidence_count": branch["evidence_count"],
+                            "critique": branch["critique"],
+                        },
+                    )
                     if not branch["selected"]:
                         tree.prune(node.id, "outside R5 evidence-weighted beam")
-            emit("reasoning.branches.ranked", run_id=run_id,
-                 ranked=[{"node_id": item["node_id"], "score": item["score"],
-                          "selected": item["selected"]} for item in ranked])
+            emit(
+                "reasoning.branches.ranked",
+                run_id=run_id,
+                ranked=[
+                    {
+                        "node_id": item["node_id"],
+                        "score": item["score"],
+                        "selected": item["selected"],
+                    }
+                    for item in ranked
+                ],
+            )
             return [item for item in ranked if item["selected"]]
 
         drain_steering()
@@ -658,13 +898,18 @@ class ReasoningInvestigator:
                 if tree.depth(parent) >= tree.max_depth - 1:
                     continue
                 model = preferred[(round_number + added) % len(preferred)]
-                raw = model_call(model, "hypothesis_generator", {
-                    "round": round_number,
-                    "focus_branch": source,
-                    "instruction": "Propose falsifiable refinements or alternatives to this branch, not repetitions.",
-                    "existing_hypotheses": list(seen)[:self.max_hypotheses],
-                    "task_revision": tree.revision,
-                }, parent)
+                raw = model_call(
+                    model,
+                    "hypothesis_generator",
+                    {
+                        "round": round_number,
+                        "focus_branch": source,
+                        "instruction": "Propose falsifiable refinements or alternatives to this branch, not repetitions.",
+                        "existing_hypotheses": list(seen)[: self.max_hypotheses],
+                        "task_revision": tree.revision,
+                    },
+                    parent,
+                )
                 for hypothesis in parse_hypotheses(raw):
                     normalized = " ".join(hypothesis.hypothesis.casefold().split())
                     if normalized in seen or added >= available:
@@ -675,8 +920,7 @@ class ReasoningInvestigator:
                     added += 1
             if not added:
                 break
-            emit("reasoning.branches.expanded", run_id=run_id,
-                 round=round_number, created=added)
+            emit("reasoning.branches.expanded", run_id=run_id, round=round_number, created=added)
             investigate_pending()
             selected = evaluate()
             if drain_steering():
@@ -684,29 +928,46 @@ class ReasoningInvestigator:
                 selected = evaluate()
         synthesis_model = generators[-1]
         last_revision = tree.revision
-        answer = model_call(synthesis_model, "synthesizer", {
-            "branches": selected,
-            "available_evidence_tools": list(self.gateway.available()),
-            "verified_scope": "Only findings with source digests and execution receipts are tool evidence.",
-        }, None)
+        answer = model_call(
+            synthesis_model,
+            "synthesizer",
+            {
+                "branches": selected,
+                "available_evidence_tools": list(self.gateway.available()),
+                "verified_scope": "Only findings with source digests and execution receipts are tool evidence.",
+            },
+            None,
+        )
         self.steering_inbox.seal(steering_actor(), run_id)
         if drain_steering() and tree.revision != last_revision:
             investigate_pending()
             # A user message arriving during synthesis must influence the
             # final answer, rather than being silently lost on completion.
             selected = evaluate()
-            answer = model_call(synthesis_model, "synthesizer", {
-                "branches": selected, "task_revision": tree.revision,
-                "verified_scope": "Only independently receipted sources count as evidence.",
-            }, None)
+            answer = model_call(
+                synthesis_model,
+                "synthesizer",
+                {
+                    "branches": selected,
+                    "task_revision": tree.revision,
+                    "verified_scope": "Only independently receipted sources count as evidence.",
+                },
+                None,
+            )
         tree.close("completed")
         # Buffer synthesis until steering has been addressed; streamed deltas
         # cannot be retracted after the task-understanding revision changes.
         for offset in range(0, len(answer), 512):
-            on_text(answer[offset:offset + 512])
-        return InvestigationResult(answer, usage, "stop", synthesis_model["provider"],
-                                   invocations, tree_path,
-                                   "executed" if tool_calls else "unavailable")
+            on_text(answer[offset : offset + 512])
+        return InvestigationResult(
+            answer,
+            usage,
+            "stop",
+            synthesis_model["provider"],
+            invocations,
+            tree_path,
+            "executed" if tool_calls else "unavailable",
+        )
 
 
 def canonical_cog_search_tool(*, runtime: Any, channel: SearchChannel) -> RegisteredEvidenceTool:
@@ -728,22 +989,34 @@ def canonical_cog_search_tool(*, runtime: Any, channel: SearchChannel) -> Regist
     def admitted_lookup(*, query: str, limit: int, run_id: str) -> tuple[EvidenceFinding, ...]:
         invocation = uuid4()
         scope = CogRunContext(
-            registry.snapshot.fingerprint, runtime.task_revision,
-            runtime.repository_state, invocation,
+            registry.snapshot.fingerprint,
+            runtime.task_revision,
+            runtime.repository_state,
+            invocation,
         )
-        outcome = asyncio.run(registry.invoke(
-            str(SEARCH.cog_ref),
-            TypedCogValue(SEARCH.input_type_ref,
-                          {"schema_version": 1, "text": query, "limit": limit}),
-            scope, controller=runtime,
-        ))
+        outcome = asyncio.run(
+            registry.invoke(
+                str(SEARCH.cog_ref),
+                TypedCogValue(
+                    SEARCH.input_type_ref, {"schema_version": 1, "text": query, "limit": limit}
+                ),
+                scope,
+                controller=runtime,
+            )
+        )
         items = outcome.value.value["items"]
         if not isinstance(items, list):
             raise InvalidInputError("Cog returned a malformed search result")
-        return tuple(EvidenceFinding(
-            source_ref=item["id"], source_sha256=item["source_sha256"],
-            excerpt=item["text"], receipt_ref="sha256:" + outcome.receipt.fingerprint,
-        ) for item in items)
+        return tuple(
+            EvidenceFinding(
+                source_ref=item["id"],
+                source_sha256=item["source_sha256"],
+                excerpt=item["text"],
+                receipt_ref="sha256:" + outcome.receipt.fingerprint,
+            )
+            for item in items
+        )
 
-    return RegisteredEvidenceTool("potbot.cog.contract-search.v1", channel,
-                                  SEARCH.cog_type_ref, admitted_lookup)
+    return RegisteredEvidenceTool(
+        "potbot.cog.contract-search.v1", channel, SEARCH.cog_type_ref, admitted_lookup
+    )

@@ -50,37 +50,56 @@ def main() -> int:
         approvals = UiToolUpgradeStore(database)
         ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
         homes = AgentHomeRegistry(ledger, workspace_name=args.workspace_name)
+
         def authorized(workspace: UUID, agent: UUID) -> bool:
-            return workspace == paths.workspace_id and agent == args.agent_id \
+            return (
+                workspace == paths.workspace_id
+                and agent == args.agent_id
                 and homes.lookup(workspace, agent) is not None
-        store = SharedToolStore(ledger=ledger, shared_root=paths.shared_tools,
-                                authorize=authorized)
+            )
+
+        store = SharedToolStore(ledger=ledger, shared_root=paths.shared_tools, authorize=authorized)
         if args.action == "publish":
-            manager = SharedToolUpgradeManager(store=store, runtime=paths.runtime(),
-                                               homes=homes, authorize=authorized)
-            tested = manager.inspect(workspace_id=paths.workspace_id,
-                                     agent_id=args.agent_id, operation_id=args.operation_id)
+            manager = SharedToolUpgradeManager(
+                store=store, runtime=paths.runtime(), homes=homes, authorize=authorized
+            )
+            tested = manager.inspect(
+                workspace_id=paths.workspace_id,
+                agent_id=args.agent_id,
+                operation_id=args.operation_id,
+            )
             if tested["state"] != "ready":
                 raise InvalidInputError("Only a tested, ready S9 upgrade can be published")
             result = approvals.publish_test(context, agent_id=args.agent_id, tested=tested)
         else:
-            with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
-                                     runtime=paths.runtime()) as operator:
-                manager = SharedToolUpgradeManager(store=store, runtime=operator.runtime,
-                                                   homes=homes, authorize=authorized,
-                                                   ai_monitor=operator.monitor)
-                worker = ToolApprovalWorker(approvals=approvals, manager=manager,
-                                            context=context, proposal_dir=args.proposal_dir, agent_id=args.agent_id,
-                                            setup_token=CredentialStore().get("api.setup_token"))
-                result = (worker.run_once() if args.action == "run-once"
-                          else worker.confirm_repin(operation=args.operation_id,
-                                                    agent_id=args.agent_id))
+            with AiWorkspaceOperator(
+                workspace_id=paths.workspace_id, ledger=ledger, runtime=paths.runtime()
+            ) as operator:
+                manager = SharedToolUpgradeManager(
+                    store=store,
+                    runtime=operator.runtime,
+                    homes=homes,
+                    authorize=authorized,
+                    ai_monitor=operator.monitor,
+                )
+                worker = ToolApprovalWorker(
+                    approvals=approvals,
+                    manager=manager,
+                    context=context,
+                    proposal_dir=args.proposal_dir,
+                    agent_id=args.agent_id,
+                    setup_token=CredentialStore().get("api.setup_token"),
+                )
+                result = (
+                    worker.run_once()
+                    if args.action == "run-once"
+                    else worker.confirm_repin(operation=args.operation_id, agent_id=args.agent_id)
+                )
         print(json.dumps({"schema": "potbot-s11-worker/v1", "result": result}, sort_keys=True))
         return 0
     except Exception as exc:
         code = exc.code.value if isinstance(exc, DomainError) else "internal_error"
-        print(json.dumps({"schema": "potbot-s11-worker/v1", "error": code}),
-              file=sys.stderr)
+        print(json.dumps({"schema": "potbot-s11-worker/v1", "error": code}), file=sys.stderr)
         return 1
 
 

@@ -4,6 +4,7 @@ This controller does not invoke a model. A qualified worker must execute a
 claimed node and report its result with the matching claim token. Store the
 state only inside a provisioned workspace's sandbox directory.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,9 +48,15 @@ class ReasoningTree:
     indeterminate on recovery, never silently retried.
     """
 
-    def __init__(self, path: Path, *, max_nodes: int = 32, max_depth: int = 5,
-                 token_budget: int = 20000,
-                 checkpoint: Callable[[dict[str, Any]], None] | None = None) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        max_nodes: int = 32,
+        max_depth: int = 5,
+        token_budget: int = 20000,
+        checkpoint: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         if max_nodes < 1 or max_depth < 1 or token_budget < 1:
             raise InvalidInputError("reasoning limits must be positive")
         self.path = Path(path)
@@ -67,8 +74,12 @@ class ReasoningTree:
     @classmethod
     def load(cls, path: Path) -> ReasoningTree:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        tree = cls(path, max_nodes=data["max_nodes"], max_depth=data["max_depth"],
-                   token_budget=data["token_budget"])
+        tree = cls(
+            path,
+            max_nodes=data["max_nodes"],
+            max_depth=data["max_depth"],
+            token_budget=data["token_budget"],
+        )
         tree.revision = data["revision"]
         tree.run_status = data.get("run_status", "running")
         tree.spent_tokens = data["spent_tokens"]
@@ -83,17 +94,30 @@ class ReasoningTree:
         return tree
 
     def _event(self, kind: str, subject: str) -> None:
-        self.events.append({"sequence": len(self.events) + 1, "type": kind,
-                            "subject": subject, "revision": self.revision})
+        self.events.append(
+            {
+                "sequence": len(self.events) + 1,
+                "type": kind,
+                "subject": subject,
+                "revision": self.revision,
+            }
+        )
 
     def save(self) -> None:
         from dataclasses import asdict
+
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"max_nodes": self.max_nodes, "max_depth": self.max_depth,
-                   "token_budget": self.token_budget, "spent_tokens": self.spent_tokens,
-                   "revision": self.revision, "run_status": self.run_status,
-                   "nodes": [asdict(n) for n in self.nodes.values()],
-                   "steering": self.steering, "events": self.events}
+        payload = {
+            "max_nodes": self.max_nodes,
+            "max_depth": self.max_depth,
+            "token_budget": self.token_budget,
+            "spent_tokens": self.spent_tokens,
+            "revision": self.revision,
+            "run_status": self.run_status,
+            "nodes": [asdict(n) for n in self.nodes.values()],
+            "steering": self.steering,
+            "events": self.events,
+        }
         fd, temporary = allocate_file(self.path.parent, prefix=".reasoning-")
         try:
             os.chmod(temporary, 0o600)
@@ -119,22 +143,36 @@ class ReasoningTree:
             parent_id = self.nodes[parent_id].parent_id
         return depth
 
-    def add(self, hypothesis: str, *, parent_id: str | None = None,
-            model_id: str | None = None, max_tokens: int = 1024,
-            prompt_hash: str | None = None, role: str | None = None) -> ReasoningNode:
+    def add(
+        self,
+        hypothesis: str,
+        *,
+        parent_id: str | None = None,
+        model_id: str | None = None,
+        max_tokens: int = 1024,
+        prompt_hash: str | None = None,
+        role: str | None = None,
+    ) -> ReasoningNode:
         if not hypothesis.strip() or len(hypothesis) > 10000:
             raise InvalidInputError("hypothesis is required and bounded")
         if len(self.nodes) >= self.max_nodes or self.depth(parent_id) >= self.max_depth:
             raise InvalidInputError("reasoning tree size or depth exhausted")
         if max_tokens < 1 or max_tokens > self.token_budget:
             raise InvalidInputError("invalid node budget")
-        if prompt_hash is not None and (len(prompt_hash) != 64 or any(
-            c not in "0123456789abcdef" for c in prompt_hash
-        )):
+        if prompt_hash is not None and (
+            len(prompt_hash) != 64 or any(c not in "0123456789abcdef" for c in prompt_hash)
+        ):
             raise InvalidInputError("prompt identity must be SHA256")
-        node = ReasoningNode(str(uuid4()), parent_id, hypothesis, self.revision,
-                             model_id=model_id, max_tokens=max_tokens,
-                             prompt_hash=prompt_hash, role=role)
+        node = ReasoningNode(
+            str(uuid4()),
+            parent_id,
+            hypothesis,
+            self.revision,
+            model_id=model_id,
+            max_tokens=max_tokens,
+            prompt_hash=prompt_hash,
+            role=role,
+        )
         self.nodes[node.id] = node
         self._event("node.created", node.id)
         self.save()
@@ -144,8 +182,11 @@ class ReasoningTree:
         # Reserve the full allowance; avoid overcommitting concurrent nodes.
         reserved = sum(n.max_tokens for n in self.nodes.values() if n.state == "running")
         for node in self.nodes.values():
-            if (node.state == "pending" and (node_id is None or node_id == node.id)
-                    and self.spent_tokens + reserved + node.max_tokens <= self.token_budget):
+            if (
+                node.state == "pending"
+                and (node_id is None or node_id == node.id)
+                and self.spent_tokens + reserved + node.max_tokens <= self.token_budget
+            ):
                 node.state = "running"
                 node.claim_token = str(uuid4())
                 self._event("node.started", node.id)
@@ -153,8 +194,15 @@ class ReasoningTree:
                 return node
         return None
 
-    def finish(self, node_id: str, claim_token: str, result: str, *, tokens: int,
-               evidence: tuple[str, ...] = ()) -> None:
+    def finish(
+        self,
+        node_id: str,
+        claim_token: str,
+        result: str,
+        *,
+        tokens: int,
+        evidence: tuple[str, ...] = (),
+    ) -> None:
         node = self.nodes[node_id]
         if node.state != "running" or node.claim_token != claim_token:
             raise InvalidInputError("stale or invalid reasoning claim")
@@ -201,12 +249,24 @@ class ReasoningTree:
         self._event("reasoning.run." + status, status)
         self.save()
 
-    def steer(self, prompt: str, *, decision: SteeringDecision,
-              explanation: str, branch_id: str | None = None,
-              hypothesis: str | None = None, request_id: str | None = None) -> dict[str, Any]:
+    def steer(
+        self,
+        prompt: str,
+        *,
+        decision: SteeringDecision,
+        explanation: str,
+        branch_id: str | None = None,
+        hypothesis: str | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
         if not prompt.strip() or not explanation.strip():
             raise InvalidInputError("steering prompt and explanation are required")
-        if decision not in {"spawn_hypothesis", "reopen_branch", "no_change", "needs_clarification"}:
+        if decision not in {
+            "spawn_hypothesis",
+            "reopen_branch",
+            "no_change",
+            "needs_clarification",
+        }:
             raise InvalidInputError("unknown steering decision")
         if request_id:
             for item in self.steering:
@@ -216,14 +276,14 @@ class ReasoningTree:
                     return item
         if decision == "spawn_hypothesis" and (not hypothesis or len(self.nodes) >= self.max_nodes):
             raise InvalidInputError("new hypothesis required and capacity available")
-        if decision == "reopen_branch" and (branch_id not in self.nodes or
-             self.nodes[branch_id].state not in {"rejected", "pruned"}):
+        if decision == "reopen_branch" and (
+            branch_id not in self.nodes or self.nodes[branch_id].state not in {"rejected", "pruned"}
+        ):
             raise InvalidInputError("only rejected or pruned branches may reopen")
         if decision in {"spawn_hypothesis", "reopen_branch"}:
             self.revision += 1
         if decision == "spawn_hypothesis":
-            self.add(hypothesis or "", parent_id=branch_id,
-                     max_tokens=min(1024, self.token_budget))
+            self.add(hypothesis or "", parent_id=branch_id, max_tokens=min(1024, self.token_budget))
         elif decision == "reopen_branch":
             old = self.nodes[branch_id]
             old.state = "pending"
@@ -231,9 +291,15 @@ class ReasoningTree:
             old.claim_token = None
             old.assessment = None
             self._event("branch.reopened", branch_id)
-        item = {"id": str(uuid4()), "request_id": request_id, "prompt": prompt,
-                "decision": decision, "explanation": explanation,
-                "branch_id": branch_id, "revision": self.revision}
+        item = {
+            "id": str(uuid4()),
+            "request_id": request_id,
+            "prompt": prompt,
+            "decision": decision,
+            "explanation": explanation,
+            "branch_id": branch_id,
+            "revision": self.revision,
+        }
         self.steering.append(item)
         self._event("steering.responded", item["id"])
         self.save()

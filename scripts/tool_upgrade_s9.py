@@ -39,9 +39,14 @@ def _uuid(value: str) -> UUID:
 
 
 def _plan(path: Path) -> tuple[SharedToolDefinition, ToolTestSuite, str]:
-    if (not path.is_absolute() or path.is_symlink() or not path.is_file()
-            or path.resolve(strict=True) != path or path.stat().st_size > 32_768
-            or path.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH)):
+    if (
+        not path.is_absolute()
+        or path.is_symlink()
+        or not path.is_file()
+        or path.resolve(strict=True) != path
+        or path.stat().st_size > 32_768
+        or path.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
         raise ScopeDeniedError("S9 test plan must be a private, exact absolute file")
 
     def pairs(items: list[tuple[str, object]]) -> dict[str, object]:
@@ -54,7 +59,12 @@ def _plan(path: Path) -> tuple[SharedToolDefinition, ToolTestSuite, str]:
 
     try:
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=pairs)
-        if not isinstance(data, dict) or set(data) != {"schema", "expected_old_commit", "replacement", "tests"}:
+        if not isinstance(data, dict) or set(data) != {
+            "schema",
+            "expected_old_commit",
+            "replacement",
+            "tests",
+        }:
             raise ValueError
         if data["schema"] != "potbot-shared-tool-upgrade-plan/v1":
             raise ValueError
@@ -69,11 +79,16 @@ def _plan(path: Path) -> tuple[SharedToolDefinition, ToolTestSuite, str]:
                 raise ValueError
             if not isinstance(item["argv"], list):
                 raise ValueError
-            case_list.append(ToolTestCase(item["name"], item["kind"],
-                                          tuple(item["argv"]), item["timeout_ms"]))
+            case_list.append(
+                ToolTestCase(item["name"], item["kind"], tuple(item["argv"]), item["timeout_ms"])
+            )
         suite = ToolTestSuite(tuple(case_list))
         prior = data["expected_old_commit"]
-        if not isinstance(prior, str) or len(prior) != 40 or any(c not in "0123456789abcdef" for c in prior):
+        if (
+            not isinstance(prior, str)
+            or len(prior) != 40
+            or any(c not in "0123456789abcdef" for c in prior)
+        ):
             raise ValueError
         return definition, suite, prior
     except (KeyError, TypeError, ValueError, RecursionError, UnicodeError):
@@ -109,42 +124,67 @@ def main(argv: list[str] | None = None) -> int:
         agent_id, operation_id = _uuid(args.agent_id), _uuid(args.operation_id)
         ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
         homes = AgentHomeRegistry(ledger, workspace_name=args.workspace_name)
-        def approved(workspace: UUID, actor: UUID) -> bool:
-            return (workspace == paths.workspace_id and actor == agent_id
-                    and homes.lookup(workspace, actor) is not None)
 
-        store = SharedToolStore(ledger=ledger, shared_root=paths.shared_tools,
-                                authorize=approved)
+        def approved(workspace: UUID, actor: UUID) -> bool:
+            return (
+                workspace == paths.workspace_id
+                and actor == agent_id
+                and homes.lookup(workspace, actor) is not None
+            )
+
+        store = SharedToolStore(ledger=ledger, shared_root=paths.shared_tools, authorize=approved)
         runtime = paths.runtime()
         if args.action in {"inspect", "runtime-pins"}:
-            manager = SharedToolUpgradeManager(store=store, runtime=runtime,
-                                               homes=homes, authorize=approved)
-            data = (manager.inspect(workspace_id=paths.workspace_id, agent_id=agent_id,
-                                    operation_id=operation_id)
-                    if args.action == "inspect" else
-                    manager.runtime_entrypoint_updates(workspace_id=paths.workspace_id,
-                                                       agent_id=agent_id, operation_id=operation_id))
+            manager = SharedToolUpgradeManager(
+                store=store, runtime=runtime, homes=homes, authorize=approved
+            )
+            data = (
+                manager.inspect(
+                    workspace_id=paths.workspace_id, agent_id=agent_id, operation_id=operation_id
+                )
+                if args.action == "inspect"
+                else manager.runtime_entrypoint_updates(
+                    workspace_id=paths.workspace_id, agent_id=agent_id, operation_id=operation_id
+                )
+            )
         else:
-            with AiWorkspaceOperator(workspace_id=paths.workspace_id, ledger=ledger,
-                                     runtime=runtime) as operator:
+            with AiWorkspaceOperator(
+                workspace_id=paths.workspace_id, ledger=ledger, runtime=runtime
+            ) as operator:
                 manager = SharedToolUpgradeManager(
-                    store=store, runtime=runtime, homes=homes, authorize=approved,
+                    store=store,
+                    runtime=runtime,
+                    homes=homes,
+                    authorize=approved,
                     ai_monitor=operator.monitor,
                 )
-                common = dict(workspace_id=paths.workspace_id, agent_id=agent_id,
-                              operation_id=operation_id)
+                common = dict(
+                    workspace_id=paths.workspace_id, agent_id=agent_id, operation_id=operation_id
+                )
                 if args.action == "test":
                     definition, suite, old = _plan(args.plan)
-                    if definition.slug != args.slug or not (paths.shared_tools / stage_name(args.slug, operation_id)).is_dir():
+                    if (
+                        definition.slug != args.slug
+                        or not (paths.shared_tools / stage_name(args.slug, operation_id)).is_dir()
+                    ):
                         raise InvalidInputError("S9 test plan does not match staged tool")
-                    data = manager.prepare(**common, expected_old_commit=old,
-                                           replacement=definition, suite=suite)
+                    data = manager.prepare(
+                        **common, expected_old_commit=old, replacement=definition, suite=suite
+                    )
                 elif args.action == "activate":
-                    data = manager.activate(**common, slug=args.slug,
-                        expected_old_commit=args.expected_old_commit, confirm=args.confirm)
+                    data = manager.activate(
+                        **common,
+                        slug=args.slug,
+                        expected_old_commit=args.expected_old_commit,
+                        confirm=args.confirm,
+                    )
                 elif args.action == "rollback":
-                    data = manager.rollback(**common, slug=args.slug,
-                        expected_current_commit=args.expected_current_commit, confirm=args.confirm)
+                    data = manager.rollback(
+                        **common,
+                        slug=args.slug,
+                        expected_current_commit=args.expected_current_commit,
+                        confirm=args.confirm,
+                    )
                 else:
                     data = manager.reconcile(**common, slug=args.slug, confirm=args.confirm)
         print(json.dumps({"schema": "potbot-shared-tool-s9/v1", "data": data}, sort_keys=True))
@@ -152,9 +192,9 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as error:
         # No untrusted path, Git diagnostics, tool stdout, key or raw error text.
         from potbot.domain.errors import DomainError
+
         code = error.code.value if isinstance(error, DomainError) else "internal_error"
-        print(json.dumps({"schema": "potbot-shared-tool-s9/v1", "error": code}),
-              file=sys.stderr)
+        print(json.dumps({"schema": "potbot-shared-tool-s9/v1", "error": code}), file=sys.stderr)
         return 1
 
 

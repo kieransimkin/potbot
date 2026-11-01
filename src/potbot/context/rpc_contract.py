@@ -44,9 +44,12 @@ class ContextRequest:
     object_id: UUID | None = None
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.request_id, UUID)
-                or self.method not in ("context.read", "context.update")
-                or self.scope not in ("agent", "sandbox", "worker", "skill", "object") or self.role not in ROLES):
+        if (
+            not isinstance(self.request_id, UUID)
+            or self.method not in ("context.read", "context.update")
+            or self.scope not in ("agent", "sandbox", "worker", "skill", "object")
+            or self.role not in ROLES
+        ):
             raise InvalidInputError("Invalid context operation")
         if (self.scope == "skill") != isinstance(self.skill_id, UUID):
             raise InvalidInputError("A skill scope requires exactly one canonical skill ID")
@@ -63,7 +66,7 @@ class ContextRequest:
         if not isinstance(self.content, str):
             raise InvalidInputError("Context update requires text")
         validate_content(self.content)
-        if type(self.expected_revision) is not int or not 1 <= self.expected_revision < 2**63-1:
+        if type(self.expected_revision) is not int or not 1 <= self.expected_revision < 2**63 - 1:
             raise InvalidInputError("A positive current revision is required")
         if not isinstance(self.reason, str) or len(self.reason) > 1000 or "\x00" in self.reason:
             raise InvalidInputError("Invalid context change reason")
@@ -74,8 +77,14 @@ class ContextRequest:
 
     @property
     def fingerprint(self) -> str:
-        material = [self.method, self.scope, self.role, self.content,
-                    self.expected_revision, self.reason]
+        material = [
+            self.method,
+            self.scope,
+            self.role,
+            self.content,
+            self.expected_revision,
+            self.reason,
+        ]
         if self.skill_id is not None:
             material.append(str(self.skill_id))
         if self.object_id is not None:
@@ -123,39 +132,58 @@ class SkillRequest:
     reason: str = ""
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.request_id, UUID) or not isinstance(self.method, str)
-                or self.method not in _SKILL_FIELDS):
+        if (
+            not isinstance(self.request_id, UUID)
+            or not isinstance(self.method, str)
+            or self.method not in _SKILL_FIELDS
+        ):
             raise InvalidInputError("Invalid skill operation")
         supplied = {
-            key for key, value in (
-                ("name", self.name), ("skill_id", self.skill_id), ("content", self.content),
-                ("expected_revision", self.expected_revision), ("release_sha256", self.release_sha256),
+            key
+            for key, value in (
+                ("name", self.name),
+                ("skill_id", self.skill_id),
+                ("content", self.content),
+                ("expected_revision", self.expected_revision),
+                ("release_sha256", self.release_sha256),
                 ("after", self.after),
-            ) if value is not None
+            )
+            if value is not None
         }
         allowed = _SKILL_FIELDS[self.method]
         if supplied - allowed or (self.method != "skills.list" and self.limit != 25):
             raise InvalidInputError("Unexpected skill request fields")
         if "skill_id" in allowed and not isinstance(self.skill_id, UUID):
             raise InvalidInputError("Skill ID must be a UUID")
-        if "name" in allowed and (not isinstance(self.name, str)
-                or not re.fullmatch(r"[a-z][a-z0-9-]{1,62}", self.name)):
+        if "name" in allowed and (
+            not isinstance(self.name, str) or not re.fullmatch(r"[a-z][a-z0-9-]{1,62}", self.name)
+        ):
             raise InvalidInputError("Invalid skill name")
         if "content" in allowed:
             if not isinstance(self.content, str):
                 raise InvalidInputError("Skill content is required")
             validate_content(self.content)
-        if "expected_revision" in allowed and (type(self.expected_revision) is not int
-                or not 1 <= self.expected_revision < 2**63-1):
+        if "expected_revision" in allowed and (
+            type(self.expected_revision) is not int or not 1 <= self.expected_revision < 2**63 - 1
+        ):
             raise InvalidInputError("Skill edit requires a current revision")
-        if "release_sha256" in allowed and (not isinstance(self.release_sha256, str)
-                or not re.fullmatch(r"[0-9a-f]{64}", self.release_sha256)):
+        if "release_sha256" in allowed and (
+            not isinstance(self.release_sha256, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", self.release_sha256)
+        ):
             raise InvalidInputError("Load requires an exact published release digest")
-        if self.method == "skills.list" and (type(self.limit) is not int or not 1 <= self.limit <= 50
-                or (self.after is not None and not isinstance(self.after, UUID))):
+        if self.method == "skills.list" and (
+            type(self.limit) is not int
+            or not 1 <= self.limit <= 50
+            or (self.after is not None and not isinstance(self.after, UUID))
+        ):
             raise InvalidInputError("Invalid skill discovery bounds")
-        if (not isinstance(self.reason, str) or len(self.reason) > 1000 or "\x00" in self.reason
-                or (not self.mutates and self.reason != "")):
+        if (
+            not isinstance(self.reason, str)
+            or len(self.reason) > 1000
+            or "\x00" in self.reason
+            or (not self.mutates and self.reason != "")
+        ):
             raise InvalidInputError("Invalid skill change reason")
         try:
             self.reason.encode("utf-8")
@@ -168,9 +196,17 @@ class SkillRequest:
 
     @property
     def fingerprint(self) -> str:
-        material = [self.method, self.name, str(self.skill_id) if self.skill_id else None,
-                    self.content, self.expected_revision, self.release_sha256,
-                    self.limit, str(self.after) if self.after else None, self.reason]
+        material = [
+            self.method,
+            self.name,
+            str(self.skill_id) if self.skill_id else None,
+            self.content,
+            self.expected_revision,
+            self.release_sha256,
+            self.limit,
+            str(self.after) if self.after else None,
+            self.reason,
+        ]
         raw = json.dumps(material, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(raw).hexdigest()
 
@@ -183,15 +219,20 @@ class CatalogueRequest:
     after: UUID | None = None
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.request_id, UUID) or self.method != "objects.list"
-                or type(self.limit) is not int or not 1 <= self.limit <= 50
-                or (self.after is not None and not isinstance(self.after, UUID))):
+        if (
+            not isinstance(self.request_id, UUID)
+            or self.method != "objects.list"
+            or type(self.limit) is not int
+            or not 1 <= self.limit <= 50
+            or (self.after is not None and not isinstance(self.after, UUID))
+        ):
             raise InvalidInputError("Invalid object discovery bounds")
 
     @property
     def fingerprint(self) -> str:
-        return hashlib.sha256(json.dumps([self.method, self.limit, str(self.after)],
-                             separators=(",", ":")).encode()).hexdigest()
+        return hashlib.sha256(
+            json.dumps([self.method, self.limit, str(self.after)], separators=(",", ":")).encode()
+        ).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +242,10 @@ class WorkRequest:
     result: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.request_id, UUID) or self.method not in ("work.input", "work.result"):
+        if not isinstance(self.request_id, UUID) or self.method not in (
+            "work.input",
+            "work.result",
+        ):
             raise InvalidInputError("Invalid typed work method")
         if self.method == "work.input" and self.result is not None:
             raise InvalidInputError("Work input cannot select a payload")
@@ -209,8 +253,13 @@ class WorkRequest:
             if not isinstance(self.result, dict):
                 raise InvalidInputError("Typed work result is required")
             try:
-                raw = json.dumps(self.result, allow_nan=False, ensure_ascii=False,
-                                 sort_keys=True, separators=(",", ":")).encode("utf-8")
+                raw = json.dumps(
+                    self.result,
+                    allow_nan=False,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
             except (ValueError, TypeError, UnicodeError, RecursionError):
                 raise InvalidInputError("Malformed typed work result") from None
             if not 1 <= len(raw) <= 16 * 1024:
@@ -220,8 +269,15 @@ class WorkRequest:
 
     @property
     def fingerprint(self) -> str:
-        return hashlib.sha256(json.dumps([self.method, self.result], allow_nan=False,
-            ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        return hashlib.sha256(
+            json.dumps(
+                [self.method, self.result],
+                allow_nan=False,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
 
 
 OperationRequest = ContextRequest | SkillRequest | CatalogueRequest | WorkRequest
@@ -248,8 +304,12 @@ def parse_request(data: bytes) -> OperationRequest:
         if method == "objects.list":
             if set(value) != {"schema", "request_id", "method", "limit", "after"}:
                 raise InvalidInputError("Unexpected object discovery fields")
-            return CatalogueRequest(request_id, method, value["limit"],
-                                    canonical_uuid(value["after"]) if value["after"] is not None else None)
+            return CatalogueRequest(
+                request_id,
+                method,
+                value["limit"],
+                canonical_uuid(value["after"]) if value["after"] is not None else None,
+            )
         if method in _SKILL_FIELDS:
             if set(value) != {"schema", "request_id", "method"} | _SKILL_FIELDS[method]:
                 raise InvalidInputError("Unexpected skill fields")
@@ -263,15 +323,24 @@ def parse_request(data: bytes) -> OperationRequest:
             common.add("skill_id")
         if value.get("scope") == "object":
             common.add("object_id")
-        fields = common | {"content", "expected_revision", "reason"} if (
-            method == "context.update"
-        ) else common
+        fields = (
+            common | {"content", "expected_revision", "reason"}
+            if (method == "context.update")
+            else common
+        )
         if set(value) != fields:
             raise InvalidInputError("Unexpected context fields")
-        return ContextRequest(request_id, method, value["scope"], value["role"],
-            value.get("content"), value.get("expected_revision"), value.get("reason", ""),
+        return ContextRequest(
+            request_id,
+            method,
+            value["scope"],
+            value["role"],
+            value.get("content"),
+            value.get("expected_revision"),
+            value.get("reason", ""),
             canonical_uuid(value["skill_id"]) if "skill_id" in value else None,
-            canonical_uuid(value["object_id"]) if "object_id" in value else None)
+            canonical_uuid(value["object_id"]) if "object_id" in value else None,
+        )
     except (UnicodeError, ValueError, TypeError, KeyError, RecursionError) as exc:
         if isinstance(exc, InvalidInputError):
             raise

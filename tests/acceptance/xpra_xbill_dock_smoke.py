@@ -6,6 +6,7 @@ Xauthority, bubblewrap, xbill, Next dependencies, the generated upstream HTML5
 client, and Python Playwright with a locally installed Chromium. Fails rather
 than substituting Xvfb, an unsandboxed app or fake window imagery.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -46,12 +47,13 @@ def _wait_ready(url: str, *, token: str | None = None, timeout: float = 50) -> N
                 return
         except (OSError, httpx.HTTPError):
             pass
-        time.sleep(.25)
+        time.sleep(0.25)
     raise RuntimeError("Xpra/Next service failed its readiness deadline")
 
 
-def _application_in_sandbox(display: str, authfile: Path, workspace: Path,
-                            application: str) -> subprocess.Popen[bytes]:
+def _application_in_sandbox(
+    display: str, authfile: Path, workspace: Path, application: str
+) -> subprocess.Popen[bytes]:
     if application not in {"xbill", "xterm"}:
         raise RuntimeError("Only the two pinned UI acceptance X applications are admitted")
     bwrap = shutil.which("bwrap")
@@ -61,23 +63,58 @@ def _application_in_sandbox(display: str, authfile: Path, workspace: Path,
     socket_path = Path("/tmp/.X11-unix/X" + display.removeprefix(":"))
     if not socket_path.is_socket():
         raise RuntimeError("Xpra did not create the workspace X11 Unix socket")
-    cmd = [bwrap, "--die-with-parent", "--unshare-all", "--new-session",
-           "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
-           "--dir", "/tmp/.X11-unix", "--dir", "/run", "--dir", "/run/potbot"]
+    cmd = [
+        bwrap,
+        "--die-with-parent",
+        "--unshare-all",
+        "--new-session",
+        "--dev",
+        "/dev",
+        "--proc",
+        "/proc",
+        "--tmpfs",
+        "/tmp",
+        "--dir",
+        "/tmp/.X11-unix",
+        "--dir",
+        "/run",
+        "--dir",
+        "/run/potbot",
+    ]
     for directory in ("/usr", "/bin", "/lib", "/lib64", "/etc/fonts"):
         if Path(directory).exists():
             cmd += ["--ro-bind", directory, directory]
-    cmd += ["--bind", str(socket_path), str(socket_path),
-            "--ro-bind", str(authfile), "/run/potbot/Xauthority",
-            "--bind", str(workspace), "/workspace", "--chdir", "/workspace",
-            "--setenv", "DISPLAY", display,
-            "--setenv", "XAUTHORITY", "/run/potbot/Xauthority", "--", binary]
+    cmd += [
+        "--bind",
+        str(socket_path),
+        str(socket_path),
+        "--ro-bind",
+        str(authfile),
+        "/run/potbot/Xauthority",
+        "--bind",
+        str(workspace),
+        "/workspace",
+        "--chdir",
+        "/workspace",
+        "--setenv",
+        "DISPLAY",
+        display,
+        "--setenv",
+        "XAUTHORITY",
+        "/run/potbot/Xauthority",
+        "--",
+        binary,
+    ]
     if application == "xterm":
         cmd.extend(["-title", "Potbot Xterm", "-geometry", "60x14"])
 
-    return subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            start_new_session=True)
+    return subprocess.Popen(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
 
 
 def main() -> int:
@@ -96,6 +133,7 @@ def main() -> int:
     bridge_secret = secrets.token_urlsafe(44)
     cookie_key = secrets.token_urlsafe(56)
     origin = f"http://127.0.0.1:{front_port}"
+
     class ModelsStub(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self.path != "/v1/models":
@@ -107,8 +145,10 @@ def main() -> int:
             self.send_header("Content-Length", str(len(document)))
             self.end_headers()
             self.wfile.write(document)
+
         def log_message(self, *_args) -> None:
             pass
+
     stub = ThreadingHTTPServer(("127.0.0.1", stub_port), ModelsStub)
     server_thread = Thread(target=stub.serve_forever, daemon=True)
     server_thread.start()
@@ -117,44 +157,76 @@ def main() -> int:
         sandbox.mkdir()
         state = sandbox / ".potbot/x11/session.json"
         environment = dict(os.environ)
-        environment.update({
-            "PYTHONPATH": str(ROOT / "src"),
-            "POTBOT_XPRA_BRIDGE_TOKEN": bridge_secret,
-        })
-        bridge_cmd = [sys.executable, "-m", "potbot.tools.x11_workspace_server",
-                      "--workspace-id", workspace_id, "--sandbox-root", str(sandbox),
-                      "--port", str(bridge_port), "--browser-origin", origin]
+        environment.update(
+            {
+                "PYTHONPATH": str(ROOT / "src"),
+                "POTBOT_XPRA_BRIDGE_TOKEN": bridge_secret,
+            }
+        )
+        bridge_cmd = [
+            sys.executable,
+            "-m",
+            "potbot.tools.x11_workspace_server",
+            "--workspace-id",
+            workspace_id,
+            "--sandbox-root",
+            str(sandbox),
+            "--port",
+            str(bridge_port),
+            "--browser-origin",
+            origin,
+        ]
         ui_env = dict(os.environ)
-        ui_env.update({
-            "POTBOT_UI_PUBLIC_ORIGIN": origin,
-            "POTBOT_UI_PASSWORD": private_password,
-            "POTBOT_UI_COOKIE_SECRET": cookie_key,
-            "POTBOT_UI_BACKEND_URL": f"http://127.0.0.1:{stub_port}",
-            "POTBOT_UI_BACKEND_TOKEN": secrets.token_urlsafe(24),
-            "POTBOT_UI_WORKSPACE_ID": workspace_id,
-            "POTBOT_UI_XPRA_BRIDGE_URL": f"http://127.0.0.1:{bridge_port}/",
-            "POTBOT_UI_XPRA_BRIDGE_TOKEN": bridge_secret,
-            "POTBOT_UI_XPRA_PUBLIC_WS_URL": f"ws://127.0.0.1:{bridge_port}/v1/xpra/ws",
-        })
-        bridge = subprocess.Popen(bridge_cmd, env=environment, cwd=ROOT,
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                  start_new_session=True)
+        ui_env.update(
+            {
+                "POTBOT_UI_PUBLIC_ORIGIN": origin,
+                "POTBOT_UI_PASSWORD": private_password,
+                "POTBOT_UI_COOKIE_SECRET": cookie_key,
+                "POTBOT_UI_BACKEND_URL": f"http://127.0.0.1:{stub_port}",
+                "POTBOT_UI_BACKEND_TOKEN": secrets.token_urlsafe(24),
+                "POTBOT_UI_WORKSPACE_ID": workspace_id,
+                "POTBOT_UI_XPRA_BRIDGE_URL": f"http://127.0.0.1:{bridge_port}/",
+                "POTBOT_UI_XPRA_BRIDGE_TOKEN": bridge_secret,
+                "POTBOT_UI_XPRA_PUBLIC_WS_URL": f"ws://127.0.0.1:{bridge_port}/v1/xpra/ws",
+            }
+        )
+        bridge = subprocess.Popen(
+            bridge_cmd,
+            env=environment,
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
         nextjs = None
         game = None
         terminal = None
         try:
             deadline = time.monotonic() + 40
             while not state.exists() and time.monotonic() < deadline and bridge.poll() is None:
-                time.sleep(.1)
+                time.sleep(0.1)
             _wait_ready(f"http://127.0.0.1:{bridge_port}/v1/xpra/status", token=bridge_secret)
             metadata = json.loads(state.read_text())
             display = metadata["display"]
             game = _application_in_sandbox(display, Path(metadata["xauthority"]), sandbox, "xbill")
-            terminal = _application_in_sandbox(display, Path(metadata["xauthority"]), sandbox, "xterm")
-            nextjs = subprocess.Popen(["./node_modules/.bin/next", "dev", "--hostname", "127.0.0.1",
-                                       "--port", str(front_port)], env=ui_env, cwd=FRONT,
-                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                      start_new_session=True)
+            terminal = _application_in_sandbox(
+                display, Path(metadata["xauthority"]), sandbox, "xterm"
+            )
+            nextjs = subprocess.Popen(
+                [
+                    "./node_modules/.bin/next",
+                    "dev",
+                    "--hostname",
+                    "127.0.0.1",
+                    "--port",
+                    str(front_port),
+                ],
+                env=ui_env,
+                cwd=FRONT,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
             _wait_ready(origin + "/")
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
@@ -168,7 +240,8 @@ def main() -> int:
                 canvas.wait_for()
                 # Verify a genuinely painted, nonuniform application surface,
                 # not merely a canvas with the default 640x480 dimensions.
-                page.wait_for_function("""() => {
+                page.wait_for_function(
+                    """() => {
                   const panel = [...document.querySelectorAll('.xwindow-panel')].find(
                     p => p.textContent?.includes('XBill'));
                   const canvas = panel?.querySelector('.xpra-app-canvas');
@@ -186,7 +259,9 @@ def main() -> int:
                     }
                   }
                   return colours.size >= 3;
-                }""", timeout=30000)
+                }""",
+                    timeout=30000,
+                )
                 canvas.click(position={"x": 40, "y": 40})
                 canvas.press("ArrowRight")
                 other = page.locator(".xwindow-panel").filter(has_text="Potbot Xterm")
@@ -208,11 +283,17 @@ def main() -> int:
                 other.wait_for(timeout=20000)
                 other_canvas.wait_for()
                 assert game.poll() is None and terminal.poll() is None
-                screenshot = Path(os.environ.get("POTBOT_XPRA_ACCEPTANCE_SCREENSHOT",
-                    str(ROOT / "artifacts/xpra-xbill-dock.png")))
+                screenshot = Path(
+                    os.environ.get(
+                        "POTBOT_XPRA_ACCEPTANCE_SCREENSHOT",
+                        str(ROOT / "artifacts/xpra-xbill-dock.png"),
+                    )
+                )
                 screenshot.parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=str(screenshot), full_page=False)
-                print("Xpra-only XBill appeared in Dockview; input was sent through the native client")
+                print(
+                    "Xpra-only XBill appeared in Dockview; input was sent through the native client"
+                )
                 print("Screenshot:", screenshot)
                 browser.close()
         finally:

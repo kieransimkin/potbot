@@ -17,7 +17,12 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from potbot.context.projection import ContextProjectionManager
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
+from potbot.domain.errors import (
+    CapabilityUnavailableError,
+    InvalidInputError,
+    ScopeDeniedError,
+    StateMismatchError,
+)
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
@@ -39,8 +44,9 @@ class AiManagedProcessSupervisor(ProcessSupervisor):
     claims a stopped process without the underlying ProcessSupervisor receipt.
     """
 
-    def __init__(self, backend: SharedWorkspaceBubblewrapBackend,
-                 monitor: AiConfigHistoryMonitor) -> None:
+    def __init__(
+        self, backend: SharedWorkspaceBubblewrapBackend, monitor: AiConfigHistoryMonitor
+    ) -> None:
         if backend.ai_monitor is not monitor:
             raise StateMismatchError("managed supervisor requires its exact operator watcher")
         super().__init__(backend)
@@ -56,19 +62,27 @@ class AiManagedProcessSupervisor(ProcessSupervisor):
             return self._active
 
     def run(
-        self, request: ProcessRequest, *,
+        self,
+        request: ProcessRequest,
+        *,
         cancelled: Callable[[], bool] | None = None,
         redactor: CaptureRedactor | None = None,
     ) -> ProcessResult:
         with self._gate:
             if self._closing.is_set() or self._refreshing:
-                raise CapabilityUnavailableError("AI workspace operator is shutting down or refreshing context")
+                raise CapabilityUnavailableError(
+                    "AI workspace operator is shutting down or refreshing context"
+                )
             self._monitor.require_active()
             self._active += 1
         try:
+
             def cancel_on_fence() -> bool:
-                return (self._closing.is_set() or not self._monitor.is_healthy()
-                        or (cancelled is not None and cancelled()))
+                return (
+                    self._closing.is_set()
+                    or not self._monitor.is_healthy()
+                    or (cancelled is not None and cancelled())
+                )
 
             return super().run(request, cancelled=cancel_on_fence, redactor=redactor)
         finally:
@@ -112,7 +126,10 @@ class AiWorkspaceOperator:
     """
 
     def __init__(
-        self, *, workspace_id: UUID, ledger: WorkspaceLeaseLedger,
+        self,
+        *,
+        workspace_id: UUID,
+        ledger: WorkspaceLeaseLedger,
         runtime: SharedWorkspaceRuntime,
         monitor_interval_seconds: float = 0.15,
         context_manager: ContextProjectionManager | None = None,
@@ -123,12 +140,18 @@ class AiWorkspaceOperator:
         if not isinstance(runtime, SharedWorkspaceRuntime):
             raise InvalidInputError("operator owner needs its pinned shared workspace runtime")
         if runtime.ai_config_dir is None or runtime.ai_history_dir is None:
-            raise CapabilityUnavailableError("modern workspace requires both AI configuration mounts")
+            raise CapabilityUnavailableError(
+                "modern workspace requires both AI configuration mounts"
+            )
         self.workspace_id, self.ledger, self.runtime = workspace_id, ledger, runtime
-        if context_manager is not None and not isinstance(context_manager, ContextProjectionManager):
+        if context_manager is not None and not isinstance(
+            context_manager, ContextProjectionManager
+        ):
             raise InvalidInputError("context manager must be a trusted operator instance")
         self._context_manager = context_manager
-        if type(project_agent_context) is not bool or (project_agent_context and context_manager is None):
+        if type(project_agent_context) is not bool or (
+            project_agent_context and context_manager is None
+        ):
             raise InvalidInputError("agent projections require a managed root context")
         self._project_agent_context = project_agent_context
         self._interval = monitor_interval_seconds
@@ -160,11 +183,17 @@ class AiWorkspaceOperator:
                 for role in ROLES:
                     target = self.runtime.rootfs / role
                     if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
-                        raise CapabilityUnavailableError("image has no safe root context placeholder")
+                        raise CapabilityUnavailableError(
+                            "image has no safe root context placeholder"
+                        )
                 guest_mounts = (
-                    self.runtime.rootfs, self.runtime.home, self.runtime.model_staging,
-                    self.runtime.shared_models, self.runtime.shared_tools,
-                    self.runtime.ai_config_dir, self.runtime.ai_history_dir,
+                    self.runtime.rootfs,
+                    self.runtime.home,
+                    self.runtime.model_staging,
+                    self.runtime.shared_models,
+                    self.runtime.shared_tools,
+                    self.runtime.ai_config_dir,
+                    self.runtime.ai_history_dir,
                     self.runtime.shared_skills,
                 )
                 for mount in guest_mounts:
@@ -190,6 +219,7 @@ class AiWorkspaceOperator:
                 agent_bindings = ()
                 if self._project_agent_context:
                     from potbot.context.projection import AgentContextProjection
+
                     # The host-only agent-home registry is an existing controller
                     # lease ledger, not the authoritative context datastore.
                     try:
@@ -197,29 +227,37 @@ class AiWorkspaceOperator:
                             exists = db.execute(
                                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_homes'"
                             ).fetchone()
-                            homes = (db.execute(
-                                "SELECT agent_id,directory FROM agent_homes "
-                                "WHERE workspace_id=? ORDER BY agent_id",
-                                (str(self.workspace_id),),
-                            ).fetchall() if exists is not None else ())
+                            homes = (
+                                db.execute(
+                                    "SELECT agent_id,directory FROM agent_homes "
+                                    "WHERE workspace_id=? ORDER BY agent_id",
+                                    (str(self.workspace_id),),
+                                ).fetchall()
+                                if exists is not None
+                                else ()
+                            )
                         bound = []
                         for home in homes:
                             agent_id = UUID(home["agent_id"])
                             snapshot = self._context_manager.capture_object("agent", str(agent_id))
-                            bound.append(AgentContextProjection(agent_id, home["directory"], snapshot))
+                            bound.append(
+                                AgentContextProjection(agent_id, home["directory"], snapshot)
+                            )
                         agent_bindings = tuple(bound)
                     except BaseException:
                         self._context_manager.close()
                         raise
                 self.runtime = replace(
-                    self.runtime, context_projection=projection,
+                    self.runtime,
+                    context_projection=projection,
                     agent_context_projections=agent_bindings,
                 )
             config, past = self._sources()
             monitor: AiConfigHistoryMonitor | None = None
             try:
                 monitor = AiConfigHistoryMonitor(
-                    config_dir=config, past_dir=past,
+                    config_dir=config,
+                    past_dir=past,
                     interval_seconds=self._interval,
                 )
                 monitor.start()  # Full persisted replay audit runs before any mount.
@@ -265,7 +303,9 @@ class AiWorkspaceOperator:
         """Produce an installer-specific backend, never change the base mount."""
         self._require_live()
         return SharedWorkspaceBubblewrapBackend(
-            self.runtime, ai_monitor=self.monitor, tool_write_grant=grant,
+            self.runtime,
+            ai_monitor=self.monitor,
+            tool_write_grant=grant,
         )
 
     def refresh_context(self) -> dict[str, object]:
@@ -293,14 +333,19 @@ class AiWorkspaceOperator:
                     reconcile_registered_agents(manager.service, manager.principal, self.ledger)
                 with exclusive_context_refresh(self.ledger, manager.principal):
                     root = manager.capture()
-                    agents = (collect_agent_projections(manager, self.ledger, self.workspace_id)
-                              if self._project_agent_context else ())
+                    agents = (
+                        collect_agent_projections(manager, self.ledger, self.workspace_id)
+                        if self._project_agent_context
+                        else ()
+                    )
                     candidates = replace(
-                        self.runtime, context_projection=root,
+                        self.runtime,
+                        context_projection=root,
                         agent_context_projections=agents,
                     )
                     new_backend = SharedWorkspaceBubblewrapBackend(
-                        candidates, ai_monitor=self.monitor,
+                        candidates,
+                        ai_monitor=self.monitor,
                     )
                     # Preserve the same supervisor object: existing gateway
                     # references immediately use the next-launch runtime.

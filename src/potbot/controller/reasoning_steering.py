@@ -54,7 +54,11 @@ class SteeringInbox:
         self._sealed: set[tuple[UUID, str]] = set()
 
     def _paths(self, workspace_id: UUID, run_id: str) -> tuple[Path, Path]:
-        if not isinstance(workspace_id, UUID) or not isinstance(run_id, str) or not _RUN_ID.fullmatch(run_id):
+        if (
+            not isinstance(workspace_id, UUID)
+            or not isinstance(run_id, str)
+            or not _RUN_ID.fullmatch(run_id)
+        ):
             raise InvalidInputError("canonical workspace and run identity are required")
         if self.root.is_symlink():
             raise ScopeDeniedError("reasoning root is unavailable")
@@ -80,12 +84,20 @@ class SteeringInbox:
             raise InvalidInputError("steering request_id must be 1-128 safe characters")
         return hashlib.sha256(request_id.encode()).hexdigest()
 
-    def submit(self, workspace_id: UUID, run_id: str, *, request_id: str, prompt: str) -> dict[str, Any]:
+    def submit(
+        self, workspace_id: UUID, run_id: str, *, request_id: str, prompt: str
+    ) -> dict[str, Any]:
         with self._lock:
             return self._submit_locked(workspace_id, run_id, request_id=request_id, prompt=prompt)
 
-    def _submit_locked(self, workspace_id: UUID, run_id: str, *, request_id: str, prompt: str) -> dict[str, Any]:
-        if not isinstance(prompt, str) or not prompt.strip() or len(prompt.encode("utf-8")) > _MAX_PROMPT_BYTES:
+    def _submit_locked(
+        self, workspace_id: UUID, run_id: str, *, request_id: str, prompt: str
+    ) -> dict[str, Any]:
+        if (
+            not isinstance(prompt, str)
+            or not prompt.strip()
+            or len(prompt.encode("utf-8")) > _MAX_PROMPT_BYTES
+        ):
             raise InvalidInputError("steering prompt must be 1-8192 UTF-8 bytes")
         state, mailbox = self._state(workspace_id, run_id)
         key = self._key(request_id)
@@ -96,18 +108,26 @@ class SteeringInbox:
         create_directory(mailbox)
         path = mailbox / (key + ".request.json")
         record: dict[str, Any] = {
-            "id": key, "request_id": request_id, "prompt": prompt,
-            "created_ns": time.time_ns(), "status": "queued",
+            "id": key,
+            "request_id": request_id,
+            "prompt": prompt,
+            "created_ns": time.time_ns(),
+            "status": "queued",
         }
         if path.exists():
             previous = json.loads(path.read_text(encoding="utf-8"))
             if previous.get("request_id") != request_id or previous.get("prompt") != prompt:
                 raise InvalidInputError("steering idempotency conflict")
             return self._result(mailbox, key, previous)
-        if state.get("run_status", "running") != "running" or (workspace_id, run_id) in self._sealed:
+        if (
+            state.get("run_status", "running") != "running"
+            or (workspace_id, run_id) in self._sealed
+        ):
             raise InvalidInputError("reasoning run is not accepting steering prompts")
         try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+            fd = os.open(
+                path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600
+            )
         except FileExistsError:
             previous = json.loads(path.read_text(encoding="utf-8"))
             if previous.get("request_id") != request_id or previous.get("prompt") != prompt:
@@ -132,7 +152,9 @@ class SteeringInbox:
             raise ScopeDeniedError("steering prompt is unavailable")
         return self._result(mailbox, key, json.loads(path.read_text(encoding="utf-8")))
 
-    def pending(self, workspace_id: UUID, run_id: str, *, limit: int = 16) -> tuple[dict[str, Any], ...]:
+    def pending(
+        self, workspace_id: UUID, run_id: str, *, limit: int = 16
+    ) -> tuple[dict[str, Any], ...]:
         with self._lock:
             return self._pending_locked(workspace_id, run_id, limit=limit)
 
@@ -146,7 +168,9 @@ class SteeringInbox:
             self._state(workspace_id, run_id)
             self._sealed.add((workspace_id, run_id))
 
-    def _pending_locked(self, workspace_id: UUID, run_id: str, *, limit: int = 16) -> tuple[dict[str, Any], ...]:
+    def _pending_locked(
+        self, workspace_id: UUID, run_id: str, *, limit: int = 16
+    ) -> tuple[dict[str, Any], ...]:
         _, mailbox = self._state(workspace_id, run_id)
         if not mailbox.is_dir():
             return ()
@@ -163,16 +187,22 @@ class SteeringInbox:
         candidates.sort(key=lambda item: (item["created_ns"], item["id"]))
         return tuple(candidates[:limit])
 
-    def resolve(self, workspace_id: UUID, run_id: str, request: dict[str, Any],
-                decision: dict[str, Any]) -> dict[str, Any]:
+    def resolve(
+        self, workspace_id: UUID, run_id: str, request: dict[str, Any], decision: dict[str, Any]
+    ) -> dict[str, Any]:
         _, mailbox = self._state(workspace_id, run_id)
         key = request["id"]
         target = mailbox / (key + ".decision.json")
         if target.exists():
             return json.loads(target.read_text(encoding="utf-8"))
-        result = {"id": key, "request_id": request["request_id"],
-                  "prompt": request["prompt"], "created_ns": request["created_ns"],
-                  "status": "decided", **decision}
+        result = {
+            "id": key,
+            "request_id": request["request_id"],
+            "prompt": request["prompt"],
+            "created_ns": request["created_ns"],
+            "status": "decided",
+            **decision,
+        }
         _write_atomic(target, result)
         return result
 

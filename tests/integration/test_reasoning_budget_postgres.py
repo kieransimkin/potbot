@@ -28,25 +28,42 @@ def _task(env: Any) -> UUID:
         change_scope=(),
         capabilities=("test",),
         verification_policy="checks-v1",
-        budget=(("tokens", 100000), ("calls", 10), ("tool_ms", 10000),
-                ("concurrency", 3), ("inference_ms", 300000),
-                ("money_microunits", 100000)),
+        budget=(
+            ("tokens", 100000),
+            ("calls", 10),
+            ("tool_ms", 10000),
+            ("concurrency", 3),
+            ("inference_ms", 300000),
+            ("money_microunits", 100000),
+        ),
     )
-    task = service.submit(env.context, env.repository_id, contract,
-                          "reasoning-budget-" + uuid4().hex)
+    task = service.submit(
+        env.context, env.repository_id, contract, "reasoning-budget-" + uuid4().hex
+    )
     identity = UUID(task["task_id"])
-    service.transition(env.context, identity, 0, TaskStatus.INITIALIZING,
-                       "Init", idempotency_key="init-" + uuid4().hex)
-    service.transition(env.context, identity, 1, TaskStatus.RUNNING,
-                       "Running", idempotency_key="run-" + uuid4().hex)
+    service.transition(
+        env.context,
+        identity,
+        0,
+        TaskStatus.INITIALIZING,
+        "Init",
+        idempotency_key="init-" + uuid4().hex,
+    )
+    service.transition(
+        env.context,
+        identity,
+        1,
+        TaskStatus.RUNNING,
+        "Running",
+        idempotency_key="run-" + uuid4().hex,
+    )
     return identity
 
 
 def _journal(env: Any) -> ReasoningBudgetJournal:
     policy = HostedPolicy(
         allow_prompt_disclosure=True,
-        rules=(RateRule("openai", "reasoner-test", 100000, 200000,
-                        protocol="responses"),),
+        rules=(RateRule("openai", "reasoner-test", 100000, 200000, protocol="responses"),),
     )
     return ReasoningBudgetJournal(env.db, policy)
 
@@ -54,11 +71,19 @@ def _journal(env: Any) -> ReasoningBudgetJournal:
 def _prepare(env: Any, task_id: UUID, run_id: str, token: UUID) -> tuple[Any, Any]:
     journal = _journal(env)
     ticket = journal.prepare(
-        env.context, run_id=run_id, node_id=str(uuid4()), lease_token=token,
-        episode_id=task_id, provider="openai", model="reasoner-test",
-        protocol="responses", prompt_hash="e" * 64,
-        system="Follow instructions", prompt="Give a JSON answer",
-        max_output_tokens=128, timeout_seconds=20,
+        env.context,
+        run_id=run_id,
+        node_id=str(uuid4()),
+        lease_token=token,
+        episode_id=task_id,
+        provider="openai",
+        model="reasoner-test",
+        protocol="responses",
+        prompt_hash="e" * 64,
+        system="Follow instructions",
+        prompt="Give a JSON answer",
+        max_output_tokens=128,
+        timeout_seconds=20,
     )
     return journal, ticket
 
@@ -70,9 +95,18 @@ def test_reasoning_budget_success_records_usage_once(app_env: Any) -> None:
     journal, ticket = _prepare(app_env, task_id, run_id, token)
     assert BudgetLedger(app_env.db).inspect(app_env.context, task_id)["held"]["calls"] == 1
     journal.dispatch(app_env.context, ticket, token)
-    journal.observe(app_env.context, ticket, {
-        "prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14,
-    }, elapsed_ms=220, rate_provider="openai", rate_model="reasoner-test")
+    journal.observe(
+        app_env.context,
+        ticket,
+        {
+            "prompt_tokens": 10,
+            "completion_tokens": 4,
+            "total_tokens": 14,
+        },
+        elapsed_ms=220,
+        rate_provider="openai",
+        rate_model="reasoner-test",
+    )
     journal.settle_observed(app_env.context, ticket.identity)
     amounts = BudgetLedger(app_env.db).inspect(app_env.context, task_id)
     assert amounts["used"]["calls"] == 1

@@ -77,8 +77,10 @@ class StubPhraseCodec:
         # Strictly lowercase ASCII, 24 words, synthetic per-entropy mapping.
         letters = "abcdefghijklmnop"
         digest = hashlib.sha256(entropy).hexdigest()
-        phrase = " ".join("word" + "".join(letters[int(x, 16)] for x in digest[i:i+2])
-                          for i in range(0, 48, 2))
+        phrase = " ".join(
+            "word" + "".join(letters[int(x, 16)] for x in digest[i : i + 2])
+            for i in range(0, 48, 2)
+        )
         self.pairs[phrase] = entropy
         return phrase
 
@@ -110,15 +112,19 @@ def _new(backend):
 
 def _export(backend, public):
     return hd_keys.operator_recovery_words(
-        service="syn.operator", account="operator-A",
+        service="syn.operator",
+        account="operator-A",
         expected_base_public_key_hash=public["base_public_key_hash"],
     )
 
 
 def _restore(backend, public, phrase, account="operator-B"):
     return hd_keys.recover_operator_identity(
-        service="syn.operator", account=account, lock_dir=backend[2],
-        words=phrase, expected_base_public_key_hash=public["base_public_key_hash"],
+        service="syn.operator",
+        account=account,
+        lock_dir=backend[2],
+        words=phrase,
+        expected_base_public_key_hash=public["base_public_key_hash"],
     )
 
 
@@ -130,8 +136,15 @@ def test_phrase_restores_original_root_and_base_not_new_identity(backend):
     assert len(backend[0].data) == 16
     assert all(phrase not in field for field in backend[0].data.values())
     assert set(public) == {
-        "schema_version", "type_ref", "profile", "root_path", "base_path",
-        "root_public_key", "base_public_key", "root_public_key_hash", "base_public_key_hash",
+        "schema_version",
+        "type_ref",
+        "profile",
+        "root_path",
+        "base_path",
+        "root_public_key",
+        "base_public_key",
+        "root_public_key_hash",
+        "base_public_key_hash",
     }
 
 
@@ -143,11 +156,19 @@ def test_restoration_requires_existing_independent_base_hash_before_any_write(ba
     assert all(not account.startswith("operator-B.") for _, account in backend[0].data)
 
 
-@pytest.mark.parametrize("wrong", [
-    "", "hello", "abandon " * 23, "abandon " * 24, "abandon " * 23 + "art\n",
-    "ABANDON " * 23 + "art", "abandon " * 23 + "🍎",
-    "abandon " * 23 + "art " + "leak",
-])
+@pytest.mark.parametrize(
+    "wrong",
+    [
+        "",
+        "hello",
+        "abandon " * 23,
+        "abandon " * 24,
+        "abandon " * 23 + "art\n",
+        "ABANDON " * 23 + "art",
+        "abandon " * 23 + "🍎",
+        "abandon " * 23 + "art " + "leak",
+    ],
+)
 def test_recovery_rejects_noncanonical_or_invalid_phrase_without_writes(backend, wrong):
     public = _new(backend)
     with pytest.raises(SynProtocolError):
@@ -192,7 +213,8 @@ def test_export_refuses_mismatched_identity_and_tampered_entropy(backend):
     public = _new(backend)
     with pytest.raises(SynProtocolError, match="pinned"):
         hd_keys.operator_recovery_words(
-            service="syn.operator", account="operator-A",
+            service="syn.operator",
+            account="operator-A",
             expected_base_public_key_hash="00" * 32,
         )
     backend[0].data["syn.operator", "operator-A.operator.entropy.v1"] = "12" * 32
@@ -238,9 +260,15 @@ class StubTerminal:
 
 
 def _args(command, base, lock_dir):
-    args = [command, "--keyring-service", "syn.operator", "--keyring-account",
-            "operator-A" if command == "show-recovery" else "operator-B",
-            "--expected-base-public-key-hash", base]
+    args = [
+        command,
+        "--keyring-service",
+        "syn.operator",
+        "--keyring-account",
+        "operator-A" if command == "show-recovery" else "operator-B",
+        "--expected-base-public-key-hash",
+        base,
+    ]
     if command == "recover-operator":
         args += ["--lock-dir", str(lock_dir)]
     return args
@@ -305,13 +333,23 @@ def test_local_operator_functional_smoke_is_public_only(backend, tmp_path, capsy
     folder = tmp_path / "config"
     folder.mkdir(mode=0o700)
     cfg = folder / "syn.json"
-    cfg.write_text(json.dumps({
-        "schema_version": 2, "type_ref": "synny://type/syn-local-service-config-v2",
-        "mode": "operator", "socket": str(folder / "operator.sock"),
-        "registry": str(folder / "registry.json"), "receipt_db": None,
-        "expected_base_public_key_hash": public["base_public_key_hash"],
-        "keyring_service": "syn.operator", "keyring_account": "operator-A",
-    }, sort_keys=True, separators=(",", ":")))
+    cfg.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "type_ref": "synny://type/syn-local-service-config-v2",
+                "mode": "operator",
+                "socket": str(folder / "operator.sock"),
+                "registry": str(folder / "registry.json"),
+                "receipt_db": None,
+                "expected_base_public_key_hash": public["base_public_key_hash"],
+                "keyring_service": "syn.operator",
+                "keyring_account": "operator-A",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     cfg.chmod(0o600)
     assert cli.main(["qualify-operator", "--config", str(cfg)]) == 0
     data = json.loads(capsys.readouterr().out)
@@ -322,7 +360,11 @@ def test_local_operator_functional_smoke_is_public_only(backend, tmp_path, capsy
     assert "secret" not in str(data)
     assert len(backend[0].data) == 8
     assert not (folder / "operator.sock").exists()
-    schema_path = Path(__file__).resolve().parents[1] / "schema" / "operator-functional-qualification-v1.schema.json"
+    schema_path = (
+        Path(__file__).resolve().parents[1]
+        / "schema"
+        / "operator-functional-qualification-v1.schema.json"
+    )
     schema = json.loads(schema_path.read_text())
     jsonschema = pytest.importorskip("jsonschema")
     jsonschema.Draft202012Validator.check_schema(schema)
@@ -334,13 +376,23 @@ def test_operator_functional_smoke_refuses_agent_profile(backend, tmp_path, caps
     private = tmp_path / "config"
     private.mkdir(mode=0o700)
     cfg = private / "agent.json"
-    cfg.write_text(json.dumps({
-        "schema_version": 2, "type_ref": "synny://type/syn-local-service-config-v2",
-        "mode": "agent", "socket": str(private / "agent.sock"),
-        "registry": str(private / "registry.json"), "receipt_db": None,
-        "expected_base_public_key_hash": "00" * 32,
-        "keyring_service": "syn.operator", "keyring_account": "operator-A",
-    }, sort_keys=True, separators=(",", ":")))
+    cfg.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "type_ref": "synny://type/syn-local-service-config-v2",
+                "mode": "agent",
+                "socket": str(private / "agent.sock"),
+                "registry": str(private / "registry.json"),
+                "receipt_db": None,
+                "expected_base_public_key_hash": "00" * 32,
+                "keyring_service": "syn.operator",
+                "keyring_account": "operator-A",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     cfg.chmod(0o600)
     # This config cannot qualify as an HD operator, regardless of key material.
     assert cli.main(["qualify-operator", "--config", str(cfg)]) == 2

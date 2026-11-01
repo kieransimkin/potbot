@@ -111,7 +111,8 @@ def test_audit_limits_fail_closed(tmp_path: Path) -> None:
 
 
 def test_dirfd_scanning_does_not_follow_raced_parent_symlink(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config, _ = roots(tmp_path)
     inner = config / "inner"

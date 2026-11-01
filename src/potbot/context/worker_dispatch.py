@@ -25,9 +25,14 @@ if TYPE_CHECKING:
     from potbot.tools.workspace_supervision import WorkspaceLeaseGuard
 
 
-def _prepare(operator: AiWorkspaceOperator, registry: AgentHomeRegistry,
-             principal: WorkspaceContext, request: ProcessRequest, guard: WorkspaceLeaseGuard,
-             approve: Callable[[ProcessRequest], None]) -> Any:
+def _prepare(
+    operator: AiWorkspaceOperator,
+    registry: AgentHomeRegistry,
+    principal: WorkspaceContext,
+    request: ProcessRequest,
+    guard: WorkspaceLeaseGuard,
+    approve: Callable[[ProcessRequest], None],
+) -> Any:
     """Provision before admission; hold the operator lock through process claim."""
     from uuid import UUID
 
@@ -37,19 +42,27 @@ def _prepare(operator: AiWorkspaceOperator, registry: AgentHomeRegistry,
         operator._require_live()
         manager = operator._context_manager
         agent_id = request.telemetry_agent_id
-        if (not isinstance(principal, WorkspaceContext) or not isinstance(agent_id, UUID)
-                or not isinstance(request.telemetry_run_id, UUID)
-                or request.telemetry_identity_kind != "agent"
-                or request.telemetry_workspace_id != principal.workspace_id
-                or operator.workspace_id != principal.workspace_id
-                or manager is None or manager.principal != principal
-                or registry.ledger is not operator.ledger or guard.ledger is not operator.ledger
-                or guard.lease is not None or guard.request.actor_id != agent_id
-                or guard.request.workspace_id != principal.workspace_id
-                or guard.request.image_digest != operator.runtime.image_digest
-                or not operator._project_agent_context
-                or operator.supervisor._closing.is_set()):
-            raise ScopeDeniedError("Context worker requires the managed operator and a fresh admitted lease")
+        if (
+            not isinstance(principal, WorkspaceContext)
+            or not isinstance(agent_id, UUID)
+            or not isinstance(request.telemetry_run_id, UUID)
+            or request.telemetry_identity_kind != "agent"
+            or request.telemetry_workspace_id != principal.workspace_id
+            or operator.workspace_id != principal.workspace_id
+            or manager is None
+            or manager.principal != principal
+            or registry.ledger is not operator.ledger
+            or guard.ledger is not operator.ledger
+            or guard.lease is not None
+            or guard.request.actor_id != agent_id
+            or guard.request.workspace_id != principal.workspace_id
+            or guard.request.image_digest != operator.runtime.image_digest
+            or not operator._project_agent_context
+            or operator.supervisor._closing.is_set()
+        ):
+            raise ScopeDeniedError(
+                "Context worker requires the managed operator and a fresh admitted lease"
+            )
         if not callable(approve) or approve(request) is not None:
             raise ScopeDeniedError("Worker approval must fail by raising, not by returning a flag")
         home = registry.lookup(principal.workspace_id, agent_id)
@@ -59,21 +72,30 @@ def _prepare(operator: AiWorkspaceOperator, registry: AgentHomeRegistry,
         # Existing projections were verified at operator start/refresh. A new
         # registered agent is reconciled before a worker can acquire its lease.
         bindings = operator.runtime.agent_context_projections
-        if not any(item.agent_id == agent_id and item.directory == home.directory for item in bindings):
+        if not any(
+            item.agent_id == agent_id and item.directory == home.directory for item in bindings
+        ):
             from potbot.context.agent import AgentContextLifecycle, ContextIdentity
 
             AgentContextLifecycle(manager.service, registry).reconcile_existing(
-                ContextIdentity(principal, agent_id))
+                ContextIdentity(principal, agent_id)
+            )
             operator.refresh_context()
-        if not any(item.agent_id == agent_id for item in operator.runtime.agent_context_projections):
+        if not any(
+            item.agent_id == agent_id for item in operator.runtime.agent_context_projections
+        ):
             raise StateMismatchError("Agent context projection was not published")
         guard.start()
         return InteractiveProcessSupervisor(operator.backend)
 
 
 async def dispatch_context_worker(
-    operator: AiWorkspaceOperator, registry: AgentHomeRegistry, principal: WorkspaceContext,
-    request: ProcessRequest, guard: WorkspaceLeaseGuard, *,
+    operator: AiWorkspaceOperator,
+    registry: AgentHomeRegistry,
+    principal: WorkspaceContext,
+    request: ProcessRequest,
+    guard: WorkspaceLeaseGuard,
+    *,
     approve: Callable[[ProcessRequest], None],
 ) -> ContextWorkerResult:
     """Provision, launch, bind RPC, revoke, stop, then release the process claim.
@@ -85,10 +107,14 @@ async def dispatch_context_worker(
     process = None
     launch = None
     try:
-        supervisor = await _settle(lambda: _prepare(
-            operator, registry, principal, request, guard, approve))
-        launch = asyncio.create_task(supervisor.open(
-            request, cancelled=lambda: guard.fenced or not operator.monitor.is_healthy()))
+        supervisor = await _settle(
+            lambda: _prepare(operator, registry, principal, request, guard, approve)
+        )
+        launch = asyncio.create_task(
+            supervisor.open(
+                request, cancelled=lambda: guard.fenced or not operator.monitor.is_healthy()
+            )
+        )
         process = await asyncio.shield(launch)
         manager = operator._context_manager
         agent_id = request.telemetry_agent_id
@@ -96,8 +122,11 @@ async def dispatch_context_worker(
             raise ScopeDeniedError("Context worker binding disappeared during launch")
         channel = ContextWorkerChannel(
             store=ContextSessionStore(manager.service.database),
-            principal=principal, agent_id=agent_id, guard=guard,
-            registry=registry, check_operator=operator.monitor.require_active,
+            principal=principal,
+            agent_id=agent_id,
+            guard=guard,
+            registry=registry,
+            check_operator=operator.monitor.require_active,
         )
         result = await channel.serve(process)
         # A coherent receipt is not a claim that the guest command exited zero.
@@ -109,6 +138,7 @@ async def dispatch_context_worker(
         await _settle(lambda: guard.finish(evidence_sha256=evidence))
         return result
     except BaseException:
+
         async def retire() -> None:
             nonlocal process
             if launch is not None:
@@ -124,6 +154,7 @@ async def dispatch_context_worker(
                         guard.abandon()
             elif guard.lease is not None:
                 guard.abandon()
+
         task = asyncio.create_task(retire())
         while not task.done():
             try:

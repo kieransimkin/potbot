@@ -32,7 +32,7 @@ MIGRATION_STATEMENTS = (
     *tuple(
         f"""CREATE POLICY context_writer_{operation.lower()} ON {table}
             AS RESTRICTIVE FOR {operation}
-            {('USING (' + predicate + ')') if operation == 'UPDATE' else ''}
+            {("USING (" + predicate + ")") if operation == "UPDATE" else ""}
             WITH CHECK ({predicate})
         """
         for table, operations in (

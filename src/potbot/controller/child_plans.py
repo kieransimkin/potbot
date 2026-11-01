@@ -6,6 +6,7 @@ the sandbox child. The controller invokes each planned child through the normal
 Cog admission/journal/supervisor path after the parent worker exits. In
 particular, a callback never runs guest code in the operator process.
 """
+
 from __future__ import annotations
 
 import re
@@ -25,8 +26,7 @@ if TYPE_CHECKING:
     from potbot.controller.execution_cogs import ExecutionCall
 
 _ID = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
-_EFFECTS = {"read_only": 0, "idempotent_write": 1,
-            "non_idempotent_write": 2, "destructive": 3}
+_EFFECTS = {"read_only": 0, "idempotent_write": 1, "non_idempotent_write": 2, "destructive": 3}
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,13 +39,18 @@ class ChildWorkStep:
     links: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.name, str) or not _ID.fullmatch(self.name)
-                or self.kind not in WORK_KINDS
-                or not isinstance(self.operation_ref, str)
-                or len(self.operation_ref) > 256 or not self.operation_ref.startswith("syn://thing/")
-                or not isinstance(self.links, tuple) or len(self.links) > 16
-                or any(not isinstance(x, str) or not _ID.fullmatch(x) for x in self.links)
-                or len(set(self.links)) != len(self.links)):
+        if (
+            not isinstance(self.name, str)
+            or not _ID.fullmatch(self.name)
+            or self.kind not in WORK_KINDS
+            or not isinstance(self.operation_ref, str)
+            or len(self.operation_ref) > 256
+            or not self.operation_ref.startswith("syn://thing/")
+            or not isinstance(self.links, tuple)
+            or len(self.links) > 16
+            or any(not isinstance(x, str) or not _ID.fullmatch(x) for x in self.links)
+            or len(set(self.links)) != len(self.links)
+        ):
             raise ScopeDeniedError("Child work step is not a bounded installed reference")
 
 
@@ -56,12 +61,15 @@ class InstalledChildPlan:
     steps: tuple[ChildWorkStep, ...]
 
     def __post_init__(self) -> None:
-        if (self.parent_kind not in WORK_KINDS
-                or not isinstance(self.parent_operation_ref, str)
-                or len(self.parent_operation_ref) > 256
-                or not self.parent_operation_ref.startswith("syn://thing/")
-                or not isinstance(self.steps, tuple) or not 1 <= len(self.steps) <= 32
-                or any(not isinstance(step, ChildWorkStep) for step in self.steps)):
+        if (
+            self.parent_kind not in WORK_KINDS
+            or not isinstance(self.parent_operation_ref, str)
+            or len(self.parent_operation_ref) > 256
+            or not self.parent_operation_ref.startswith("syn://thing/")
+            or not isinstance(self.steps, tuple)
+            or not 1 <= len(self.steps) <= 32
+            or any(not isinstance(step, ChildWorkStep) for step in self.steps)
+        ):
             raise ScopeDeniedError("Child work plan must be an installed bounded tuple")
         seen: set[str] = set()
         for step in self.steps:
@@ -84,8 +92,12 @@ def compile_child_plans(
     workspace, or new side-effect grant. Each child receives the parent's
     independently admitted *typed input*, and gets its own one-use invocation.
     """
-    if (not isinstance(operations, tuple) or not isinstance(plans, tuple)
-            or len(plans) > 64 or any(not isinstance(p, InstalledChildPlan) for p in plans)):
+    if (
+        not isinstance(operations, tuple)
+        or not isinstance(plans, tuple)
+        or len(plans) > 64
+        or any(not isinstance(p, InstalledChildPlan) for p in plans)
+    ):
         raise ScopeDeniedError("Child plans require operator-installed bounded descriptors")
     installed = {(op.binding.kind, op.binding.operation_ref): op for op in operations}
     if len(installed) != len(operations):
@@ -100,8 +112,10 @@ def compile_child_plans(
             if child is None:
                 raise ScopeDeniedError("Planned child is not an installed sandbox Cog")
             binding = child.binding
-            if (binding.input_type_ref != parent.input_type_ref
-                    or _EFFECTS[binding.effect_class] > _EFFECTS[parent.effect_class]):
+            if (
+                binding.input_type_ref != parent.input_type_ref
+                or _EFFECTS[binding.effect_class] > _EFFECTS[parent.effect_class]
+            ):
                 raise ScopeDeniedError("Child input port or effect exceeds parent authority")
             # The child cannot inherit a separate, weaker or stale policy grant.
             if binding.policy != parent.policy:
@@ -125,7 +139,9 @@ def compile_child_plans(
 
 
 async def execute_child_plan(
-    call: ExecutionCall, value: TypedCogValue, plan: InstalledChildPlan,
+    call: ExecutionCall,
+    value: TypedCogValue,
+    plan: InstalledChildPlan,
 ) -> None:
     """No guest-supplied child scheduling; all links are DB-verified receipts."""
     from potbot.controller.execution_events import ExecutionEventService
@@ -136,15 +152,21 @@ async def execute_child_plan(
         for name in step.links:
             receipt = children[name].receipt
             history = ExecutionEventService(call.runtime.db).events(
-                call.runtime.actor, run_id=receipt.invocation_id, limit=200,
+                call.runtime.actor,
+                run_id=receipt.invocation_id,
+                limit=200,
             )
             if history.get("has_more") or not history.get("items"):
                 raise StateMismatchError("Linked child has no bounded durable event history")
             terminal = history["items"][-1]
-            if (terminal.get("stage") != "completed"
-                    or terminal.get("run_id") != str(receipt.invocation_id)):
+            if terminal.get("stage") != "completed" or terminal.get("run_id") != str(
+                receipt.invocation_id
+            ):
                 raise StateMismatchError("Child link has no verified terminal completion")
             links.append(UUID(terminal["id"]))
         children[step.name] = await call.child(
-            step.kind, step.operation_ref, value, links=tuple(links),
+            step.kind,
+            step.operation_ref,
+            value,
+            links=tuple(links),
         )

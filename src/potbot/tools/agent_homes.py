@@ -13,10 +13,14 @@ import os
 import re
 import stat
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import UUID, uuid4
 
-from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError, StateMismatchError
+from potbot.domain.errors import (
+    CapabilityUnavailableError,
+    InvalidInputError,
+    ScopeDeniedError,
+    StateMismatchError,
+)
 from potbot.tools.agent_skeleton import install_agent_skeleton
 from potbot.tools.workspace_concurrency import (
     AccessLease,
@@ -27,7 +31,9 @@ from potbot.tools.workspace_concurrency import (
 
 _NAME = re.compile(r"[a-z][a-z0-9_-]{1,62}\Z")
 _INITIAL = re.compile(r"[0-9a-f]{64}\Z")
-_RESERVED = frozenset({"root", "models", "shared", "tmp", "cache", "etc", "bin", "proc", "dev", "run", "sys"})
+_RESERVED = frozenset(
+    {"root", "models", "shared", "tmp", "cache", "etc", "bin", "proc", "dev", "run", "sys"}
+)
 
 
 def default_agent_directory(agent_id: UUID) -> str:
@@ -48,7 +54,13 @@ def _rename_noreplace(fd: int, old: str, new: str) -> None:
     function = getattr(library, "renameat2", None)
     if function is None:
         raise CapabilityUnavailableError("atomic no-replace rename requires Linux renameat2")
-    function.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    function.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
     function.restype = ctypes.c_int
     if function(fd, old.encode(), fd, new.encode(), 1) != 0:  # RENAME_NOREPLACE
         error = ctypes.get_errno()
@@ -107,8 +119,13 @@ class AgentHomeRegistry:
         if pin is None or not isinstance(pin["digest"], str):
             raise StateMismatchError("agent home requires a pinned workspace image")
         request = AccessRequest(
-            workspace_id, agent_id, operation, uuid4().hex, "unknown",
-            (AccessResource("workspace", "*", "write"),), pin["digest"],
+            workspace_id,
+            agent_id,
+            operation,
+            uuid4().hex,
+            "unknown",
+            (AccessResource("workspace", "*", "write"),),
+            pin["digest"],
         )
         return self.ledger.claim(request, replay_existing=False)
 
@@ -133,7 +150,9 @@ class AgentHomeRegistry:
                 (str(workspace_id),),
             ).fetchone()
             if group is not None and group["group_name"] != self.group_name:
-                raise StateMismatchError("workspace group identity differs from the host registration")
+                raise StateMismatchError(
+                    "workspace group identity differs from the host registration"
+                )
             row = db.execute(
                 "SELECT directory,revision,uid,gid FROM agent_homes WHERE workspace_id=? AND agent_id=?",
                 (str(workspace_id), str(agent_id)),
@@ -147,8 +166,15 @@ class AgentHomeRegistry:
             raise StateMismatchError("agent home missing; host reconciliation required") from exc
         finally:
             os.close(fd)
-        return AgentHome(workspace_id, agent_id, row["directory"], row["revision"],
-                         row["uid"], row["gid"], self.group_name)
+        return AgentHome(
+            workspace_id,
+            agent_id,
+            row["directory"],
+            row["revision"],
+            row["uid"],
+            row["gid"],
+            self.group_name,
+        )
 
     def owner_for_directory(self, workspace_id: UUID, directory: str) -> AgentHome | None:
         """Resolve the host-owned top-level agent namespace (no guest aliases)."""
@@ -191,8 +217,10 @@ class AgentHomeRegistry:
                 if group is not None and group["group_name"] != self.group_name:
                     raise StateMismatchError("workspace group identity changed")
                 if group is None:
-                    db.execute("INSERT INTO agent_workspace_groups VALUES(?,?,69)",
-                               (str(workspace_id), self.group_name))
+                    db.execute(
+                        "INSERT INTO agent_workspace_groups VALUES(?,?,69)",
+                        (str(workspace_id), self.group_name),
+                    )
                 allocated = db.execute(
                     "SELECT MAX(uid) AS last FROM agent_homes WHERE workspace_id=?",
                     (str(workspace_id),),
@@ -204,8 +232,9 @@ class AgentHomeRegistry:
                 uncertain = True
                 # umask often clears group write; set exactly the requested mode.
                 os.chmod(name, 0o775, dir_fd=fd, follow_symlinks=False)
-                agent_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
-                                   os.O_CLOEXEC, dir_fd=fd)
+                agent_fd = os.open(
+                    name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd
+                )
                 try:
                     install_agent_skeleton(agent_fd, workspace_name=self.workspace_name)
                 finally:
@@ -220,11 +249,17 @@ class AgentHomeRegistry:
             os.close(fd)
             # Uncertain physical filesystem effects continue blocking further
             # mutations until reconciled, even if the database transaction failed.
-            self.ledger.finish(lease, result_sha256=hashlib.sha256(name.encode()).hexdigest(),
-                               uncertain=uncertain)
+            self.ledger.finish(
+                lease, result_sha256=hashlib.sha256(name.encode()).hexdigest(), uncertain=uncertain
+            )
 
     def rename(
-        self, workspace_id: UUID, agent_id: UUID, new_name: str, *, expected_revision: int,
+        self,
+        workspace_id: UUID,
+        agent_id: UUID,
+        new_name: str,
+        *,
+        expected_revision: int,
     ) -> AgentHome:
         name = _name(new_name)
         if type(expected_revision) is not int or expected_revision < 1:
@@ -264,9 +299,17 @@ class AgentHomeRegistry:
                     (name, expected_revision + 1, str(workspace_id), str(agent_id)),
                 )
             uncertain = False
-            return AgentHome(workspace_id, agent_id, name, expected_revision + 1,
-                             row["uid"], row["gid"], self.group_name)
+            return AgentHome(
+                workspace_id,
+                agent_id,
+                name,
+                expected_revision + 1,
+                row["uid"],
+                row["gid"],
+                self.group_name,
+            )
         finally:
             os.close(fd)
-            self.ledger.finish(lease, result_sha256=hashlib.sha256(name.encode()).hexdigest(),
-                               uncertain=uncertain)
+            self.ledger.finish(
+                lease, result_sha256=hashlib.sha256(name.encode()).hexdigest(), uncertain=uncertain
+            )

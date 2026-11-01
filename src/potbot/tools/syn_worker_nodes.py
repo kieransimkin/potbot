@@ -9,13 +9,15 @@ only the host cgroup/pidfd/lease audit can establish process termination.
 A future signed SYN transport can replace the relay without changing the wire
 contract, but it must qualify identity, network policy and cross-host ordering.
 """
+
 from __future__ import annotations
 
 import asyncio
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
@@ -40,9 +42,14 @@ class SynHeartbeat:
     status: Literal["admitted", "executing", "stopping"]
 
     def __post_init__(self) -> None:
-        if not all(isinstance(getattr(self, field), UUID) for field in (
-            "workspace_id", "agent_id", "worker_run_id", "node_id", "incarnation"
-        )) or type(self.sequence) is not int or not 1 <= self.sequence <= MAX_SEQUENCE:
+        if (
+            not all(
+                isinstance(getattr(self, field), UUID)
+                for field in ("workspace_id", "agent_id", "worker_run_id", "node_id", "incarnation")
+            )
+            or type(self.sequence) is not int
+            or not 1 <= self.sequence <= MAX_SEQUENCE
+        ):
             raise InvalidInputError("SYN heartbeat lacks a bounded trusted node identity")
         if type(self.monotonic_ns) is not int or self.monotonic_ns <= 0:
             raise InvalidInputError("SYN heartbeat monotonic clock is invalid")
@@ -51,12 +58,17 @@ class SynHeartbeat:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 1, "type_ref": HEARTBEAT_TYPE,
-            "workspace_id": str(self.workspace_id), "agent_id": str(self.agent_id),
-            "worker_run_id": str(self.worker_run_id), "node_id": str(self.node_id),
+            "schema_version": 1,
+            "type_ref": HEARTBEAT_TYPE,
+            "workspace_id": str(self.workspace_id),
+            "agent_id": str(self.agent_id),
+            "worker_run_id": str(self.worker_run_id),
+            "node_id": str(self.node_id),
             "node_ref": f"syn://thing/potbot-worker-node-{self.node_id.hex}",
-            "node_type_ref": NODE_TYPE, "incarnation": str(self.incarnation),
-            "sequence": self.sequence, "monotonic_ns": self.monotonic_ns,
+            "node_type_ref": NODE_TYPE,
+            "incarnation": str(self.incarnation),
+            "sequence": self.sequence,
+            "monotonic_ns": self.monotonic_ns,
             "status": self.status,
         }
 
@@ -69,8 +81,9 @@ class SynWorkerNodeMesh:
     view.  A peer's heartbeat is not proof the associated Cog is still running.
     """
 
-    def __init__(self, *, interval_seconds: float = 5.0,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self, *, interval_seconds: float = 5.0, clock: Callable[[], float] = time.monotonic
+    ) -> None:
         if not 0.05 <= interval_seconds <= 60 or not callable(clock):
             raise InvalidInputError("invalid SYN node heartbeat interval")
         self.interval = interval_seconds
@@ -89,7 +102,10 @@ class SynWorkerNodeMesh:
         with self._lock:
             if node.node_id in self._nodes:
                 raise StateMismatchError("SYN worker node has already been registered")
-            if sum(p.workspace_id == node.workspace_id for p in self._nodes.values()) >= MAX_WORKSPACE_NODES:
+            if (
+                sum(p.workspace_id == node.workspace_id for p in self._nodes.values())
+                >= MAX_WORKSPACE_NODES
+            ):
                 raise ScopeDeniedError("workspace SYN node capacity exceeded")
             self._nodes[node.node_id] = node
 
@@ -103,12 +119,14 @@ class SynWorkerNodeMesh:
 
     def _broadcast(self, node: SynWorkerNode, envelope: SynHeartbeat) -> int:
         with self._lock:
-            if (self._nodes.get(node.node_id) is not node
-                    or envelope.node_id != node.node_id
-                    or envelope.worker_run_id != node.worker_run_id
-                    or envelope.agent_id != node.agent_id
-                    or envelope.workspace_id != node.workspace_id
-                    or envelope.incarnation != node.incarnation):
+            if (
+                self._nodes.get(node.node_id) is not node
+                or envelope.node_id != node.node_id
+                or envelope.worker_run_id != node.worker_run_id
+                or envelope.agent_id != node.agent_id
+                or envelope.workspace_id != node.workspace_id
+                or envelope.incarnation != node.incarnation
+            ):
                 raise ScopeDeniedError("unregistered or spoofed SYN node heartbeat")
             self._sent += 1
             delivered = 0
@@ -127,7 +145,8 @@ class SynWorkerNodeMesh:
         with self._lock:
             nodes = [node for node in self._nodes.values() if node.workspace_id == workspace_id]
             return {
-                "schema_version": 1, "workspace_id": str(workspace_id),
+                "schema_version": 1,
+                "workspace_id": str(workspace_id),
                 "node_count": len(nodes),
                 "nodes": [node.snapshot() for node in sorted(nodes, key=lambda n: n.node_id.hex)],
             }
@@ -136,8 +155,9 @@ class SynWorkerNodeMesh:
 class SynWorkerNode:
     """A distinct live SYN runtime *instance* for one worker invocation."""
 
-    def __init__(self, mesh: SynWorkerNodeMesh, workspace_id: UUID,
-                 agent_id: UUID, worker_run_id: UUID) -> None:
+    def __init__(
+        self, mesh: SynWorkerNodeMesh, workspace_id: UUID, agent_id: UUID, worker_run_id: UUID
+    ) -> None:
         self.mesh, self.workspace_id, self.agent_id = mesh, workspace_id, agent_id
         self.worker_run_id = worker_run_id
         self.node_id = uuid5(NAMESPACE_URL, f"potbot-syn-node:{workspace_id}:{worker_run_id}")
@@ -155,7 +175,11 @@ class SynWorkerNode:
 
     @property
     def healthy(self) -> bool:
-        return self._started and not self._fault.is_set() and bool(self._task and not self._task.done())
+        return (
+            self._started
+            and not self._fault.is_set()
+            and bool(self._task and not self._task.done())
+        )
 
     @property
     def fault_event(self) -> threading.Event:
@@ -189,8 +213,13 @@ class SynWorkerNode:
             raise StateMismatchError("SYN node heartbeat sequence exhausted")
         self._sequence += 1
         beat = SynHeartbeat(
-            self.workspace_id, self.agent_id, self.worker_run_id, self.node_id,
-            self.incarnation, self._sequence, max(1, int(self.mesh.clock() * 1_000_000_000)),
+            self.workspace_id,
+            self.agent_id,
+            self.worker_run_id,
+            self.node_id,
+            self.incarnation,
+            self._sequence,
+            max(1, int(self.mesh.clock() * 1_000_000_000)),
             self._status,
         )
         delivered = self.mesh._broadcast(self, beat)
@@ -217,7 +246,8 @@ class SynWorkerNode:
         now = self.mesh.clock()
         peers = [
             {
-                "node_id": str(beat.node_id), "agent_id": str(beat.agent_id),
+                "node_id": str(beat.node_id),
+                "agent_id": str(beat.agent_id),
                 "worker_run_id": str(beat.worker_run_id),
                 "last_sequence": beat.sequence,
                 "last_seen_seconds": round(max(0.0, now - received), 3),
@@ -226,10 +256,14 @@ class SynWorkerNode:
             for beat, received in self._peers.values()
         ]
         return {
-            "node_id": str(self.node_id), "node_ref": f"syn://thing/potbot-worker-node-{self.node_id.hex}",
-            "agent_id": str(self.agent_id), "worker_run_id": str(self.worker_run_id),
-            "status": self._status, "healthy": self.healthy,
-            "heartbeats_sent": self._sent, "peer_heartbeats_received": self._received,
+            "node_id": str(self.node_id),
+            "node_ref": f"syn://thing/potbot-worker-node-{self.node_id.hex}",
+            "agent_id": str(self.agent_id),
+            "worker_run_id": str(self.worker_run_id),
+            "status": self._status,
+            "healthy": self.healthy,
+            "heartbeats_sent": self._sent,
+            "peer_heartbeats_received": self._received,
             "peers": sorted(peers, key=lambda item: str(item["node_id"])),
         }
 
@@ -239,7 +273,9 @@ class SynWorkerNode:
         self.mesh._register(self)
         self._started = True
         self._ever_started = True
-        self._task = asyncio.create_task(self._beat_loop(), name=f"potbot-syn-{self.node_id.hex[:8]}")
+        self._task = asyncio.create_task(
+            self._beat_loop(), name=f"potbot-syn-{self.node_id.hex[:8]}"
+        )
         await asyncio.sleep(0)  # First heartbeat is emitted before Cog dispatch.
         if not self.healthy:
             await self.__aexit__(None, None, None)

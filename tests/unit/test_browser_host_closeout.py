@@ -1,4 +1,5 @@
 """Manifest validation only; passing data here is not live-host evidence."""
+
 from __future__ import annotations
 
 import hashlib
@@ -34,8 +35,21 @@ def make(tmp_path):
         pins[path] = hashlib.sha256(target.read_bytes()).hexdigest()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
-    subprocess.run(["git", "-C", str(repo), "-c", "user.name=test",
-                    "-c", "user.email=test@example.invalid", "commit", "-qm", "initial"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "initial",
+        ],
+        check=True,
+    )
     sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
     directory = tmp_path / "operator-reports"
     directory.mkdir(mode=0o700)
@@ -46,15 +60,25 @@ def make(tmp_path):
         path.write_text(json.dumps({"synthetic": k}) + "\n")
         path.chmod(0o600)
         drills[k] = {
-            "passed": True, "workspace_id": workspace, "agent_ids": agents,
-            "image_digest": image, "operator_epoch": 2, "evidence_file": path.name,
+            "passed": True,
+            "workspace_id": workspace,
+            "agent_ids": agents,
+            "image_digest": image,
+            "operator_epoch": 2,
+            "evidence_file": path.name,
             "evidence_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-            "observed_process_tree_stopped": True, "operator_observation": "direct_live_host",
+            "observed_process_tree_stopped": True,
+            "operator_observation": "direct_live_host",
         }
     manifest = {
-        "schema": GATE.SCHEMA, "source": {"commit": sha, "tree_dirty": False, "files": pins},
-        "workspace_id": workspace, "agent_ids": agents, "image_digest": image,
-        "qualification_sha256": "b" * 64, "operator_epoch": 2, "drills": drills,
+        "schema": GATE.SCHEMA,
+        "source": {"commit": sha, "tree_dirty": False, "files": pins},
+        "workspace_id": workspace,
+        "agent_ids": agents,
+        "image_digest": image,
+        "qualification_sha256": "b" * 64,
+        "operator_epoch": 2,
+        "drills": drills,
     }
     return repo, directory, manifest
 
@@ -68,16 +92,21 @@ def test_complete_synthetic_manifest_is_validated_but_not_attested(tmp_path):
     assert outcome["operator_signoff_required"] is True
 
 
-@pytest.mark.parametrize("change", [
-    lambda x: x["drills"].pop("private_x11_and_home"),
-    lambda x: x["agent_ids"].__setitem__(1, x["agent_ids"][0]),
-    lambda x: x.update(operator_epoch=True),
-    lambda x: x["source"].update(tree_dirty=True),
-    lambda x: x["drills"]["view_only_streams"].update(passed=False),
-    lambda x: x["drills"]["ticket_replay_and_epoch_denial"].update(operator_observation="model_report"),
-    lambda x: x["drills"]["operator_loss_fencing"].update(observed_process_tree_stopped=False),
-    lambda x: x["drills"]["postgres_artifacts_and_rls"].update(evidence_sha256="0" * 64),
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda x: x["drills"].pop("private_x11_and_home"),
+        lambda x: x["agent_ids"].__setitem__(1, x["agent_ids"][0]),
+        lambda x: x.update(operator_epoch=True),
+        lambda x: x["source"].update(tree_dirty=True),
+        lambda x: x["drills"]["view_only_streams"].update(passed=False),
+        lambda x: x["drills"]["ticket_replay_and_epoch_denial"].update(
+            operator_observation="model_report"
+        ),
+        lambda x: x["drills"]["operator_loss_fencing"].update(observed_process_tree_stopped=False),
+        lambda x: x["drills"]["postgres_artifacts_and_rls"].update(evidence_sha256="0" * 64),
+    ],
+)
 def test_false_or_incomplete_host_claims_are_rejected(tmp_path, change):
     repo, directory, data = make(tmp_path)
     change(data)
@@ -107,7 +136,9 @@ def test_private_symlink_and_non_private_files_are_rejected(tmp_path):
         GATE.verify(data, directory=directory, root=repo)
 
 
-@pytest.mark.parametrize("raw", [b"", b"{}{}", b'{"x":1,"x":2}', b'{"x":NaN}', b"x" * (96 * 1024 + 1)])
+@pytest.mark.parametrize(
+    "raw", [b"", b"{}{}", b'{"x":1,"x":2}', b'{"x":NaN}', b"x" * (96 * 1024 + 1)]
+)
 def test_rejects_invalid_host_json(raw):
     with pytest.raises(ValueError):
         GATE.unique_json(raw)

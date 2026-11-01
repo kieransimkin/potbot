@@ -27,12 +27,24 @@ def _qualifier():
     return module
 
 
-def _result(*, outcome: str, exit_code: int | None, dispatched: bool = True,
-            stopped: bool = True, identity: str | None = "a" * 64) -> SimpleNamespace:
+def _result(
+    *,
+    outcome: str,
+    exit_code: int | None,
+    dispatched: bool = True,
+    stopped: bool = True,
+    identity: str | None = "a" * 64,
+) -> SimpleNamespace:
     return SimpleNamespace(
-        outcome=outcome, exit_code=exit_code, stdout=b"", stderr=b"",
-        dispatched=dispatched, processes_stopped=stopped, isolation_identity=identity,
-        stdout_truncated=False, stderr_truncated=False,
+        outcome=outcome,
+        exit_code=exit_code,
+        stdout=b"",
+        stderr=b"",
+        dispatched=dispatched,
+        processes_stopped=stopped,
+        isolation_identity=identity,
+        stdout_truncated=False,
+        stderr_truncated=False,
     )
 
 
@@ -52,7 +64,11 @@ def _result(*, outcome: str, exit_code: int | None, dispatched: bool = True,
     ],
 )
 def test_negative_case_is_never_confused_with_failed_sandbox_launch(
-    tmp_path: Path, case: SimpleNamespace, must_succeed: bool, expected: bool, monkeypatch,
+    tmp_path: Path,
+    case: SimpleNamespace,
+    must_succeed: bool,
+    expected: bool,
+    monkeypatch,
 ) -> None:
     class FakeSupervisor:
         def run(self, request: object) -> SimpleNamespace:
@@ -60,9 +76,15 @@ def test_negative_case_is_never_confused_with_failed_sandbox_launch(
 
     module = _qualifier()
     monkeypatch.setattr(module, "verify_gui_run", _audit)
-    result = module._case(FakeSupervisor(), home=tmp_path,
-                          command="false", must_succeed=must_succeed,
-                          workspace_id=uuid4(), principal_id=uuid4(), audit_root=tmp_path)
+    result = module._case(
+        FakeSupervisor(),
+        home=tmp_path,
+        command="false",
+        must_succeed=must_succeed,
+        workspace_id=uuid4(),
+        principal_id=uuid4(),
+        audit_root=tmp_path,
+    )
     assert result["passed"] is expected
     assert result["dispatched"] is case.dispatched
     assert result["processes_stopped"] is case.processes_stopped
@@ -90,27 +112,34 @@ def test_smoke_checks_actual_kernel_network_namespace(tmp_path: Path, monkeypatc
                 or command.startswith("touch /usr/local/tools/")
                 or command.startswith("/usr/bin/python3 -I -S -c ")
             )
-            return _result(outcome="nonzero_exit" if negative else "completed",
-                           exit_code=1 if negative else 0)
+            return _result(
+                outcome="nonzero_exit" if negative else "completed", exit_code=1 if negative else 0
+            )
 
     # Supply the fake supervisor by replacing the constructor, retaining the
     # production smoke test's actual case list and receipt logic.
     module = _qualifier()
     runtime = module.SharedWorkspaceRuntime(
-        "a" * 64, tmp_path / "image", home, "b" * 64,
-        model_staging=staging, shared_models=tmp_path / "models", shared_tools=tools,
+        "a" * 64,
+        tmp_path / "image",
+        home,
+        "b" * 64,
+        model_staging=staging,
+        shared_models=tmp_path / "models",
+        shared_tools=tools,
     )
     config = SimpleNamespace(audit_root=tmp_path / "audit")
     monkeypatch.setattr(module.WorkerMonitorConfig, "from_environment", lambda: config)
     monkeypatch.setattr(module, "verify_gui_run", _audit)
 
-    with patch.object(module, "ProcessSupervisor", return_value=FakeSupervisor()), \
-         patch.object(module, "SharedWorkspaceBubblewrapBackend", return_value=object()):
+    with (
+        patch.object(module, "ProcessSupervisor", return_value=FakeSupervisor()),
+        patch.object(module, "SharedWorkspaceBubblewrapBackend", return_value=object()),
+    ):
         report = module.qualify(runtime, workspace_id=workspace, principal_id=principal)
     assert report["qualified_smoke"] is True
     assert report["tests"]["network_namespace_isolated"]["passed"] is True
-    namespace_check = next(command for command in commands
-                           if "/proc/self/ns/net" in command)
+    namespace_check = next(command for command in commands if "/proc/self/ns/net" in command)
     assert os.readlink("/proc/self/ns/net") in namespace_check
     assert len(commands) == 11
 
@@ -127,16 +156,23 @@ def test_smoke_checks_actual_kernel_network_namespace(tmp_path: Path, monkeypatc
     assert report["principal_id"] == str(principal)
     assert report["schema"].endswith("/v2")
     receipt = report.pop("receipt_sha256")
-    assert receipt == hashlib.sha256(
-        json.dumps(report, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    assert (
+        receipt
+        == hashlib.sha256(
+            json.dumps(report, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
 
 
 def _audit(root, workspace, run, *, identity_kind, subject_id):
     """Explicit unit-test double, never live kernel evidence."""
     assert identity_kind == "principal" and isinstance(subject_id, UUID)
-    return {"qualified": True, "workspaceId": str(workspace),
-            "runId": str(run), "identityKind": identity_kind}
+    return {
+        "qualified": True,
+        "workspaceId": str(workspace),
+        "runId": str(run),
+        "identityKind": identity_kind,
+    }
 
 
 def _case_with(module, tmp_path, result, *, must_succeed=True):
@@ -148,19 +184,35 @@ def _case_with(module, tmp_path, result, *, must_succeed=True):
             return result
 
     report = module._case(
-        FakeSupervisor(), home=tmp_path, command="false", must_succeed=must_succeed,
-        workspace_id=uuid4(), principal_id=uuid4(), audit_root=tmp_path,
+        FakeSupervisor(),
+        home=tmp_path,
+        command="false",
+        must_succeed=must_succeed,
+        workspace_id=uuid4(),
+        principal_id=uuid4(),
+        audit_root=tmp_path,
     )
     return report, requests[0]
 
 
-@pytest.mark.parametrize("field,value", [
-    ("dispatched", 1), ("dispatched", "true"), ("processes_stopped", 1),
-    ("processes_stopped", "true"), ("stdout_truncated", True), ("stderr_truncated", True),
-    ("stdout_truncated", None), ("exit_code", False), ("exit_code", 0.0),
-    ("isolation_identity", "not-an-isolation-digest"), ("isolation_identity", "A" * 64),
-    ("isolation_identity", ""), ("isolation_identity", True),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("dispatched", 1),
+        ("dispatched", "true"),
+        ("processes_stopped", 1),
+        ("processes_stopped", "true"),
+        ("stdout_truncated", True),
+        ("stderr_truncated", True),
+        ("stdout_truncated", None),
+        ("exit_code", False),
+        ("exit_code", 0.0),
+        ("isolation_identity", "not-an-isolation-digest"),
+        ("isolation_identity", "A" * 64),
+        ("isolation_identity", ""),
+        ("isolation_identity", True),
+    ],
+)
 def test_smoke_rejects_truthy_or_incomplete_process_evidence(tmp_path, monkeypatch, field, value):
     module = _qualifier()
     result = _result(outcome="completed", exit_code=0)
@@ -175,13 +227,16 @@ def test_smoke_rejects_truthy_or_incomplete_process_evidence(tmp_path, monkeypat
 def test_shell_failure_and_signal_are_not_isolation_denial(tmp_path, monkeypatch, exit_code):
     module = _qualifier()
     monkeypatch.setattr(module, "verify_gui_run", _audit)
-    report, _ = _case_with(module, tmp_path, _result(outcome="nonzero_exit", exit_code=exit_code),
-                           must_succeed=False)
+    report, _ = _case_with(
+        module, tmp_path, _result(outcome="nonzero_exit", exit_code=exit_code), must_succeed=False
+    )
     assert report["passed"] is False
 
 
 @pytest.mark.parametrize("must_succeed", [False, True])
-@pytest.mark.parametrize("problem", ["missing", "damaged", "wrong-run", "wrong-workspace", "wrong-kind", "truthy"])
+@pytest.mark.parametrize(
+    "problem", ["missing", "damaged", "wrong-run", "wrong-workspace", "wrong-kind", "truthy"]
+)
 def test_complete_scoped_audit_is_mandatory(tmp_path, monkeypatch, must_succeed, problem):
     module = _qualifier()
     selected = []
@@ -204,37 +259,70 @@ def test_complete_scoped_audit_is_mandatory(tmp_path, monkeypatch, must_succeed,
         return doc
 
     monkeypatch.setattr(module, "verify_gui_run", evidence)
-    result = _result(outcome="completed" if must_succeed else "nonzero_exit",
-                     exit_code=0 if must_succeed else 1)
+    result = _result(
+        outcome="completed" if must_succeed else "nonzero_exit", exit_code=0 if must_succeed else 1
+    )
     report, request = _case_with(module, tmp_path, result, must_succeed=must_succeed)
     assert report["passed"] is False and report["audit_verified"] is False
     assert len(selected) == 1
     assert selected[0][1:3] == (request.telemetry_workspace_id, request.telemetry_run_id)
-    assert selected[0][3] == {"identity_kind": "principal", "subject_id": request.telemetry_agent_id}
+    assert selected[0][3] == {
+        "identity_kind": "principal",
+        "subject_id": request.telemetry_agent_id,
+    }
     assert "private-" not in json.dumps(report)
 
 
-@pytest.mark.parametrize("workspace,principal", [(None, uuid4()), (uuid4(), None), ("x", uuid4()), (uuid4(), "x")])
+@pytest.mark.parametrize(
+    "workspace,principal", [(None, uuid4()), (uuid4(), None), ("x", uuid4()), (uuid4(), "x")]
+)
 def test_smoke_identity_rejected_before_dispatch(tmp_path, workspace, principal):
     module = _qualifier()
     with pytest.raises(ValueError, match="explicit operator"):
-        module._case(object(), home=tmp_path, command="false", must_succeed=False,
-                     workspace_id=workspace, principal_id=principal, audit_root=tmp_path)
+        module._case(
+            object(),
+            home=tmp_path,
+            command="false",
+            must_succeed=False,
+            workspace_id=workspace,
+            principal_id=principal,
+            audit_root=tmp_path,
+        )
 
 
 @pytest.mark.skipif(not Path("/bin/bash").is_file(), reason="fixed Bash probe semantics")
-@pytest.mark.parametrize("observed,status,expected", [
-    ("net:[101]", 0, False), ("net:[102]", 0, True), ("", 0, False),
-    ("net:[102]", 1, False), ("", 1, False), ("junk", 0, False),
-    ("net:[]", 0, False), ("net:[102]suffix", 0, False), ("net:[102]\nnet:[103]", 0, False),
-])
-def test_namespace_probe_requires_successful_nonempty_well_formed_readlink(observed, status, expected):
+@pytest.mark.parametrize(
+    "observed,status,expected",
+    [
+        ("net:[101]", 0, False),
+        ("net:[102]", 0, True),
+        ("", 0, False),
+        ("net:[102]", 1, False),
+        ("", 1, False),
+        ("junk", 0, False),
+        ("net:[]", 0, False),
+        ("net:[102]suffix", 0, False),
+        ("net:[102]\nnet:[103]", 0, False),
+    ],
+)
+def test_namespace_probe_requires_successful_nonempty_well_formed_readlink(
+    observed, status, expected
+):
     # A trusted fixed shell expression is tested, not an actual sandbox launch.
     module = _qualifier()
     stub = f"readlink() {{ printf '%s' {shlex.quote(observed)}; return {status}; }}; "
     result = subprocess.run(
-        ["/bin/bash", "--noprofile", "--norc", "-c", stub + module._network_namespace_command("net:[101]")],
-        capture_output=True, timeout=5, check=False, env={"PATH": "/usr/bin:/bin"},
+        [
+            "/bin/bash",
+            "--noprofile",
+            "--norc",
+            "-c",
+            stub + module._network_namespace_command("net:[101]"),
+        ],
+        capture_output=True,
+        timeout=5,
+        check=False,
+        env={"PATH": "/usr/bin:/bin"},
     )
     assert (result.returncode == 0) is expected
 
@@ -248,13 +336,21 @@ def test_invalid_host_namespace_is_not_embedded_in_shell(namespace):
 @pytest.fixture
 def runtime(tmp_path):
     module = _qualifier()
-    paths = {name: tmp_path / name for name in ("image", "home", "staging", "models", "tools", "skills", "config", "history")}
+    paths = {
+        name: tmp_path / name
+        for name in ("image", "home", "staging", "models", "tools", "skills", "config", "history")
+    }
     for path in paths.values():
         path.mkdir(mode=0o700)
     (paths["home"] / ".tmp").mkdir(mode=0o700)
     return module.SharedWorkspaceRuntime(
-        "a" * 64, paths["image"], paths["home"], "b" * 64,
-        model_staging=paths["staging"], shared_models=paths["models"], shared_tools=paths["tools"],
+        "a" * 64,
+        paths["image"],
+        paths["home"],
+        "b" * 64,
+        model_staging=paths["staging"],
+        shared_models=paths["models"],
+        shared_tools=paths["tools"],
         shared_skills=paths["skills"],
     )
 
@@ -285,13 +381,19 @@ def test_unconfirmed_shutdown_stops_the_suite_and_preserves_probe_files(runtime,
     monkeypatch.setattr(module, "ProcessSupervisor", lambda *a, **kw: UnconfirmedSupervisor())
     with patch.object(module, "_remove_marker") as remove:
         with pytest.raises(RuntimeError, match="operator reconciliation"):
-            module.qualify(runtime, workspace_id=uuid4(), principal_id=uuid4(),
-                           monitor_config=SimpleNamespace(audit_root=runtime.home.parent / "audit"))
+            module.qualify(
+                runtime,
+                workspace_id=uuid4(),
+                principal_id=uuid4(),
+                monitor_config=SimpleNamespace(audit_root=runtime.home.parent / "audit"),
+            )
         remove.assert_not_called()
     assert len(requests) == 1
 
 
-@pytest.mark.parametrize("field", ["rootfs", "home", "model_staging", "shared_models", "shared_tools", "shared_skills"])
+@pytest.mark.parametrize(
+    "field", ["rootfs", "home", "model_staging", "shared_models", "shared_tools", "shared_skills"]
+)
 def test_report_cannot_be_written_inside_any_guest_mount(runtime, field):
     with pytest.raises(ValueError, match="every guest mount"):
         _qualifier()._report_destination(getattr(runtime, field) / "report.json", runtime)
@@ -336,23 +438,46 @@ def test_report_parent_and_marker_cleanup_refuse_symlink_redirection(runtime, tm
 
 def test_cli_rejects_guest_report_before_constructing_a_supervisor(runtime, monkeypatch):
     module = _qualifier()
-    args = ["--rootfs", str(runtime.rootfs), "--home", str(runtime.home),
-            "--model-staging", str(runtime.model_staging), "--shared-models", str(runtime.shared_models),
-            "--shared-tools", str(runtime.shared_tools), "--image-digest", runtime.image_digest,
-            "--workspace-id", str(uuid4()), "--principal-id", str(uuid4()),
-            "--report", str(runtime.shared_tools / "report.json")]
+    args = [
+        "--rootfs",
+        str(runtime.rootfs),
+        "--home",
+        str(runtime.home),
+        "--model-staging",
+        str(runtime.model_staging),
+        "--shared-models",
+        str(runtime.shared_models),
+        "--shared-tools",
+        str(runtime.shared_tools),
+        "--image-digest",
+        runtime.image_digest,
+        "--workspace-id",
+        str(uuid4()),
+        "--principal-id",
+        str(uuid4()),
+        "--report",
+        str(runtime.shared_tools / "report.json"),
+    ]
     with patch.object(module, "qualify") as qualify:
         assert module.main(args) == 2
         qualify.assert_not_called()
 
 
-@pytest.mark.parametrize("errors,expected", [
-    ([errno.EPERM, errno.EPERM], 1), ([errno.EACCES, errno.EPERM], 1),
-    ([None], 0), ([errno.EPERM, None], 0),
-    ([errno.EAFNOSUPPORT], 2), ([errno.ENETUNREACH], 2),
-    ([errno.EPERM, errno.ETIMEDOUT], 2),
-])
-def test_socket_probe_requires_explicit_denial_without_any_connection(monkeypatch, errors, expected):
+@pytest.mark.parametrize(
+    "errors,expected",
+    [
+        ([errno.EPERM, errno.EPERM], 1),
+        ([errno.EACCES, errno.EPERM], 1),
+        ([None], 0),
+        ([errno.EPERM, None], 0),
+        ([errno.EAFNOSUPPORT], 2),
+        ([errno.ENETUNREACH], 2),
+        ([errno.EPERM, errno.ETIMEDOUT], 2),
+    ],
+)
+def test_socket_probe_requires_explicit_denial_without_any_connection(
+    monkeypatch, errors, expected
+):
     command = shlex.split(_qualifier()._network_denial_command())
     assert command[:4] == ["/usr/bin/python3", "-I", "-S", "-c"]
     assert len(command) == 5
@@ -381,5 +506,5 @@ def test_socket_probe_requires_explicit_denial_without_any_connection(monkeypatc
     with pytest.raises(SystemExit) as stopped:
         exec(compile(command[4], "<fixed-sandbox-socket-probe>", "exec"), {})
     assert stopped.value.code == expected
-    assert families == [socket.AF_INET, socket.AF_INET6][:len(errors)]
+    assert families == [socket.AF_INET, socket.AF_INET6][: len(errors)]
     assert len(closed) == errors.count(None)

@@ -464,8 +464,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             console = ConsoleProgress()
             from potbot.api.observability import EventLogger, TransferProgress
 
-            events = EventLogger(log_path=Path(os.environ["POTBOT_LOG_FILE"])
-                                 if os.environ.get("POTBOT_LOG_FILE") else None)
+            events = EventLogger(
+                log_path=Path(os.environ["POTBOT_LOG_FILE"])
+                if os.environ.get("POTBOT_LOG_FILE")
+                else None
+            )
             telemetry = TransferProgress(events)
 
             def progress(event: DownloadProgress) -> None:

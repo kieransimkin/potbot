@@ -93,9 +93,12 @@ def _read_regular(root: Path, name: str, limit: int) -> bytes:
                 break
             parts.extend(block)
         after = os.fstat(fd)
-        if (len(parts) != before.st_size or len(parts) > limit
-                or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
-                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+        if (
+            len(parts) != before.st_size
+            or len(parts) > limit
+            or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+            != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        ):
             raise StateMismatchError("AI history file was altered during readback")
         on_disk = os.stat(root / name, follow_symlinks=False)
         if (on_disk.st_dev, on_disk.st_ino) != (before.st_dev, before.st_ino):
@@ -114,8 +117,9 @@ def _load_json(root: Path, name: str, limit: int) -> tuple[Any, int]:
     return document, len(raw)
 
 
-def _validate_snapshot(snapshot: object, *, max_files: int,
-                       max_bytes: int) -> dict[str, dict[str, Any]]:
+def _validate_snapshot(
+    snapshot: object, *, max_files: int, max_bytes: int
+) -> dict[str, dict[str, Any]]:
     """Validate the actual decoded bytes, not merely the stored SHA-256 string."""
     if not isinstance(snapshot, dict) or len(snapshot) > max_files:
         raise CapabilityUnavailableError("AI history snapshot has an invalid entry count")
@@ -144,8 +148,10 @@ def _validate_snapshot(snapshot: object, *, max_files: int,
             total += len(payload)
             if total > max_bytes:
                 raise CapabilityUnavailableError("AI history snapshot exceeds its data budget")
-            if (base64.b64encode(payload).decode("ascii") != encoded
-                    or hashlib.sha256(payload).hexdigest() != entry["sha256"]):
+            if (
+                base64.b64encode(payload).decode("ascii") != encoded
+                or hashlib.sha256(payload).hexdigest() != entry["sha256"]
+            ):
                 raise StateMismatchError("AI history file bytes do not match recorded digest")
         else:
             raise InvalidInputError("AI history contains an unsupported file type")
@@ -172,11 +178,18 @@ def audit_ai_history(
     ``lock_held`` is allowed ONLY for the monitor that already owns the lock;
     other controller callers must leave it false. Failures never rewrite history.
     """
-    if (type(max_files) is not int or not 1 <= max_files <= 20_000
-            or type(max_snapshot_bytes) is not int or max_snapshot_bytes <= 0
-            or type(max_document_bytes) is not int or max_document_bytes <= 0
-            or type(max_archive_bytes) is not int or max_archive_bytes <= 0
-            or type(max_revisions) is not int or not 0 <= max_revisions <= 1_000_000):
+    if (
+        type(max_files) is not int
+        or not 1 <= max_files <= 20_000
+        or type(max_snapshot_bytes) is not int
+        or max_snapshot_bytes <= 0
+        or type(max_document_bytes) is not int
+        or max_document_bytes <= 0
+        or type(max_archive_bytes) is not int
+        or max_archive_bytes <= 0
+        or type(max_revisions) is not int
+        or not 0 <= max_revisions <= 1_000_000
+    ):
         raise InvalidInputError("AI history audit limits are invalid")
     root = _physical_directory(past_dir)
     if root.stat().st_mode & (stat.S_IWGRP | stat.S_IWOTH):
@@ -189,7 +202,9 @@ def audit_ai_history(
         except (BlockingIOError, FileNotFoundError) as exc:
             if lock_fd >= 0:
                 os.close(lock_fd)
-            raise StateMismatchError("history audit requires a stopped/exclusively owned monitor") from exc
+            raise StateMismatchError(
+                "history audit requires a stopped/exclusively owned monitor"
+            ) from exc
     try:
         names = os.listdir(root)
         sequences: dict[int, set[str]] = {}
@@ -228,29 +243,39 @@ def audit_ai_history(
             checked += size + len(diff)
             if checked > max_archive_bytes:
                 raise CapabilityUnavailableError("AI history audit exceeds its archive budget")
-            if (not isinstance(inverse, dict) or inverse.get("sequence") != sequence
-                    or type(inverse.get("sequence")) is not int):
+            if (
+                not isinstance(inverse, dict)
+                or inverse.get("sequence") != sequence
+                or type(inverse.get("sequence")) is not int
+            ):
                 raise StateMismatchError("AI reverse record sequence is invalid")
             if not isinstance(inverse.get("changes"), list):
                 raise InvalidInputError("AI history has malformed reversal changes")
             if _render_reverse_diff(inverse["changes"], sequence).encode("utf-8") != diff:
                 raise StateMismatchError("AI reverse text diff does not match its inverse payload")
             prior = reconstruct_prior_snapshot(current, inverse)
-            current = _validate_snapshot(
-                prior, max_files=max_files, max_bytes=max_snapshot_bytes
-            )
+            current = _validate_snapshot(prior, max_files=max_files, max_bytes=max_snapshot_bytes)
         original_digest = _identity(current)
         matches: bool | None = None
         if config_dir is not None:
             config = _physical_directory(config_dir)
-            live = _scan(config, max_files=max_files, max_bytes=max_snapshot_bytes,
-                         max_file_bytes=max_snapshot_bytes)
+            live = _scan(
+                config,
+                max_files=max_files,
+                max_bytes=max_snapshot_bytes,
+                max_file_bytes=max_snapshot_bytes,
+            )
             matches = live == head["snapshot"]
             if not matches:
                 raise StateMismatchError("live /etc/ai differs from the fully audited history head")
         return AiHistoryAudit(
-            number, current_digest, original_digest, number,
-            original_entries, checked, matches,
+            number,
+            current_digest,
+            original_digest,
+            number,
+            original_entries,
+            checked,
+            matches,
         )
     finally:
         if lock_fd >= 0:

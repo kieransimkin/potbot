@@ -19,25 +19,35 @@ from scripts.qualify_hosted_reasoning import qualification_request, qualify
 
 def test_task_binding_is_explicit_and_only_on_potbot() -> None:
     identity = str(uuid4())
-    body = {"model": "potbot", "messages": [{"role": "user", "content": "Hello"}],
-            "potbot_task_id": identity}
+    body = {
+        "model": "potbot",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "potbot_task_id": identity,
+    }
     assert parse_chat(body)["potbot_task_id"] == identity
-    assert parse_responses({"model": "potbot", "input": "Hello",
-                            "potbot_task_id": identity})["potbot_task_id"] == identity
+    assert (
+        parse_responses({"model": "potbot", "input": "Hello", "potbot_task_id": identity})[
+            "potbot_task_id"
+        ]
+        == identity
+    )
     with pytest.raises(CompatibilityError):
         parse_chat({**body, "model": "openai/model"})
     with pytest.raises(CompatibilityError):
         parse_chat({**body, "potbot_task_id": "../wrong"})
     with pytest.raises(InvalidInputError):
-        ReasoningInvestigator(root=Path("/tmp/reasoning"),
-                              budget_journal=object())  # type: ignore[arg-type]
+        ReasoningInvestigator(root=Path("/tmp/reasoning"), budget_journal=object())  # type: ignore[arg-type]
 
 
 def test_live_qualification_policy_and_provider_stream() -> None:
-    policy = HostedPolicy(allow_prompt_disclosure=True, rules=(
-        RateRule("openai", "fixture-model", 100000, 100000, protocol="responses"),
-        RateRule("gemini", "fixture-model", 100000, 100000, protocol="gemini"),
-    ))
+    policy = HostedPolicy(
+        allow_prompt_disclosure=True,
+        rules=(
+            RateRule("openai", "fixture-model", 100000, 100000, protocol="responses"),
+            RateRule("gemini", "fixture-model", 100000, 100000, protocol="gemini"),
+        ),
+    )
+
     class Credentials:
         def resolve(self, value: str) -> str:
             assert value.startswith("secret://")
@@ -47,10 +57,12 @@ def test_live_qualification_policy_and_provider_stream() -> None:
         def __init__(self, resolver, *, authorize):
             self.resolver, self.authorize = resolver, authorize
             self.closed = False
+
         def stream(self, request, identity):
             self.authorize(request)
             yield ProviderTextDelta('{"qualification":"ok"}')
             yield ProviderCompleted("stop", ProviderUsage(17, 5, 22), "fixture-model", "fixture-id")
+
         def close(self):
             self.closed = True
 
@@ -71,12 +83,12 @@ def test_reasoning_budget_migration_keeps_previous_history() -> None:
 
     migrations = application_migrations()
     assert [(m.version, m.name) for m in migrations[-2:]] == [
-        (24, "reasoning_runtime_schema"), (25, "reasoning_budget_schema")
+        (24, "reasoning_runtime_schema"),
+        (25, "reasoning_budget_schema"),
     ]
     migration = migrations[-1]
     assert migration.workspace_tables == ("reasoning_budget_invocations",)
-    assert any("FOREIGN KEY(workspace_id,reservation_id)" in sql
-               for sql in migration.statements)
+    assert any("FOREIGN KEY(workspace_id,reservation_id)" in sql for sql in migration.statements)
 
 
 def test_investigator_budget_dispatch_wraps_every_provider_call(tmp_path: Path) -> None:
@@ -85,21 +97,27 @@ def test_investigator_budget_dispatch_wraps_every_provider_call(tmp_path: Path) 
     events: list[str] = []
     context = WorkspaceContext(uuid4(), uuid4())
     task_id = uuid4()
+
     class Store:
         def start(self, *_args):
             return uuid4()
+
         def checkpoint(self, *_args):
             events.append("checkpoint")
 
     class Journal:
         policy = SimpleNamespace(max_timeout_seconds=90)
+
         def prepare(self, *_args, **_kwargs):
             events.append("reserve")
             return object()
+
         def dispatch(self, *_args):
             events.append("dispatch")
+
         def observe(self, *_args, **_kwargs):
             events.append("observe")
+
         def uncertain(self, *_args):
             events.append("uncertain")
 
@@ -107,30 +125,52 @@ def test_investigator_budget_dispatch_wraps_every_provider_call(tmp_path: Path) 
         events.append("provider")
         packet = json.loads(prompt.split("JSON data):\n", 1)[1])
         if "'hypotheses'" in system:
-            answer = json.dumps({"hypotheses": [{
-                "hypothesis": "Use an index", "assumptions": [], "questions": [],
-            }]})
+            answer = json.dumps(
+                {
+                    "hypotheses": [
+                        {
+                            "hypothesis": "Use an index",
+                            "assumptions": [],
+                            "questions": [],
+                        }
+                    ]
+                }
+            )
         elif "'evaluations'" in system:
-            answer = json.dumps({"evaluations": [{
-                "node_id": branch["node_id"], "relevance": 4,
-                "evidence_alignment": 1, "falsification_risk": 1,
-                "uncertainty": 1, "recommendation": "keep",
-                "rationale": "Plausible", "issues": [], "tests": [],
-            } for branch in packet["context"]["branches"]]})
+            answer = json.dumps(
+                {
+                    "evaluations": [
+                        {
+                            "node_id": branch["node_id"],
+                            "relevance": 4,
+                            "evidence_alignment": 1,
+                            "falsification_risk": 1,
+                            "uncertainty": 1,
+                            "recommendation": "keep",
+                            "rationale": "Plausible",
+                            "issues": [],
+                            "tests": [],
+                        }
+                        for branch in packet["context"]["branches"]
+                    ]
+                }
+            )
         else:
             answer = "Index may help."
-        return answer, {"prompt_tokens": 11, "completion_tokens": 5,
-                        "total_tokens": 16}, "stop"
+        return answer, {"prompt_tokens": 11, "completion_tokens": 5, "total_tokens": 16}, "stop"
 
     from potbot.controller.reasoning_investigation import ReasoningInvestigator
 
-    engine = ReasoningInvestigator(root=tmp_path, state_store=Store(),
-                                   budget_journal=Journal())  # type: ignore[arg-type]
+    engine = ReasoningInvestigator(root=tmp_path, state_store=Store(), budget_journal=Journal())  # type: ignore[arg-type]
     result = engine.run(
-        context=context, run_id=uuid4().hex, task="Improve DB", system="",
+        context=context,
+        run_id=uuid4().hex,
+        task="Improve DB",
+        system="",
         models=[{"provider": "openai", "model": "fixture-model"}],
         options={"max_output_tokens": 512, "potbot_task_id": str(task_id)},
-        invoke=inference, on_text=lambda _text: None,
+        invoke=inference,
+        on_text=lambda _text: None,
         emit=lambda *_args, **_kwargs: None,
     )
     assert result.invocations > 1

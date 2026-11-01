@@ -49,16 +49,16 @@ def _candidates(operator_byte: int = 0xA5) -> IdentityCandidates:
     return IdentityCandidates.from_public_hashes(
         offer=_offer(),
         operator_byte=operator_byte,
-        full_candidate_hashes=tuple(hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)),
+        full_candidate_hashes=tuple(
+            hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)
+        ),
     )
 
 
 def test_root_and_base_paths_are_distinct_and_hardened_as_specified() -> None:
     assert ROOT_ADDRESS_PATH == "m/6969'/420'"
     assert BASE_ADDRESS_PATH == "m/6969'/420'/0'/0/0"
-    assert agent_key_paths(0) == tuple(
-        f"m/6969'/420'/0'/{number}/0" for number in range(1, 9)
-    )
+    assert agent_key_paths(0) == tuple(f"m/6969'/420'/0'/{number}/0" for number in range(1, 9))
     assert agent_key_paths(INHERITANCE_MAX)[-1] == "m/6969'/420'/16777215'/8/0"
     assert "m/6969'/420'/0'/0/0/" not in agent_key_path(7, 1)
 
@@ -139,7 +139,9 @@ def test_duplicate_short_candidates_and_unproven_inheritance_fail() -> None:
         replace(candidates, short_public_key_hashes=(b"\x00" * 3,) * 7)
     with pytest.raises(InvalidInputError, match="eight"):
         IdentityCandidates.from_public_hashes(
-            offer=_offer(), operator_byte=1, full_candidate_hashes=(),
+            offer=_offer(),
+            operator_byte=1,
+            full_candidate_hashes=(),
         )
 
 
@@ -179,27 +181,43 @@ def test_signature_verification_binds_ephemeral_key_master_timestamp_and_pulse()
     # A test-only signing key is generated inside the test, never by Potbot runtime.
     key = Ed25519PrivateKey.generate()
     raw_public = key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw,
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
     )
-    offer = PledgeOffer(public_key_hash(raw_public), _master_hash(), 1792920000, b"\x55" * 32, _hardware_id())
+    offer = PledgeOffer(
+        public_key_hash(raw_public), _master_hash(), 1792920000, b"\x55" * 32, _hardware_id()
+    )
     signed = SignedPledgeOffer(offer, raw_public, key.sign(offer.signed_bytes()))
     envelope = signed.to_dict()
     assert envelope["offer"]["temporary_public_key_hash"] == hashlib.sha256(raw_public).hexdigest()
     assert envelope["temporary_public_key"] == raw_public.hex()
-    signed.verify(expected_master_hash=_master_hash(), expected_pulse_challenge=b"\x55" * 32,
-                  now_unix_seconds=1792920005)
+    signed.verify(
+        expected_master_hash=_master_hash(),
+        expected_pulse_challenge=b"\x55" * 32,
+        now_unix_seconds=1792920005,
+    )
     with pytest.raises(ScopeDeniedError, match="master"):
-        signed.verify(expected_master_hash=b"\x33" * 32, expected_pulse_challenge=b"\x55" * 32,
-                      now_unix_seconds=1792920005)
+        signed.verify(
+            expected_master_hash=b"\x33" * 32,
+            expected_pulse_challenge=b"\x55" * 32,
+            now_unix_seconds=1792920005,
+        )
     with pytest.raises(ScopeDeniedError, match="pulse"):
-        signed.verify(expected_master_hash=_master_hash(), expected_pulse_challenge=b"\x33" * 32,
-                      now_unix_seconds=1792920005)
+        signed.verify(
+            expected_master_hash=_master_hash(),
+            expected_pulse_challenge=b"\x33" * 32,
+            now_unix_seconds=1792920005,
+        )
     with pytest.raises(StateMismatchError, match="timestamp"):
-        signed.verify(expected_master_hash=_master_hash(), expected_pulse_challenge=b"\x55" * 32,
-                      now_unix_seconds=1792920200)
+        signed.verify(
+            expected_master_hash=_master_hash(),
+            expected_pulse_challenge=b"\x55" * 32,
+            now_unix_seconds=1792920200,
+        )
     with pytest.raises(ScopeDeniedError, match="signature"):
         replace(signed, signature=b"\x00" * 64).verify(
-            expected_master_hash=_master_hash(), expected_pulse_challenge=b"\x55" * 32,
+            expected_master_hash=_master_hash(),
+            expected_pulse_challenge=b"\x55" * 32,
             now_unix_seconds=1792920005,
         )
     with pytest.raises(StateMismatchError, match="temporary"):
@@ -207,12 +225,16 @@ def test_signature_verification_binds_ephemeral_key_master_timestamp_and_pulse()
     # Hardware metadata is part of the Ed25519-authenticated transcript.
     tampered = replace(signed, offer=replace(offer, hardware_unique_id=b"\xaa" * 6))
     with pytest.raises(ScopeDeniedError, match="signature"):
-        tampered.verify(expected_master_hash=_master_hash(), expected_pulse_challenge=b"\x55" * 32,
-                        now_unix_seconds=1792920005)
+        tampered.verify(
+            expected_master_hash=_master_hash(),
+            expected_pulse_challenge=b"\x55" * 32,
+            now_unix_seconds=1792920005,
+        )
 
 
 def test_public_verification_never_grants_pledge_acceptance_or_key_custody() -> None:
     from potbot.domain.syn_agent_pledge import SignedPledgeOffer as Signed
+
     assert not hasattr(Signed, "accept")
     assert not hasattr(Signed, "derive_private_key")
     assert not hasattr(IdentityCandidates, "reserve")
@@ -228,13 +250,22 @@ def test_hardware_id_is_source_of_inheritance_independent_of_ephemeral_key() -> 
     assert calculate_inheritance(one.hardware_unique_id, byte) == calculate_inheritance(
         other.hardware_unique_id, byte
     )
-    assert IdentityCandidates.from_public_hashes(
-        offer=one, operator_byte=byte,
-        full_candidate_hashes=tuple(hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)),
-    ).inheritance == IdentityCandidates.from_public_hashes(
-        offer=other, operator_byte=byte,
-        full_candidate_hashes=tuple(hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)),
-    ).inheritance
+    assert (
+        IdentityCandidates.from_public_hashes(
+            offer=one,
+            operator_byte=byte,
+            full_candidate_hashes=tuple(
+                hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)
+            ),
+        ).inheritance
+        == IdentityCandidates.from_public_hashes(
+            offer=other,
+            operator_byte=byte,
+            full_candidate_hashes=tuple(
+                hashlib.sha256(f"fixture-{i}".encode()).digest() for i in range(1, 9)
+            ),
+        ).inheritance
+    )
     for bad in (b"", b"\x01" * 5, b"\x02" * (MAX_HARDWARE_ID_BYTES + 1), "021122334455"):
         with pytest.raises(InvalidInputError):
             calculate_inheritance(bad, byte)  # type: ignore[arg-type]
@@ -258,26 +289,32 @@ def test_versioned_public_wire_schema_and_historical_v1_rejection() -> None:
     assert schema["$id"].endswith("/v2")
     assert old_schema["$id"].endswith("/v1")
     offer = _offer()
-    packet = {"offer": offer.to_dict(), "temporary_public_key": "a" * 64,
-              "signature": "b" * 128}
+    packet = {"offer": offer.to_dict(), "temporary_public_key": "a" * 64, "signature": "b" * 128}
     validator.validate(packet, schema)
     packet["offer"]["hardware_unique_id"] = "01"
     assert not validator.Draft202012Validator(schema).is_valid(packet)
     packet["offer"] = offer.to_dict()
     packet["offer"]["schema_version"] = 1
     assert not validator.Draft202012Validator(schema).is_valid(packet)
-    announcement = {"candidates": _candidates().to_dict(), "operator_public_key": "a" * 64,
-                    "signature": "b" * 128}
+    announcement = {
+        "candidates": _candidates().to_dict(),
+        "operator_public_key": "a" * 64,
+        "signature": "b" * 128,
+    }
     validator.validate(announcement, schema)
     assert "temporary_public_key_hash" not in announcement["candidates"]
     selection = {
         "selection": {
-            "schema_version": 2, "type_ref": "synny://type/syn-agent-independence-selection-v2",
-            "target_master_public_key_hash": _master_hash().hex(), "inheritance": _candidates().inheritance,
-            "independence": 1, "chosen_short_public_key_hash": _candidates().short_public_key_hashes[0].hex(),
+            "schema_version": 2,
+            "type_ref": "synny://type/syn-agent-independence-selection-v2",
+            "target_master_public_key_hash": _master_hash().hex(),
+            "inheritance": _candidates().inheritance,
+            "independence": 1,
+            "chosen_short_public_key_hash": _candidates().short_public_key_hashes[0].hex(),
             "candidate_offer_digest": hashlib.sha256(b"signed operator candidates").hexdigest(),
         },
-        "temporary_public_key": "a" * 64, "signature": "b" * 128,
+        "temporary_public_key": "a" * 64,
+        "signature": "b" * 128,
     }
     validator.validate(selection, schema)
 

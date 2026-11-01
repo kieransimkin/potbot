@@ -82,23 +82,36 @@ def application(args: argparse.Namespace) -> FastAPI:
     budget_journal = ReasoningBudgetJournal(database, policy) if state_store is not None else None
     investigator = (
         ReasoningInvestigator(
-            root=args.reasoning_root, state_store=state_store,
+            root=args.reasoning_root,
+            state_store=state_store,
             steering_inbox=PostgresSteeringInbox(database),
             max_rounds=args.reasoning_rounds,
             budget_journal=budget_journal,
-        ) if args.reasoning_mode == "tree" else None
+        )
+        if args.reasoning_mode == "tree"
+        else None
     )
-    compatibility = OpenAICompatibility(directory.catalog, policy, credentials,
-                                         log=events, reasoning_investigator=investigator)
-    events.emit("server.ready", host=args.host, port=args.port,
-                content_logging=args.log_content, compatibility_api=True)
+    compatibility = OpenAICompatibility(
+        directory.catalog, policy, credentials, log=events, reasoning_investigator=investigator
+    )
+    events.emit(
+        "server.ready",
+        host=args.host,
+        port=args.port,
+        content_logging=args.log_content,
+        compatibility_api=True,
+    )
     from potbot.tools.worker_telemetry import OperatorTelemetryReader
 
     audit_root = os.environ.get("POTBOT_OPERATOR_AUDIT_ROOT")
     monitor_reader = OperatorTelemetryReader(Path(audit_root)) if audit_root else None
     gallery_fields = (
-        "browser_gallery_index", "browser_artifact_root", "browser_rootfs",
-        "browser_home", "browser_model_staging", "browser_shared_tools",
+        "browser_gallery_index",
+        "browser_artifact_root",
+        "browser_rootfs",
+        "browser_home",
+        "browser_model_staging",
+        "browser_shared_tools",
     )
     configured = tuple(getattr(args, field, None) for field in gallery_fields)
     browser_gallery = None
@@ -106,11 +119,13 @@ def application(args: argparse.Namespace) -> FastAPI:
         from potbot.domain.errors import InvalidInputError
         from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
         from potbot.tools.browser_gallery import BrowserEvidenceGallery
+
         if any(path is None for path in configured):
             raise InvalidInputError("Browser gallery needs all six explicit operator paths")
         index, artifact_root, rootfs, home, staging, tools = configured
         browser_gallery = BrowserEvidenceGallery(
-            index, ArtifactStore(database, LocalArtifactBackend(artifact_root)),
+            index,
+            ArtifactStore(database, LocalArtifactBackend(artifact_root)),
             forbidden_roots=(rootfs, home, staging, tools, artifact_root),
         )
     app = create_app(
@@ -129,29 +144,38 @@ def application(args: argparse.Namespace) -> FastAPI:
         browser_gallery=browser_gallery,
         settings=settings,
     )
-    from potbot.api.ui_resources import register_ui_routes
     from potbot.api.ui_api_setup import register_api_setup_routes
-    from potbot.api.ui_operator_s13 import register_operator_routes
     from potbot.api.ui_context import register_context_routes
+    from potbot.api.ui_operator_s13 import register_operator_routes
+    from potbot.api.ui_resources import register_ui_routes
 
     register_ui_routes(app, database, authenticate, settings.allowed_origins)
-    register_operator_routes(app, database, authenticate, settings.allowed_origins,
-                             context.workspace_id)
-    register_context_routes(app, database, authenticate, settings.allowed_origins,
-                            context.workspace_id)
+    register_operator_routes(
+        app, database, authenticate, settings.allowed_origins, context.workspace_id
+    )
+    register_context_routes(
+        app, database, authenticate, settings.allowed_origins, context.workspace_id
+    )
     # The separate setup-token capability is resolved at request time. Ordinary
     # workspace bearers can never mutate the host's credential vault alone.
     # The setup bridge is only enabled on an operator loopback listener.
     if args.host == "localhost" or args.host in {"127.0.0.1", "::1"}:
         register_api_setup_routes(
-            app, database, authenticate, settings.allowed_origins, credentials,
+            app,
+            database,
+            authenticate,
+            settings.allowed_origins,
+            credentials,
             changed=directory.invalidate_provider,
         )
         from potbot.api.ui_api_setup import ApiSetupCredentials
         from potbot.api.ui_tool_upgrades import register_tool_upgrade_routes
 
         register_tool_upgrade_routes(
-            app, database, authenticate, settings.allowed_origins,
+            app,
+            database,
+            authenticate,
+            settings.allowed_origins,
             ApiSetupCredentials(credentials).authorize_setup,
         )
     return app
@@ -166,24 +190,44 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--allowed-origin", action="append", default=[], help="exact browser origin; repeatable"
     )
-    parser.add_argument("--log-file", type=Path, default=None,
-                        help="rotating structured event log path")
-    parser.add_argument("--reasoning-mode", choices=("tree", "fixed"), default="tree",
-                        help="tree enables R3/R4; fixed retains the earlier three-pass model")
-    parser.add_argument("--reasoning-rounds", type=int, default=2,
-                        help="bounded evidence-guided reasoning rounds (1-4)")
-    parser.add_argument("--reasoning-root", type=Path, default=Path(".potbot/reasoning"),
-                        help="trusted private run snapshot directory (single writer)")
-    parser.add_argument("--browser-gallery-index", type=Path,
-                        help="private derived SQLite browser index; requires all browser path flags")
-    parser.add_argument("--browser-artifact-root", type=Path,
-                        help="exact existing ArtifactStore local backend root")
+    parser.add_argument(
+        "--log-file", type=Path, default=None, help="rotating structured event log path"
+    )
+    parser.add_argument(
+        "--reasoning-mode",
+        choices=("tree", "fixed"),
+        default="tree",
+        help="tree enables R3/R4; fixed retains the earlier three-pass model",
+    )
+    parser.add_argument(
+        "--reasoning-rounds",
+        type=int,
+        default=2,
+        help="bounded evidence-guided reasoning rounds (1-4)",
+    )
+    parser.add_argument(
+        "--reasoning-root",
+        type=Path,
+        default=Path(".potbot/reasoning"),
+        help="trusted private run snapshot directory (single writer)",
+    )
+    parser.add_argument(
+        "--browser-gallery-index",
+        type=Path,
+        help="private derived SQLite browser index; requires all browser path flags",
+    )
+    parser.add_argument(
+        "--browser-artifact-root", type=Path, help="exact existing ArtifactStore local backend root"
+    )
     parser.add_argument("--browser-rootfs", type=Path, help="qualified sandbox rootfs")
     parser.add_argument("--browser-home", type=Path, help="workspace persistent home")
     parser.add_argument("--browser-model-staging", type=Path, help="workspace model staging root")
     parser.add_argument("--browser-shared-tools", type=Path, help="shared tool root")
-    parser.add_argument("--log-content", action="store_true",
-                        help="opt in to redacted prompt/response logging (sensitive)")
+    parser.add_argument(
+        "--log-content",
+        action="store_true",
+        help="opt in to redacted prompt/response logging (sensitive)",
+    )
     args = parser.parse_args(argv)
 
     from potbot.api.wire import error_response

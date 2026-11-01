@@ -41,8 +41,9 @@ def uuid(value: object) -> str:
 
 def canonical(payload: dict[str, Any]) -> bytes:
     try:
-        return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
-                          allow_nan=False).encode("ascii")
+        return json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+        ).encode("ascii")
     except (ValueError, TypeError, UnicodeEncodeError) as exc:
         raise SynProtocolError("invalid SYN wire data") from exc
 
@@ -60,8 +61,11 @@ def parse(raw: bytes) -> dict[str, Any]:
         return result
 
     try:
-        payload = json.loads(raw.decode("utf-8"), object_pairs_hook=unique,
-                             parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+        payload = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=unique,
+            parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
+        )
     except SynProtocolError:
         raise
     except (ValueError, UnicodeError) as exc:

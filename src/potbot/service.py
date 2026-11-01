@@ -73,10 +73,14 @@ class ServiceConfig:
             _identifier(self.schema)
             if not 1 <= self.port <= 65535:
                 raise ValueError
-            args = argparse.Namespace(host=self.host, port=self.port,
-                                      allowed_origin=list(self.allowed_origins))
+            args = argparse.Namespace(
+                host=self.host, port=self.port, allowed_origin=list(self.allowed_origins)
+            )
             _origins(args)
-            if credential_profile({"POTBOT_CREDENTIAL_PROFILE": self.credential_profile}) != self.credential_profile:
+            if (
+                credential_profile({"POTBOT_CREDENTIAL_PROFILE": self.credential_profile})
+                != self.credential_profile
+            ):
                 raise ValueError
             if type(self.log_content) is not bool:
                 raise ValueError
@@ -89,7 +93,9 @@ class ServiceConfig:
             ):
                 raise ValueError
         except (ValueError, TypeError):
-            raise InvalidInputError("Service configuration contains invalid scope or listener settings.") from None
+            raise InvalidInputError(
+                "Service configuration contains invalid scope or listener settings."
+            ) from None
 
 
 def service_home() -> Path:
@@ -144,11 +150,16 @@ def _systemd_unit() -> str:
 
     command = " ".join(quote(part) for part in _service_command())
     directory = quote(str(project_root()))
-    return ("[Unit]\nDescription=Potbot API and hosted inference worker\n"
-            "After=network-online.target\nWants=network-online.target\n\n"
-            "[Service]\nType=simple\nWorkingDirectory=" + directory + "\nExecStart=" + command +
-            "\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n"
-            "NoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n")
+    return (
+        "[Unit]\nDescription=Potbot API and hosted inference worker\n"
+        "After=network-online.target\nWants=network-online.target\n\n"
+        "[Service]\nType=simple\nWorkingDirectory="
+        + directory
+        + "\nExecStart="
+        + command
+        + "\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n"
+        "NoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n"
+    )
 
 
 def _run_manager(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -161,7 +172,9 @@ def _managed(command: list[str]) -> None:
         if result.returncode:
             # Manager errors can echo arbitrary environment/user paths. Never print
             # stderr from systemctl, launchctl or schtasks without redaction.
-            raise InvalidInputError("Service manager rejected the operation; inspect its local diagnostics.")
+            raise InvalidInputError(
+                "Service manager rejected the operation; inspect its local diagnostics."
+            )
     except (OSError, subprocess.TimeoutExpired):
         raise InvalidInputError("The native service manager is unavailable.") from None
 
@@ -191,8 +204,21 @@ def install_manager() -> None:
         # A per-user ONLOGON task has vault access; SYSTEM would not. The Python
         # supervisor restarts both children when they exit unexpectedly.
         argument = subprocess.list2cmdline(_service_command())
-        _managed(["schtasks", "/Create", "/F", "/SC", "ONLOGON", "/TN", WINDOWS_NAME,
-                  "/TR", argument, "/RL", "LIMITED"])
+        _managed(
+            [
+                "schtasks",
+                "/Create",
+                "/F",
+                "/SC",
+                "ONLOGON",
+                "/TN",
+                WINDOWS_NAME,
+                "/TR",
+                argument,
+                "/RL",
+                "LIMITED",
+            ]
+        )
 
 
 def manager_action(action: str) -> None:
@@ -266,29 +292,41 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
         logger.emit("model.install.completed", model="Qwen/Qwen3-Embedding-0.6B", verified=True)
     if args.migrate:
         from potbot.persistence.database import migrate
+
         migrate(resolve_postgres_dsn("admin"), args.schema)
     from potbot.persistence.database import Database
+
     context = WorkspaceContext(args.workspace_id, args.principal_id)
     with Database(resolve_postgres_dsn(), args.schema).transaction(context):
         pass
     config = ServiceConfig(
-        str(args.workspace_id), str(args.principal_id), str(args.provider_policy.resolve()),
-        schema=args.schema, host=args.host, port=args.port,
-        allowed_origins=tuple(args.allowed_origin), log_content=args.log_content,
+        str(args.workspace_id),
+        str(args.principal_id),
+        str(args.provider_policy.resolve()),
+        schema=args.schema,
+        host=args.host,
+        port=args.port,
+        allowed_origins=tuple(args.allowed_origin),
+        log_content=args.log_content,
         credential_profile=credential_profile(),
         operator_manifest=str(args.operator_manifest.resolve(strict=True))
-        if args.operator_manifest is not None else None,
+        if args.operator_manifest is not None
+        else None,
     )
     config.validate()
     if config.operator_manifest is not None:
         from potbot.tools.operator_cli import parse_manifest
+
         selected = parse_manifest(Path(config.operator_manifest))
         if str(selected.workspace_id) != config.workspace_id:
             raise InvalidInputError("Operator manifest belongs to a different workspace")
     # Server-side disclosure policy always governs external provider use.
     if not policy.rules or not policy.allow_prompt_disclosure:
-        print("[Potbot setup] No hosted models enabled by provider policy; "
-              "the API will list potbot but inference will remain unavailable.", file=sys.stderr)
+        print(
+            "[Potbot setup] No hosted models enabled by provider policy; "
+            "the API will list potbot but inference will remain unavailable.",
+            file=sys.stderr,
+        )
     created, key = _token_store()
     _atomic_configuration(config)
     install_manager()
@@ -299,7 +337,9 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
     if created and key and sys.stdout.isatty():
         print("Potbot API key (shown once; store safely): " + key, file=sys.stdout)
     return {
-        "installed": True, "manager": _manager(), "started": not args.no_start,
+        "installed": True,
+        "manager": _manager(),
+        "started": not args.no_start,
         "api_base_url": f"http://{config.host}:{config.port}/v1",
         "dashboard": f"http://{config.host}:{config.port}",
         "api_key": "stored_in_native_vault" if created else "existing_native_vault_key",
@@ -320,16 +360,33 @@ def _supervise(config: ServiceConfig) -> int:
         home.chmod(0o700)
     events = EventLogger(log_path=home / "supervisor.jsonl")
     policy = config.provider_policy
-    common = ["--workspace-id", config.workspace_id, "--principal-id", config.principal_id,
-              "--schema", config.schema]
+    common = [
+        "--workspace-id",
+        config.workspace_id,
+        "--principal-id",
+        config.principal_id,
+        "--schema",
+        config.schema,
+    ]
     commands = {
-        "api": _service_command()[:2] + ["potbot.startup", "serve", *common, "--provider-policy", policy,
-              "--host", config.host, "--port", str(config.port),
-              "--log-file", str(home / "api.jsonl"),
-              *(["--log-content"] if config.log_content else []),
-              *(part for origin in config.allowed_origins for part in ("--allowed-origin", origin))],
-        "worker": _service_command()[:2] + ["potbot.startup", "jobs", "worker", *common,
-              "--provider-policy", policy],
+        "api": _service_command()[:2]
+        + [
+            "potbot.startup",
+            "serve",
+            *common,
+            "--provider-policy",
+            policy,
+            "--host",
+            config.host,
+            "--port",
+            str(config.port),
+            "--log-file",
+            str(home / "api.jsonl"),
+            *(["--log-content"] if config.log_content else []),
+            *(part for origin in config.allowed_origins for part in ("--allowed-origin", origin)),
+        ],
+        "worker": _service_command()[:2]
+        + ["potbot.startup", "jobs", "worker", *common, "--provider-policy", policy],
     }
     stopped = threading.Event()
 
@@ -348,39 +405,58 @@ def _supervise(config: ServiceConfig) -> int:
     env["POTBOT_LOG_CONTENT"] = "1" if config.log_content else "0"
     operator_attachment = None
     if config.operator_manifest is not None:
-        from potbot.tools.operator_cli import parse_manifest
         from potbot.tools.operator_attachment_s13 import (
-            OperatorAttachmentClient, mount_fingerprint,
+            OperatorAttachmentClient,
+            mount_fingerprint,
         )
+        from potbot.tools.operator_cli import parse_manifest
+
         paths = parse_manifest(Path(config.operator_manifest))
         if str(paths.workspace_id) != config.workspace_id:
             raise InvalidInputError("Operator manifest workspace differs from service scope")
         socket_path = home / "operator.sock"
-        for mount in (paths.rootfs, paths.home, paths.model_staging,
-                      paths.shared_models, paths.shared_tools,
-                      paths.ai_config_dir, paths.ai_history_dir):
+        for mount in (
+            paths.rootfs,
+            paths.home,
+            paths.model_staging,
+            paths.shared_models,
+            paths.shared_tools,
+            paths.ai_config_dir,
+            paths.ai_history_dir,
+        ):
             physical = mount.resolve(strict=True)
             if socket_path == physical or socket_path.is_relative_to(physical):
                 raise InvalidInputError("Managed service socket overlaps a guest mount")
         operator_attachment = OperatorAttachmentClient(
-            socket_path=socket_path, workspace_id=paths.workspace_id,
+            socket_path=socket_path,
+            workspace_id=paths.workspace_id,
             image_digest=paths.image_digest,
             qualification_sha256=paths.qualification_sha256,
             mounts_sha256=mount_fingerprint(paths.ai_config_dir, paths.ai_history_dir),
         )
-        env.update({
-            "POTBOT_OPERATOR_REQUIRED": "1",
-            "POTBOT_OPERATOR_SOCKET": str(socket_path),
-            "POTBOT_OPERATOR_WORKSPACE_ID": str(paths.workspace_id),
-            "POTBOT_OPERATOR_IMAGE_DIGEST": paths.image_digest,
-            "POTBOT_OPERATOR_QUALIFICATION_SHA256": paths.qualification_sha256,
-            "POTBOT_OPERATOR_MOUNTS_SHA256": operator_attachment.mounts_sha256,
-        })
-        commands = {"operator": _service_command()[:2] + [
-            "potbot.startup", "operator", "run", "--manifest",
-            config.operator_manifest,
-            "--socket-path", str(socket_path),
-        ], **commands}
+        env.update(
+            {
+                "POTBOT_OPERATOR_REQUIRED": "1",
+                "POTBOT_OPERATOR_SOCKET": str(socket_path),
+                "POTBOT_OPERATOR_WORKSPACE_ID": str(paths.workspace_id),
+                "POTBOT_OPERATOR_IMAGE_DIGEST": paths.image_digest,
+                "POTBOT_OPERATOR_QUALIFICATION_SHA256": paths.qualification_sha256,
+                "POTBOT_OPERATOR_MOUNTS_SHA256": operator_attachment.mounts_sha256,
+            }
+        )
+        commands = {
+            "operator": _service_command()[:2]
+            + [
+                "potbot.startup",
+                "operator",
+                "run",
+                "--manifest",
+                config.operator_manifest,
+                "--socket-path",
+                str(socket_path),
+            ],
+            **commands,
+        }
     threads: list[threading.Thread] = []
 
     def watch(name: str, process: subprocess.Popen[str]) -> None:
@@ -406,9 +482,16 @@ def _supervise(config: ServiceConfig) -> int:
                 if previous is not None:
                     events.emit("service.restart", component=name, return_code=previous.returncode)
                 process = subprocess.Popen(
-                    command, cwd=project_root(), env=env, stdin=subprocess.DEVNULL,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                    encoding="utf-8", errors="replace", bufsize=1,
+                    command,
+                    cwd=project_root(),
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
                 )
                 children[name] = process
                 thread = threading.Thread(target=watch, args=(name, process), daemon=True)
@@ -462,19 +545,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     install_parser.add_argument("--workspace-id", required=True, type=UUID)
     install_parser.add_argument("--principal-id", required=True, type=UUID)
     install_parser.add_argument("--provider-policy", required=True, type=Path)
-    install_parser.add_argument("--operator-manifest", type=Path, default=None,
-                                help="opt into Linux/WSL2 managed operator startup")
+    install_parser.add_argument(
+        "--operator-manifest",
+        type=Path,
+        default=None,
+        help="opt into Linux/WSL2 managed operator startup",
+    )
     install_parser.add_argument("--schema", default="potbot")
     install_parser.add_argument("--host", default="127.0.0.1")
     install_parser.add_argument("--port", type=int, default=8765)
     install_parser.add_argument("--allowed-origin", action="append", default=[])
-    install_parser.add_argument("--migrate", action="store_true", help="run migrations using stored admin DSN")
+    install_parser.add_argument(
+        "--migrate", action="store_true", help="run migrations using stored admin DSN"
+    )
     install_parser.add_argument("--no-start", action="store_true")
-    install_parser.add_argument("--download-embeddings", action="store_true",
-                                help="download and verify the pinned local Qwen embedding model")
+    install_parser.add_argument(
+        "--download-embeddings",
+        action="store_true",
+        help="download and verify the pinned local Qwen embedding model",
+    )
     install_parser.add_argument("--replace", action="store_true")
-    install_parser.add_argument("--log-content", action="store_true",
-                                help="opt in to sensitive prompt and response logging")
+    install_parser.add_argument(
+        "--log-content", action="store_true", help="opt in to sensitive prompt and response logging"
+    )
     for command in ("start", "stop", "status", "uninstall", "run", "logs"):
         commands.add_parser(command)
     args = parser.parse_args(argv)
@@ -485,8 +578,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _supervise(ServiceConfig.load(config_path()))
         elif args.command == "uninstall":
             remove_manager()
-            result = {"installed": False, "configuration_retained": True,
-                      "credentials_retained": True}
+            result = {
+                "installed": False,
+                "configuration_retained": True,
+                "credentials_retained": True,
+            }
         elif args.command in {"start", "stop"}:
             ServiceConfig.load(config_path())
             manager_action(args.command)
@@ -498,6 +594,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if path.is_file():
                     with path.open(encoding="utf-8") as reader:
                         from collections import deque
+
                         for line in deque(reader, maxlen=20):
                             print(f"[{name}] {line}", end="")
             return 0
@@ -509,7 +606,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result["api_base_url"] = f"http://{config.host}:{config.port}/v1"
                 try:
                     from urllib.request import urlopen
-                    with urlopen(f"http://{config.host}:{config.port}/health", timeout=2) as response:
+
+                    with urlopen(
+                        f"http://{config.host}:{config.port}/health", timeout=2
+                    ) as response:
                         result["running"] = response.status == 200
                 except (OSError, ValueError):
                     result["running"] = False
@@ -518,9 +618,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (DomainError, OSError, ValueError) as error:
         code = error.code.value if isinstance(error, DomainError) else "service_unavailable"
         # Never echo native manager stderr, connection secrets, policy data or exceptions.
-        print(json.dumps({"error": {"code": code,
-                                    "message": "The service operation failed; check configuration and native manager permissions."}}),
-              file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "error": {
+                        "code": code,
+                        "message": "The service operation failed; check configuration and native manager permissions.",
+                    }
+                }
+            ),
+            file=sys.stderr,
+        )
         return 1
 
 

@@ -98,14 +98,22 @@ def _operator_db_file(path: Path, sandbox_home: Path | None) -> Path:
             raise InvalidInputError("sandbox home must be absolute")
         home = sandbox_home.resolve()
         resolved_dir = directory.resolve()
-        if (resolved_dir == home or resolved_dir.is_relative_to(home)
-                or home.is_relative_to(resolved_dir)):
+        if (
+            resolved_dir == home
+            or resolved_dir.is_relative_to(home)
+            or home.is_relative_to(resolved_dir)
+        ):
             raise ScopeDeniedError("SYN operator journal overlaps a sandbox")
     if path.is_symlink():
         raise ScopeDeniedError("SYN operator journal may not be a symlink")
     if path.exists():
         fs = path.stat()
-        if not stat.S_ISREG(fs.st_mode) or fs.st_uid != os.getuid() or fs.st_nlink != 1 or fs.st_mode & 0o077:
+        if (
+            not stat.S_ISREG(fs.st_mode)
+            or fs.st_uid != os.getuid()
+            or fs.st_nlink != 1
+            or fs.st_mode & 0o077
+        ):
             raise ScopeDeniedError("SYN operator journal has unsafe inode or permissions")
     else:
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
@@ -129,8 +137,13 @@ class SynEnrollmentLedger:
     """
 
     def __init__(
-        self, path: Path, *, master_hash: bytes, network_id: str,
-        authority: SynOperatorAuthority, sandbox_home: Path | None = None,
+        self,
+        path: Path,
+        *,
+        master_hash: bytes,
+        network_id: str,
+        authority: SynOperatorAuthority,
+        sandbox_home: Path | None = None,
     ) -> None:
         self.path = _operator_db_file(path, sandbox_home)
         self.master_hash = _fixed_bytes(master_hash, 32, "SYN master hash")
@@ -138,10 +151,16 @@ class SynEnrollmentLedger:
             raise InvalidInputError("SYN operator network is required")
         self.network_id = network_id
         self.authority = authority
-        if not all(callable(getattr(authority, item, None)) for item in (
-            "attest_and_blind_device", "authorize_offer", "derive_candidate_public_hashes",
-            "operator_public_key", "sign_candidates",
-        )):
+        if not all(
+            callable(getattr(authority, item, None))
+            for item in (
+                "attest_and_blind_device",
+                "authorize_offer",
+                "derive_candidate_public_hashes",
+                "operator_public_key",
+                "sign_candidates",
+            )
+        ):
             raise CapabilityUnavailableError("SYN operator identity authority is unavailable")
         from potbot.domain.syn_agent_pledge import public_key_hash
 
@@ -190,8 +209,11 @@ class SynEnrollmentLedger:
         return hashlib.sha256(signed.offer.signed_bytes()).hexdigest()
 
     def begin(
-        self, signed: SignedPledgeOffer, pulse: SignedOperatorPulse,
-        *, now: int | None = None,
+        self,
+        signed: SignedPledgeOffer,
+        pulse: SignedOperatorPulse,
+        *,
+        now: int | None = None,
     ) -> PledgeRecord:
         current = _now(now)
         pulse.verify(master_hash=self.master_hash, now=current, network_id=self.network_id)
@@ -200,13 +222,18 @@ class SynEnrollmentLedger:
             expected_pulse_challenge=pulse.pulse.challenge,
             now_unix_seconds=current,
         )
-        if not pulse.pulse.issued_at <= signed.offer.timestamp_unix_seconds <= pulse.pulse.expires_at:
+        if (
+            not pulse.pulse.issued_at
+            <= signed.offer.timestamp_unix_seconds
+            <= pulse.pulse.expires_at
+        ):
             raise ScopeDeniedError("pledge signature is not tied to pulse validity interval")
         # SYN attests the device and returns a *secret-key-blinded* opaque handle.
         # This call must not return a raw/hardcoded/stable public MAC hash.
         device_handle = _fixed_bytes(
             self.authority.attest_and_blind_device(signed.offer.hardware_unique_id),
-            32, "SYN private device handle",
+            32,
+            "SYN private device handle",
         )
         digest = self._digest(signed)
         with self._connect() as db:
@@ -217,17 +244,20 @@ class SynEnrollmentLedger:
                     "device_handle,pulse_challenge,temporary_public_key,created_at,expires_at,state) "
                     "VALUES(?,?,?,?,?,?,?,?, 'pending')",
                     (
-                        digest, self.master_hash.hex(), self.network_id,
-                        device_handle.hex(), pulse.pulse.challenge.hex(),
-                        signed.temporary_public_key.hex(), current, current + _ENROLLMENT_TTL,
+                        digest,
+                        self.master_hash.hex(),
+                        self.network_id,
+                        device_handle.hex(),
+                        pulse.pulse.challenge.hex(),
+                        signed.temporary_public_key.hex(),
+                        current,
+                        current + _ENROLLMENT_TTL,
                     ),
                 )
                 db.commit()
             except sqlite3.IntegrityError as exc:
                 db.rollback()
-                raise ScopeDeniedError(
-                    "pledge replay or duplicate device enrollment"
-                ) from exc
+                raise ScopeDeniedError("pledge replay or duplicate device enrollment") from exc
         return PledgeRecord(digest, "pending", current + _ENROLLMENT_TTL)
 
     def _get_locked(self, db: sqlite3.Connection, offer_sha256: str) -> sqlite3.Row:
@@ -243,8 +273,12 @@ class SynEnrollmentLedger:
         with self._connect() as db:
             row = self._get_locked(db, offer_sha256)
             return PledgeRecord(
-                row["offer_sha256"], row["state"], row["expires_at"],
-                row["inheritance"], row["independence"], row["selected_public_key_hash"],
+                row["offer_sha256"],
+                row["state"],
+                row["expires_at"],
+                row["inheritance"],
+                row["independence"],
+                row["selected_public_key_hash"],
             )
 
     def _verify_original(self, row: sqlite3.Row, signed: SignedPledgeOffer) -> None:
@@ -264,7 +298,10 @@ class SynEnrollmentLedger:
         )
 
     def offer_candidates(
-        self, signed: SignedPledgeOffer, *, operator_byte: int,
+        self,
+        signed: SignedPledgeOffer,
+        *,
+        operator_byte: int,
         now: int | None = None,
     ) -> SignedIdentityCandidates:
         current = _now(now)
@@ -285,19 +322,26 @@ class SynEnrollmentLedger:
         inheritance = calculate_inheritance(signed.offer.hardware_unique_id, operator_byte)
         full_hashes = self.authority.derive_candidate_public_hashes(inheritance)
         candidates = IdentityCandidates.from_public_hashes(
-            offer=signed.offer, operator_byte=operator_byte,
+            offer=signed.offer,
+            operator_byte=operator_byte,
             full_candidate_hashes=full_hashes,
         )
         operator_pub = _fixed_bytes(self.authority.operator_public_key(), 32, "operator key")
         preimage = SignedIdentityCandidates(
-            candidates, operator_pub, bytes(64),
+            candidates,
+            operator_pub,
+            bytes(64),
         ).signed_bytes()
         operator_signature = _fixed_bytes(
-            self.authority.sign_candidates(preimage), 64, "operator signature",
+            self.authority.sign_candidates(preimage),
+            64,
+            "operator signature",
         )
         signed_candidates = SignedIdentityCandidates(candidates, operator_pub, operator_signature)
         signed_candidates.verify(offer=signed.offer, master_hash=self.master_hash)
-        public_response = json.dumps(signed_candidates.to_dict(), sort_keys=True, separators=(",", ":"))
+        public_response = json.dumps(
+            signed_candidates.to_dict(), sort_keys=True, separators=(",", ":")
+        )
         encoded_hashes = json.dumps([h.hex() for h in full_hashes], separators=(",", ":"))
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -324,10 +368,12 @@ class SynEnrollmentLedger:
         return signed_candidates
 
     def select(
-        self, signed_offer: SignedPledgeOffer,
+        self,
+        signed_offer: SignedPledgeOffer,
         signed_candidates: SignedIdentityCandidates,
         signed_selection: SignedIndependenceSelection,
-        *, now: int | None = None,
+        *,
+        now: int | None = None,
     ) -> PledgeRecord:
         current = _now(now)
         digest = self._digest(signed_offer)
@@ -349,7 +395,10 @@ class SynEnrollmentLedger:
                 independence = signed_selection.selection.independence
                 full_hashes = json.loads(row["full_candidate_hashes_json"])
                 full_hash = full_hashes[independence - 1]
-                if bytes.fromhex(full_hash)[:3] != signed_selection.selection.chosen_short_public_key_hash:
+                if (
+                    bytes.fromhex(full_hash)[:3]
+                    != signed_selection.selection.chosen_short_public_key_hash
+                ):
                     raise StateMismatchError("SYN candidate full/short public hash differs")
                 db.execute(
                     "UPDATE syn_agent_pledges SET state='selected',independence=?,"
@@ -364,8 +413,12 @@ class SynEnrollmentLedger:
         # 'selected' is NOT 'adopted'. SYN still must demonstrate selected-key
         # custody/activation under a separately agreed adoption protocol.
         return PledgeRecord(
-            digest, "selected", row["expires_at"], row["inheritance"],
-            independence, full_hash,
+            digest,
+            "selected",
+            row["expires_at"],
+            row["inheritance"],
+            independence,
+            full_hash,
         )
 
     def expire(self, offer_sha256: str, *, now: int | None = None) -> PledgeRecord:
@@ -377,7 +430,8 @@ class SynEnrollmentLedger:
                 if row["expires_at"] < current and row["state"] in {"pending", "offered"}:
                     db.execute(
                         "UPDATE syn_agent_pledges SET state='expired',revision=revision+1 "
-                        "WHERE offer_sha256=?", (offer_sha256,),
+                        "WHERE offer_sha256=?",
+                        (offer_sha256,),
                     )
                 db.commit()
             except BaseException:

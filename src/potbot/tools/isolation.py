@@ -105,8 +105,7 @@ def runtime_roots() -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def _seccomp_fd(*, private_loopback_ipc: bool = False,
-                private_x11_unix: bool = False) -> int:
+def _seccomp_fd(*, private_loopback_ipc: bool = False, private_x11_unix: bool = False) -> int:
     """Default deny with optional explicit, namespace-confined X11 AF_UNIX IPC.
 
     X11 admission must also mount only the workspace socket into a private
@@ -144,7 +143,13 @@ def _seccomp_fd(*, private_loopback_ipc: bool = False,
         for name in _DENIED_SYSCALLS:
             if private_loopback_ipc and name in _PRIVATE_IPC_SYSCALLS:
                 continue
-            if private_x11_unix and name in {"socket", "socketpair", "connect", "sendto", "sendmsg"}:
+            if private_x11_unix and name in {
+                "socket",
+                "socketpair",
+                "connect",
+                "sendto",
+                "sendmsg",
+            }:
                 continue
             number = lib.seccomp_syscall_resolve_name(name.encode())
             if number >= 0 and lib.seccomp_rule_add(context, 0x00050001, number, 0) != 0:
@@ -161,8 +166,10 @@ def _seccomp_fd(*, private_loopback_ipc: bool = False,
                 # SCMP_CMP_NE = 1. Using EQ here would accidentally reject
                 # the one Unix-socket capability we are trying to grant.
                 domain = _ArgumentComparison(0, 1, 1, 0)  # SCMP_CMP_NE AF_UNIX
-                if lib.seccomp_rule_add_array(context, 0x00050001, number, 1,
-                                              ctypes.byref(domain)) != 0:
+                if (
+                    lib.seccomp_rule_add_array(context, 0x00050001, number, 1, ctypes.byref(domain))
+                    != 0
+                ):
                     raise CapabilityUnavailableError("X11 AF_UNIX syscall policy failed")
         if private_loopback_ipc:
             # Linux AF_INET/AF_INET6 stream sockets inside --unshare-net only.

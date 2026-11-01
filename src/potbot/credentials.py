@@ -400,7 +400,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("status", help="show whether native credentials exist, never their values")
     commands.add_parser("service-status", help="inspect hosted API credential presence")
     commands.add_parser("api-show", help="display the API token to an interactive terminal only")
-    commands.add_parser("setup-show", help="display the distinct setup token to an interactive terminal only")
+    commands.add_parser(
+        "setup-show", help="display the distinct setup token to an interactive terminal only"
+    )
     for name in ("service-set", "service-delete"):
         command = commands.add_parser(name)
         command.add_argument("--name", required=True, choices=SERVICE_CREDENTIAL_NAMES)
@@ -427,7 +429,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             token = store.get(name)
             if token is None:
                 raise CapabilityUnavailableError("No requested token is configured.")
-            print(("Potbot setup key: " if args.command == "setup-show" else "Potbot API key: ") + token, flush=True)
+            print(
+                ("Potbot setup key: " if args.command == "setup-show" else "Potbot API key: ")
+                + token,
+                flush=True,
+            )
             return 0
         elif args.command == "service-set":
             value = _hidden_prompt(f"Value for {args.name} (hidden): ")

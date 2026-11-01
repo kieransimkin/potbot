@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 import pytest
@@ -25,9 +24,11 @@ def _gguf() -> bytes:
 def _ticket(*, ticket_id: str = "a" * 32, data: bytes | None = None, repo: str = "Qwen/Test-0.6B"):
     blob = _gguf() if data is None else data
     identity = ModelIdentity(repo, "b" * 40, "q4_k_m", "gguf")
-    return ModelDownloadTicket(ticket_id, identity, (
-        ModelAsset("weights.gguf", hashlib.sha256(blob).hexdigest(), len(blob)),
-    ))
+    return ModelDownloadTicket(
+        ticket_id,
+        identity,
+        (ModelAsset("weights.gguf", hashlib.sha256(blob).hexdigest(), len(blob)),),
+    )
 
 
 @pytest.fixture
@@ -94,10 +95,11 @@ def test_unknown_model_identity_and_path_not_promoted(storage):
     with pytest.raises(InvalidInputError):
         ModelAsset("../outside.gguf", "f" * 64, 25)
     (staging / "downloads" / ("a" * 32) / "weights.gguf").write_bytes(_gguf())
-    bad = ModelDownloadTicket("a" * 32, ModelIdentity("Qwen/Test", "b" * 40,
-                                                      "q4_k_m", "gguf"), (
-        ModelAsset("missing.gguf", "c" * 64, 25),
-    ))
+    bad = ModelDownloadTicket(
+        "a" * 32,
+        ModelIdentity("Qwen/Test", "b" * 40, "q4_k_m", "gguf"),
+        (ModelAsset("missing.gguf", "c" * 64, 25),),
+    )
     with pytest.raises(StateMismatchError):
         library.promote(ticket=bad, staging=staging)
 

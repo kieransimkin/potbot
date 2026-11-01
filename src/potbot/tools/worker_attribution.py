@@ -5,6 +5,7 @@ agent. Never turn principal attribution into an agent heat bar. Model-authored
 work requests cannot select an agent UUID. A host-bound registry/agent pair
 must be installed on the controller before a worker may claim agent identity.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,21 +26,33 @@ class WorkerSubject:
     identity_kind: str  # 'agent' only for a matching host registry; otherwise 'principal'
 
 
-def validate_host_agent_binding(*, shared: bool, registry: AgentHomeRegistry | None,
-                                agent_id: UUID | None, ledger: WorkspaceLeaseLedger | None) -> None:
+def validate_host_agent_binding(
+    *,
+    shared: bool,
+    registry: AgentHomeRegistry | None,
+    agent_id: UUID | None,
+    ledger: WorkspaceLeaseLedger | None,
+) -> None:
     if (registry is None) != (agent_id is None):
         raise InvalidInputError("an agent identity requires its host-owned registry")
     if agent_id is not None and not isinstance(agent_id, UUID):
         raise InvalidInputError("host-bound agent identity must be UUID")
     if agent_id is not None and not shared:
         raise ScopeDeniedError("registered agent attribution requires shared sandbox")
-    if registry is not None and (getattr(registry, "ledger", None) is not ledger or
-                                 not callable(getattr(registry, "lookup", None))):
+    if registry is not None and (
+        getattr(registry, "ledger", None) is not ledger
+        or not callable(getattr(registry, "lookup", None))
+    ):
         raise ScopeDeniedError("agent registry does not match admitted workspace ledger")
 
 
-def worker_subject(context: WorkspaceContext, *, registry: AgentHomeRegistry | None,
-                   agent_id: UUID | None, ledger: WorkspaceLeaseLedger) -> WorkerSubject:
+def worker_subject(
+    context: WorkspaceContext,
+    *,
+    registry: AgentHomeRegistry | None,
+    agent_id: UUID | None,
+    ledger: WorkspaceLeaseLedger,
+) -> WorkerSubject:
     """Resolve the agent against the pinned workspace after launch admission.
 
     The gateway binds `agent_id` in its trusted constructor, never by the Cog
@@ -51,7 +64,6 @@ def worker_subject(context: WorkspaceContext, *, registry: AgentHomeRegistry | N
         return WorkerSubject(context.principal_id, "principal")
     assert agent_id is not None
     home = registry.lookup(context.workspace_id, agent_id)
-    if (home is None or home.agent_id != agent_id
-            or home.workspace_id != context.workspace_id):
+    if home is None or home.agent_id != agent_id or home.workspace_id != context.workspace_id:
         raise ScopeDeniedError("agent home registration was absent or changed")
     return WorkerSubject(agent_id, "agent")

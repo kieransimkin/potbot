@@ -22,25 +22,39 @@ from potbot.tools.temporary import allocate_file, create_directory
 
 _NAME = re.compile(r"[a-z][a-z0-9_-]{0,47}\Z")
 _REVISION = re.compile(r"[0-9a-f]{40}\Z")
-_SECRET = re.compile(r"(?:^|_)(?:api_key|key|secret|password|cookie|token|authorization|credential)(?:$|_)", re.I)
+_SECRET = re.compile(
+    r"(?:^|_)(?:api_key|key|secret|password|cookie|token|authorization|credential)(?:$|_)", re.I
+)
 _MAX_ARTIFACT = 2_000_000
 _MAX_STEPS = 64
 # Safe means no network or paid call is initiated by the *named operation*.
 # The adapter is still an explicitly trusted host-provided code dependency.
-OFFLINE_OPERATIONS: frozenset[tuple[str, str]] = frozenset({
-    ("text-library", "extract-local"), ("text-library", "extract-literal"),
-    ("candidate-focus", "related"), ("candidate-focus", "matching-terms"),
-    ("candidate-shortlist", "select"), ("research-batch", "validate-plan"),
-    ("google-trends", "import-interest"), ("google-trends", "import-related"),
-    ("google-trends", "assess-interest"), ("google-trends", "plan-event-cycles"),
-    ("observed-evidence", "import-observations"),
-    ("hashtag-planner", "profiles"), ("hashtag-planner", "discover"),
-    ("hashtag-planner", "plan"), ("hashtag-planner", "audit"),
-    ("hashtag-planner", "plan-native"), ("hashtag-planner", "audit-native"),
-    ("native-export", "import-csv"),
-    ("nltk", "extract"), ("spacy", "extract"),
-    ("@potbot", "bind-target"), ("@potbot", "merge-candidates"),
-})
+OFFLINE_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("text-library", "extract-local"),
+        ("text-library", "extract-literal"),
+        ("candidate-focus", "related"),
+        ("candidate-focus", "matching-terms"),
+        ("candidate-shortlist", "select"),
+        ("research-batch", "validate-plan"),
+        ("google-trends", "import-interest"),
+        ("google-trends", "import-related"),
+        ("google-trends", "assess-interest"),
+        ("google-trends", "plan-event-cycles"),
+        ("observed-evidence", "import-observations"),
+        ("hashtag-planner", "profiles"),
+        ("hashtag-planner", "discover"),
+        ("hashtag-planner", "plan"),
+        ("hashtag-planner", "audit"),
+        ("hashtag-planner", "plan-native"),
+        ("hashtag-planner", "audit-native"),
+        ("native-export", "import-csv"),
+        ("nltk", "extract"),
+        ("spacy", "extract"),
+        ("@potbot", "bind-target"),
+        ("@potbot", "merge-candidates"),
+    }
+)
 
 
 def _digest(raw: bytes) -> str:
@@ -113,12 +127,16 @@ class WorkflowStep:
         if not isinstance(self.inputs, tuple) or len(self.inputs) > 20:
             raise InvalidInputError("workflow requires at most twenty inputs")
         for item in self.inputs:
-            if not isinstance(item, str) or not (
-                item.startswith("file:") or item.startswith("step:")
-            ) or not 6 <= len(item) <= 260:
+            if (
+                not isinstance(item, str)
+                or not (item.startswith("file:") or item.startswith("step:"))
+                or not 6 <= len(item) <= 260
+            ):
                 raise InvalidInputError("workflow input must select a file or a previous step")
-        if not isinstance(self.keywords, tuple) or len(self.keywords) > 100 or any(
-            not isinstance(k, str) or not k.strip() or len(k) > 256 for k in self.keywords
+        if (
+            not isinstance(self.keywords, tuple)
+            or len(self.keywords) > 100
+            or any(not isinstance(k, str) or not k.strip() or len(k) > 256 for k in self.keywords)
         ):
             raise InvalidInputError("workflow keywords must be bounded")
         if not isinstance(self.options, tuple) or len(self.options) > 30:
@@ -137,21 +155,36 @@ class WorkflowStep:
             raise InvalidInputError("workflow approval reference is invalid")
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "plugin": self.plugin, "operation": self.operation,
-                "inputs": list(self.inputs), "keywords": list(self.keywords),
-                "options": dict(self.options), "approval": self.approval}
+        return {
+            "name": self.name,
+            "plugin": self.plugin,
+            "operation": self.operation,
+            "inputs": list(self.inputs),
+            "keywords": list(self.keywords),
+            "options": dict(self.options),
+            "approval": self.approval,
+        }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> WorkflowStep:
-        if not isinstance(raw, dict) or set(raw) != {
-            "name", "plugin", "operation", "inputs", "keywords", "options", "approval"
-        } or not isinstance(raw["inputs"], list) or not isinstance(
-            raw["keywords"], list
-        ) or not isinstance(raw["options"], dict):
+        if (
+            not isinstance(raw, dict)
+            or set(raw)
+            != {"name", "plugin", "operation", "inputs", "keywords", "options", "approval"}
+            or not isinstance(raw["inputs"], list)
+            or not isinstance(raw["keywords"], list)
+            or not isinstance(raw["options"], dict)
+        ):
             raise InvalidInputError("workflow step schema is invalid")
-        return cls(raw["name"], raw["plugin"], raw["operation"],
-                   tuple(raw["inputs"]), tuple(raw["keywords"]),
-                   tuple(raw["options"].items()), raw["approval"])
+        return cls(
+            raw["name"],
+            raw["plugin"],
+            raw["operation"],
+            tuple(raw["inputs"]),
+            tuple(raw["keywords"]),
+            tuple(raw["options"].items()),
+            raw["approval"],
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,18 +213,27 @@ class WorkflowPlan:
             seen.add(step.name)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"schema": self.schema, "source_revision": self.source_revision,
-                "subject": self.subject, "steps": [s.to_dict() for s in self.steps]}
+        return {
+            "schema": self.schema,
+            "source_revision": self.source_revision,
+            "subject": self.subject,
+            "steps": [s.to_dict() for s in self.steps],
+        }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> WorkflowPlan:
-        if not isinstance(raw, dict) or set(raw) != {
-            "schema", "source_revision", "subject", "steps"
-        } or not isinstance(raw["steps"], list):
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != {"schema", "source_revision", "subject", "steps"}
+            or not isinstance(raw["steps"], list)
+        ):
             raise InvalidInputError("workflow manifest schema is invalid")
-        return cls(raw["source_revision"], raw["subject"],
-                   tuple(WorkflowStep.from_dict(step) for step in raw["steps"]),
-                   raw["schema"])
+        return cls(
+            raw["source_revision"],
+            raw["subject"],
+            tuple(WorkflowStep.from_dict(step) for step in raw["steps"]),
+            raw["schema"],
+        )
 
     @property
     def sha256(self) -> str:
@@ -201,8 +243,15 @@ class WorkflowPlan:
 class KeywordMovesInvoke(Protocol):
     """Explicitly approved host executor; must enforce sandbox and provider policy."""
 
-    def __call__(self, *, plugin: str, operation: str, inputs: tuple[Path, ...],
-                 keywords: tuple[str, ...], options: Mapping[str, object]) -> dict[str, Any]: ...
+    def __call__(
+        self,
+        *,
+        plugin: str,
+        operation: str,
+        inputs: tuple[Path, ...],
+        keywords: tuple[str, ...],
+        options: Mapping[str, object],
+    ) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,8 +273,7 @@ class WorkflowExecutionPolicy:
                     state = "host_policy_gated"
                 else:
                     state = "not_enabled"
-                rows.append({"plugin": plugin, "operation": operation,
-                             "policy": state})
+                rows.append({"plugin": plugin, "operation": operation, "policy": state})
         return rows
 
     def authorize(self, step: WorkflowStep) -> None:
@@ -257,9 +305,16 @@ class KeywordMovesWorkflow:
     needed. Missing human review is a safe pause, not an automatic approval.
     """
 
-    def __init__(self, *, plan: WorkflowPlan, input_root: Path, output_root: Path,
-                 invoke: KeywordMovesInvoke, policy: WorkflowExecutionPolicy | None = None,
-                 emit: Callable[[str, dict[str, Any]], None] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        plan: WorkflowPlan,
+        input_root: Path,
+        output_root: Path,
+        invoke: KeywordMovesInvoke,
+        policy: WorkflowExecutionPolicy | None = None,
+        emit: Callable[[str, dict[str, Any]], None] | None = None,
+    ) -> None:
         self.plan = plan
         self.input_root = Path(input_root).resolve(strict=True)
         self.output_root = Path(output_root)
@@ -308,8 +363,10 @@ class KeywordMovesWorkflow:
             if not resume or manifest.is_symlink() or manifest.read_bytes() != planned:
                 raise StateMismatchError("a different workflow already owns this output")
         else:
-            if resume or any((self.output_root / "results").iterdir()) or any(
-                (self.output_root / "receipts").iterdir()
+            if (
+                resume
+                or any((self.output_root / "results").iterdir())
+                or any((self.output_root / "receipts").iterdir())
             ):
                 raise StateMismatchError("cannot resume without a durable workflow manifest")
             _atomic(manifest, planned)
@@ -327,12 +384,21 @@ class KeywordMovesWorkflow:
                 else:
                     path = _input_path(self.input_root, reference[5:])
                     if not path.is_file():
-                        self.emit("keywordmoves.awaiting_input", {
-                            "workflow_id": self.workflow_id, "step": step.name,
-                            "input": reference,
-                        })
-                        return WorkflowRunResult("awaiting_input", tuple(completed),
-                                                 reference, artifacts, self.plan.sha256)
+                        self.emit(
+                            "keywordmoves.awaiting_input",
+                            {
+                                "workflow_id": self.workflow_id,
+                                "step": step.name,
+                                "input": reference,
+                            },
+                        )
+                        return WorkflowRunResult(
+                            "awaiting_input",
+                            tuple(completed),
+                            reference,
+                            artifacts,
+                            self.plan.sha256,
+                        )
                 if path.is_symlink() or path.stat().st_size > _MAX_ARTIFACT:
                     raise InvalidInputError("workflow source is missing or exceeds its bound")
                 inputs.append(path)
@@ -343,33 +409,47 @@ class KeywordMovesWorkflow:
                 if not resume or receipt_path.is_symlink():
                     raise StateMismatchError("stage already has an execution receipt")
                 receipt = json.loads(receipt_path.read_bytes())
-                if (receipt.get("state") != "completed" or
-                    receipt.get("input_hashes") != input_hashes or
-                    receipt.get("plan_sha256") != self.plan.sha256 or
-                    not output_path.is_file() or output_path.is_symlink() or
-                    _digest(output_path.read_bytes()) != receipt.get("output_sha256")):
+                if (
+                    receipt.get("state") != "completed"
+                    or receipt.get("input_hashes") != input_hashes
+                    or receipt.get("plan_sha256") != self.plan.sha256
+                    or not output_path.is_file()
+                    or output_path.is_symlink()
+                    or _digest(output_path.read_bytes()) != receipt.get("output_sha256")
+                ):
                     raise StateMismatchError("workflow stage may be uncertain or source changed")
                 artifacts[step.name] = receipt["output_sha256"]
                 completed.append(step.name)
                 continue
             if output_path.exists() or output_path.is_symlink():
                 raise StateMismatchError("unacknowledged workflow artifact; refuse replay")
-            common = {"workflow_id": self.workflow_id, "step": step.name,
-                      "plugin": step.plugin, "operation": step.operation,
-                      "plan_sha256": self.plan.sha256, "source_revision": self.plan.source_revision,
-                      "input_hashes": input_hashes}
+            common = {
+                "workflow_id": self.workflow_id,
+                "step": step.name,
+                "plugin": step.plugin,
+                "operation": step.operation,
+                "plan_sha256": self.plan.sha256,
+                "source_revision": self.plan.source_revision,
+                "input_hashes": input_hashes,
+            }
             # A possible effect has been recorded before the first invocation.
             _atomic(receipt_path, _canonical({**common, "state": "running"}))
             self.emit("keywordmoves.step.started", common)
             try:
                 if step.plugin == "@potbot":
-                    data = (self._bind_target(step, inputs, input_hashes)
-                            if step.operation == "bind-target"
-                            else self._merge_candidates(step, inputs, input_hashes))
+                    data = (
+                        self._bind_target(step, inputs, input_hashes)
+                        if step.operation == "bind-target"
+                        else self._merge_candidates(step, inputs, input_hashes)
+                    )
                 else:
-                    data = self.invoke(plugin=step.plugin, operation=step.operation,
-                                       inputs=tuple(inputs), keywords=step.keywords,
-                                       options=dict(step.options))
+                    data = self.invoke(
+                        plugin=step.plugin,
+                        operation=step.operation,
+                        inputs=tuple(inputs),
+                        keywords=step.keywords,
+                        options=dict(step.options),
+                    )
                 # KeywordMoves PluginResult.to_dict() preserves tuple-valued
                 # dataclass fields (keywords, evidence and notes). The durable
                 # workflow wire format is JSON, which represents them as lists.
@@ -378,34 +458,48 @@ class KeywordMovesWorkflow:
                 data = json.loads(_canonical(data))
                 self._validate_result(step, data)
                 # Prevent result attribution to inputs changed during an invocation.
-                if any(_digest(path.read_bytes()) != original for path, original in
-                       zip(inputs, input_hashes, strict=True)):
+                if any(
+                    _digest(path.read_bytes()) != original
+                    for path, original in zip(inputs, input_hashes, strict=True)
+                ):
                     raise StateMismatchError("workflow source changed during execution")
                 output = _canonical(data)
                 _atomic(output_path, output)
                 checksum = _digest(output)
-                _atomic(receipt_path, _canonical({**common, "state": "completed",
-                                                 "output_sha256": checksum,
-                                                 "candidate_count": len(data["keywords"])}))
+                _atomic(
+                    receipt_path,
+                    _canonical(
+                        {
+                            **common,
+                            "state": "completed",
+                            "output_sha256": checksum,
+                            "candidate_count": len(data["keywords"]),
+                        }
+                    ),
+                )
             except Exception:
                 # The existing running receipt forbids replay after an uncertain call.
-                self.emit("keywordmoves.step.indeterminate", {"workflow_id": self.workflow_id,
-                                                                "step": step.name})
+                self.emit(
+                    "keywordmoves.step.indeterminate",
+                    {"workflow_id": self.workflow_id, "step": step.name},
+                )
                 raise
             completed.append(step.name)
             artifacts[step.name] = checksum
-            self.emit("keywordmoves.step.completed", {"workflow_id": self.workflow_id,
-                                                       "step": step.name,
-                                                       "sha256": checksum})
-        return WorkflowRunResult("completed", tuple(completed), None, artifacts,
-                                 self.plan.sha256)
+            self.emit(
+                "keywordmoves.step.completed",
+                {"workflow_id": self.workflow_id, "step": step.name, "sha256": checksum},
+            )
+        return WorkflowRunResult("completed", tuple(completed), None, artifacts, self.plan.sha256)
 
     @staticmethod
     def _validate_result(step: WorkflowStep, data: dict[str, Any]) -> None:
-        if not isinstance(data, dict) or data.get("plugin") != step.plugin or data.get(
-            "operation"
-        ) != step.operation or not isinstance(data.get("keywords"), list) or not isinstance(
-            data.get("metadata", {}), dict
+        if (
+            not isinstance(data, dict)
+            or data.get("plugin") != step.plugin
+            or data.get("operation") != step.operation
+            or not isinstance(data.get("keywords"), list)
+            or not isinstance(data.get("metadata", {}), dict)
         ):
             raise InvalidInputError("KeywordMoves produced a mismatched result contract")
         if len(data["keywords"]) > 50000:
@@ -417,9 +511,7 @@ class KeywordMovesWorkflow:
 
     @staticmethod
     def _bind_target(step: WorkflowStep, inputs: list[Path], hashes: list[str]) -> dict[str, Any]:
-        if len(inputs) != 1 or step.keywords or set(dict(step.options)) != {
-            "subject", "platform"
-        }:
+        if len(inputs) != 1 or step.keywords or set(dict(step.options)) != {"subject", "platform"}:
             raise InvalidInputError("target binding needs one result and explicit target")
         settings = dict(step.options)
         if any(not isinstance(settings[k], str) or not settings[k] for k in settings):
@@ -429,16 +521,19 @@ class KeywordMovesWorkflow:
             raise InvalidInputError("target binding requires a KeywordMoves result")
         pool = dict(data)
         pool["plugin"], pool["operation"] = step.plugin, step.operation
-        pool["metadata"] = {**data.get("metadata", {}),
-                            "target_subject": settings["subject"],
-                            "target_platform": settings["platform"],
-                            "potbot_source_sha256": hashes[0],
-                            "potbot_source_plugin": data.get("plugin")}
+        pool["metadata"] = {
+            **data.get("metadata", {}),
+            "target_subject": settings["subject"],
+            "target_platform": settings["platform"],
+            "potbot_source_sha256": hashes[0],
+            "potbot_source_plugin": data.get("plugin"),
+        }
         return pool
 
     @staticmethod
-    def _merge_candidates(step: WorkflowStep, inputs: list[Path],
-                          hashes: list[str]) -> dict[str, Any]:
+    def _merge_candidates(
+        step: WorkflowStep, inputs: list[Path], hashes: list[str]
+    ) -> dict[str, Any]:
         """Merge literal matching phrases, never aggregate distinct demand units."""
         if len(inputs) < 2 or step.keywords or step.options:
             raise InvalidInputError("candidate merge requires multiple saved results")
@@ -459,26 +554,44 @@ class KeywordMovesWorkflow:
                     raise InvalidInputError("candidate evidence is not a list")
                 if not isinstance(candidate.get("metadata", {}), dict):
                     raise InvalidInputError("candidate metadata is not a dictionary")
-                row = merged.setdefault(key, {"phrase": phrase, "relationship": "source-merged",
-                                              "score": None, "evidence": [], "metadata": {
-                                                  "source_lineage": []}})
+                row = merged.setdefault(
+                    key,
+                    {
+                        "phrase": phrase,
+                        "relationship": "source-merged",
+                        "score": None,
+                        "evidence": [],
+                        "metadata": {"source_lineage": []},
+                    },
+                )
                 row["evidence"].extend(candidate.get("evidence", []))
-                row["metadata"]["source_lineage"].append({
-                    "source_sha256": source_digest,
-                    "source_plugin": value.get("plugin"),
-                    "source_operation": value.get("operation"),
-                    "original_score": candidate.get("score"),
-                    "original_metadata": candidate.get("metadata", {}),
-                })
+                row["metadata"]["source_lineage"].append(
+                    {
+                        "source_sha256": source_digest,
+                        "source_plugin": value.get("plugin"),
+                        "source_operation": value.get("operation"),
+                        "original_score": candidate.get("score"),
+                        "original_metadata": candidate.get("metadata", {}),
+                    }
+                )
                 total += 1
                 if total > 50000:
                     raise InvalidInputError("candidate merge input exceeds row bound")
-        return {"plugin": "@potbot", "operation": "merge-candidates",
-                "keywords": list(merged.values()), "notes": [
-                    "Exact normalized phrases merged; source metrics remain independent.",
-                    "There is no combined popularity, search-volume or confidence score."],
-                "metadata": {"source_hashes": hashes, "input_rows": total,
-                             "merged_rows": len(merged), "external_demand": "unvalidated"}}
+        return {
+            "plugin": "@potbot",
+            "operation": "merge-candidates",
+            "keywords": list(merged.values()),
+            "notes": [
+                "Exact normalized phrases merged; source metrics remain independent.",
+                "There is no combined popularity, search-volume or confidence score.",
+            ],
+            "metadata": {
+                "source_hashes": hashes,
+                "input_rows": total,
+                "merged_rows": len(merged),
+                "external_demand": "unvalidated",
+            },
+        }
 
     def as_evidence_tool(self, stages: tuple[str, ...]) -> Any:
         """Host-admitted R4 tool over completed artifacts; never triggers a new step."""
@@ -503,14 +616,18 @@ class KeywordMovesWorkflow:
                     continue
                 raw = path.read_bytes()
                 value = json.loads(raw)
-                if any(query in str(row.get("phrase", "")).casefold()
-                       for row in value.get("keywords", [])):
+                if any(
+                    query in str(row.get("phrase", "")).casefold()
+                    for row in value.get("keywords", [])
+                ):
                     found.append(self.evidence(stage, run_id=run_id))
             return tuple(found)
 
         return RegisteredEvidenceTool(
-            "keywordmoves-completed-evidence", "internal_workflows",
-            "syn://type/potbot-keywordmoves-evidence-cog", search,
+            "keywordmoves-completed-evidence",
+            "internal_workflows",
+            "syn://type/potbot-keywordmoves-evidence-cog",
+            search,
         )
 
     def evidence(self, step_name: str, *, run_id: str) -> Any:
@@ -533,9 +650,11 @@ class KeywordMovesWorkflow:
         if _digest(output) != receipt["output_sha256"]:
             raise StateMismatchError("KeywordMoves source output changed")
         data = json.loads(output)
-        excerpt = (f"KeywordMoves {receipt['plugin']}/{receipt['operation']}: "
-                   f"{len(data['keywords'])} source-labelled candidates; "
-                   "no cross-platform search demand inferred")
+        excerpt = (
+            f"KeywordMoves {receipt['plugin']}/{receipt['operation']}: "
+            f"{len(data['keywords'])} source-labelled candidates; "
+            "no cross-platform search demand inferred"
+        )
         return EvidenceFinding(
             source_ref=f"syn://thing/keywordmoves/{run_id}/{step_name}",
             source_sha256=receipt["output_sha256"],

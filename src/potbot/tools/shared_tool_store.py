@@ -42,11 +42,28 @@ _REPOSITORY = re.compile(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?
 # Files within the shared checkout are SOURCE, not the package cache or output
 # store. Every cleanable path must be independently listed by the installer.
 # Never include the .git directory, agent files, lockfiles, or environment dirs.
-FORBIDDEN_CLEAN_PARTS = frozenset({".git", ".venv", "node_modules", "models", "environment",
-                                   "static", "downloads", "packages", "assets"})
+FORBIDDEN_CLEAN_PARTS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "node_modules",
+        "models",
+        "environment",
+        "static",
+        "downloads",
+        "packages",
+        "assets",
+    }
+)
 ArtifactClass = Literal[
-    "source", "shared_environment", "static_binary", "download_archive",
-    "model", "per_agent_runtime", "run_output", "ephemeral_cache",
+    "source",
+    "shared_environment",
+    "static_binary",
+    "download_archive",
+    "model",
+    "per_agent_runtime",
+    "run_output",
+    "ephemeral_cache",
 ]
 
 
@@ -59,13 +76,39 @@ class ArtifactPolicy:
 
 
 SHARED_ARTIFACT_POLICIES: tuple[ArtifactPolicy, ...] = (
-    ArtifactPolicy("source", "/usr/local/tools/<tool>/checkout", "read-many; clean before edit", "tool"),
-    ArtifactPolicy("shared_environment", "/usr/local/tools/<tool>/environment", "pinned ABI and lockfile", "tool-install"),
-    ArtifactPolicy("static_binary", "/usr/local/tools/<tool>/static", "hash + architecture + build receipt", "tool-install"),
-    ArtifactPolicy("download_archive", "/usr/local/tools/<tool>/downloads", "content-addressed package", "tool-install"),
-    ArtifactPolicy("model", "/var/ai/models or /opt/potbot/models", "operator verified exact model", "model-store"),
-    ArtifactPolicy("per_agent_runtime", "/home/<agent>/.local", "not reused across agents", "agent-home"),
-    ArtifactPolicy("run_output", "/home/<agent>/runs/<id>", "output belongs to that invocation", "run"),
+    ArtifactPolicy(
+        "source", "/usr/local/tools/<tool>/checkout", "read-many; clean before edit", "tool"
+    ),
+    ArtifactPolicy(
+        "shared_environment",
+        "/usr/local/tools/<tool>/environment",
+        "pinned ABI and lockfile",
+        "tool-install",
+    ),
+    ArtifactPolicy(
+        "static_binary",
+        "/usr/local/tools/<tool>/static",
+        "hash + architecture + build receipt",
+        "tool-install",
+    ),
+    ArtifactPolicy(
+        "download_archive",
+        "/usr/local/tools/<tool>/downloads",
+        "content-addressed package",
+        "tool-install",
+    ),
+    ArtifactPolicy(
+        "model",
+        "/var/ai/models or /opt/potbot/models",
+        "operator verified exact model",
+        "model-store",
+    ),
+    ArtifactPolicy(
+        "per_agent_runtime", "/home/<agent>/.local", "not reused across agents", "agent-home"
+    ),
+    ArtifactPolicy(
+        "run_output", "/home/<agent>/runs/<id>", "output belongs to that invocation", "run"
+    ),
     ArtifactPolicy("ephemeral_cache", "/home/<agent>/.cache", "safe to regenerate", "agent-home"),
 )
 
@@ -77,12 +120,18 @@ def _name(value: str) -> str:
 
 
 def _storage_relative(value: str) -> str:
-    if (not isinstance(value, str) or not value or len(value) > 180
-            or "\\" in value or "\x00" in value):
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 180
+        or "\\" in value
+        or "\x00" in value
+    ):
         raise InvalidInputError("invalid tool-owned relative path")
     p = PurePosixPath(value)
-    if p.is_absolute() or any(part in {"", ".", ".."} or part.startswith(".git")
-                              for part in value.split("/")):
+    if p.is_absolute() or any(
+        part in {"", ".", ".."} or part.startswith(".git") for part in value.split("/")
+    ):
         raise ScopeDeniedError("tool store path must be canonical and git-private")
     return value
 
@@ -112,15 +161,21 @@ class SharedToolDefinition:
             raise InvalidInputError("shared tool requires a canonical GitHub source URL")
         if not isinstance(self.commit, str) or not _SHA.fullmatch(self.commit):
             raise InvalidInputError("shared tool requires a pinned 40-digit source revision")
-        if not isinstance(self.cleanup_paths, tuple) or not self.cleanup_paths or len(self.cleanup_paths) > 64:
+        if (
+            not isinstance(self.cleanup_paths, tuple)
+            or not self.cleanup_paths
+            or len(self.cleanup_paths) > 64
+        ):
             raise InvalidInputError("every tool requires a bounded clean manifest")
         for item in self.cleanup_paths:
             _relative(item)
         if len(set(self.cleanup_paths)) != len(self.cleanup_paths):
             raise InvalidInputError("duplicate cleanup path")
         for index, left in enumerate(self.cleanup_paths):
-            if any(left.startswith(right + "/") or right.startswith(left + "/")
-                   for right in self.cleanup_paths[index + 1:]):
+            if any(
+                left.startswith(right + "/") or right.startswith(left + "/")
+                for right in self.cleanup_paths[index + 1 :]
+            ):
                 raise InvalidInputError("nested cleanup paths are ambiguous")
         if not isinstance(self.lockfiles, tuple) or len(self.lockfiles) > 24:
             raise InvalidInputError("too many lockfile declarations")
@@ -134,10 +189,13 @@ class SharedToolDefinition:
             raise InvalidInputError("too many reusable artifact declarations")
         artifact_seen: set[str] = set()
         for path, digest in self.reusable_artifacts:
-            if (not isinstance(path, str) or not path.startswith(
-                ("static/", "environment/", "downloads/")
-            ) or path in artifact_seen or not isinstance(digest, str)
-                    or not _DIGEST.fullmatch(digest)):
+            if (
+                not isinstance(path, str)
+                or not path.startswith(("static/", "environment/", "downloads/"))
+                or path in artifact_seen
+                or not isinstance(digest, str)
+                or not _DIGEST.fullmatch(digest)
+            ):
                 raise InvalidInputError("reusable artifact requires an exact path and hash")
             _storage_relative(path)
             artifact_seen.add(path)
@@ -145,18 +203,27 @@ class SharedToolDefinition:
             raise InvalidInputError("model download classification must be boolean")
 
     def to_dict(self) -> dict[str, object]:
-        return {"slug": self.slug, "repository": self.repository, "commit": self.commit,
-                "cleanup_paths": list(self.cleanup_paths), "lockfiles": list(self.lockfiles),
-                "model_downloads": self.model_downloads,
-                "reusable_artifacts": list(self.reusable_artifacts)}
+        return {
+            "slug": self.slug,
+            "repository": self.repository,
+            "commit": self.commit,
+            "cleanup_paths": list(self.cleanup_paths),
+            "lockfiles": list(self.lockfiles),
+            "model_downloads": self.model_downloads,
+            "reusable_artifacts": list(self.reusable_artifacts),
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> SharedToolDefinition:
-        return cls(str(data["slug"]), str(data["repository"]), str(data["commit"]),
-                   tuple(data["cleanup_paths"]),
-                   tuple((str(a), str(b)) for a, b in data.get("lockfiles", [])),
-                   data.get("model_downloads", False),
-                   tuple((str(a), str(b)) for a, b in data.get("reusable_artifacts", [])))
+        return cls(
+            str(data["slug"]),
+            str(data["repository"]),
+            str(data["commit"]),
+            tuple(data["cleanup_paths"]),
+            tuple((str(a), str(b)) for a, b in data.get("lockfiles", [])),
+            data.get("model_downloads", False),
+            tuple((str(a), str(b)) for a, b in data.get("reusable_artifacts", [])),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,15 +239,23 @@ class SharedToolStore:
     """Host-only operator entrypoint; never a sandbox-exposed general git tool."""
 
     def __init__(
-        self, *, ledger: WorkspaceLeaseLedger, shared_root: Path,
-        authorize: Callable[[UUID, UUID], bool], git_executable: str = "git",
+        self,
+        *,
+        ledger: WorkspaceLeaseLedger,
+        shared_root: Path,
+        authorize: Callable[[UUID, UUID], bool],
+        git_executable: str = "git",
     ) -> None:
         if not callable(authorize):
             raise ScopeDeniedError("shared tool store requires host authorization")
         if shared_root.is_symlink() or not shared_root.is_dir():
             raise ScopeDeniedError("shared tool store must be a pre-provisioned real directory")
         root = shared_root.resolve(strict=True)
-        if root == ledger.home or root.is_relative_to(ledger.home) or ledger.home.is_relative_to(root):
+        if (
+            root == ledger.home
+            or root.is_relative_to(ledger.home)
+            or ledger.home.is_relative_to(root)
+        ):
             raise ScopeDeniedError("shared tools must be a separate persistent mount")
         self.root, self.ledger, self.authorize = root, ledger, authorize
         self.git = git_executable
@@ -204,21 +279,41 @@ class SharedToolStore:
         if parent.is_symlink() or not parent.is_dir() or parent.parent != self.root:
             raise StateMismatchError("shared tool was not provisioned")
         checkout = parent / "checkout"
-        if (checkout.is_symlink() or not checkout.is_dir()
-                or (checkout / ".git").is_symlink()
-                or not (checkout / ".git").is_dir()):
+        if (
+            checkout.is_symlink()
+            or not checkout.is_dir()
+            or (checkout / ".git").is_symlink()
+            or not (checkout / ".git").is_dir()
+        ):
             raise StateMismatchError("shared tool checkout is unavailable")
         return parent, checkout
 
     def _git(self, cwd: Path, *args: str) -> str:
         """Read-only git introspection; no hooks, repo scripts, fetch or filters."""
-        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C", "LC_ALL": "C",
-               "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
-               "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0"}
-        argv = [self.git, "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
-                "-c", "submodule.recurse=false", "-c", "protocol.allow=never", *args]
-        completed = subprocess.run(argv, cwd=cwd, env=env, capture_output=True,
-                                   timeout=20, check=False)
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "LANG": "C",
+            "LC_ALL": "C",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+        argv = [
+            self.git,
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "submodule.recurse=false",
+            "-c",
+            "protocol.allow=never",
+            *args,
+        ]
+        completed = subprocess.run(
+            argv, cwd=cwd, env=env, capture_output=True, timeout=20, check=False
+        )
         if completed.returncode or len(completed.stdout) > 1_000_000:
             raise StateMismatchError("shared tool Git readback failed")
         return completed.stdout.decode("utf-8", errors="strict").strip()
@@ -244,29 +339,53 @@ class SharedToolStore:
                 raise StateMismatchError("reusable tool artifact digest changed")
         for relative, digest in definition.lockfiles:
             path = checkout / relative
-            if (path.is_symlink() or not path.is_file()
-                    or hashlib.sha256(path.read_bytes()).hexdigest() != digest):
+            if (
+                path.is_symlink()
+                or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != digest
+            ):
                 raise StateMismatchError("tool dependency lockfile changed")
-        if require_clean and self._git(checkout, "status", "--porcelain=v1", "--untracked-files=all"):
+        if require_clean and self._git(
+            checkout, "status", "--porcelain=v1", "--untracked-files=all"
+        ):
             raise StateMismatchError("shared tool has uncommitted or generated source changes")
         return checkout
 
     def register(
-        self, *, workspace_id: UUID, agent_id: UUID, definition: SharedToolDefinition,
-        idempotency_key: str, install_probe: dict[str, object],
+        self,
+        *,
+        workspace_id: UUID,
+        agent_id: UUID,
+        definition: SharedToolDefinition,
+        idempotency_key: str,
+        install_probe: dict[str, object],
     ) -> None:
         """Operator approves an existing checkout after the mandatory install gate."""
-        review_manifest({"schema": "potbot-shared-tool-preflight/v1",
-                         "definition": definition.to_dict(), "probe": install_probe})
+        review_manifest(
+            {
+                "schema": "potbot-shared-tool-preflight/v1",
+                "definition": definition.to_dict(),
+                "probe": install_probe,
+            }
+        )
         image = self._require(workspace_id, agent_id)
-        request = AccessRequest(workspace_id, agent_id, "tool.register", idempotency_key,
-                                "write", (AccessResource("shared_tool", definition.slug, "write"),), image)
+        request = AccessRequest(
+            workspace_id,
+            agent_id,
+            "tool.register",
+            idempotency_key,
+            "write",
+            (AccessResource("shared_tool", definition.slug, "write"),),
+            image,
+        )
         lease = self.ledger.claim(request, replay_existing=False)
         try:
             checkout = self._verify(definition)
             # An unknown ignored residue is not acceptable at registration.
             if self._git(checkout, "clean", "-ndx"):
-                raise StateMismatchError("shared tool requires a clean source tree and external caches")
+                raise StateMismatchError(
+                    "shared tool requires a clean source tree and external caches"
+                )
             with self.ledger._connect() as db:
                 db.execute("BEGIN IMMEDIATE")
                 existing = db.execute(
@@ -276,8 +395,10 @@ class SharedToolStore:
                 serialized = json.dumps(definition.to_dict(), sort_keys=True)
                 if existing and existing["definition_json"] != serialized:
                     raise StateMismatchError("registered tool differs; explicit upgrade required")
-                db.execute("INSERT OR IGNORE INTO trusted_shared_tools VALUES (?,?,?)",
-                           (str(workspace_id), definition.slug, serialized))
+                db.execute(
+                    "INSERT OR IGNORE INTO trusted_shared_tools VALUES (?,?,?)",
+                    (str(workspace_id), definition.slug, serialized),
+                )
             self.ledger.finish(lease, result_sha256=hashlib.sha256(serialized.encode()).hexdigest())
         except BaseException:
             self.ledger.finish(lease, result_sha256=admission_digest("tool-register-refused"))
@@ -288,8 +409,7 @@ class SharedToolStore:
             # When S9 is installed, an interrupted directory exchange must
             # block every brokered use until an operator has reconciled it.
             upgrade_table = db.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' "
-                "AND name='trusted_tool_upgrades'"
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='trusted_tool_upgrades'"
             ).fetchone()
             if upgrade_table is not None:
                 unsettled = db.execute(
@@ -308,15 +428,24 @@ class SharedToolStore:
         return SharedToolDefinition.from_dict(json.loads(item["definition_json"]))
 
     @contextmanager
-    def use(self, *, workspace_id: UUID, agent_id: UUID, slug: str,
-            idempotency_key: str) -> Iterator[Path]:
+    def use(
+        self, *, workspace_id: UUID, agent_id: UUID, slug: str, idempotency_key: str
+    ) -> Iterator[Path]:
         """Lease remains active until the caller confirms the supervised run ended."""
         image = self._require(workspace_id, agent_id)
         definition = self.definition(workspace_id, slug)
-        guard = WorkspaceLeaseGuard(self.ledger, AccessRequest(
-            workspace_id, agent_id, "tool.use", idempotency_key, "read",
-            (AccessResource("shared_tool", slug, "read"),), image,
-        ))
+        guard = WorkspaceLeaseGuard(
+            self.ledger,
+            AccessRequest(
+                workspace_id,
+                agent_id,
+                "tool.use",
+                idempotency_key,
+                "read",
+                (AccessResource("shared_tool", slug, "read"),),
+                image,
+            ),
+        )
         guard.start()
         uncertain = False
         try:
@@ -349,8 +478,7 @@ class SharedToolStore:
         try:
             for part in parts[:-1]:
                 try:
-                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                    dir_fd=fd)
+                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
                 except FileNotFoundError:
                     return False
                 os.close(fd)
@@ -406,15 +534,28 @@ class SharedToolStore:
         return tuple(removed)
 
     def clean_for_edit(
-        self, *, workspace_id: UUID, agent_id: UUID, slug: str, idempotency_key: str,
+        self,
+        *,
+        workspace_id: UUID,
+        agent_id: UUID,
+        slug: str,
+        idempotency_key: str,
     ) -> ToolCleanReceipt:
         """Remove only registered run outputs. No git reset, checkout or -fdx."""
         image = self._require(workspace_id, agent_id)
         definition = self.definition(workspace_id, slug)
-        guard = WorkspaceLeaseGuard(self.ledger, AccessRequest(
-            workspace_id, agent_id, "tool.clean", idempotency_key, "write",
-            (AccessResource("shared_tool", slug, "write"),), image,
-        ))
+        guard = WorkspaceLeaseGuard(
+            self.ledger,
+            AccessRequest(
+                workspace_id,
+                agent_id,
+                "tool.clean",
+                idempotency_key,
+                "write",
+                (AccessResource("shared_tool", slug, "write"),),
+                image,
+            ),
+        )
         guard.start()
         # A clean may have changed files even when it raises. Any uncertainty
         # stays blocking; operator reconciles rather than retrying blindly.
@@ -427,8 +568,15 @@ class SharedToolStore:
             guard.finish(evidence_sha256=admission_digest("tool-clean-unknown"), uncertain=True)
             raise
 
-    def edit_checkout_plan(self, *, workspace_id: UUID, agent_id: UUID, slug: str,
-                           agent_home: Path, idempotency_key: str) -> dict[str, str]:
+    def edit_checkout_plan(
+        self,
+        *,
+        workspace_id: UUID,
+        agent_id: UUID,
+        slug: str,
+        agent_home: Path,
+        idempotency_key: str,
+    ) -> dict[str, str]:
         """A safe, explicit clone command plan; execution needs a sandboxed Git Cog.
 
         An agent's edit clone is *never* linked to the shared checkout's .git
@@ -454,15 +602,20 @@ class SharedToolStore:
             "destination": f"/home/{home.name}/projects/{slug}",
             "expected_commit": definition.commit,
             "git_command": "clone --no-local --no-hardlinks --no-checkout -- "
-                           f"/usr/local/tools/{slug}/checkout /home/{home.name}/projects/{slug}",
+            f"/usr/local/tools/{slug}/checkout /home/{home.name}/projects/{slug}",
             "note": "Use only via the supervised Git tool, with hooks/filters disabled, "
-                    "then checkout expected commit and verify no shared git alternates",
+            "then checkout expected commit and verify no shared git alternates",
             "idempotency_key": idempotency_key,
         }
 
     def clone_for_edit(
-        self, *, workspace_id: UUID, agent_id: UUID, slug: str,
-        agent_home: Path, idempotency_key: str,
+        self,
+        *,
+        workspace_id: UUID,
+        agent_id: UUID,
+        slug: str,
+        agent_home: Path,
+        idempotency_key: str,
         sandboxed_clone: Callable[[dict[str, str]], None],
     ) -> dict[str, str]:
         """Clean and clone under ONE exclusive lease with caller-supplied sandbox runner.
@@ -475,16 +628,27 @@ class SharedToolStore:
             raise ScopeDeniedError("agent clone requires an admitted isolated Git executor")
         image = self._require(workspace_id, agent_id)
         definition = self.definition(workspace_id, slug)
-        guard = WorkspaceLeaseGuard(self.ledger, AccessRequest(
-            workspace_id, agent_id, "tool.clone_for_edit", idempotency_key, "write",
-            (AccessResource("shared_tool", slug, "write"),), image,
-        ))
+        guard = WorkspaceLeaseGuard(
+            self.ledger,
+            AccessRequest(
+                workspace_id,
+                agent_id,
+                "tool.clone_for_edit",
+                idempotency_key,
+                "write",
+                (AccessResource("shared_tool", slug, "write"),),
+                image,
+            ),
+        )
         guard.start()
         try:
             self._clean_tree(definition)
             plan = self.edit_checkout_plan(
-                workspace_id=workspace_id, agent_id=agent_id, slug=slug,
-                agent_home=agent_home, idempotency_key=idempotency_key,
+                workspace_id=workspace_id,
+                agent_id=agent_id,
+                slug=slug,
+                agent_home=agent_home,
+                idempotency_key=idempotency_key,
             )
             target = agent_home.resolve(strict=True) / "projects" / slug
             guard.ensure_live()
@@ -506,7 +670,9 @@ class SharedToolStore:
             raise
 
 
-def tool_process_environment(slug: str, agent_name: str, *, installing: bool = False) -> dict[str, str]:
+def tool_process_environment(
+    slug: str, agent_name: str, *, installing: bool = False
+) -> dict[str, str]:
     """Per-agent execution state; only admitted installs write package caches.
 
     Model frameworks retain /var/ai download routes from model_environment().
@@ -555,25 +721,38 @@ def review_manifest(payload: dict[str, object]) -> dict[str, object]:
     env = probe.get("environment")
     paths = probe.get("model_destinations")
     writes = probe.get("writes")
-    if (not isinstance(env, dict) or not all(isinstance(a, str) and isinstance(b, str)
-                                             for a, b in env.items())
-            or not isinstance(paths, list) or not all(isinstance(p, str) for p in paths)
-            or not isinstance(writes, list) or not all(isinstance(p, str) for p in writes)):
+    if (
+        not isinstance(env, dict)
+        or not all(isinstance(a, str) and isinstance(b, str) for a, b in env.items())
+        or not isinstance(paths, list)
+        or not all(isinstance(p, str) for p in paths)
+        or not isinstance(writes, list)
+        or not all(isinstance(p, str) for p in writes)
+    ):
         raise InvalidInputError("tool preflight needs captured environment and write paths")
     from potbot.tools.model_cache_routes import ModelDownloadingTool, validate_tool_installation
 
     validate_tool_installation(
-        ModelDownloadingTool(definition.slug, definition.model_downloads,
-                             ("HF_HOME",) if definition.model_downloads else ()),
-        env=env, destinations=tuple(paths), probe_performed=True,
+        ModelDownloadingTool(
+            definition.slug,
+            definition.model_downloads,
+            ("HF_HOME",) if definition.model_downloads else (),
+        ),
+        env=env,
+        destinations=tuple(paths),
+        probe_performed=True,
     )
     # Package download caches are reusable inside the shared tool directory;
     # models MUST go to /var/ai, runtime outputs to /home. Never send tool
     # installation files to global model bytes, rootfs, or other checkouts.
     for path in writes:
-        if (not path.startswith("/") or "\\" in path or "\x00" in path
-                or "//" in path or any(piece in {".", "..", ""}
-                                     for piece in path.split("/")[1:])):
+        if (
+            not path.startswith("/")
+            or "\\" in path
+            or "\x00" in path
+            or "//" in path
+            or any(piece in {".", "..", ""} for piece in path.split("/")[1:])
+        ):
             raise ScopeDeniedError("installation wrote an ambiguous or relative path")
         allowed = (
             path.startswith(f"/usr/local/tools/{definition.slug}/environment/"),
@@ -591,8 +770,12 @@ def review_manifest(payload: dict[str, object]) -> dict[str, object]:
         raise ScopeDeniedError("every shared tool needs a successful isolated clean acceptance")
     if probe.get("normal_use_test_passed") is not True:
         raise ScopeDeniedError("shared tool needs a working normal-use smoke")
-    return {"tool": definition.slug, "revision": definition.commit,
-            "model_writes_routed": True, "classified_writes": len(writes),
-            "clean_declared": list(definition.cleanup_paths),
-            "approved_to_install": False,
-            "note": "Offline probe metadata only; operator must independently run all checks"}
+    return {
+        "tool": definition.slug,
+        "revision": definition.commit,
+        "model_writes_routed": True,
+        "classified_writes": len(writes),
+        "clean_declared": list(definition.cleanup_paths),
+        "approved_to_install": False,
+        "note": "Offline probe metadata only; operator must independently run all checks",
+    }

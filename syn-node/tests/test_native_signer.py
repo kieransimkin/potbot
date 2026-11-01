@@ -1,4 +1,5 @@
 """Versioned, executable-pinned external SYN signer boundary (test-only binary)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -17,11 +18,13 @@ from syn_node.protocol import SynProtocolError
 def make_test_signer(tmp_path: Path) -> tuple[Path, bytes, str]:
     """Single-use fixture signer with literal secret in TEMPORARY TEST CODE ONLY."""
     private = Ed25519PrivateKey.generate()
-    seed = private.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
-                                 serialization.NoEncryption()).hex()
-    pub = private.public_key().public_bytes(serialization.Encoding.Raw,
-                                           serialization.PublicFormat.Raw)
-    code = f'''#!{sys.executable}
+    seed = private.private_bytes(
+        serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()
+    ).hex()
+    pub = private.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+    code = f"""#!{sys.executable}
 import json, sys
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
@@ -32,7 +35,7 @@ method = request["method"]
 signature = private.sign(bytes.fromhex(request["payload_hex"])).hex() if method == "sign" else None
 reply = {{"schema_version":1,"type_ref":"synny://type/syn-native-keystore-sign-result-v1", "method":method, "public_key":public.hex(), "signature":signature}}
 sys.stdout.buffer.write(json.dumps(reply, sort_keys=True, separators=(',',':')).encode())
-'''
+"""
     file = tmp_path / "syn-native-test-helper"
     file.write_text(code)
     file.chmod(0o700)
@@ -52,7 +55,7 @@ def test_pinned_native_signer_public_and_actual_signatures(tmp_path):
 def test_pinned_native_signer_rejects_incorrect_identity_or_writable_file(tmp_path):
     binary, expected, pin = make_test_signer(tmp_path)
     with pytest.raises(SynProtocolError, match="identity"):
-        NativeOperatorSigner(binary, pin, b'Z' * 32)
+        NativeOperatorSigner(binary, pin, b"Z" * 32)
     binary.chmod(0o777)
     with pytest.raises(SynProtocolError, match="writable"):
         NativeOperatorSigner(binary, pin, expected)
@@ -69,7 +72,6 @@ def test_pinned_native_signer_cannot_process_unbounded_or_unknown_signing_reques
 
 def test_sandboxed_native_signer_preflight_does_not_create_receipt_db(tmp_path):
     import json
-    import os
 
     from syn_node.cli import _configure
 
@@ -79,12 +81,23 @@ def test_sandboxed_native_signer_preflight_does_not_create_receipt_db(tmp_path):
     sock = private / "syn.sock"
     receipts = private / "new-receipts.sqlite"
     config = private / "operator.json"
-    config.write_bytes(json.dumps({
-        "schema_version": 1, "type_ref": "synny://type/syn-local-service-config-v1",
-        "mode": "operator", "socket": str(sock), "registry": str(private / "registry.json"),
-        "receipt_db": str(receipts), "native_signer_executable": str(binary),
-        "native_signer_sha256": pin, "expected_base_public_key_hash": expected.hex(),
-    }, sort_keys=True, separators=(",", ":")).encode())
+    config.write_bytes(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "type_ref": "synny://type/syn-local-service-config-v1",
+                "mode": "operator",
+                "socket": str(sock),
+                "registry": str(private / "registry.json"),
+                "receipt_db": str(receipts),
+                "native_signer_executable": str(binary),
+                "native_signer_sha256": pin,
+                "expected_base_public_key_hash": expected.hex(),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    )
     config.chmod(0o600)
     service, registry = _configure(config, read_only=True)
     assert service.master_hash == expected
@@ -106,17 +119,30 @@ def test_separate_syn_daemon_process_attests_and_reattaches_after_restart(tmp_pa
     sock = directory / "syn.sock"
     registry = directory / "installations.json"
     cfg = directory / "operator.json"
-    cfg.write_text(json.dumps({
-        "schema_version": 1, "type_ref": "synny://type/syn-local-service-config-v1",
-        "mode": "operator", "socket": str(sock), "registry": str(registry),
-        "receipt_db": str(directory / "receipts.sqlite"),
-        "native_signer_executable": str(binary), "native_signer_sha256": pin,
-        "expected_base_public_key_hash": expected.hex(),
-    }, sort_keys=True, separators=(",", ":")))
+    cfg.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "type_ref": "synny://type/syn-local-service-config-v1",
+                "mode": "operator",
+                "socket": str(sock),
+                "registry": str(registry),
+                "receipt_db": str(directory / "receipts.sqlite"),
+                "native_signer_executable": str(binary),
+                "native_signer_sha256": pin,
+                "expected_base_public_key_hash": expected.hex(),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     cfg.chmod(0o600)
     for _ in range(2):
-        daemon = subprocess.Popen([sys.executable, "-m", "syn_node", "serve", "--config", str(cfg)],
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        daemon = subprocess.Popen(
+            [sys.executable, "-m", "syn_node", "serve", "--config", str(cfg)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
         try:
             for _ in range(150):
                 if sock.exists() and registry.exists():

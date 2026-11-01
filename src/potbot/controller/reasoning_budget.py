@@ -44,10 +44,21 @@ class ReasoningBudgetJournal:
         return uuid5(NAMESPACE_URL, f"potbot:reasoning:{context.workspace_id}:{run_id}:{node_id}")
 
     def prepare(
-        self, context: WorkspaceContext, *, run_id: str, node_id: str,
-        lease_token: UUID, episode_id: UUID, provider: str, model: str,
-        protocol: str | None, prompt_hash: str, system: str, prompt: str,
-        max_output_tokens: int, timeout_seconds: float,
+        self,
+        context: WorkspaceContext,
+        *,
+        run_id: str,
+        node_id: str,
+        lease_token: UUID,
+        episode_id: UUID,
+        provider: str,
+        model: str,
+        protocol: str | None,
+        prompt_hash: str,
+        system: str,
+        prompt: str,
+        max_output_tokens: int,
+        timeout_seconds: float,
     ) -> ReasoningBudgetTicket:
         if not isinstance(episode_id, UUID) or not isinstance(lease_token, UUID):
             raise InvalidInputError("Reasoning budget requires task and live run identities")
@@ -55,13 +66,18 @@ class ReasoningBudgetJournal:
             run_uuid, node_uuid = UUID(hex=run_id), UUID(node_id)
         except (TypeError, ValueError):
             raise InvalidInputError("Invalid reasoning run/node identity") from None
-        if not isinstance(prompt_hash, str) or len(prompt_hash) != 64 or any(
-            c not in "0123456789abcdef" for c in prompt_hash
+        if (
+            not isinstance(prompt_hash, str)
+            or len(prompt_hash) != 64
+            or any(c not in "0123456789abcdef" for c in prompt_hash)
         ):
             raise InvalidInputError("Reasoning prompt requires immutable SHA256 identity")
         request = ProviderRequest(
-            ProviderSelection(provider, model, protocol), prompt=prompt, system=system,
-            max_output_tokens=max_output_tokens, timeout_seconds=timeout_seconds,
+            ProviderSelection(provider, model, protocol),
+            prompt=prompt,
+            system=system,
+            max_output_tokens=max_output_tokens,
+            timeout_seconds=timeout_seconds,
         )
         self.policy.authorize(request)
         rule = self.policy.rule(provider, model, "reasoning")
@@ -95,13 +111,10 @@ class ReasoningBudgetJournal:
                 (context.workspace_id, run_uuid),
             ).fetchone():
                 raise StateMismatchError("Reasoning lease expired before budget admission")
-            reserved = self.budgets.reserve_in_transaction(
-                conn, context, episode_id, amounts, key
-            )
+            reserved = self.budgets.reserve_in_transaction(conn, context, episode_id, amounts, key)
             reservation_id = UUID(str(reserved["id"]))
             task = conn.execute(
-                "SELECT status,active_contract_id FROM episodes "
-                "WHERE workspace_id=%s AND id=%s",
+                "SELECT status,active_contract_id FROM episodes WHERE workspace_id=%s AND id=%s",
                 (context.workspace_id, episode_id),
             ).fetchone()
             if task is None or task["status"] != "running" or task["active_contract_id"] is None:
@@ -111,14 +124,26 @@ class ReasoningBudgetJournal:
                 "(workspace_id,id,run_id,node_id,episode_id,contract_revision_id,"
                 "reservation_id,provider,model,prompt_hash,status) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'reserved')",
-                (context.workspace_id, identity, run_uuid, node_uuid, episode_id,
-                 task["active_contract_id"], reservation_id, provider, model, prompt_hash),
+                (
+                    context.workspace_id,
+                    identity,
+                    run_uuid,
+                    node_uuid,
+                    episode_id,
+                    task["active_contract_id"],
+                    reservation_id,
+                    provider,
+                    model,
+                    prompt_hash,
+                ),
             )
-        return ReasoningBudgetTicket(identity, reservation_id, run_id, node_id,
-                                     episode_id, time.monotonic())
+        return ReasoningBudgetTicket(
+            identity, reservation_id, run_id, node_id, episode_id, time.monotonic()
+        )
 
-    def dispatch(self, context: WorkspaceContext, ticket: ReasoningBudgetTicket,
-                 lease_token: UUID) -> None:
+    def dispatch(
+        self, context: WorkspaceContext, ticket: ReasoningBudgetTicket, lease_token: UUID
+    ) -> None:
         """Commit the possible-dispatch marker and lease/task check atomically."""
         with self.database.transaction(context) as conn:
             row = conn.execute(
@@ -136,24 +161,38 @@ class ReasoningBudgetJournal:
             if row is None:
                 raise StateMismatchError("Reasoning authorization changed before dispatch")
 
-    def observe(self, context: WorkspaceContext, ticket: ReasoningBudgetTicket,
-                usage: dict[str, int], *, elapsed_ms: int, rate_provider: str,
-                rate_model: str) -> None:
+    def observe(
+        self,
+        context: WorkspaceContext,
+        ticket: ReasoningBudgetTicket,
+        usage: dict[str, int],
+        *,
+        elapsed_ms: int,
+        rate_provider: str,
+        rate_model: str,
+    ) -> None:
         """Journal the terminal provider observation before settling the budget."""
         from psycopg.types.json import Jsonb
 
-        if any(type(usage.get(k)) is not int or usage[k] < 0 for k in (
-            "prompt_tokens", "completion_tokens", "total_tokens"
-        )) or usage["total_tokens"] <= 0:
+        if (
+            any(
+                type(usage.get(k)) is not int or usage[k] < 0
+                for k in ("prompt_tokens", "completion_tokens", "total_tokens")
+            )
+            or usage["total_tokens"] <= 0
+        ):
             raise InvalidInputError("Provider usage missing; hold uncertain reservation")
         if usage["prompt_tokens"] + usage["completion_tokens"] > usage["total_tokens"]:
             raise InvalidInputError("Provider usage totals are inconsistent")
         if type(elapsed_ms) is not int or elapsed_ms < 0:
             raise InvalidInputError("Invalid provider execution time")
         actual = {
-            "calls": 1, "tokens": usage["total_tokens"], "inference_ms": elapsed_ms,
+            "calls": 1,
+            "tokens": usage["total_tokens"],
+            "inference_ms": elapsed_ms,
             "money_microunits": self.policy.rule(rate_provider, rate_model, "reasoning").charge(
-                usage["prompt_tokens"], usage["completion_tokens"],
+                usage["prompt_tokens"],
+                usage["completion_tokens"],
                 total_tokens=usage["total_tokens"],
             ),
         }
@@ -184,8 +223,7 @@ class ReasoningBudgetJournal:
             raise StateMismatchError("Reasoning observation requires manual reconciliation")
         # Idempotent: a second process may settle after the first observed the
         # row. The independent BudgetLedger transaction is authoritative.
-        self.budgets.settle(context, row["reservation_id"], row["actual"],
-                            "conservative_estimate")
+        self.budgets.settle(context, row["reservation_id"], row["actual"], "conservative_estimate")
         with self.database.transaction(context) as conn:
             conn.execute(
                 "UPDATE reasoning_budget_invocations SET status='settled',"
@@ -198,21 +236,24 @@ class ReasoningBudgetJournal:
         """Only a confirmed non-dispatch can release a reserved allowance."""
         with self.database.transaction(context) as conn:
             row = conn.execute(
-                "SELECT status FROM reasoning_budget_invocations "
-                "WHERE workspace_id=%s AND id=%s",
+                "SELECT status FROM reasoning_budget_invocations WHERE workspace_id=%s AND id=%s",
                 (context.workspace_id, ticket.identity),
             ).fetchone()
         if row is None or row["status"] in {"settled", "released", "observed"}:
             return
         status = row["status"]
         if status == "reserved":
-            self.budgets.release(context, ticket.reservation_id,
-                                 "reasoning call confirmed not dispatched",
-                                 confirmed_not_started=True)
+            self.budgets.release(
+                context,
+                ticket.reservation_id,
+                "reasoning call confirmed not dispatched",
+                confirmed_not_started=True,
+            )
             target = "released"
         else:
-            self.budgets.mark_indeterminate(context, ticket.reservation_id,
-                                            "reasoning provider outcome uncertain")
+            self.budgets.mark_indeterminate(
+                context, ticket.reservation_id, "reasoning provider outcome uncertain"
+            )
             target = "indeterminate"
         with self.database.transaction(context) as conn:
             conn.execute(

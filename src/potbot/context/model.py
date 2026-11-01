@@ -1,4 +1,5 @@
 """Portable, unprivileged context document format and identity validation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -8,8 +9,21 @@ from uuid import UUID
 from potbot.domain.errors import InvalidInputError
 
 ROLES = ("AGENTS.md", "MODEL.md", "MEMORY.md")
-KINDS = frozenset(("sandbox", "agent", "operator", "tool", "skill", "worker",
-                   "workflow", "gateway", "model", "connector", "primitive"))
+KINDS = frozenset(
+    (
+        "sandbox",
+        "agent",
+        "operator",
+        "tool",
+        "skill",
+        "worker",
+        "workflow",
+        "gateway",
+        "model",
+        "connector",
+        "primitive",
+    )
+)
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
 MAX_CONTENT_BYTES = 1_048_576
 
@@ -42,8 +56,10 @@ def document_templates(kind: str, name: str) -> dict[str, str]:
     display = f"{kind}:{name}"
     return {
         "AGENTS.md": f"# Instructions: {display}\n\nNo object-specific instructions configured.\n",
-        "MODEL.md": (f"# Working model: {display}\n\n## Observed state\n\nUnknown.\n"
-                     "\n## Uncertainties\n\nDiscovery pending.\n"),
+        "MODEL.md": (
+            f"# Working model: {display}\n\n## Observed state\n\nUnknown.\n"
+            "\n## Uncertainties\n\nDiscovery pending.\n"
+        ),
         "MEMORY.md": f"# History: {display}\n\nNo observations recorded.\n",
     }
 

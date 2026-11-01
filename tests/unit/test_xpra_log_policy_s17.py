@@ -1,8 +1,8 @@
 """Host-only Xpra log custody regression tests; never runs an Xpra daemon."""
+
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -82,6 +82,7 @@ def test_symlink_and_accessible_log_root_rejected(tmp_path):
 
 def test_log_limit_fault_does_not_destroy_evidence(tmp_path, monkeypatch):
     from potbot.tools import xpra_log_policy_s17 as module
+
     root, guest = fixture(tmp_path)
     monkeypatch.setattr(module, "_MAX_ACTIVE", 4)
     owner = XpraLogCustody(root, guest)
@@ -122,6 +123,7 @@ def test_orphaned_archive_fences_new_start(tmp_path):
 
 def test_qualifier_creates_private_no_content_report(tmp_path):
     from scripts.qualify_xpra_logs_s17 import main
+
     root, guest = fixture(tmp_path)
     owner = XpraLogCustody(root, guest)
     handle = owner.open()

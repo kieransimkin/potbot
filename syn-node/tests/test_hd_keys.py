@@ -40,8 +40,12 @@ class FakeExtendedKey:
         self.seed = payload[:32]
         self.public_key = payload[64:96]
         self.chain_code = payload[96:]
-        if (self._private().public_key().public_bytes(serialization.Encoding.Raw,
-                serialization.PublicFormat.Raw) != self.public_key):
+        if (
+            self._private()
+            .public_key()
+            .public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+            != self.public_key
+        ):
             raise ValueError("mismatched synthetic child")
 
     def _private(self) -> Ed25519PrivateKey:
@@ -61,7 +65,8 @@ class FakeWallet:
         private = Ed25519PrivateKey.from_private_bytes(key)
         self.xprivate_key = key + hashlib.sha256(key).digest()
         self.public_key = private.public_key().public_bytes(
-            serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
         self.chain_code = hashlib.sha256(path.encode() + entropy + b"chain").digest()
 
     @classmethod
@@ -89,7 +94,8 @@ def installed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 def create(installed):
     keyring, lock = installed
     result = hd_keys.create_operator_identity(
-        service="syn.operator", account="fixture", lock_dir=lock)
+        service="syn.operator", account="fixture", lock_dir=lock
+    )
     return result
 
 
@@ -98,8 +104,10 @@ def test_paths_and_public_root_vs_base(installed):
     assert public["root_path"] == "m/6969'/420'"
     assert public["base_path"] == "m/6969'/420'/0'/0/0"
     assert public["root_public_key_hash"] != public["base_public_key_hash"]
-    assert public["base_public_key_hash"] == hashlib.sha256(
-        bytes.fromhex(public["base_public_key"])).hexdigest()
+    assert (
+        public["base_public_key_hash"]
+        == hashlib.sha256(bytes.fromhex(public["base_public_key"])).hexdigest()
+    )
     for forbidden in ("entropy", "private", "xprivate", "seed", "chain", "mnemonic"):
         assert forbidden not in str(public)
     assert len(installed[0].entries) == 8
@@ -130,11 +138,13 @@ def test_os_keystore_mid_write_failure_retains_tombstone(installed):
 def test_tampered_root_private_data_refuses_every_signature(installed):
     public = create(installed)
     signer = hd_keys.PythonHdOperatorSigner(
-        "syn.operator", "fixture", bytes.fromhex(public["base_public_key_hash"]))
+        "syn.operator", "fixture", bytes.fromhex(public["base_public_key_hash"])
+    )
     payload = b"syn.local.attestation.v1\0fixture"
     signature = signer.sign(payload)
     Ed25519PublicKey.from_public_bytes(bytes.fromhex(public["base_public_key"])).verify(
-        signature, payload)
+        signature, payload
+    )
     installed[0].entries["syn.operator", "fixture.operator.root_xprivate.v1"] = "ff" * 64
     with pytest.raises(SynProtocolError, match="differ"):
         signer.sign(payload)
@@ -156,16 +166,18 @@ def test_wrong_expected_operator_identity_fails(installed):
 @pytest.mark.parametrize("bad", [-1, 16_777_216, True, None, "10", 0.5])
 def test_invalid_inheritance_rejected(installed, bad):
     public = create(installed)
-    signer = hd_keys.PythonHdOperatorSigner("syn.operator", "fixture",
-                                           bytes.fromhex(public["base_public_key_hash"]))
+    signer = hd_keys.PythonHdOperatorSigner(
+        "syn.operator", "fixture", bytes.fromhex(public["base_public_key_hash"])
+    )
     with pytest.raises(SynProtocolError, match="24-bit"):
         signer.derive_candidate_public_hashes(bad)
 
 
 def test_operator_eight_candidate_full_hashes_and_distinct(installed):
     public = create(installed)
-    signer = hd_keys.PythonHdOperatorSigner("syn.operator", "fixture",
-                                           bytes.fromhex(public["base_public_key_hash"]))
+    signer = hd_keys.PythonHdOperatorSigner(
+        "syn.operator", "fixture", bytes.fromhex(public["base_public_key_hash"])
+    )
     one = signer.derive_candidate_public_hashes(9214)
     assert len(one) == len(set(one)) == 8
     assert all(type(item) is bytes and len(item) == 32 for item in one)
@@ -176,8 +188,9 @@ def test_operator_eight_candidate_full_hashes_and_distinct(installed):
 
 def test_operator_signing_requires_bounded_input(installed):
     public = create(installed)
-    signer = hd_keys.PythonHdOperatorSigner("syn.operator", "fixture",
-                                           bytes.fromhex(public["base_public_key_hash"]))
+    signer = hd_keys.PythonHdOperatorSigner(
+        "syn.operator", "fixture", bytes.fromhex(public["base_public_key_hash"])
+    )
     for bad in (b"", b"x" * 65537, "a string", None):
         with pytest.raises(SynProtocolError, match="bounded"):
             signer.sign(bad)
@@ -187,6 +200,7 @@ def test_missing_real_pycardano_fails_closed(monkeypatch, installed):
     monkeypatch.undo()
     if hd_keys._pycardano.__module__ == "syn_node.hd_keys":
         import importlib.util
+
         if importlib.util.find_spec("pycardano") is None:
             with pytest.raises(SynProtocolError, match="pinned pycardano"):
                 hd_keys._pycardano()
@@ -197,13 +211,23 @@ def test_cli_version2_operator_signer_from_os_keystore(installed, tmp_path):
     private = tmp_path / "settings"
     private.mkdir(mode=0o700)
     config = private / "node.json"
-    config.write_text(json.dumps({
-        "schema_version": 2, "type_ref": "synny://type/syn-local-service-config-v2",
-        "mode": "operator", "socket": str(private / "sock"),
-        "registry": str(private / "registry.json"), "receipt_db": None,
-        "expected_base_public_key_hash": public["base_public_key_hash"],
-        "keyring_service": "syn.operator", "keyring_account": "fixture",
-    }, sort_keys=True, separators=(",", ":")))
+    config.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "type_ref": "synny://type/syn-local-service-config-v2",
+                "mode": "operator",
+                "socket": str(private / "sock"),
+                "registry": str(private / "registry.json"),
+                "receipt_db": None,
+                "expected_base_public_key_hash": public["base_public_key_hash"],
+                "keyring_service": "syn.operator",
+                "keyring_account": "fixture",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     config.chmod(0o600)
     node, registry = _configure(config, read_only=True)
     assert node.master_hash.hex() == public["base_public_key_hash"]
@@ -217,14 +241,24 @@ def test_cli_version2_rejects_mixed_native_keys(installed, tmp_path):
     private = tmp_path / "settings"
     private.mkdir(mode=0o700)
     config = private / "bad.json"
-    config.write_text(json.dumps({
-        "schema_version": 2, "type_ref": "synny://type/syn-local-service-config-v2",
-        "mode": "operator", "socket": str(private / "sock"),
-        "registry": str(private / "registry.json"), "receipt_db": None,
-        "expected_base_public_key_hash": public["base_public_key_hash"],
-        "keyring_service": "syn.operator", "keyring_account": "fixture",
-        "native_signer_executable": "/tmp/unsafe",
-    }, sort_keys=True, separators=(",", ":")))
+    config.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "type_ref": "synny://type/syn-local-service-config-v2",
+                "mode": "operator",
+                "socket": str(private / "sock"),
+                "registry": str(private / "registry.json"),
+                "receipt_db": None,
+                "expected_base_public_key_hash": public["base_public_key_hash"],
+                "keyring_service": "syn.operator",
+                "keyring_account": "fixture",
+                "native_signer_executable": "/tmp/unsafe",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
     config.chmod(0o600)
     with pytest.raises(SynProtocolError, match="fields"):
         _configure(config, read_only=True)
@@ -233,6 +267,7 @@ def test_cli_version2_rejects_mixed_native_keys(installed, tmp_path):
 def test_explicit_python_library_absent_or_wrong_version_is_blocking(monkeypatch):
     # Real-library qualification happens separately; never test with a substitute silently.
     import importlib.metadata
+
     monkeypatch.setattr(importlib.metadata, "version", lambda _: "0.0.0")
     with pytest.raises(SynProtocolError, match="pinned"):
         hd_keys._pycardano()  # import may fail earlier in an offline environment
@@ -281,8 +316,9 @@ def test_no_os_backend_refuses_entropy_creation(monkeypatch, tmp_path):
 
 def test_eight_candidate_abbreviation_collision_blocks_enrollment(installed, monkeypatch):
     public = create(installed)
-    signer = hd_keys.PythonHdOperatorSigner("syn.operator", "fixture",
-                                           bytes.fromhex(public["base_public_key_hash"]))
+    signer = hd_keys.PythonHdOperatorSigner(
+        "syn.operator", "fixture", bytes.fromhex(public["base_public_key_hash"])
+    )
 
     class CollidingWallet(FakeWallet):
         def derive_from_path(self, path):
@@ -298,8 +334,17 @@ def test_eight_candidate_abbreviation_collision_blocks_enrollment(installed, mon
 def test_cli_new_operator_never_prints_private_material(installed, capsys):
     from syn_node.cli import main
 
-    result = main(["new-operator", "--keyring-service", "syn.operator",
-                   "--keyring-account", "fixture", "--lock-dir", str(installed[1])])
+    result = main(
+        [
+            "new-operator",
+            "--keyring-service",
+            "syn.operator",
+            "--keyring-account",
+            "fixture",
+            "--lock-dir",
+            str(installed[1]),
+        ]
+    )
     assert result == 0
     output = capsys.readouterr().out
     body = json.loads(output)
@@ -307,13 +352,27 @@ def test_cli_new_operator_never_prints_private_material(installed, capsys):
     assert body["root_path"] == hd_keys.ROOT_PATH
     for secret in ("private", "entropy", "chain", "mnemonic", "seed"):
         assert secret not in output
-    assert main(["new-operator", "--keyring-service", "syn.operator",
-                 "--keyring-account", "fixture", "--lock-dir", str(installed[1])]) == 2
+    assert (
+        main(
+            [
+                "new-operator",
+                "--keyring-service",
+                "syn.operator",
+                "--keyring-account",
+                "fixture",
+                "--lock-dir",
+                str(installed[1]),
+            ]
+        )
+        == 2
+    )
 
 
 def test_versioned_public_identity_and_configuration_schema(installed):
     schema_lib = pytest.importorskip("jsonschema")
-    schema_path = Path(__file__).resolve().parents[1] / "schema" / "operator-keystore-v2.schema.json"
+    schema_path = (
+        Path(__file__).resolve().parents[1] / "schema" / "operator-keystore-v2.schema.json"
+    )
     schema = json.loads(schema_path.read_text())
     schema_lib.Draft202012Validator.check_schema(schema)
     public = create(installed)
@@ -321,11 +380,15 @@ def test_versioned_public_identity_and_configuration_schema(installed):
     bad = {**public, "root_path": "m/6969/420'"}
     assert not schema_lib.Draft202012Validator(schema).is_valid(bad)
     config = {
-        "schema_version": 2, "type_ref": "synny://type/syn-local-service-config-v2",
-        "mode": "operator", "socket": "/syn/ops.sock", "registry": "/syn/registry.json",
+        "schema_version": 2,
+        "type_ref": "synny://type/syn-local-service-config-v2",
+        "mode": "operator",
+        "socket": "/syn/ops.sock",
+        "registry": "/syn/registry.json",
         "receipt_db": "/syn/receipts.db",
         "expected_base_public_key_hash": public["base_public_key_hash"],
-        "keyring_service": "syn.operator", "keyring_account": "fixture",
+        "keyring_service": "syn.operator",
+        "keyring_account": "fixture",
     }
     schema_lib.validate(config, schema)
     config["native_signer_sha256"] = "00" * 32

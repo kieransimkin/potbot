@@ -89,9 +89,7 @@ class BudgetLedger:
         idempotency_key: str,
     ) -> dict[str, Any]:
         with self.database.transaction(context) as conn:
-            return self.reserve_in_transaction(
-                conn, context, episode_id, amounts, idempotency_key
-            )
+            return self.reserve_in_transaction(conn, context, episode_id, amounts, idempotency_key)
 
     def reserve_in_transaction(
         self,
@@ -147,9 +145,7 @@ class BudgetLedger:
             )
             return dict(json_record(_reservation(conn, context, reservation_id)))
 
-        return idempotent_command(
-            conn, context, "reserve_budget", idempotency_key, request, admit
-        )
+        return idempotent_command(conn, context, "reserve_budget", idempotency_key, request, admit)
 
     def settle(
         self,

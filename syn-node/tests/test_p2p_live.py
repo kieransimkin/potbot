@@ -37,43 +37,60 @@ def real_hd(tmp_path, monkeypatch):
     monkeypatch.setattr(custody, "_native_backend", lambda: backend)
     lock = tmp_path / "locks"
     lock.mkdir(mode=0o700)
-    public = hd_keys.create_operator_identity(service="syn.test.operator", account="one",
-                                               lock_dir=lock)
-    temporary = custody.create_agent_temporary_key(service="syn.test.agent", account="one",
-                                                   lock_dir=lock)
+    public = hd_keys.create_operator_identity(
+        service="syn.test.operator", account="one", lock_dir=lock
+    )
+    temporary = custody.create_agent_temporary_key(
+        service="syn.test.agent", account="one", lock_dir=lock
+    )
     operator = hd_keys.PythonHdOperatorSigner(
         "syn.test.operator", "one", bytes.fromhex(public["base_public_key_hash"])
     )
     agent = custody.AgentTemporaryOsSigner(
         "syn.test.agent", "one", bytes.fromhex(temporary["temporary_public_key_hash"])
     )
-    inbox = PledgeInbox.create(path=tmp_path / "syn-inbox.sqlite", service="syn.test.inbox",
-                               account="one", master_hash=operator.expected_public_hash,
-                               network_id="syn-real-qualification", lock_dir=lock,
-                               backend=backend)
+    inbox = PledgeInbox.create(
+        path=tmp_path / "syn-inbox.sqlite",
+        service="syn.test.inbox",
+        account="one",
+        master_hash=operator.expected_public_hash,
+        network_id="syn-real-qualification",
+        lock_dir=lock,
+        backend=backend,
+    )
     return operator, agent, inbox
 
 
 def test_real_extended_signer_and_true_keystore_agent_on_encrypted_tcp(real_hd):
     operator, temporary, inbox = real_hd
-    server = SynP2PServer(signer=operator, inbox=inbox, network_id="syn-real-qualification",
-                          bind_host="127.0.0.1", advertised_host="127.0.0.1",
-                          allow_loopback=True)
+    server = SynP2PServer(
+        signer=operator,
+        inbox=inbox,
+        network_id="syn-real-qualification",
+        bind_host="127.0.0.1",
+        advertised_host="127.0.0.1",
+        allow_loopback=True,
+    )
     stop = threading.Event()
     thread = threading.Thread(target=server.serve, args=(stop,), daemon=True)
     thread.start()
     try:
-        client = SynP2PClient(master_hash=operator.expected_public_hash,
-                              network_id="syn-real-qualification", allow_loopback=True)
+        client = SynP2PClient(
+            master_hash=operator.expected_public_hash,
+            network_id="syn-real-qualification",
+            allow_loopback=True,
+        )
         advert = server.pulse()
-        result = client.pledge(advert=advert, temporary_signer=temporary,
-                               hardware_id=bytes.fromhex("021122334455"))
+        result = client.pledge(
+            advert=advert, temporary_signer=temporary, hardware_id=bytes.fromhex("021122334455")
+        )
         assert result["activation_authorized"] is False
         assert result["state"] == "pending-operator-review"
         pending = inbox.read_private(result["offer_sha256"], now=int(time.time()))
-        assert pending["signed_offer"]["offer"]["temporary_public_key_hash"] == hashlib.sha256(
-            temporary.public_key
-        ).hexdigest()
+        assert (
+            pending["signed_offer"]["offer"]["temporary_public_key_hash"]
+            == hashlib.sha256(temporary.public_key).hexdigest()
+        )
         # A real operator can derive all eight children from a reserved public
         # inheritance. Nothing authorizes issuance of an adopted key here.
         hashes = operator.derive_candidate_public_hashes(39721)

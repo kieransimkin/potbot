@@ -55,21 +55,30 @@ class ProcessRequest:
 
     def __post_init__(self) -> None:
         if (self.telemetry_workspace_id is None) != (self.telemetry_agent_id is None) or (
-            self.telemetry_workspace_id is not None and (
+            self.telemetry_workspace_id is not None
+            and (
                 not isinstance(self.telemetry_workspace_id, UUID)
                 or not isinstance(self.telemetry_agent_id, UUID)
             )
         ):
             raise InvalidInputError("worker audit needs paired trusted workspace and agent UUIDs")
-        if (self.telemetry_identity_kind not in {"agent", "principal"}
-                or (self.telemetry_identity_kind == "agent" and self.telemetry_workspace_id is None)
-                or (self.telemetry_run_id is not None and (
-                    not isinstance(self.telemetry_run_id, UUID) or self.telemetry_workspace_id is None))):
+        if (
+            self.telemetry_identity_kind not in {"agent", "principal"}
+            or (self.telemetry_identity_kind == "agent" and self.telemetry_workspace_id is None)
+            or (
+                self.telemetry_run_id is not None
+                and (
+                    not isinstance(self.telemetry_run_id, UUID)
+                    or self.telemetry_workspace_id is None
+                )
+            )
+        ):
             raise InvalidInputError("worker audit attribution or run binding is invalid")
         if (self.guest_uid is None) != (self.guest_gid is None):
             raise InvalidInputError("guest UID/GID must be selected together")
         if self.guest_uid is not None and (
-            type(self.guest_uid) is not int or not 420 <= self.guest_uid <= 65533
+            type(self.guest_uid) is not int
+            or not 420 <= self.guest_uid <= 65533
             or self.guest_gid != 69
         ):
             raise InvalidInputError("guest identities must use agent UID >=420 and group 69")
@@ -156,8 +165,12 @@ def _kill_group(process: subprocess.Popen[bytes], force: bool = False) -> None:
 
 
 class ProcessSupervisor:
-    def __init__(self, backend: BubblewrapBackend | None = None, *,
-                 monitor_config: WorkerMonitorConfig | None = None) -> None:
+    def __init__(
+        self,
+        backend: BubblewrapBackend | None = None,
+        *,
+        monitor_config: WorkerMonitorConfig | None = None,
+    ) -> None:
         self.backend = backend or BubblewrapBackend()
         self.monitor_config = monitor_config
 
@@ -176,10 +189,12 @@ class ProcessSupervisor:
         health = getattr(self.backend, "operator_attachment", None)
         if health is not None:
             earlier_cancelled = cancelled
+
             def cancelled() -> bool:
                 if not health.healthy():
                     raise CapabilityUnavailableError("Operator disappeared during execution")
                 return earlier_cancelled() if earlier_cancelled is not None else False
+
         if not getattr(self.backend, "guest_executable", False) and (
             not Path(request.argv[0]).is_file() or not os.access(request.argv[0], os.X_OK)
         ):
@@ -202,14 +217,16 @@ class ProcessSupervisor:
         telemetry: WorkerMonitorSession | None = None
         try:
             from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
             launch_options: dict[str, int] = {}
             if request.guest_uid is not None:
                 if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
-                    raise CapabilityUnavailableError("agent UID requires the qualified shared sandbox")
+                    raise CapabilityUnavailableError(
+                        "agent UID requires the qualified shared sandbox"
+                    )
                 if request.guest_gid is None:
                     raise InvalidInputError("guest group was not assigned")
-                launch_options = {"guest_uid": request.guest_uid,
-                                  "guest_gid": request.guest_gid}
+                launch_options = {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -234,18 +251,30 @@ class ProcessSupervisor:
             }
             if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
                 if request.telemetry_workspace_id is None or request.telemetry_agent_id is None:
-                    raise CapabilityUnavailableError("unidentified sandbox worker cannot run unmonitored")
+                    raise CapabilityUnavailableError(
+                        "unidentified sandbox worker cannot run unmonitored"
+                    )
                 config = self.monitor_config or WorkerMonitorConfig.from_environment()
                 home, audit = self.backend.runtime.home.resolve(), config.audit_root
-                if (audit == home or audit.is_relative_to(home) or home.is_relative_to(audit)
-                        or config.strace.is_relative_to(home)
-                        or config.cgroup_join.is_relative_to(home)
-                        or config.cgroup_root.is_relative_to(home)):
-                    raise CapabilityUnavailableError("operator monitoring assets may not overlap sandbox home")
-                telemetry = WorkerMonitorSession(config, request.telemetry_workspace_id,
-                                                 request.telemetry_agent_id, launch.identity,
-                                                 identity_kind=request.telemetry_identity_kind,
-                                                 run_id=request.telemetry_run_id)
+                if (
+                    audit == home
+                    or audit.is_relative_to(home)
+                    or home.is_relative_to(audit)
+                    or config.strace.is_relative_to(home)
+                    or config.cgroup_join.is_relative_to(home)
+                    or config.cgroup_root.is_relative_to(home)
+                ):
+                    raise CapabilityUnavailableError(
+                        "operator monitoring assets may not overlap sandbox home"
+                    )
+                telemetry = WorkerMonitorSession(
+                    config,
+                    request.telemetry_workspace_id,
+                    request.telemetry_agent_id,
+                    launch.identity,
+                    identity_kind=request.telemetry_identity_kind,
+                    run_id=request.telemetry_run_id,
+                )
             process = subprocess.Popen(
                 telemetry.command(launch.argv) if telemetry is not None else launch.argv,
                 cwd="/",
@@ -262,11 +291,15 @@ class ProcessSupervisor:
         except (CapabilityUnavailableError, OSError, ScopeDeniedError, RuntimeError):
             if process is not None:
                 _kill_group(process, force=True)
-                try: process.wait(timeout=2)
-                except subprocess.TimeoutExpired: pass
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
             observed_stopped = process is None or process.poll() is not None
             if telemetry is not None:
-                observed_stopped = telemetry.finish(confirmed_stopped=observed_stopped) and observed_stopped
+                observed_stopped = (
+                    telemetry.finish(confirmed_stopped=observed_stopped) and observed_stopped
+                )
             return ProcessResult(
                 "infrastructure_error",
                 None,

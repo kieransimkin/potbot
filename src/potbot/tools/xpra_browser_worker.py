@@ -4,6 +4,7 @@ Installed as a static file in the qualified rootfs; no Chrome DevTools TCP
 listener, XTEST, host browser attachment, arbitrary JS evaluation or shell API.
 Playwright/Patchright control their own Chromium subprocess over private pipes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,42 +26,96 @@ if __package__:
 else:
     from browser_https_routes import install_https_routes, require_egress_config
 
-COMMANDS = frozenset({
-    "state", "navigate", "accessibility", "interactive", "inspect.start",
-    "inspect.poll", "inspect.stop", "inspect.at", "input.pointer",
-    "input.keyboard", "role.click", "role.fill", "cdp", "sample",
-})
-CDP_READ = frozenset({
-    "DOM.getDocument", "DOM.describeNode", "DOM.getBoxModel", "DOM.getNodeForLocation",
-    "CSS.getComputedStyleForNode", "CSS.getMatchedStylesForNode",
-    "Accessibility.getPartialAXTree", "Accessibility.getFullAXTree",
-    "Page.getLayoutMetrics", "Performance.getMetrics",
-})
+COMMANDS = frozenset(
+    {
+        "state",
+        "navigate",
+        "accessibility",
+        "interactive",
+        "inspect.start",
+        "inspect.poll",
+        "inspect.stop",
+        "inspect.at",
+        "input.pointer",
+        "input.keyboard",
+        "role.click",
+        "role.fill",
+        "cdp",
+        "sample",
+    }
+)
+CDP_READ = frozenset(
+    {
+        "DOM.getDocument",
+        "DOM.describeNode",
+        "DOM.getBoxModel",
+        "DOM.getNodeForLocation",
+        "CSS.getComputedStyleForNode",
+        "CSS.getMatchedStylesForNode",
+        "Accessibility.getPartialAXTree",
+        "Accessibility.getFullAXTree",
+        "Page.getLayoutMetrics",
+        "Performance.getMetrics",
+    }
+)
 CDP_INPUT = frozenset({"Input.dispatchMouseEvent", "Input.dispatchKeyEvent"})
 RULES = {
-    "state": set(), "accessibility": set(), "interactive": set(),
-    "inspect.start": set(), "inspect.poll": set(), "inspect.stop": set(),
-    "navigate": {"url"}, "inspect.at": {"x", "y"},
+    "state": set(),
+    "accessibility": set(),
+    "interactive": set(),
+    "inspect.start": set(),
+    "inspect.poll": set(),
+    "inspect.stop": set(),
+    "navigate": {"url"},
+    "inspect.at": {"x", "y"},
     "input.pointer": {"action", "x", "y", "deltaY", "button"},
     "input.keyboard": {"action", "key", "text"},
-    "role.click": {"role", "name"}, "role.fill": {"role", "name", "text"},
-    "cdp": {"method", "params"}, "sample": {"image"},
+    "role.click": {"role", "name"},
+    "role.fill": {"role", "name", "text"},
+    "cdp": {"method", "params"},
+    "sample": {"image"},
 }
 REQUIRED = {
-    "navigate": {"url"}, "inspect.at": {"x", "y"},
-    "input.pointer": {"action", "x", "y"}, "input.keyboard": {"action"},
-    "role.click": {"role", "name"}, "role.fill": {"role", "name", "text"},
+    "navigate": {"url"},
+    "inspect.at": {"x", "y"},
+    "input.pointer": {"action", "x", "y"},
+    "input.keyboard": {"action"},
+    "role.click": {"role", "name"},
+    "role.fill": {"role", "name", "text"},
     "cdp": {"method"},
 }
-ALLOWED_ROLES = frozenset({"button", "link", "textbox", "checkbox", "radio", "combobox", "option", "menuitem", "tab", "switch", "searchbox"})
+ALLOWED_ROLES = frozenset(
+    {
+        "button",
+        "link",
+        "textbox",
+        "checkbox",
+        "radio",
+        "combobox",
+        "option",
+        "menuitem",
+        "tab",
+        "switch",
+        "searchbox",
+    }
+)
 
 
 def browser_operation_may_mutate(command: object) -> bool:
     """Execution-failure outcomes for mutations must be fenced, not retried."""
-    return isinstance(command, dict) and (command.get("op") in {
-        "navigate", "input.pointer", "input.keyboard", "role.click",
-        "role.fill", "inspect.start", "inspect.stop",
-    } or (command.get("op") == "cdp" and command.get("method") in CDP_INPUT))
+    return isinstance(command, dict) and (
+        command.get("op")
+        in {
+            "navigate",
+            "input.pointer",
+            "input.keyboard",
+            "role.click",
+            "role.fill",
+            "inspect.start",
+            "inspect.stop",
+        }
+        or (command.get("op") == "cdp" and command.get("method") in CDP_INPUT)
+    )
 
 
 def _number(value: Any, upper: int = 4096) -> bool:
@@ -76,14 +131,24 @@ def validate_command(data: Any) -> dict[str, Any]:
     if not isinstance(data, dict) or not isinstance(data.get("op"), str):
         raise ValueError("invalid browser command")
     op = data["op"]
-    if op not in COMMANDS or set(data) - {"op"} - RULES[op] or not REQUIRED.get(op, set()) <= set(data):
+    if (
+        op not in COMMANDS
+        or set(data) - {"op"} - RULES[op]
+        or not REQUIRED.get(op, set()) <= set(data)
+    ):
         raise ValueError("unapproved browser command")
     if op == "navigate":
         if not _string(data["url"], 2048):
             raise ValueError("invalid browser URL")
         url = urlsplit(data["url"])
         if url.scheme == "file":
-            if url.netloc or url.query or url.fragment or not url.path.startswith("/home/") or ".." in url.path.split("/"):
+            if (
+                url.netloc
+                or url.query
+                or url.fragment
+                or not url.path.startswith("/home/")
+                or ".." in url.path.split("/")
+            ):
                 raise ValueError("file URL outside workspace")
         elif url.scheme in ("http", "https"):
             if not url.netloc or url.username or url.password or url.hostname is None:
@@ -94,52 +159,92 @@ def validate_command(data: Any) -> dict[str, Any]:
         if not _number(data["x"]) or not _number(data["y"]):
             raise ValueError("invalid viewport coordinates")
     elif op == "input.pointer":
-        if data["action"] not in ("move", "click", "wheel") or not all(_number(data[k]) for k in ("x", "y")):
+        if data["action"] not in ("move", "click", "wheel") or not all(
+            _number(data[k]) for k in ("x", "y")
+        ):
             raise ValueError("invalid pointer action")
-        if "deltaY" in data and (type(data["deltaY"]) not in (int, float) or not -1000 <= data["deltaY"] <= 1000):
+        if "deltaY" in data and (
+            type(data["deltaY"]) not in (int, float) or not -1000 <= data["deltaY"] <= 1000
+        ):
             raise ValueError("invalid scroll delta")
         if "button" in data and data["button"] not in ("left", "right", "middle"):
             raise ValueError("invalid pointer button")
     elif op == "input.keyboard":
         if data["action"] not in ("press", "type"):
             raise ValueError("invalid keyboard action")
-        if data["action"] == "press" and (set(data) != {"op", "action", "key"} or not _string(data["key"], 50)):
+        if data["action"] == "press" and (
+            set(data) != {"op", "action", "key"} or not _string(data["key"], 50)
+        ):
             raise ValueError("invalid key")
-        if data["action"] == "type" and (set(data) != {"op", "action", "text"} or not isinstance(data["text"], str) or len(data["text"]) > 1024):
+        if data["action"] == "type" and (
+            set(data) != {"op", "action", "text"}
+            or not isinstance(data["text"], str)
+            or len(data["text"]) > 1024
+        ):
             raise ValueError("invalid text")
     elif op in ("role.click", "role.fill"):
         if data["role"] not in ALLOWED_ROLES or not _string(data["name"], 160):
             raise ValueError("invalid accessible locator")
-        if op == "role.fill" and (data["role"] not in ("textbox", "searchbox", "combobox") or not isinstance(data["text"], str) or len(data["text"]) > 1024):
+        if op == "role.fill" and (
+            data["role"] not in ("textbox", "searchbox", "combobox")
+            or not isinstance(data["text"], str)
+            or len(data["text"]) > 1024
+        ):
             raise ValueError("invalid accessible form action")
     elif op == "cdp":
         method = data["method"]
         params = data.get("params", {})
-        if method not in CDP_READ | CDP_INPUT or not isinstance(params, dict) or len(json.dumps(params)) > 512:
+        if (
+            method not in CDP_READ | CDP_INPUT
+            or not isinstance(params, dict)
+            or len(json.dumps(params)) > 512
+        ):
             raise ValueError("CDP method is not on the approved allowlist")
         if method in CDP_READ:
-            allowed = {"nodeId", "backendNodeId", "x", "y", "depth", "fetchRelatives", "pierce", "includeUserAgentShadowDOM"}
-            if set(params) - allowed or any(type(v) not in (int, bool) or
-                    (type(v) is int and not -1 <= v <= 100000000) for v in params.values()):
+            allowed = {
+                "nodeId",
+                "backendNodeId",
+                "x",
+                "y",
+                "depth",
+                "fetchRelatives",
+                "pierce",
+                "includeUserAgentShadowDOM",
+            }
+            if set(params) - allowed or any(
+                type(v) not in (int, bool) or (type(v) is int and not -1 <= v <= 100000000)
+                for v in params.values()
+            ):
                 raise ValueError("invalid read-only CDP parameters")
         elif method == "Input.dispatchMouseEvent":
             allowed = {"type", "x", "y", "button", "clickCount", "deltaX", "deltaY"}
-            if (set(params) - allowed or params.get("type") not in
-                    ("mousePressed", "mouseReleased", "mouseMoved", "mouseWheel") or
-                    not _number(params.get("x")) or not _number(params.get("y")) or
-                    params.get("button", "none") not in ("none", "left", "right", "middle") or
-                    type(params.get("clickCount", 0)) is not int or
-                    not 0 <= params.get("clickCount", 0) <= 2 or
-                    any(type(params.get(k, 0)) not in (int, float) or not -1000 <= params.get(k, 0) <= 1000
-                        for k in ("deltaX", "deltaY"))):
+            if (
+                set(params) - allowed
+                or params.get("type")
+                not in ("mousePressed", "mouseReleased", "mouseMoved", "mouseWheel")
+                or not _number(params.get("x"))
+                or not _number(params.get("y"))
+                or params.get("button", "none") not in ("none", "left", "right", "middle")
+                or type(params.get("clickCount", 0)) is not int
+                or not 0 <= params.get("clickCount", 0) <= 2
+                or any(
+                    type(params.get(k, 0)) not in (int, float)
+                    or not -1000 <= params.get(k, 0) <= 1000
+                    for k in ("deltaX", "deltaY")
+                )
+            ):
                 raise ValueError("invalid CDP pointer event")
         elif method == "Input.dispatchKeyEvent":
-            if (set(params) - {"type", "key", "code", "text", "windowsVirtualKeyCode"} or
-                    params.get("type") not in ("keyDown", "keyUp", "rawKeyDown", "char") or
-                    any(not isinstance(params.get(k, ""), str) or len(params.get(k, "")) > 64
-                        for k in ("key", "code", "text")) or
-                    type(params.get("windowsVirtualKeyCode", 0)) is not int or
-                    not 0 <= params.get("windowsVirtualKeyCode", 0) <= 255):
+            if (
+                set(params) - {"type", "key", "code", "text", "windowsVirtualKeyCode"}
+                or params.get("type") not in ("keyDown", "keyUp", "rawKeyDown", "char")
+                or any(
+                    not isinstance(params.get(k, ""), str) or len(params.get(k, "")) > 64
+                    for k in ("key", "code", "text")
+                )
+                or type(params.get("windowsVirtualKeyCode", 0)) is not int
+                or not 0 <= params.get("windowsVirtualKeyCode", 0) <= 255
+            ):
                 raise ValueError("invalid CDP keyboard event")
     elif op == "sample" and ("image" in data and type(data["image"]) is not bool):
         raise ValueError("invalid sample option")
@@ -165,9 +270,11 @@ def _safe_url(url: str) -> str:
 
 
 def _ax_node(item: dict[str, Any]) -> dict[str, Any]:
-    return {"role": _clip(item.get("role", {}).get("value"), 60),
-            "name": _clip(item.get("name", {}).get("value"), 160),
-            "ignored": bool(item.get("ignored", False))}
+    return {
+        "role": _clip(item.get("role", {}).get("value"), 60),
+        "name": _clip(item.get("name", {}).get("value"), 160),
+        "ignored": bool(item.get("ignored", False)),
+    }
 
 
 class BrowserWorker:
@@ -200,14 +307,24 @@ class BrowserWorker:
             from playwright.async_api import async_playwright
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(
-            headless=False, executable_path="/usr/bin/chromium", timeout=15000,
-            args=["--no-sandbox", "--disable-dev-shm-usage", "--no-first-run", "--no-default-browser-check"],
+            headless=False,
+            executable_path="/usr/bin/chromium",
+            timeout=15000,
+            args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--no-first-run",
+                "--no-default-browser-check",
+            ],
         )
         self.context = await self.browser.new_context(
-            viewport={"width": 1280, "height": 800}, accept_downloads=False, service_workers="block",
+            viewport={"width": 1280, "height": 800},
+            accept_downloads=False,
+            service_workers="block",
         )
         if self.stealth:
             from playwright_stealth import Stealth
+
             await Stealth().apply_stealth_async(self.context)
         if egress is not None:
             await install_https_routes(self.context, *egress)
@@ -215,10 +332,15 @@ class BrowserWorker:
         self.page.on("requestfailed", lambda request: self._errors.append(_safe_url(request.url)))
         self.cdp = await self.context.new_cdp_session(self.page)
         self.cdp.on("CSS.styleSheetAdded", self._remember_sheet)
-        self.cdp.on("CSS.styleSheetRemoved", lambda event: self._sheets.pop(event["styleSheetId"], None))
+        self.cdp.on(
+            "CSS.styleSheetRemoved", lambda event: self._sheets.pop(event["styleSheetId"], None)
+        )
         self.cdp.on("DOM.documentUpdated", lambda _: self._selected.clear())
         self.cdp.on("Debugger.scriptParsed", self._remember_script)
-        self.cdp.on("Overlay.inspectNodeRequested", lambda event: self._selected.append(event["backendNodeId"]))
+        self.cdp.on(
+            "Overlay.inspectNodeRequested",
+            lambda event: self._selected.append(event["backendNodeId"]),
+        )
         self.cdp.on("Overlay.inspectModeCanceled", lambda _: setattr(self, "_picker", False))
         await self.cdp.send("DOM.enable")
         await self.cdp.send("CSS.enable")
@@ -278,17 +400,43 @@ class BrowserWorker:
 
     async def inspect(self, backend_id: int) -> dict[str, Any]:
         await self.cdp.send("DOM.getDocument", {"depth": 0})
-        pushed = await self.cdp.send("DOM.pushNodesByBackendIdsToFrontend", {"backendNodeIds": [backend_id]})
+        pushed = await self.cdp.send(
+            "DOM.pushNodesByBackendIdsToFrontend", {"backendNodeIds": [backend_id]}
+        )
         node_id = (pushed.get("nodeIds") or [0])[0]
-        described = (await self.cdp.send("DOM.describeNode", {"backendNodeId": backend_id, "depth": 0}))["node"]
+        described = (
+            await self.cdp.send("DOM.describeNode", {"backendNodeId": backend_id, "depth": 0})
+        )["node"]
         attrs = described.get("attributes", [])
-        safe = {k: _clip(v, 180) for k, v in zip(attrs[::2], attrs[1::2], strict=True)
-                if k in ("id", "class", "role", "aria-label", "data-testid", "name",
-                         "data-source", "data-file", "data-line", "data-component")}
-        result: dict[str, Any] = {"tag": _clip(described.get("nodeName"), 50),
-                                  "backendNodeId": backend_id, "attributes": safe,
-                                  "nodeId": node_id, "styles": [], "events": [], "accessibility": []}
-        ax = await self.cdp.send("Accessibility.getPartialAXTree", {"backendNodeId": backend_id, "fetchRelatives": False})
+        safe = {
+            k: _clip(v, 180)
+            for k, v in zip(attrs[::2], attrs[1::2], strict=True)
+            if k
+            in (
+                "id",
+                "class",
+                "role",
+                "aria-label",
+                "data-testid",
+                "name",
+                "data-source",
+                "data-file",
+                "data-line",
+                "data-component",
+            )
+        }
+        result: dict[str, Any] = {
+            "tag": _clip(described.get("nodeName"), 50),
+            "backendNodeId": backend_id,
+            "attributes": safe,
+            "nodeId": node_id,
+            "styles": [],
+            "events": [],
+            "accessibility": [],
+        }
+        ax = await self.cdp.send(
+            "Accessibility.getPartialAXTree", {"backendNodeId": backend_id, "fetchRelatives": False}
+        )
         result["accessibility"] = [_ax_node(n) for n in ax.get("nodes", [])[:8]]
         if node_id:
             try:
@@ -297,15 +445,32 @@ class BrowserWorker:
                     rule = match.get("rule", {})
                     style = rule.get("style", {})
                     source = self._sheets.get(style.get("styleSheetId", ""), {})
-                    result["styles"].append({
-                        "selector": _clip(rule.get("selectorList", {}).get("text"), 160),
-                        "source": _safe_url(source.get("sourceURL", "")),
-                        "sourceMap": _safe_url(source.get("sourceMapURL", "")),
-                        "line": (style.get("range") or {}).get("startLine"),
-                    })
+                    result["styles"].append(
+                        {
+                            "selector": _clip(rule.get("selectorList", {}).get("text"), 160),
+                            "source": _safe_url(source.get("sourceURL", "")),
+                            "sourceMap": _safe_url(source.get("sourceMapURL", "")),
+                            "line": (style.get("range") or {}).get("startLine"),
+                        }
+                    )
                 computed = await self.cdp.send("CSS.getComputedStyleForNode", {"nodeId": node_id})
-                keys = {"display", "visibility", "position", "z-index", "color", "background-color", "font-size", "font-family", "pointer-events", "opacity"}
-                result["computed"] = {n["name"]: _clip(n["value"], 100) for n in computed.get("computedStyle", []) if n.get("name") in keys}
+                keys = {
+                    "display",
+                    "visibility",
+                    "position",
+                    "z-index",
+                    "color",
+                    "background-color",
+                    "font-size",
+                    "font-family",
+                    "pointer-events",
+                    "opacity",
+                }
+                result["computed"] = {
+                    n["name"]: _clip(n["value"], 100)
+                    for n in computed.get("computedStyle", [])
+                    if n.get("name") in keys
+                }
             except Exception:
                 result["stylesUnavailable"] = True
             try:
@@ -318,14 +483,24 @@ class BrowserWorker:
             object_id = resolved.get("object", {}).get("objectId")
             if object_id:
                 try:
-                    listeners = await self.cdp.send("DOMDebugger.getEventListeners", {"objectId": object_id, "depth": 0})
-                    result["events"] = [{
-                        "type": _clip(e.get("type"), 40),
-                        "scriptId": _clip(e.get("scriptId"), 40),
-                        "source": _safe_url(self._scripts.get(e.get("scriptId", ""), {}).get("url", "")),
-                        "sourceMap": _safe_url(self._scripts.get(e.get("scriptId", ""), {}).get("sourceMapURL", "")),
-                        "line": e.get("lineNumber"), "column": e.get("columnNumber"),
-                    } for e in listeners.get("listeners", [])[:20]]
+                    listeners = await self.cdp.send(
+                        "DOMDebugger.getEventListeners", {"objectId": object_id, "depth": 0}
+                    )
+                    result["events"] = [
+                        {
+                            "type": _clip(e.get("type"), 40),
+                            "scriptId": _clip(e.get("scriptId"), 40),
+                            "source": _safe_url(
+                                self._scripts.get(e.get("scriptId", ""), {}).get("url", "")
+                            ),
+                            "sourceMap": _safe_url(
+                                self._scripts.get(e.get("scriptId", ""), {}).get("sourceMapURL", "")
+                            ),
+                            "line": e.get("lineNumber"),
+                            "column": e.get("columnNumber"),
+                        }
+                        for e in listeners.get("listeners", [])[:20]
+                    ]
                 finally:
                     await self.cdp.send("Runtime.releaseObject", {"objectId": object_id})
         except Exception:
@@ -342,10 +517,15 @@ class BrowserWorker:
         user-callable CDP allowlist. There is no action retry.
         """
         reply = await asyncio.wait_for(
-            self.cdp.send("Page.captureScreenshot", {
-                "format": "jpeg", "quality": 48, "fromSurface": False,
-                "captureBeyondViewport": False,
-            }),
+            self.cdp.send(
+                "Page.captureScreenshot",
+                {
+                    "format": "jpeg",
+                    "quality": 48,
+                    "fromSurface": False,
+                    "captureBeyondViewport": False,
+                },
+            ),
             timeout=6.0,
         )
         encoded = reply.get("data") if isinstance(reply, dict) else None
@@ -355,8 +535,11 @@ class BrowserWorker:
             image = base64.b64decode(encoded, validate=True)
         except (ValueError, binascii.Error) as error:
             raise ValueError("render sample is not valid base64") from error
-        if (not 4 <= len(image) <= 600_000
-                or not image.startswith(b"\xff\xd8") or not image.endswith(b"\xff\xd9")):
+        if (
+            not 4 <= len(image) <= 600_000
+            or not image.startswith(b"\xff\xd8")
+            or not image.endswith(b"\xff\xd9")
+        ):
             raise ValueError("render sample is not a bounded JPEG")
         return image
 
@@ -364,9 +547,14 @@ class BrowserWorker:
         data = validate_command(data)
         op = data["op"]
         if op == "state":
-            return {"engine": self.engine, "stealth": self.stealth,
-                    "url": _safe_url(self.page.url), "title": _clip(await self.page.title(), 200),
-                    "picker": self._picker, "failedRequests": list(self._errors)}
+            return {
+                "engine": self.engine,
+                "stealth": self.stealth,
+                "url": _safe_url(self.page.url),
+                "title": _clip(await self.page.title(), 200),
+                "picker": self._picker,
+                "failedRequests": list(self._errors),
+            }
         if op == "navigate":
             url = data["url"]
             if url.startswith("file:"):
@@ -378,18 +566,28 @@ class BrowserWorker:
         if op == "accessibility":
             return {"aria": await self._aria(24000)}
         if op == "interactive":
-            data = await self.page.locator("a[href], button, input, select, textarea, [role=button], [role=link], [tabindex]").evaluate_all(
+            data = await self.page.locator(
+                "a[href], button, input, select, textarea, [role=button], [role=link], [tabindex]"
+            ).evaluate_all(
                 "els => els.slice(0, 120).map(e => ({tag:e.tagName.toLowerCase(),role:e.getAttribute('role')||'',name:e.getAttribute('aria-label')||e.innerText?.slice(0,120)||'',label:e.labels?.[0]?.innerText?.slice(0,120)||'',tabIndex:e.tabIndex,disabled:!!e.disabled,box:(()=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()}))"
             )
             return {"elements": data}
         if op == "inspect.start":
             await self._script_metadata()
             self._selected.clear()
-            await self.cdp.send("Overlay.setInspectMode", {"mode": "searchForNode", "highlightConfig": {
-                "showInfo": True, "showStyles": True, "showAccessibilityInfo": True,
-                "contentColor": {"r": 55, "g": 145, "b": 255, "a": .17},
-                "borderColor": {"r": 55, "g": 145, "b": 255, "a": 1},
-            }})
+            await self.cdp.send(
+                "Overlay.setInspectMode",
+                {
+                    "mode": "searchForNode",
+                    "highlightConfig": {
+                        "showInfo": True,
+                        "showStyles": True,
+                        "showAccessibilityInfo": True,
+                        "contentColor": {"r": 55, "g": 145, "b": 255, "a": 0.17},
+                        "borderColor": {"r": 55, "g": 145, "b": 255, "a": 1},
+                    },
+                },
+            )
             self._picker = True
             return {"picker": True}
         if op == "inspect.stop":
@@ -405,7 +603,10 @@ class BrowserWorker:
             return {"picker": False, "selected": await self.inspect(node_id)}
         if op == "inspect.at":
             await self._script_metadata()
-            location = await self.cdp.send("DOM.getNodeForLocation", {"x": int(data["x"]), "y": int(data["y"]), "includeUserAgentShadowDOM": False})
+            location = await self.cdp.send(
+                "DOM.getNodeForLocation",
+                {"x": int(data["x"]), "y": int(data["y"]), "includeUserAgentShadowDOM": False},
+            )
             return {"selected": await self.inspect(location["backendNodeId"])}
         if op == "input.pointer":
             x, y = data["x"], data["y"]
@@ -435,14 +636,25 @@ class BrowserWorker:
         if op == "cdp":
             result = await self.cdp.send(data["method"], data.get("params", {}))
             serialized = json.dumps(result, separators=(",", ":"))
-            return {"method": data["method"], "result": result if len(serialized) <= 100_000 else {"truncated": True}}
+            return {
+                "method": data["method"],
+                "result": result if len(serialized) <= 100_000 else {"truncated": True},
+            }
         if op == "sample":
             jpeg = await self._capture_jpeg()
-            frame = {"mime": "image/jpeg", "sha256": hashlib.sha256(jpeg).hexdigest(), "bytes": len(jpeg)}
+            frame = {
+                "mime": "image/jpeg",
+                "sha256": hashlib.sha256(jpeg).hexdigest(),
+                "bytes": len(jpeg),
+            }
             if data.get("image", True):
                 frame["base64"] = base64.b64encode(jpeg).decode("ascii")
-            return {"frame": frame, "aria": await self._aria(12000),
-                    "url": _safe_url(self.page.url), "failedRequests": list(self._errors)}
+            return {
+                "frame": frame,
+                "aria": await self._aria(12000),
+                "url": _safe_url(self.page.url),
+                "failedRequests": list(self._errors),
+            }
         raise ValueError("unrecognized browser command")
 
 
@@ -473,9 +685,15 @@ async def serve(engine: str, stealth: bool) -> None:
             ident: Any = None
             command: dict[str, Any] | None = None
             try:
-                request = json.loads(line, object_pairs_hook=_unique_object,
-                                     parse_constant=_reject_constant)
-                if not isinstance(request, dict) or set(request) != {"id", "command"} or type(request["id"]) is not int or not 0 <= request["id"] <= 2**31:
+                request = json.loads(
+                    line, object_pairs_hook=_unique_object, parse_constant=_reject_constant
+                )
+                if (
+                    not isinstance(request, dict)
+                    or set(request) != {"id", "command"}
+                    or type(request["id"]) is not int
+                    or not 0 <= request["id"] <= 2**31
+                ):
                     raise ValueError("invalid worker envelope")
                 ident = request["id"]
                 command = validate_command(request["command"])
@@ -483,13 +701,22 @@ async def serve(engine: str, stealth: bool) -> None:
                 response = {"id": ident, "ok": True, "result": value}
             except Exception:
                 # No raw Playwright exceptions, URLs with secrets or filesystem paths.
-                response = {"id": ident, "ok": False, "error": "browser command was rejected or failed",
-                            "indeterminate": browser_operation_may_mutate(command)}
+                response = {
+                    "id": ident,
+                    "ok": False,
+                    "error": "browser command was rejected or failed",
+                    "indeterminate": browser_operation_may_mutate(command),
+                }
             encoded = json.dumps(response, separators=(",", ":"), ensure_ascii=True)
             if len(encoded) > 1_500_000:
-                encoded = json.dumps({"id": ident, "ok": False,
-                                      "error": "browser response exceeded size limit",
-                                      "indeterminate": browser_operation_may_mutate(command)})
+                encoded = json.dumps(
+                    {
+                        "id": ident,
+                        "ok": False,
+                        "error": "browser response exceeded size limit",
+                        "indeterminate": browser_operation_may_mutate(command),
+                    }
+                )
             sys.stdout.write(encoded + "\n")
             sys.stdout.flush()
     finally:

@@ -16,16 +16,25 @@ pytestmark = pytest.mark.skipif(os.name != "posix", reason="Linux host manifest 
 
 
 def fixture(tmp_path: Path) -> tuple[Path, dict[str, str]]:
-    paths = {name: tmp_path / name for name in (
-        "rootfs", "home", "model_staging", "shared_models", "shared_tools",
-        "ai_config_dir", "ai_history_dir",
-    )}
+    paths = {
+        name: tmp_path / name
+        for name in (
+            "rootfs",
+            "home",
+            "model_staging",
+            "shared_models",
+            "shared_tools",
+            "ai_config_dir",
+            "ai_history_dir",
+        )
+    }
     for path in paths.values():
         path.mkdir()
     paths["controller_ledger"] = tmp_path / "ledger.sqlite"
     paths["controller_ledger"].write_bytes(b"")
     metadata = {
-        "workspace_id": str(uuid4()), "image_digest": "a" * 64,
+        "workspace_id": str(uuid4()),
+        "image_digest": "a" * 64,
         "qualification_sha256": "b" * 64,
         **{name: str(path) for name, path in paths.items()},
     }

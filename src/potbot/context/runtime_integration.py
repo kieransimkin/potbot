@@ -4,6 +4,7 @@ The controller binds its restricted database once. Each launch gets independent
 read-only projections. A result receipt is NOT process-stop evidence. Uncertain
 launches retain their projections and ordinary process lease for reconciliation.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,10 @@ from potbot.context.work_exchange import ContextWorkExchange, bounded_work
 from potbot.context.worker_channel import ContextWorkerChannel, _settle
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
-    CapabilityUnavailableError, IndeterminateExecutionError, ScopeDeniedError, StateMismatchError,
+    CapabilityUnavailableError,
+    IndeterminateExecutionError,
+    ScopeDeniedError,
+    StateMismatchError,
 )
 
 
@@ -33,9 +37,16 @@ def context_parent(ledger: Any, runtime: Any, workspace_id: UUID) -> Path:
     """An owned per-workspace directory outside every guest-visible mount."""
     parent = _directory(Path(ledger.path).parent)
     target = parent / ("context-" + workspace_id.hex)
-    for area in (runtime.rootfs, runtime.home, runtime.model_staging, runtime.shared_models,
-                 runtime.shared_tools, runtime.shared_skills, runtime.ai_config_dir,
-                 runtime.ai_history_dir):
+    for area in (
+        runtime.rootfs,
+        runtime.home,
+        runtime.model_staging,
+        runtime.shared_models,
+        runtime.shared_tools,
+        runtime.shared_skills,
+        runtime.ai_config_dir,
+        runtime.ai_history_dir,
+    ):
         if area is None:
             continue
         other = Path(area).resolve(strict=True)
@@ -50,15 +61,26 @@ def context_parent(ledger: Any, runtime: Any, workspace_id: UUID) -> Path:
 
 
 def operation_record(operation: Any) -> RuntimeObject:
-    family = {"workflow": "workflow", "mcp_workflow": "workflow", "model": "model",
-              "mcp_server": "connector", "mcp_session": "connector", "api": "connector"}
-    material = {"binding": operation.binding.to_dict(), "argv": operation.argv,
-                "executable_sha256": operation.executable_sha256,
-                "protocol": operation.protocol}
-    digest = hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":"),
-                                      allow_nan=False).encode()).hexdigest()
-    return RuntimeObject(family.get(operation.binding.kind, "tool"),
-                         str(operation.binding.operation_ref), digest)
+    family = {
+        "workflow": "workflow",
+        "mcp_workflow": "workflow",
+        "model": "model",
+        "mcp_server": "connector",
+        "mcp_session": "connector",
+        "api": "connector",
+    }
+    material = {
+        "binding": operation.binding.to_dict(),
+        "argv": operation.argv,
+        "executable_sha256": operation.executable_sha256,
+        "protocol": operation.protocol,
+    }
+    digest = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    ).hexdigest()
+    return RuntimeObject(
+        family.get(operation.binding.kind, "tool"), str(operation.binding.operation_ref), digest
+    )
 
 
 @dataclass
@@ -81,8 +103,13 @@ class ContextExecutionBinding:
 
     def install(self, operations: tuple[Any, ...]) -> None:
         objects = [operation_record(op) for op in operations]
-        objects.append(RuntimeObject("gateway", "potbot.execution-cogs/v1",
-                                     hashlib.sha256(b"potbot.execution-cogs/v1").hexdigest()))
+        objects.append(
+            RuntimeObject(
+                "gateway",
+                "potbot.execution-cogs/v1",
+                hashlib.sha256(b"potbot.execution-cogs/v1").hexdigest(),
+            )
+        )
         with self.database.transaction(self.principal) as conn:
             register_runtime_objects(conn, self.principal, objects)
 
@@ -100,8 +127,9 @@ class ContextExecutionBinding:
         else:
             raise CapabilityUnavailableError("Context execution requires a live operator")
 
-    def prepare(self, executor: Any, actor: WorkspaceContext, agent_id: UUID,
-                run_id: UUID) -> LaunchContext:
+    def prepare(
+        self, executor: Any, actor: WorkspaceContext, agent_id: UUID, run_id: UUID
+    ) -> LaunchContext:
         from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
 
         self.check(executor, actor)
@@ -109,25 +137,43 @@ class ContextExecutionBinding:
         from potbot.context.object_projection import ObjectContextProjector
         from potbot.context.skill_projection import SkillLibraryProjector, prepare_skill_root
 
-        candidate = runtime.shared_skills or (Path(executor.ledger.path).parent /
-                                               ("skills-" + actor.workspace_id.hex))
+        candidate = runtime.shared_skills or (
+            Path(executor.ledger.path).parent / ("skills-" + actor.workspace_id.hex)
+        )
         physical = candidate.resolve()
-        for area in (runtime.rootfs, runtime.home, runtime.model_staging, runtime.shared_models,
-                     runtime.shared_tools, runtime.ai_config_dir, runtime.ai_history_dir):
+        for area in (
+            runtime.rootfs,
+            runtime.home,
+            runtime.model_staging,
+            runtime.shared_models,
+            runtime.shared_tools,
+            runtime.ai_config_dir,
+            runtime.ai_history_dir,
+        ):
             if area is not None:
                 other = Path(area).resolve(strict=True)
-                if physical == other or physical.is_relative_to(other) or other.is_relative_to(physical):
+                if (
+                    physical == other
+                    or physical.is_relative_to(other)
+                    or other.is_relative_to(physical)
+                ):
                     raise ScopeDeniedError("Skill library overlaps another guest mount")
-        skills = (runtime.shared_skills or prepare_skill_root(
-            Path(executor.ledger.path).parent, actor.workspace_id))
+        skills = runtime.shared_skills or prepare_skill_root(
+            Path(executor.ledger.path).parent, actor.workspace_id
+        )
         runtime = replace(runtime, shared_skills=skills)
         home = executor.homes.lookup(actor.workspace_id, agent_id)
         if home is None:
             raise ScopeDeniedError("Context executor requires a registered home")
         AgentContextLifecycle(self.service, executor.homes).reconcile_existing(
-            ContextIdentity(actor, agent_id))
-        self.service.provision_private(actor, "worker", agent_id.hex + "." + run_id.hex,
-            idempotency_key="worker-run-" + agent_id.hex + "-" + run_id.hex)
+            ContextIdentity(actor, agent_id)
+        )
+        self.service.provision_private(
+            actor,
+            "worker",
+            agent_id.hex + "." + run_id.hex,
+            idempotency_key="worker-run-" + agent_id.hex + "-" + run_id.hex,
+        )
         SkillLibraryProjector(skills).sync(self.service, actor)
         ObjectContextProjector(skills).sync(self.service, actor)
         parent = context_parent(executor.ledger, runtime, actor.workspace_id)
@@ -137,10 +183,16 @@ class ContextExecutionBinding:
             agent = manager.capture_object("agent", str(agent_id))
             binding = AgentContextProjection(agent_id, home.directory, agent)
             binding.inspect(home=runtime.home)
-            selected = replace(runtime, context_projection=root, agent_context_projections=(binding,))
+            selected = replace(
+                runtime, context_projection=root, agent_context_projections=(binding,)
+            )
             original = executor.supervisor.backend
-            backend = SharedWorkspaceBubblewrapBackend(selected, ai_monitor=original.ai_monitor,
-                executable=original.executable, prlimit=original.prlimit)
+            backend = SharedWorkspaceBubblewrapBackend(
+                selected,
+                ai_monitor=original.ai_monitor,
+                executable=original.executable,
+                prlimit=original.prlimit,
+            )
             self.check(executor, actor)
             return LaunchContext(manager, backend)
         except BaseException:
@@ -148,15 +200,24 @@ class ContextExecutionBinding:
             raise
 
 
-async def execute_context_operation(executor: Any, op: Any, source: Any, cog: Any,
-                                    actor: WorkspaceContext, agent_id: UUID,
-                                    cancel: threading.Event, syn_fault: threading.Event) -> Any:
+async def execute_context_operation(
+    executor: Any,
+    op: Any,
+    source: Any,
+    cog: Any,
+    actor: WorkspaceContext,
+    agent_id: UUID,
+    cancel: threading.Event,
+    syn_fault: threading.Event,
+) -> Any:
     """Typed work and context RPC on one declared protocol; no stdout sniffing."""
     from potbot.cogs.contracts import TypedCogValue
     from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
     from potbot.tools.supervisor import ProcessRequest
     from potbot.tools.workspace_supervision import (
-        WorkspaceExecutorIdentity, WorkspaceLeaseGuard, assert_shared_execution_allowed,
+        WorkspaceExecutorIdentity,
+        WorkspaceLeaseGuard,
+        assert_shared_execution_allowed,
     )
 
     binding = executor._context_binding
@@ -167,23 +228,36 @@ async def execute_context_operation(executor: Any, op: Any, source: Any, cog: An
     if home is None:
         raise ScopeDeniedError("Worker is not registered")
     cwd = executor.runtime.home / home.directory
-    assert_shared_execution_allowed(runtime=executor.runtime, ledger=executor.ledger,
-                                    workspace_id=actor.workspace_id, candidate_path=str(cwd))
+    assert_shared_execution_allowed(
+        runtime=executor.runtime,
+        ledger=executor.ledger,
+        workspace_id=actor.workspace_id,
+        candidate_path=str(cwd),
+    )
     executor._executable(op)
-    envelope = bounded_work({"schema_version": 1, "operation_ref": op.binding.operation_ref,
-                            "input": {"type_ref": source.type_ref, "value": source.value},
-                            "invocation_id": str(cog.invocation_id)})
-    guard = WorkspaceLeaseGuard.exclusive_home(executor.ledger,
+    envelope = bounded_work(
+        {
+            "schema_version": 1,
+            "operation_ref": op.binding.operation_ref,
+            "input": {"type_ref": source.type_ref, "value": source.value},
+            "invocation_id": str(cog.invocation_id),
+        }
+    )
+    guard = WorkspaceLeaseGuard.exclusive_home(
+        executor.ledger,
         WorkspaceExecutorIdentity(actor.workspace_id, agent_id, executor.runtime.image_digest),
-        operation="cog.sandbox.execute", idempotency_key="cog-" + cog.invocation_id.hex)
+        operation="cog.sandbox.execute",
+        idempotency_key="cog-" + cog.invocation_id.hex,
+    )
     projections = None
     launch = None
     process = None
     stopped = False
     dispatched = False
     # Preparation has effects (placeholders); retain its outcome even on cancellation.
-    prep = asyncio.create_task(asyncio.to_thread(
-        binding.prepare, executor, actor, agent_id, cog.invocation_id))
+    prep = asyncio.create_task(
+        asyncio.to_thread(binding.prepare, executor, actor, agent_id, cog.invocation_id)
+    )
 
     def active() -> None:
         binding.check(executor, actor)
@@ -202,13 +276,21 @@ async def execute_context_operation(executor: Any, op: Any, source: Any, cog: An
         active()
         await _settle(guard.start)
         request = ProcessRequest(
-            argv=op.argv, workspace_root=executor.runtime.home, sandbox_root=executor.runtime.home,
-            cwd=cwd, guest_uid=home.uid, guest_gid=home.gid, stdin=b"",
+            argv=op.argv,
+            workspace_root=executor.runtime.home,
+            sandbox_root=executor.runtime.home,
+            cwd=cwd,
+            guest_uid=home.uid,
+            guest_gid=home.gid,
+            stdin=b"",
             timeout_ms=op.binding.policy.max_wall_ms,
-            max_output_bytes=op.binding.policy.max_output_bytes, memory_bytes=4 * 1024**3,
+            max_output_bytes=op.binding.policy.max_output_bytes,
+            memory_bytes=4 * 1024**3,
             cpu_seconds=max(1, min(3600, (op.binding.policy.max_wall_ms + 999) // 1000)),
-            telemetry_workspace_id=actor.workspace_id, telemetry_agent_id=agent_id,
-            telemetry_identity_kind="agent", telemetry_run_id=cog.invocation_id,
+            telemetry_workspace_id=actor.workspace_id,
+            telemetry_agent_id=agent_id,
+            telemetry_identity_kind="agent",
+            telemetry_run_id=cog.invocation_id,
         )
         supervisor = InteractiveProcessSupervisor(projections.backend)
         supervisor.monitor_config = executor.supervisor.monitor_config
@@ -216,10 +298,18 @@ async def execute_context_operation(executor: Any, op: Any, source: Any, cog: An
         launch = asyncio.create_task(supervisor.open(request, cancelled=cancelled))
         process = await asyncio.shield(launch)
         channel = ContextWorkerChannel(
-            store=ContextSessionStore(binding.database), principal=actor, agent_id=agent_id,
-            guard=guard, registry=executor.homes, check_operator=active,
-            work_exchange=ContextWorkExchange(envelope, op.binding.output_type_ref,
-                allow_mutations=op.binding.effect_class != "read_only"))
+            store=ContextSessionStore(binding.database),
+            principal=actor,
+            agent_id=agent_id,
+            guard=guard,
+            registry=executor.homes,
+            check_operator=active,
+            work_exchange=ContextWorkExchange(
+                envelope,
+                op.binding.output_type_ref,
+                allow_mutations=op.binding.effect_class != "read_only",
+            ),
+        )
         result = await channel.serve(process)
         stopped = result.exit.processes_stopped is True
         if not stopped:
@@ -227,16 +317,27 @@ async def execute_context_operation(executor: Any, op: Any, source: Any, cog: An
         if result.exit.return_code != 0 or result.output is None:
             raise StateMismatchError("Worker did not complete its declared result protocol")
         encoded = bounded_work(result.output)
-        if len(json.dumps(encoded, separators=(",", ":")).encode()) > op.binding.policy.max_output_bytes:
+        if (
+            len(json.dumps(encoded, separators=(",", ":")).encode())
+            > op.binding.policy.max_output_bytes
+        ):
             raise StateMismatchError("Worker result exceeds its admitted output bound")
         active()
         await _settle(guard.ensure_live)
         output = TypedCogValue(encoded["type_ref"], encoded["value"])
-        evidence = hashlib.sha256((str(result.session_id) + ":" + output.fingerprint + ":" +
-                                   result.exit.isolation_identity).encode()).hexdigest()
+        evidence = hashlib.sha256(
+            (
+                str(result.session_id)
+                + ":"
+                + output.fingerprint
+                + ":"
+                + result.exit.isolation_identity
+            ).encode()
+        ).hexdigest()
         await _settle(lambda: guard.finish(evidence_sha256=evidence))
         return output
     finally:
+
         async def cleanup() -> None:
             nonlocal projections, process, stopped
             if projections is None:
@@ -260,6 +361,7 @@ async def execute_context_operation(executor: Any, op: Any, source: Any, cog: An
             if projections is not None and (not dispatched or stopped):
                 projections.close()
             # An ambiguous launch retains immutable snapshots until host reconciliation.
+
         task = asyncio.create_task(cleanup())
         while not task.done():
             try:
