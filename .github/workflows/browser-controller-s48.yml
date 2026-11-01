@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/potbot/cogs/**'
+      - 'src/potbot/context/**'
       - 'src/potbot/controller/**'
       - 'src/potbot/domain/**'
       - 'src/potbot/persistence/**'
@@ -13,7 +14,9 @@ on:
       - 'src/potbot/tools/execution*.py'
       - 'src/potbot/tools/semantic_contracts.py'
       - 'src/potbot/tools/xpra*.py'
+      - 'src/potbot/tools/sandbox_cog_worker.py'
       - 'tests/unit/test_browser*'
+      - 'tests/unit/test_sandbox_cog_worker.py'
       - 'tests/integration/test_browser_controller_provenance.py'
       - 'tests/integration/test_repository_states.py'
       - 'tests/integration/conftest.py'

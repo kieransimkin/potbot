@@ -13,6 +13,8 @@ on:
       - 'tests/unit/test_browser_worker_hardening.py'
       - 'tests/unit/test_browser_rendered_gate.py'
       - 'scripts/check_browser_rendered.py'
+      - 'scripts/browser_rendered_runtime.py'
+      - 'tests/unit/test_browser_rendered_runtime.py'
       - 'conftest.py'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -23,6 +25,8 @@ on:
       - 'sandbox/image/**'
       - 'tests/**'
       - 'scripts/check_browser_rendered.py'
+      - 'scripts/browser_rendered_runtime.py'
+      - 'tests/unit/test_browser_rendered_runtime.py'
       - 'conftest.py'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -43,6 +47,7 @@ jobs:
     env:
       UV_PYTHON: '3.12'
       POTBOT_RUN_BROWSER_RENDERED: '1'
+      POTBOT_BROWSER_TEST_BINARY: engine
       POTBOT_BROWSER_LIVE_PROFILE: ${{ matrix.profile }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,25 +78,10 @@ jobs:
             .venv/bin/python -m playwright install --with-deps chromium
           fi
           sudo apt-get install --yes xvfb xauth
-          .venv/bin/python - <<'PY'
-          import os
-          import subprocess
-          from pathlib import Path
-          if os.environ['POTBOT_BROWSER_LIVE_PROFILE'].startswith('patchright'):
-              from patchright.sync_api import sync_playwright
-          else:
-              from playwright.sync_api import sync_playwright
-          with sync_playwright() as engine:
-              browser = Path(engine.chromium.executable_path).resolve(strict=True)
-          target = Path('/usr/bin/chromium')
-          if target.exists() or target.is_symlink():
-              raise SystemExit('Disposable runner already has Chromium; refusing an ambiguous browser')
-          subprocess.run(['sudo', 'ln', '-s', str(browser), str(target)], check=True)
-          PY
       - name: Run worker security and evidence-gate regression tests
         run: |
           mkdir -p artifacts/browser-rendered
-          .venv/bin/python -m pytest -q tests/unit/test_xpra_browser_worker.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_rendered_gate.py --junitxml=artifacts/browser-rendered/unit.xml
+          .venv/bin/python -m pytest -q tests/unit/test_xpra_browser_worker.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_rendered_gate.py tests/unit/test_browser_rendered_runtime.py --junitxml=artifacts/browser-rendered/unit.xml
       - name: Exercise real pixels, accessibility, picker, input and worker pipes
         # Do not use uv run here: re-syncing would remove the separately pinned
         # browser packages. Only trusted synthetic pages are exercised.
@@ -103,7 +93,7 @@ jobs:
         run: >-
           .venv/bin/python scripts/check_browser_rendered.py
           artifacts/browser-rendered/rendered.xml --profile "$POTBOT_BROWSER_LIVE_PROFILE"
-          --require-image-pins --output artifacts/browser-rendered/result.json
+          --require-image-pins --require-engine-binary --output artifacts/browser-rendered/result.json
       - name: Retain synthetic rendered-worker evidence, not production browser data
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

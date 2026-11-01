@@ -18,18 +18,21 @@ def test_context_roles_do_not_promote_memory_or_model_into_instructions():
     assert "History" in docs["MEMORY.md"]
 
 
-def test_host_broker_rejects_shared_agent_instruction_writes():
+def test_host_broker_rejects_foreign_contexts_before_service_dispatch():
     workspace, principal, agent = uuid4(), uuid4(), uuid4()
     actor = ContextIdentity(WorkspaceContext(workspace, principal), agent)
     for kind, name, role in (
-        ("sandbox", str(workspace), "AGENTS.md"),
+        ("sandbox", str(uuid4()), "AGENTS.md"),
         ("agent", str(uuid4()), "MEMORY.md"),
         ("tool", "arbitrary", "MODEL.md"),
     ):
         with pytest.raises(ScopeDeniedError):
             ContextMutationBroker._permitted(actor, kind, name, role)
-    ContextMutationBroker._permitted(actor, "agent", str(agent), "MODEL.md")
-    ContextMutationBroker._permitted(actor, "sandbox", str(workspace), "MEMORY.md")
+    # All three roles are deliberately writable through the broker in the
+    # current contract. The service's PostgreSQL grants/CAS remain mandatory.
+    for role in ROLES:
+        ContextMutationBroker._permitted(actor, "agent", str(agent), role)
+        ContextMutationBroker._permitted(actor, "sandbox", str(workspace), role)
 
 
 def test_syn_file_role_extension_is_opt_in():

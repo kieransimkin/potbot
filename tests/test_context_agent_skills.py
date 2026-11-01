@@ -94,7 +94,7 @@ def test_broker_enforces_agent_scope_and_lease():
                       content="hello", expected_revision=1, idempotency_key="a")
     registry.provision(identity.principal.workspace_id, identity.agent_id)
     with pytest.raises(ScopeDeniedError):
-        broker.update(identity, "sandbox", str(identity.principal.workspace_id), "AGENTS.md",
+        broker.update(identity, "sandbox", str(uuid4()), "AGENTS.md",
                       content="bad", expected_revision=1, idempotency_key="b")
     with pytest.raises(ScopeDeniedError):
         broker.update(identity, "agent", str(uuid4()), "MODEL.md",
@@ -105,6 +105,35 @@ def test_broker_enforces_agent_scope_and_lease():
     assert ledger.requests[0].operation == "context.update"
     assert ledger.requests[0].resources[0].name.endswith(":model.md")
     assert ledger.completions == [(sha256("new"), False)]
+
+
+@pytest.mark.parametrize("role", ["AGENTS.md", "MODEL.md", "MEMORY.md"])
+def test_registered_agent_shared_documents_still_require_lease_and_service_acl(role):
+    service, registry, ledger = FakeContextService(), FakeRegistry(), FakeLedger()
+    identity = ContextIdentity(WorkspaceContext(uuid4(), uuid4()), uuid4())
+    broker = ContextMutationBroker(service=service, registry=registry, ledger=ledger)
+    registry.provision(identity.principal.workspace_id, identity.agent_id)
+    workspace = str(identity.principal.workspace_id)
+    result = broker.update(identity, "sandbox", workspace, role, content="shared update",
+                           expected_revision=3, idempotency_key="shared-" + role)
+    assert result["revision"] == 4
+    assert len(ledger.requests) == len(service.calls) == len(ledger.completions) == 1
+    assert ledger.requests[0].operation == "context.update"
+    assert ledger.requests[0].resources[0].name == f"potbot:context:sandbox:{workspace}:{role.lower()}"
+    assert service.calls[0][1:4] == ("sandbox", workspace, role)
+    assert ledger.completions == [(sha256("shared update"), False)]
+
+    def deny(*args, **kwargs):
+        raise ScopeDeniedError("workspace writer grant is absent")
+
+    service.update = deny
+    with pytest.raises(ScopeDeniedError, match="writer grant"):
+        broker.update(identity, "sandbox", workspace, role, content="denied",
+                      expected_revision=4, idempotency_key="denied-" + role)
+    # Scope admission is not a database grant: the service denial is propagated.
+    assert len(ledger.requests) == len(ledger.completions) == 2
+    assert len(service.calls) == 1
+    assert ledger.completions[-1][1] is False
 
 
 def test_packet_limit_and_missing_roles():

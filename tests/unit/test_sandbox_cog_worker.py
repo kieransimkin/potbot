@@ -76,6 +76,9 @@ def _fixture(tmp_path: Path):
     # admission, executable hashing or the lease lifecycle under test.
     executor = SandboxedCogExecutor.__new__(SandboxedCogExecutor)
     executor.runtime, executor.ledger = runtime, ledger
+    # __new__ bypasses the production constructor only for this process double.
+    # Keep its optional context state explicit; never relax runtime admission.
+    executor._context_binding = None
     executor.homes = SimpleNamespace(lookup=lambda *_: registered)
     executor.syn_mesh = SynWorkerNodeMesh(interval_seconds=0.05)
     requests = []

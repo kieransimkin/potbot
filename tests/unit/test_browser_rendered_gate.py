@@ -27,6 +27,9 @@ def passing_report(profile="playwright", version="1.64.1"):
             for key, value in {
                 "browser_profile": profile,
                 "browser_version": "144.0.7559.96",
+                "browser_binary": json.dumps({
+                    "source": "engine", "sha256": "a" * 64, "bytes": 1234,
+                }),
                 "packages": json.dumps({name: version for name in GATE.PROFILES[profile]}),
             }.items():
                 ET.SubElement(props, "property", name=key, value=value)
@@ -155,3 +158,59 @@ def test_failed_cli_recheck_does_not_leave_a_stale_success_file(tmp_path):
     ], capture_output=True, text=True, timeout=10)
     assert process.returncode == 1
     assert not output.exists()
+
+
+@pytest.mark.parametrize("key,value", [
+    ("source", "arbitrary"), ("source", None), ("source", []),
+    ("sha256", "A" * 64), ("sha256", "0" * 63), ("sha256", None),
+    ("bytes", True), ("bytes", 0), ("bytes", -1), ("bytes", 2 * 1024**3 + 1),
+    ("bytes", 1.5),
+])
+def test_rejects_invalid_executable_identity(key, value):
+    root = passing_report()
+    prop = root.find("testsuite/testcase/properties/property[@name='browser_binary']")
+    identity = json.loads(prop.get("value"))
+    identity[key] = value
+    prop.set("value", json.dumps(identity))
+    with pytest.raises(ValueError, match="executable identity"):
+        GATE.validate_report(encode(root), "playwright")
+
+
+@pytest.mark.parametrize("value", [
+    '{}', '[]', 'null',
+    '{"source":"engine","source":"system","sha256":"a","bytes":1}',
+])
+def test_rejects_missing_or_ambiguous_executable_identity(value):
+    root = passing_report()
+    root.find("testsuite/testcase/properties/property[@name='browser_binary']").set("value", value)
+    with pytest.raises(ValueError):
+        GATE.validate_report(encode(root), "playwright")
+
+
+def test_ci_gate_rejects_system_browser_evidence(tmp_path):
+    report = source_fixture(tmp_path)
+    root = passing_report()
+    prop = root.find("testsuite/testcase/properties/property[@name='browser_binary']")
+    identity = json.loads(prop.get("value"))
+    identity["source"] = "system"
+    prop.set("value", json.dumps(identity))
+    report.write_bytes(encode(root))
+    assert GATE.verify(tmp_path, report, "playwright")["browser_binary"]["source"] == "system"
+    with pytest.raises(ValueError, match="engine's executable"):
+        GATE.verify(tmp_path, report, "playwright", require_engine_binary=True)
+
+
+def test_engine_gate_preserves_executable_hash_without_claiming_image_qualification(tmp_path):
+    report = source_fixture(tmp_path)
+    result = GATE.verify(tmp_path, report, "playwright", require_engine_binary=True)
+    assert result["browser_binary"] == {"source": "engine", "sha256": "a" * 64, "bytes": 1234}
+    assert result["sandbox_image_qualified"] is False
+
+
+def test_duplicate_package_identity_is_rejected():
+    root = passing_report()
+    root.find("testsuite/testcase/properties/property[@name='packages']").set(
+        "value", '{"playwright":"1.64.1","playwright":"1.64.1"}',
+    )
+    with pytest.raises(ValueError):
+        GATE.validate_report(encode(root), "playwright")

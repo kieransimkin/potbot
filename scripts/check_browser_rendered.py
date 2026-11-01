@@ -9,6 +9,7 @@ import platform
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 from xml.etree import ElementTree
 
 EXPECTED_TESTS = frozenset({
@@ -34,9 +35,19 @@ SOURCE_FILES = (
     "tests/browser/fixtures/probe.css",
     "tests/browser/fixtures/probe.js",
     "scripts/check_browser_rendered.py",
+    "scripts/browser_rendered_runtime.py",
     "sandbox/image/Dockerfile",
     ".github/workflows/browser-rendered-acceptance.yml",
 )
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate browser identity field")
+        result[key] = value
+    return result
 
 
 def validate_report(raw: bytes, profile: str) -> dict:
@@ -72,14 +83,15 @@ def validate_report(raw: bytes, profile: str) -> dict:
         if name in props:
             raise ValueError("duplicate browser version metadata")
         props[name] = prop.get("value")
-    if set(props) != {"browser_profile", "browser_version", "packages"}:
+    if set(props) != {"browser_profile", "browser_version", "packages", "browser_binary"}:
         raise ValueError("browser identity metadata is incomplete")
     if props["browser_profile"] != profile or not re.fullmatch(
         r"[0-9]+(?:\.[0-9]+){1,4}", props["browser_version"] or ""
     ):
         raise ValueError("selected browser profile/version does not match evidence")
     try:
-        packages = json.loads(props["packages"])
+        packages = json.loads(props["packages"], object_pairs_hook=_unique_object)
+        binary = json.loads(props["browser_binary"], object_pairs_hook=_unique_object)
     except (TypeError, ValueError) as error:
         raise ValueError("invalid package metadata") from error
     if not isinstance(packages, dict) or set(packages) != set(PROFILES[profile]) or any(
@@ -87,7 +99,16 @@ def validate_report(raw: bytes, profile: str) -> dict:
         for v in packages.values()
     ):
         raise ValueError("selected package versions are absent or invalid")
+    if not isinstance(binary, dict) or set(binary) != {"source", "sha256", "bytes"}:
+        raise ValueError("browser executable identity is incomplete")
+    if (binary["source"] not in ("system", "engine")
+            or not isinstance(binary["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", binary["sha256"]) is None
+            or type(binary["bytes"]) is not int
+            or not 0 < binary["bytes"] <= 2 * 1024**3):
+        raise ValueError("invalid browser executable identity")
     return {
+        "browser_binary": binary,
         "profile": profile, "browser_version": props["browser_version"],
         "packages": packages, "test_count": len(cases),
     }
@@ -102,10 +123,13 @@ def image_pins(root: Path) -> dict[str, str]:
     return pins
 
 
-def verify(root: Path, report: Path, profile: str, *, require_image_pins: bool = False) -> dict:
+def verify(root: Path, report: Path, profile: str, *, require_image_pins: bool = False,
+           require_engine_binary: bool = False) -> dict:
     with report.open("rb") as stream:
         raw = stream.read(4 * 1024 * 1024 + 1)
     identity = validate_report(raw, profile)
+    if require_engine_binary and identity["browser_binary"]["source"] != "engine":
+        raise ValueError("rendered CI must use the selected engine's executable")
     pins = image_pins(root)
     matches = all(pins[name] == value for name, value in identity["packages"].items())
     if require_image_pins and not matches:
@@ -149,10 +173,12 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--require-image-pins", action="store_true")
+    parser.add_argument("--require-engine-binary", action="store_true")
     args = parser.parse_args()
     try:
         result = verify(args.root, args.report, args.profile,
-                        require_image_pins=args.require_image_pins)
+                        require_image_pins=args.require_image_pins,
+                        require_engine_binary=args.require_engine_binary)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except (OSError, ValueError, subprocess.SubprocessError) as error:

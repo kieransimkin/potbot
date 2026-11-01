@@ -2,7 +2,10 @@
 
 Set POTBOT_RUN_BROWSER_RENDERED=1 and run under an existing isolated display or
 xvfb-run. Missing selected dependencies/display/browser are failures, not skips.
-The worker still uses its production /usr/bin/chromium path and private pipes.
+The production worker always requests /usr/bin/chromium. The optional hosted
+CI adapter redirects that one launch argument to the installed engine binary;
+its identity is recorded, and neither system files nor production permissions
+are changed. System mode exercises the ordinary worker entrypoint unchanged.
 """
 from __future__ import annotations
 
@@ -20,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from potbot.tools.xpra_browser_worker import BrowserWorker
+from scripts.browser_rendered_runtime import binary_identity, selected_browser, selection_mode
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("POTBOT_RUN_BROWSER_RENDERED") != "1",
@@ -44,6 +48,12 @@ def profile():
     if stealth:
         packages["playwright-stealth"] = version("playwright-stealth")
     return selected, engine, stealth, packages
+
+
+@pytest.fixture(autouse=True)
+def select_rendered_browser():
+    with selected_browser(profile()[1]):
+        yield
 
 
 @pytest.fixture
@@ -100,6 +110,11 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             record_property("browser_profile", selected)
             record_property("browser_version", worker.browser.version)
             record_property("packages", json.dumps(packages, sort_keys=True))
+            mode = selection_mode()
+            executable = (worker.playwright.chromium.executable_path
+                          if mode == "engine" else "/usr/bin/chromium")
+            record_property("browser_binary", json.dumps(
+                binary_identity(executable, mode), sort_keys=True))
             before = await worker.execute({"op": "sample", "image": True})
             assert 'textbox "Username"' in before["aria"]
             assert 'button "Save"' in (await worker.execute({"op": "accessibility"}))["aria"]
@@ -206,7 +221,9 @@ def test_two_real_browser_contexts_do_not_share_form_or_picker_state(probe_page)
 def test_real_worker_stdio_rejects_duplicate_and_nonfinite_frames():
     async def scenario():
         _, engine, stealth, _ = profile()
-        args = [sys.executable, "-m", "potbot.tools.xpra_browser_worker", "--engine", engine]
+        entrypoint = ("scripts.browser_rendered_runtime" if selection_mode() == "engine"
+                      else "potbot.tools.xpra_browser_worker")
+        args = [sys.executable, "-m", entrypoint, "--engine", engine]
         if stealth:
             args.append("--stealth")
         # No raw browser diagnostics are published as acceptance artifacts.
