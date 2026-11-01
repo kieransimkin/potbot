@@ -13,7 +13,7 @@
     Tools -> /usr/local/tools      symlink installed once from the agent skeleton
     projects/<tool>/              agent's EDITABLE, independent Git clone
     .cache/ .tmp/ runs/           per-agent ephemeral or reconstructible state
-/usr/local/tools/                  writable, persistent workspace tool store (new exception)
+/usr/local/tools/                  persistent workspace tool store; read-only during normal agent use
   <tool-slug>/
     checkout/                     pristine, source-pinned Git checkout
     environment/                  reusable lockfile/ABI-pinned virtual environment
@@ -24,11 +24,17 @@
 ```
 
 `/usr/local/tools` is **separate from `/home` and the rootfs**, persistent through
-image upgrades, guest writable and backed by the workspace's own storage. The
-shared model library is host-global, not a per-workspace tool directory. The image
-needs the bind mount destination and a `/etc/skel/Tools` symlink. The trusted
-agent-home skeleton independently copies `Tools -> /usr/local/tools` for each new
-agent, without altering existing customized homes.
+image upgrades and backed by the workspace's own storage. The canonical policy is
+**read-only by default for ordinary agent shells and tool executions**. Physical
+write access is exposed only after an explicit operator-authorized per-tool unlock
+implemented as a `ToolWriteGrant` under the matching exclusive maintenance lease.
+The writable bind is limited to `/usr/local/tools/<tool-slug>` and is removed when
+that supervised maintenance operation ends. The `Tools -> /usr/local/tools`
+symlink grants no additional write authority. The shared model library is
+host-global, not a per-workspace tool directory. The image needs the bind mount
+destination and a `/etc/skel/Tools` symlink. The trusted agent-home skeleton
+independently copies that symlink for each new agent without altering existing
+customized homes.
 
 The workspace group is guest GID **69**, with simulated agent UIDs **420+**.
 Shared directories are intended to be group-accessible and setgid (`2775`);
@@ -45,22 +51,27 @@ security policy. All agents are permitted to collaborate under this shared group
    authorization and a per-tool **read** lease that remains renewed until the
    supervised execution ends. Different tools and multiple readers of the same
    tool are concurrent.
-2. **Install new.** Stage a canonical Git checkout under a **write** lease for
-   that tool. The host must validate source URL, exact commit, source cleanliness,
-   dependency lockfile hashes, reusable artifact hashes, supported ABI and
-   actual model download paths. Install the tool's environment outside the
-   checkout and redirect package caches to its `downloads` directory. Never
-   install unreviewed code into the immutable rootfs.
+2. **Install new.** Request an operator-authorized per-tool unlock. Only after the
+   operator admits the exact maintenance operation and acquires the exclusive
+   **write** lease may it expose a nested writable bind for that tool. Stage the
+   canonical Git checkout through that scoped grant. The host must validate source
+   URL, exact commit, source cleanliness, dependency lockfile hashes, reusable
+   artifact hashes, supported ABI and actual model download paths. Install the
+   tool's environment outside the checkout and redirect package caches to its
+   `downloads` directory. Never install unreviewed code into the immutable rootfs.
 3. **Use shared.** Run the pinned installed executable directly from
    `/usr/local/tools/<tool>/environment/` or `/static/`, using pinned executable
    bytes, the shared environment and an **agent-specific HOME, TMPDIR and cache**.
    `PYTHONDONTWRITEBYTECODE=1` prevents importer-side writes into shared source.
    Ordinary interactive Bash and unknown-effect tools still require the broad
    workspace-exclusive lease until all unbrokered writes are mediated.
-4. **Modify or upgrade.** Obtain a per-tool **write** lease. Do not start while
-   any agent is executing the installed checkout. Perform the mandatory clean
-   operation, then clone into `/home/<agent>/projects/<tool>` **while the same
-   exclusive lease remains active**. A sandboxed Git Cog executes the clone:
+4. **Modify or upgrade.** Request an operator-authorized per-tool unlock and
+   acquire the exclusive **write** lease. Do not start while any agent is
+   executing the installed checkout. The ordinary shared mount remains read-only;
+   only the admitted maintenance child receives the scoped writable bind. Perform
+   the mandatory clean operation, then clone into
+   `/home/<agent>/projects/<tool>` **while the same exclusive lease remains
+   active**. A sandboxed Git Cog executes the clone:
    `git clone --no-local --no-hardlinks --no-checkout`; it checks out the exact
    pinned commit and checks that no `.git/objects/info/alternates` is present.
    The agent can then edit its own repository and environment independently.
@@ -132,13 +143,14 @@ compromising the clean shared checkout.
 
 ## Explicit missing qualifications
 
-- **Host access control:** all agents can write `/usr/local/tools`; advisory
-  leases can be bypassed by a raw shell. A hash check before exec does not
-  prevent subsequent shared binary replacement or edits during execution.
-  Before untrusted tools can run concurrently, use a protected immutable
-  executable snapshot, per-execution read-only mount/verified fd, or true
-  kernel-enforced write mediation. This implementation intentionally makes no
-  claim of hostile concurrent-agent isolation.
+- **Host access control:** normal agents must see `/usr/local/tools` read-only,
+  including through `/home/<agent>/Tools`; a raw shell must not be able to turn
+  that mount writable. Only an operator-issued `ToolWriteGrant`, bound to the
+  exact tool, agent, image, executable and exclusive maintenance lease, may
+  unlock a nested writable bind. Qualification must prove relocking after
+  success, failure, cancellation, timeout and operator loss, plus denial of
+  writes to sibling tools. Activation still requires postflight readback, exact
+  executable repinning and release approval.
 - **Cross-process/machine:** the current lease ledger is host-private SQLite;
   multiple hosts require PostgreSQL-backed distributed fencing and ownership.
 - **WSL2 host testing:** real Bubblewrap mount behaviour, GID 69 mapping,

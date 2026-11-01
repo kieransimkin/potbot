@@ -9,7 +9,19 @@
 
 ## Change monitoring and inverse records
 
-The host Linux operator starts a bounded recursive **inotify** monitor and takes an initial exact snapshot (file bytes, modes, directories and SHA-256 content identity). For each observed event batch, and during periodic full-tree reconciliations, the operator persists:
+**Canonical policy decision, 1 November 2026:** configuration change detection uses
+the operating system's native filesystem notification facility rather than a
+polling loop. Linux and WSL2 use inotify/fanotify as qualified by the host profile;
+a future native Windows backend uses `ReadDirectoryChangesW`; a future native
+macOS backend uses FSEvents/kqueue as appropriate to the required granularity.
+The watcher backend and its capabilities are part of the qualified runtime
+identity. Unsupported hosts fail closed rather than silently falling back to
+unqualified polling.
+
+The operator starts a bounded recursive native watcher and takes an initial exact
+snapshot (file bytes, modes, directories and SHA-256 content identity). For each
+observed event batch, and during full-tree reconciliation checkpoints, the
+operator persists:
 
 - `head.json`: latest durable complete snapshot plus its content-and-layout digest.
 - `000000000001.reverse.json`: machine-readable per-path changes with **previous file bytes** encoded losslessly (including binary data), prior modes, target-before/after identities, rename/delete/create evidence and sampled inotify events.
@@ -17,7 +29,20 @@ The host Linux operator starts a bounded recursive **inotify** monitor and takes
 
 Each revision is written with exclusive creation and fsync, followed by an atomic head update. A storage error, unknown symlink/special file, snapshot race, buffer overflow, lost watch, exceeded size/file limit, corrupt persisted head or offline mutation makes the monitor unhealthy. New sandbox launches are then refused. The operator must review and reconcile the discontinuity; restarting the process does not silently accept an unobserved state as baseline.
 
-**Scope of guarantee:** `inotify` can coalesce events and cannot capture the bytes of an intermediate file that is created, modified and deleted between snapshots; an adversarial writer can also race userspace scanning. Records accurately reverse **committed observed filesystem states**, not each individual write syscall. Exact per-write provenance requires a kernel/filesystem transactional journaling facility (for example fanotify permission mediation plus filesystem snapshots or an overlayfs/COW transaction boundary) and qualified Linux tests. We do not represent inotify alone as a complete security or forensics solution.
+**Scope of guarantee:** the product contract is an **OS-native filesystem change
+journal with explicit loss detection and reconciliation**, not a claim that every
+individual `write(2)`/Win32 write call is captured as a separate semantic revision.
+Native watcher APIs may coalesce notifications and their queues may overflow. A
+queue overflow, dropped/lost watch, journal discontinuity, scan race, operator
+restart with an unverified gap, or unsupported event class marks the history
+**indeterminate**. New work is fenced until the operator performs a full-tree
+reconciliation against the last durable head and records the discontinuity and
+result. The system never invents intermediate bytes it could not observe.
+
+Records therefore accurately reverse committed observed filesystem states and
+retain native event provenance where available. Platform-specific watcher
+qualification must test overflow/loss/restart behavior as well as ordinary
+create/modify/rename/delete events.
 
 **Security:** All previous config bytes become readable in `/etc/ai-past`; never put credentials, tokens or private keys in `/etc/ai`. Use the existing controller credential broker. The history is a diagnostic/recovery store, not an authorization source or place to run scripts. Host access controls, journal rotation/retention, policy-governed rollback and cross-process locking require separate operator qualification.
 
@@ -32,6 +57,14 @@ with AiConfigHistoryMonitor(config_dir=ai_root, past_dir=history_root) as monito
     # Keep monitor alive for the entire lifetime of all guest processes.
 ```
 
-The installation executor accepts the same watcher and never creates one per agent. To verify on a qualified Linux/WSL2 host, execute the updated `scripts/qualify_shared_workspace.py` with `--ai-config` and `--ai-past`; check writable `etc/ai`, read-only `etc/ai-past`, normal shared-tool read-only behavior and new reversals. Unit tests use actual Linux inotify but **mock Bubblewrap construction**; a live sandbox acceptance remains mandatory.
+The installation executor accepts the same operator-owned watcher and never creates
+one per agent. Watcher selection belongs to the host/operator runtime, not the
+guest. To verify on a qualified Linux/WSL2 host, execute the updated
+`scripts/qualify_shared_workspace.py` with `--ai-config` and `--ai-past`; check
+writable `etc/ai`, read-only `etc/ai-past`, normal shared-tool read-only behavior,
+native watcher health/overflow handling and new reversals. Unit tests use actual
+Linux inotify but **mock Bubblewrap construction**; a live sandbox acceptance
+remains mandatory. Future Windows/macOS support must exercise the corresponding
+native watcher and the same loss/reconciliation contract before qualification.
 
 The journal holds an exclusive host-side `.monitor.lock` with Linux `flock`: only one operator may write the history for a workspace. `reconstruct_prior_snapshot` round-trips each inverse record against the previous snapshot before publication; it is **not** a guest-exposed rollback endpoint. If the monitor becomes unhealthy, the controller's supervised tool cancellation and Bash session watchdog halt active workloads rather than allowing unmonitored writes to continue indefinitely. An unexpected crash may still leave an in-flight write or an indeterminate lease requiring manual reconciliation.

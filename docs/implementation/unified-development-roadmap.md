@@ -54,7 +54,7 @@ Also retain original **P001–P153**, embedding **E01–E09**, and object-memory
 |---|---|---|---|---|
 | U00 | Repository audit and roadmap reconciliation | Inventory plans/issues/tests/CI; preserve P/E/MG/T/R/UI/M/C/S identities, map recovered requests, resolve conflicting guarantees and record inaccessible evidence | M0 | Pinned main |
 | U01 | Durable execution and provenance | Checkpoint recovery, fenced leases, tool intents, idempotency/reconciliation, existing R6/R6.1 integration, all-producer causal trace adoption and replayable REST/WebSocket events | M1, M6 | U00 |
-| U02 | Sandbox and shared filesystem | WSL2+bubblewrap, Docker-built pinned images, enforced agent ownership, shared mount/persistence matrix, usable scoped tool writes, `/usr/local/skills`, model/cache paths, guest `/var/logs/ai`, every-write `/etc/ai` history, operator lifetime and cleanup | M1, M4 | U01 |
+| U02 | Sandbox and shared filesystem | WSL2+bubblewrap, Docker-built pinned images, enforced agent ownership, shared mount/persistence matrix, read-only shared tools with operator-unlocked per-tool writes, `/usr/local/skills`, model/cache paths, guest `/var/logs/ai`, OS-native `/etc/ai` watcher with overflow/loss fencing and reconciliation, operator lifetime and cleanup | M1, M4 | U01 |
 | U03 | Worker/Cog resource supervision | Every executable work Cog in its qualified workspace sandbox; complete descendant/access-mode/task-exit ledger; lifetime CPU/memory/I/O; system bottlenecks; operator-bound attribution; 60 BPM sprite with 180-second brightness and 2-second spike window; every-agent heat coverage with explicit metric semantics; independent sandbox SYN lifecycle | M5, M6 | U01–U02 |
 | U04 | Semantic tool platform | Canonical 48 stages, typed Cogs, debugger, actual concurrency footprints, exact type inventory, semantic retrieval contracts, aggregate operation catalogue, staged acquisition/S12 release gate, MCP/HTTP and live qualification | M4 | U01–U03 |
 | U05 | Artifact transfer and GitHub concurrency | Range/upload Cogs, retention, restart/network recovery, artifact receipts, shared Git locks and remote HEAD CAS/readback, coordinated verified model/tool downloads | M1, M4 | U01–U04 |
@@ -138,7 +138,7 @@ These suffixes identify work within existing U packages. They do not renumber th
 
 | Work item | Existing U owner | Deliverable and gate in the recent-development reconciliation |
 | --- | --- | --- |
-| U02-P | U01/U02/U06 | Mount/identity matrix, usable scoped shared-tool writes, enforced concurrency and the original every-write configuration guarantee; RD11–RD13/RD15. |
+| U02-P | U01/U02/U06 | Mount/identity matrix; read-only ordinary shared-tool access with operator-unlocked scoped maintenance writes; enforced concurrency; and OS-native `/etc/ai` watcher loss/overflow fencing plus reconciliation; RD11–RD13/RD15. |
 | U02-L | U02/U03/U16 | Agent `/var/logs/ai` mount, creator-only writes, actual tool aliases/destinations and operator watch/archive/recovery; RD16, distinct from host Xpra S17. |
 | U04-R | U02/U04/U16 | Locate or implement and qualify S12 post-activation repin/release enforcement; S11 approval or S13 health is insufficient; RD14. |
 | U04-C | U04/U05/U11/U13 | Aggregate operation/readiness/accounting catalogue, acquisition lifecycle, concurrency and actual connector/KeywordMoves coverage; RD12/RD18/RD19. |
