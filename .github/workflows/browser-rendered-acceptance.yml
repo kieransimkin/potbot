@@ -11,6 +11,7 @@ on:
       - 'sandbox/image/Dockerfile'
       - 'tests/browser/**'
       - 'tests/unit/test_browser_worker_hardening.py'
+      - 'tests/unit/test_browser_capture_recovery.py'
       - 'tests/unit/test_browser_rendered_gate.py'
       - 'scripts/check_browser_rendered.py'
       - 'scripts/browser_rendered_runtime.py'
@@ -81,7 +82,13 @@ jobs:
       - name: Run worker security and evidence-gate regression tests
         run: |
           mkdir -p artifacts/browser-rendered
-          .venv/bin/python -m pytest -q tests/unit/test_xpra_browser_worker.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_rendered_gate.py tests/unit/test_browser_rendered_runtime.py --junitxml=artifacts/browser-rendered/unit.xml
+          .venv/bin/python -m pytest -q \
+            tests/unit/test_xpra_browser_worker.py \
+            tests/unit/test_browser_worker_hardening.py \
+            tests/unit/test_browser_capture_recovery.py \
+            tests/unit/test_browser_rendered_gate.py \
+            tests/unit/test_browser_rendered_runtime.py \
+            --junitxml=artifacts/browser-rendered/unit.xml
       - name: Exercise real pixels, accessibility, picker, input and worker pipes
         # Do not use uv run here: re-syncing would remove the separately pinned
         # browser packages. Only trusted synthetic pages are exercised.

@@ -31,6 +31,7 @@ SOURCE_FILES = (
     "src/potbot/tools/semantic_contracts.py",
     "src/potbot/tools/browser_cog_contracts.py",
     "tests/browser/test_rendered_worker.py",
+    "tests/unit/test_browser_capture_recovery.py",
     "tests/browser/fixtures/probe.html",
     "tests/browser/fixtures/probe.css",
     "tests/browser/fixtures/probe.js",

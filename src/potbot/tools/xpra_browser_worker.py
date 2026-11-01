@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import binascii
 import hashlib
 import json
 import os
@@ -331,6 +332,53 @@ class BrowserWorker:
             result["eventsUnavailable"] = True
         return result
 
+    @staticmethod
+    def _surface_capture_unavailable(error: Exception) -> bool:
+        # Narrow exception match: do not retry timeouts, closed browsers,
+        # denied operations, invalid captures, or any action with side effects.
+        message = str(error)
+        return "Page.captureScreenshot" in message and "Unable to capture screenshot" in message
+
+    async def _capture_jpeg(self) -> bytes:
+        """Bounded read-only recovery on the same private page/driver.
+
+        Chromium occasionally rejects surface captures on Xvfb/Xpra. Retry
+        only that precise condition, then use the existing private CDP session
+        without granting Page.captureScreenshot to untrusted CDP commands.
+        """
+        options = {"type": "jpeg", "quality": 48, "animations": "disabled", "timeout": 2000}
+        try:
+            image = await self.page.screenshot(**options)
+        except Exception as error:
+            if not self._surface_capture_unavailable(error):
+                raise
+            await asyncio.sleep(0.1)
+            try:
+                image = await self.page.screenshot(**options)
+            except Exception as retry_error:
+                if not self._surface_capture_unavailable(retry_error):
+                    raise
+                # This is internal evidence collection, not a user CDP RPC.
+                # fromSurface=False avoids the headful compositor surface path.
+                fallback = await asyncio.wait_for(
+                    self.cdp.send("Page.captureScreenshot", {
+                        "format": "jpeg", "quality": 48, "fromSurface": False,
+                        "captureBeyondViewport": False,
+                    }),
+                    timeout=2.0,
+                )
+                encoded = fallback.get("data") if isinstance(fallback, dict) else None
+                if not isinstance(encoded, str) or len(encoded) > 800_000:
+                    raise ValueError("render sample exceeds bound")
+                try:
+                    image = base64.b64decode(encoded, validate=True)
+                except (ValueError, binascii.Error) as decode_error:
+                    raise ValueError("render sample is not valid base64") from decode_error
+        if (not isinstance(image, bytes) or not 4 <= len(image) <= 600_000
+                or not image.startswith(b"\xff\xd8") or not image.endswith(b"\xff\xd9")):
+            raise ValueError("render sample is not a bounded JPEG")
+        return image
+
     async def execute(self, data: dict[str, Any]) -> dict[str, Any]:
         data = validate_command(data)
         op = data["op"]
@@ -408,12 +456,10 @@ class BrowserWorker:
             serialized = json.dumps(result, separators=(",", ":"))
             return {"method": data["method"], "result": result if len(serialized) <= 100_000 else {"truncated": True}}
         if op == "sample":
-            png = await self.page.screenshot(type="jpeg", quality=48, animations="disabled", timeout=7000)
-            frame = {"mime": "image/jpeg", "sha256": hashlib.sha256(png).hexdigest(), "bytes": len(png)}
-            if len(png) > 600_000:
-                raise ValueError("render sample exceeds bound")
+            jpeg = await self._capture_jpeg()
+            frame = {"mime": "image/jpeg", "sha256": hashlib.sha256(jpeg).hexdigest(), "bytes": len(jpeg)}
             if data.get("image", True):
-                frame["base64"] = base64.b64encode(png).decode("ascii")
+                frame["base64"] = base64.b64encode(jpeg).decode("ascii")
             return {"frame": frame, "aria": await self._aria(12000),
                     "url": _safe_url(self.page.url), "failedRequests": list(self._errors)}
         raise ValueError("unrecognized browser command")
