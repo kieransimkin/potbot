@@ -53,6 +53,6 @@ jobs:
       - name: Full frontend typecheck and build
         working-directory: frontend
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --ignore-scripts --no-audit --no-fund
           npm run typecheck
           npm run build

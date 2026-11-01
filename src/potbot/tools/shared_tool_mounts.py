@@ -107,5 +107,8 @@ class ToolWriteGrant:
         # Renew before admitting the write mount. The host runner must cancel
         # the process if this guard becomes fenced, and must not release until
         # the entire process tree has stopped.
-        self.guard.ensure_live()
+        try:
+            self.guard.ensure_live()
+        except StateMismatchError as exc:
+            raise ScopeDeniedError("tool write grant has no live maintenance lease") from exc
         return target

@@ -15,7 +15,7 @@ def test_agent_identity_must_be_verified(monkeypatch, tmp_path):
 
     for name in ("rootfs", "home", "audit", "cgroup"):
         (tmp_path / name).mkdir()
-    for name in ("strace", "join"):
+    for name in ("strace", "cgroup_join"):
         (tmp_path / name).write_bytes(b"bin")
 
     class Config:
