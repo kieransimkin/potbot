@@ -47,5 +47,8 @@ RUN python3 -m venv --copies /opt/potbot/browser \
 COPY src/potbot/tools/xpra_browser_worker.py /opt/potbot/browser_worker.py
 COPY src/potbot/tools/browser_https_routes.py /opt/potbot/browser_https_routes.py
 COPY sandbox/clients/context_client.py /opt/potbot/context_client.py
+# Diagnostic worker: exercised only by explicit host qualification.
+COPY sandbox/qualification/worker_probe.py /usr/local/libexec/potbot-worker-probe
+RUN chmod 0555 /usr/local/libexec/potbot-worker-probe
 WORKDIR /home
 CMD ["/bin/bash"]

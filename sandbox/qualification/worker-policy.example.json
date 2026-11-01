@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "workspace_id": "REPLACE_WITH_REGISTERED_WORKSPACE_UUID",
+  "principal_id": "REPLACE_WITH_OPERATOR_PRINCIPAL_UUID",
+  "agent_ids": ["REPLACE_WITH_REGISTERED_AGENT_UUID"],
+  "workspace_name": "qualification-workspace",
+  "ledger": "/srv/potbot/operator/qualification/leases.sqlite",
+  "runtime": {
+    "image_digest": "REPLACE_WITH_EXISTING_PINNED_IMAGE_SHA256",
+    "qualification_sha256": "REPLACE_WITH_EXISTING_IMAGE_QUALIFICATION_SHA256",
+    "rootfs": "/srv/potbot/images/qualified-worker-probe",
+    "home": "/srv/potbot/workspaces/qualification/home",
+    "model_staging": "/srv/potbot/workspaces/qualification/model-staging",
+    "shared_models": "/srv/potbot/models",
+    "shared_tools": "/srv/potbot/tools",
+    "ai_config_dir": "/srv/potbot/workspaces/qualification/ai-config",
+    "ai_history_dir": "/srv/potbot/operator/qualification/ai-history"
+  }
+}

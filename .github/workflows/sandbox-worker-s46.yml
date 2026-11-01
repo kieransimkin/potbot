@@ -1,0 +1,115 @@
+name: S46 sandbox worker contracts and explicit live smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/tools/sandbox_cog_worker.py'
+      - 'src/potbot/tools/workspace_concurrency.py'
+      - 'src/potbot/tools/workspace_supervision.py'
+      - 'src/potbot/tools/shared_workspace_isolation.py'
+      - 'src/potbot/tools/supervisor.py'
+      - 'src/potbot/tools/worker_telemetry.py'
+      - 'src/potbot/tools/syn_worker_nodes.py'
+      - 'src/potbot/tools/agent_homes.py'
+      - 'src/potbot/tools/isolation.py'
+      - 'src/potbot/tools/gui_audit_verification.py'
+      - 'src/potbot/evaluation/sandbox_worker_acceptance.py'
+      - 'tests/unit/test_sandbox_cog_worker.py'
+      - 'tests/unit/test_sandbox_worker_acceptance_s46.py'
+      - 'tests/unit/test_worker_probe_s46.py'
+      - 'sandbox/qualification/**'
+      - 'sandbox/image/Dockerfile'
+      - 'scripts/qualify_sandbox_cog_s46.py'
+      - '.github/workflows/sandbox-worker-s46.yml'
+  pull_request:
+    paths:
+      - 'src/potbot/**'
+      - 'tests/unit/test_sandbox*'
+      - 'tests/unit/test_worker_probe_s46.py'
+      - 'sandbox/**'
+      - 'scripts/qualify_sandbox_cog_s46.py'
+      - '.github/workflows/sandbox-worker-s46.yml'
+  workflow_dispatch:
+    inputs:
+      run_live:
+        description: 'Run registered workers on a prequalified operator host (not hosted CI)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  source-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      UV_PYTHON: '3.12'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.12.23'
+      - run: uv sync --locked --extra web --extra semantics --dev
+      - name: Exercise real image pin and lease guards with a process-boundary unit double
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_sandbox_cog_worker.py
+          tests/unit/test_sandbox_worker_acceptance_s46.py
+          tests/unit/test_worker_probe_s46.py
+      - name: Compile runner and diagnostic executable
+        run: >-
+          uv run --locked python -m py_compile
+          scripts/qualify_sandbox_cog_s46.py
+          sandbox/qualification/worker_probe.py
+          src/potbot/evaluation/sandbox_worker_acceptance.py
+
+  live-worker-smoke:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.run_live &&
+      github.ref == 'refs/heads/main' && github.repository == 'kieransimkin/potbot'
+    needs: source-contracts
+    runs-on: [self-hosted, linux, potbot-worker-qualified]
+    environment: worker-qualification
+    timeout-minutes: 10
+    concurrency:
+      group: potbot-worker-qualification
+      cancel-in-progress: false
+    env:
+      POTBOT_S46_POLICY: ${{ vars.POTBOT_S46_POLICY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.12.23'
+      - run: uv sync --locked --extra web --extra semantics --dev
+      - name: Require explicit existing policy and private report directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$POTBOT_S46_POLICY"
+          test -f "$POTBOT_S46_POLICY"
+          umask 077
+          mkdir -p artifacts/s46-worker
+          test "$(stat -c %a artifacts/s46-worker)" = 700
+      - name: Launch the pinned diagnostic through the actual audited executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --locked python scripts/qualify_sandbox_cog_s46.py \
+            --policy "$POTBOT_S46_POLICY" \
+            --report "$GITHUB_WORKSPACE/artifacts/s46-worker/worker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json" \
+            --run-live
+      - name: Retain only the bounded smoke summary, not private syscall transcripts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sandbox-worker-s46-smoke
+          path: artifacts/s46-worker/worker-*.json
+          if-no-files-found: error
+          retention-days: 14
