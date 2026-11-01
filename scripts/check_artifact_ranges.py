@@ -13,6 +13,7 @@ from pathlib import Path
 from potbot import __version__
 from potbot.cogs.artifact_ranges import RANGE_COGS
 from potbot.cogs.registry import BoundCogRegistry
+from potbot.evaluation.artifact_control_plane import check_control_plane_report
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES, READ_BLOCK_BYTES, schemas
 from potbot.tools.execution_contracts import MAX_INLINE_BYTES
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
@@ -25,6 +26,10 @@ SOURCES = (
     "src/potbot/controller/execution_cogs.py",
     "src/potbot/persistence/artifacts.py",
     "src/potbot/persistence/artifact_ranges_schema.py",
+    "src/potbot/evaluation/artifact_control_plane.py",
+    "src/potbot/tools/sandbox_cog_worker.py",
+    "tests/integration/test_artifact_range_cogs.py",
+    "scripts/check_artifact_ranges.py",
 )
 
 
@@ -86,6 +91,10 @@ def check(evidence: dict) -> dict:
         == evidence["reconstructed_sha256"]
     )
     events = evidence["events"]
+    control_plane = check_control_plane_report(
+        evidence.get("control_plane"), events,
+        required_cogs={str(signature.cog_ref) for signature in RANGE_COGS},
+    )
     assert {e["telemetry"]["cog_ref"] for e in events if e["stage"] == "completed"} >= {
         str(c.cog_ref) for c in RANGE_COGS
     }
@@ -108,6 +117,7 @@ def check(evidence: dict) -> dict:
         "unique_ranges": len(pieces),
         "observed_chunks": len(evidence["chunks"]),
         "durable_events": len(events),
+        "control_plane": control_plane,
         "reconstructed_sha256": evidence["artifact_sha256"],
         "qualification": evidence["qualification"],
     }

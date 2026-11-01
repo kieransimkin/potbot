@@ -1,0 +1,88 @@
+name: S45 artifact controller acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/cogs/**'
+      - 'src/potbot/controller/**'
+      - 'src/potbot/persistence/**'
+      - 'src/potbot/evaluation/artifact_control_plane.py'
+      - 'src/potbot/tools/artifact_*.py'
+      - 'src/potbot/tools/sandbox_cog_worker.py'
+      - 'tests/integration/test_artifact_*cogs.py'
+      - 'tests/unit/test_artifact_control_plane.py'
+      - 'tests/unit/test_sandbox_cog_worker.py'
+      - 'scripts/check_artifact_*.py'
+      - 'conftest.py'
+      - 'tests/integration/conftest.py'
+      - 'compose.yaml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/artifact-controller-s45.yml'
+  pull_request:
+    paths:
+      - 'src/potbot/**'
+      - 'tests/**'
+      - 'scripts/check_artifact_*.py'
+      - 'conftest.py'
+      - 'compose.yaml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/artifact-controller-s45.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controller-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      UV_PYTHON: '3.12'
+      # Disposable fixture database only; never point this job at production.
+      POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
+      COMPOSE_PROJECT_NAME: potbot-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+      POTBOT_RANGE_EVIDENCE_DIR: artifacts/artifact-controller-s45/ranges
+      POTBOT_UPLOAD_EVIDENCE_DIR: artifacts/artifact-controller-s45/uploads
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: '0.12.23'
+      - name: Install locked application and test dependencies
+        run: uv sync --locked --extra postgres --extra semantics --extra credentials --extra providers --extra web --extra security --extra debugger --dev
+      - name: Check evidence validation and retain the worker isolation boundary
+        id: unit
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/unit/test_artifact_control_plane.py
+          tests/unit/test_sandbox_cog_worker.py
+      - name: Start disposable PostgreSQL
+        id: postgres
+        run: docker compose up --detach --wait --wait-timeout 90
+      - name: Qualify bounded reads through registered controller Cogs
+        if: ${{ !cancelled() && steps.unit.outcome == 'success' && steps.postgres.outcome == 'success' }}
+        run: |
+          uv run --locked python -m pytest -q tests/integration/test_artifact_range_cogs.py
+          uv run --locked python scripts/check_artifact_ranges.py "$POTBOT_RANGE_EVIDENCE_DIR/artifact-ranges.json" --output "$POTBOT_RANGE_EVIDENCE_DIR/T01.3-range-gate.json"
+      - name: Qualify resumable uploads through registered controller Cogs
+        # Run even if the independent read gate failed; neither failure is masked.
+        if: ${{ !cancelled() && steps.unit.outcome == 'success' && steps.postgres.outcome == 'success' }}
+        run: |
+          uv run --locked python -m pytest -q tests/integration/test_artifact_upload_cogs.py
+          uv run --locked python scripts/check_artifact_uploads.py "$POTBOT_UPLOAD_EVIDENCE_DIR/artifact-uploads.json" --output "$POTBOT_UPLOAD_EVIDENCE_DIR/T01.3-upload-gate.json"
+      - name: Remove only this job's disposable database
+        if: always()
+        run: docker compose down --volumes --remove-orphans --timeout 10
+      - name: Retain fixture evidence and exact-source gate reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: artifact-controller-s45-evidence
+          path: artifacts/artifact-controller-s45/
+          if-no-files-found: warn
+          retention-days: 14

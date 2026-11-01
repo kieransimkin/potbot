@@ -11,8 +11,11 @@ import subprocess
 from pathlib import Path
 
 from potbot import __version__
+from potbot.cogs.artifact_ranges import OPEN as OPEN_READ
+from potbot.cogs.artifact_ranges import READ
 from potbot.cogs.artifact_uploads import UPLOAD_COGS
 from potbot.cogs.registry import BoundCogRegistry
+from potbot.evaluation.artifact_control_plane import check_control_plane_report
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES
 from potbot.tools.artifact_uploads import PAGE_SLOTS, schemas
 from potbot.tools.execution_contracts import MAX_INLINE_BYTES
@@ -29,6 +32,10 @@ SOURCES = (
     "src/potbot/controller/execution_journal.py",
     "src/potbot/cogs/registry.py",
     "src/potbot/tools/semantic_contracts.py",
+    "src/potbot/evaluation/artifact_control_plane.py",
+    "src/potbot/tools/sandbox_cog_worker.py",
+    "tests/integration/test_artifact_upload_cogs.py",
+    "scripts/check_artifact_uploads.py",
 )
 NEGATIVES = {
     "injected_deadline_during_commit",
@@ -127,6 +134,11 @@ def check(evidence: dict) -> dict:
         and evidence["committed"]["artifact_sha256"] == evidence["artifact_sha256"]
     )
     events = evidence["events"]
+    control_plane = check_control_plane_report(
+        evidence.get("control_plane"), events,
+        required_cogs={str(signature.cog_ref) for signature in UPLOAD_COGS},
+        allowed_cogs={str(signature.cog_ref) for signature in (*UPLOAD_COGS, OPEN_READ, READ)},
+    )
     assert {e["telemetry"]["cog_ref"] for e in events if e["stage"] == "completed"} >= {
         str(s.cog_ref) for s in UPLOAD_COGS
     }
@@ -150,6 +162,7 @@ def check(evidence: dict) -> dict:
         "unique_chunks": len(pieces),
         "observed_uploads": len(evidence["uploaded_chunks"]),
         "durable_events": len(events),
+        "control_plane": control_plane,
         "negative_cases": len(NEGATIVES),
         "artifact_sha256": evidence["artifact_sha256"],
         "qualification": evidence["qualification"],

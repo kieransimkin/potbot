@@ -22,11 +22,10 @@ from potbot.cogs.artifact_ranges import OPEN as OPEN_READ
 from potbot.cogs.artifact_ranges import READ
 from potbot.cogs.artifact_uploads import ABORT, CHUNK, COMMIT, INSPECT, OPEN, UPLOAD_COGS
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
-from potbot.cogs.execution import WORK_COGS
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.controller.artifact_ranges import ArtifactRangeService
 from potbot.controller.artifact_uploads import ArtifactUploadService
-from potbot.controller.execution_cogs import ExecutionCogRuntime, HostOperation
+from potbot.controller.execution_cogs import ExecutionCogRuntime
 from potbot.controller.execution_events import ExecutionEventService
 from potbot.domain.errors import (
     InvalidInputError,
@@ -34,18 +33,12 @@ from potbot.domain.errors import (
     ScopeDeniedError,
     StateMismatchError,
 )
-from potbot.domain.serialization import content_hash
+from potbot.evaluation.artifact_control_plane import control_plane_summary
 from potbot.persistence.artifacts import ArtifactIntegrityError
 from potbot.semantics.service import SynService
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES
 from potbot.tools.artifact_uploads import PAGE_SLOTS, schemas
-from potbot.tools.execution_contracts import (
-    MAX_INLINE_BYTES,
-    WORK_KINDS,
-    ExecutionPolicy,
-    WorkBinding,
-)
-from potbot.tools.semantic_contracts import QUERY, RESULTS
+from potbot.tools.execution_contracts import MAX_INLINE_BYTES, ExecutionPolicy
 from tests.integration.test_repository_states import setup
 
 pytestmark = pytest.mark.postgres
@@ -60,6 +53,10 @@ SOURCES = (
     "src/potbot/controller/execution_journal.py",
     "src/potbot/cogs/registry.py",
     "src/potbot/tools/semantic_contracts.py",
+    "src/potbot/evaluation/artifact_control_plane.py",
+    "src/potbot/tools/sandbox_cog_worker.py",
+    "tests/integration/test_artifact_upload_cogs.py",
+    "scripts/check_artifact_uploads.py",
 )
 
 
@@ -102,39 +99,6 @@ def test_real_upload_cogs_resume_commit_read_and_reject_invalid_authority(
             "data_base64": base64.b64encode(chunk).decode("ascii"),
         }
 
-    async def workflow(call, source):
-        await call.child_cog(str(OPEN.cog_ref), TypedCogValue(OPEN.input_type_ref, request))
-        for offset in (0, MAX_RANGE_BYTES):
-            source_chunk = chunk_request(pin, raw, offset)
-            out = await call.child_cog(
-                str(CHUNK.cog_ref), TypedCogValue(CHUNK.input_type_ref, source_chunk)
-            )
-            uploaded.append({**source_chunk, **out.value.value})
-        call.progress("first_two_chunks_retained")
-        return TypedCogValue(
-            RESULTS,
-            {
-                "schema_version": 1,
-                "query_hash": source.fingerprint,
-                "corpus_hash": sha,
-                "items": [],
-                "complete": True,
-            },
-        )
-
-    operation = HostOperation(
-        WorkBinding(
-            "workflow",
-            "syn://thing/fixture-artifact-upload",
-            QUERY,
-            RESULTS,
-            content_hash({"handler": "fixture-artifact-upload"}),
-            "idempotent_write",
-            policy,
-        ),
-        workflow,
-    )
-
     def runtime():
         return ExecutionCogRuntime(
             database=app_env.db,
@@ -145,7 +109,7 @@ def test_real_upload_cogs_resume_commit_read_and_reject_invalid_authority(
             repository_state_id=state["id"],
             emitter_run_id=uuid4(),
             policy=policy,
-            operations=(operation,),
+            operations=(),  # Fixed controller Cogs; no executable work installations.
             admit=admit,
             artifact_ranges=ArtifactRangeService(
                 app_env.db, artifacts, app_env.context, policy=policy
@@ -206,22 +170,12 @@ def test_real_upload_cogs_resume_commit_read_and_reject_invalid_authority(
 
     monkeypatch.setattr(artifacts.backend, "publish", bounded_publish)
     monkeypatch.setattr(artifacts.backend, "read", bounded_read)
-    flow = WORK_COGS[WORK_KINDS.index("workflow")]
-    invoke(
-        flow,
-        {
-            "schema_version": 1,
-            "operation_ref": operation.binding.operation_ref,
-            "input": {
-                "type_ref": QUERY,
-                "value": {
-                    "schema_version": 1,
-                    "text": "Upload retained binary evidence",
-                    "limit": 1,
-                },
-            },
-        },
-    )
+    # Controller state machines remain host-owned; arbitrary work stays sandboxed.
+    assert host.operations == {}
+    invoke(OPEN, request)
+    for offset in (0, MAX_RANGE_BYTES):
+        source_chunk = chunk_request(pin, raw, offset)
+        uploaded.append({**source_chunk, **invoke(CHUNK, source_chunk)})
     original_open = invoke(OPEN, request)
     host = runtime()  # New controller/service instances, in this same test process.
     assert invoke(OPEN, request) == original_open
@@ -437,9 +391,10 @@ def test_real_upload_cogs_resume_commit_read_and_reject_invalid_authority(
     assert {e["telemetry"]["cog_ref"] for e in events if e["stage"] == "completed"} >= {
         str(s.cog_ref) for s in UPLOAD_COGS
     }
-    assert any(
-        e["parent_run_id"] is not None and e["telemetry"]["cog_ref"] == str(CHUNK.cog_ref)
-        for e in events
+    control_plane = control_plane_summary(
+        events,
+        required_cogs={str(signature.cog_ref) for signature in UPLOAD_COGS},
+        allowed_cogs={str(signature.cog_ref) for signature in (*UPLOAD_COGS, OPEN_READ, READ)},
     )
     app = create_app(
         task_service=object(),
@@ -452,7 +407,12 @@ def test_real_upload_cogs_resume_commit_read_and_reject_invalid_authority(
             "/v1/executions/events?limit=200", headers={"Authorization": "Bearer fixture"}
         )
         assert response.status_code == 200 and response.json()["data"]["items"] == events[:200]
-        root = next(e["run_id"] for e in events if e["subject_type_ref"] == flow.cog_type_ref)
+        # Replay an actual admitted artifact operation, not a fabricated workflow root.
+        root = next(
+            e["run_id"]
+            for e in events
+            if e["stage"] == "completed" and e["telemetry"]["cog_ref"] == str(OPEN.cog_ref)
+        )
         root_events = [e for e in events if e["run_id"] == root]
         with client.websocket_connect(f"/v1/executions/{root}/stream") as stream:
             stream.send_json({"type": "authenticate", "token": "fixture", "after": 0})
@@ -485,6 +445,7 @@ def test_real_upload_cogs_resume_commit_read_and_reject_invalid_authority(
             "resume_missing_offsets": missing["missing_offsets"],
             "committed": committed[0],
             "events": events,
+            "control_plane": control_plane,
             "negative_cases": negatives,
             "chunk_bytes": MAX_RANGE_BYTES,
             "inline_limit_bytes": MAX_INLINE_BYTES,

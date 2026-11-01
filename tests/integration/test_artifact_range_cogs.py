@@ -15,12 +15,11 @@ from fastapi.testclient import TestClient
 
 from potbot import __version__
 from potbot.api.server import create_app
-from potbot.cogs.artifact_ranges import CLOSE, OPEN, READ
+from potbot.cogs.artifact_ranges import CLOSE, OPEN, RANGE_COGS, READ
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
-from potbot.cogs.execution import WORK_COGS
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.controller.artifact_ranges import ArtifactRangeService
-from potbot.controller.execution_cogs import ExecutionCogRuntime, HostOperation
+from potbot.controller.execution_cogs import ExecutionCogRuntime
 from potbot.controller.execution_events import ExecutionEventService
 from potbot.domain.errors import (
     InvalidInputError,
@@ -28,17 +27,11 @@ from potbot.domain.errors import (
     SourceUnavailableError,
     StateMismatchError,
 )
-from potbot.domain.serialization import content_hash
+from potbot.evaluation.artifact_control_plane import control_plane_summary
 from potbot.persistence.artifacts import ArtifactIntegrityError
 from potbot.semantics.service import SynService
 from potbot.tools.artifact_ranges import MAX_RANGE_BYTES, READ_BLOCK_BYTES, schemas
-from potbot.tools.execution_contracts import (
-    MAX_INLINE_BYTES,
-    WORK_KINDS,
-    ExecutionPolicy,
-    WorkBinding,
-)
-from potbot.tools.semantic_contracts import QUERY, RESULTS
+from potbot.tools.execution_contracts import MAX_INLINE_BYTES, ExecutionPolicy
 from tests.integration.test_repository_states import setup
 
 pytestmark = pytest.mark.postgres
@@ -50,6 +43,10 @@ SOURCES = (
     "src/potbot/controller/execution_cogs.py",
     "src/potbot/persistence/artifacts.py",
     "src/potbot/persistence/artifact_ranges_schema.py",
+    "src/potbot/evaluation/artifact_control_plane.py",
+    "src/potbot/tools/sandbox_cog_worker.py",
+    "tests/integration/test_artifact_range_cogs.py",
+    "scripts/check_artifact_ranges.py",
 )
 
 
@@ -82,41 +79,6 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
         if revoked:
             raise ScopeDeniedError("Fixture host grant revoked")
 
-    async def workflow(call, source):
-        await call.child_cog(str(OPEN.cog_ref), TypedCogValue(OPEN.input_type_ref, request))
-        for offset in (0, MAX_RANGE_BYTES):
-            result = await call.child_cog(
-                str(READ.cog_ref),
-                TypedCogValue(
-                    READ.input_type_ref, {**pinned, "offset": offset, "length": MAX_RANGE_BYTES}
-                ),
-            )
-            chunks.append(result.value.value)
-        call.progress("first_two_ranges_retained")
-        return TypedCogValue(
-            RESULTS,
-            {
-                "schema_version": 1,
-                "query_hash": source.fingerprint,
-                "corpus_hash": artifact["digest"],
-                "items": [],
-                "complete": True,
-            },
-        )
-
-    operation = HostOperation(
-        WorkBinding(
-            "workflow",
-            "syn://thing/fixture-artifact-reader",
-            QUERY,
-            RESULTS,
-            content_hash({"handler": "fixture-artifact-reader"}),
-            "idempotent_write",
-            policy,
-        ),
-        workflow,
-    )
-
     def runtime(selected_service=service):
         return ExecutionCogRuntime(
             database=app_env.db,
@@ -127,7 +89,7 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
             repository_state_id=state["id"],
             emitter_run_id=uuid4(),
             policy=policy,
-            operations=(operation,),
+            operations=(),  # Fixed controller Cogs; no executable work installations.
             admit=admit,
             artifact_ranges=selected_service,
         )
@@ -152,18 +114,11 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
         return original_read(context, artifact_id)
 
     monkeypatch.setattr(artifacts, "read", no_full_source)
-    flow = WORK_COGS[WORK_KINDS.index("workflow")]
-    invoke(
-        flow,
-        {
-            "schema_version": 1,
-            "operation_ref": operation.binding.operation_ref,
-            "input": {
-                "type_ref": QUERY,
-                "value": {"schema_version": 1, "text": "Open retained binary evidence", "limit": 1},
-            },
-        },
-    )
+    # Use the registered controller boundary, not a forbidden workflow callback.
+    assert host.operations == {}
+    assert invoke(OPEN, request)["lease_id"] == lease_id
+    for offset in (0, MAX_RANGE_BYTES):
+        chunks.append(invoke(READ, {**pinned, "offset": offset, "length": MAX_RANGE_BYTES}))
     # Fresh host/service: only SQL lease state survives the simulated reconnect.
     host = runtime(ArtifactRangeService(app_env.db, artifacts, app_env.context, policy=policy))
     assert invoke(OPEN, request)["lease_id"] == lease_id
@@ -271,9 +226,8 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
         assert rows[0]["stage"] == "started" and rows[-1]["stage"] in {"completed", "failed"}
         assert any(e["stage"] == "updated" for e in rows)
         assert rows[-1]["telemetry"]["metrics"]["elapsed_wall_ms"]["provenance"] == "measured"
-    assert any(
-        e["parent_run_id"] is not None and e["telemetry"]["cog_ref"] == str(READ.cog_ref)
-        for e in events
+    control_plane = control_plane_summary(
+        events, required_cogs={str(signature.cog_ref) for signature in RANGE_COGS}
     )
     app = create_app(
         task_service=object(),
@@ -286,7 +240,12 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
             "/v1/executions/events?limit=200", headers={"Authorization": "Bearer fixture"}
         )
         assert response.status_code == 200 and response.json()["data"]["items"] == events[:200]
-        root = next(e["run_id"] for e in events if e["subject_type_ref"] == flow.cog_type_ref)
+        # Replay an actual admitted artifact operation, not a fabricated workflow root.
+        root = next(
+            e["run_id"]
+            for e in events
+            if e["stage"] == "completed" and e["telemetry"]["cog_ref"] == str(OPEN.cog_ref)
+        )
         root_events = [e for e in events if e["run_id"] == root]
         with client.websocket_connect(f"/v1/executions/{root}/stream") as stream:
             stream.send_json({"type": "authenticate", "token": "fixture", "after": 0})
@@ -315,6 +274,7 @@ def test_real_range_cogs_reconstruct_after_restart_and_reject_stale_scope(
             "reconstructed_sha256": hashlib.sha256(reconstructed).hexdigest(),
             "chunks": chunks,
             "events": events,
+            "control_plane": control_plane,
             "maximum_range_bytes": MAX_RANGE_BYTES,
             "inline_limit_bytes": MAX_INLINE_BYTES,
             "maximum_read_request_bytes": READ_BLOCK_BYTES,
