@@ -60,7 +60,7 @@ def audit(root: Path) -> dict[str, object]:
              ('/v1/xpra/agent/ws', 'agent_streams.still_live(ticket)',
               '# S42: only an exact single agent-stream ticket is admitted.')),
         'monotonic stream epochs': ('frontend/src/lib/agent-xpra-hub.ts',
-             ('private epochs = new Map', 'this.epochs.set(sessionId, epoch)',
+             ('private nextEpoch = 0;', 'const epoch = ++this.nextEpoch;',
               'this.streams.get(sessionId)?.epoch !== epoch')),
         'rendered bitmap cleanup': ('frontend/src/components/AgentXpraStreams.tsx',
              ('data.bitmap.close()', 'clearTimeout(readyWatchdog)', 'hub.disconnected(session.id, epoch || undefined)')),

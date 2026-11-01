@@ -48,6 +48,7 @@ def service(*, exited=False):
     supervisor._group_ids = {session}
     supervisor._stop = threading.Event()
     supervisor.operator_attachment = None
+    supervisor.gui_audit_factory = None
     supervisor.browser_leases = BrowserSessionCoordinator(workspace, principal)
     retired = []
     supervisor.agent_displays = SimpleNamespace(

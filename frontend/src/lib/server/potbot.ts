@@ -3,7 +3,7 @@ import { safeError } from "./security.ts";
 
 export type PotbotConfig = { base: string; token: string; workspaceId: string; workspaceName: string; model: string };
 
-export function potbotConfig(env: NodeJS.ProcessEnv = process.env): PotbotConfig | null {
+export function potbotConfig(env: Partial<NodeJS.ProcessEnv> = process.env): PotbotConfig | null {
   const token = env.POTBOT_UI_BACKEND_TOKEN, workspaceId = env.POTBOT_UI_WORKSPACE_ID;
   const input = env.POTBOT_UI_BACKEND_URL;
   if (!token || !workspaceId || !input || /[\r\n]/.test(token) || token.length > 4096 ||
@@ -50,7 +50,7 @@ export function workspaceConnections(env: NodeJS.ProcessEnv = process.env): Potb
         POTBOT_UI_BACKEND_TOKEN: obj.token,
         POTBOT_UI_WORKSPACE_NAME: obj.name,
         POTBOT_UI_MODEL: typeof obj.model === "string" ? obj.model : "potbot",
-      } as NodeJS.ProcessEnv);
+      });
       if (!config) return [];
       configs.push(config); seen.add(config.workspaceId);
     }
