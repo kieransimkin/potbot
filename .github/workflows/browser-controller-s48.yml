@@ -11,6 +11,7 @@ on:
       - 'src/potbot/semantics/**'
       - 'src/potbot/tools/browser*.py'
       - 'src/potbot/tools/execution*.py'
+      - 'src/potbot/tools/semantic_contracts.py'
       - 'src/potbot/tools/xpra*.py'
       - 'tests/unit/test_browser*'
       - 'tests/integration/test_browser_controller_provenance.py'
@@ -56,7 +57,7 @@ jobs:
       - name: Verify browser contracts and retain worker isolation checks
         run: |
           mkdir -p artifacts/browser-controller-s48
-          uv run --locked python -m pytest -q tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py --junitxml=artifacts/browser-controller-s48/unit.xml
+          uv run --locked python -m pytest -q tests/unit/test_browser_semantic_catalog.py tests/unit/test_browser_worker_hardening.py tests/unit/test_browser_cogs_s37.py tests/unit/test_browser_provenance_s48.py tests/unit/test_sandbox_cog_worker.py --junitxml=artifacts/browser-controller-s48/unit.xml
       - name: Start disposable PostgreSQL
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Exercise real controller journals and private artifacts
@@ -84,6 +85,10 @@ jobs:
               'src/potbot/controller/browser_cogs.py',
               'src/potbot/cogs/browser.py',
               'src/potbot/tools/browser_evidence.py',
+              'src/potbot/tools/semantic_contracts.py',
+              'src/potbot/tools/browser_cog_contracts.py',
+              'src/potbot/tools/xpra_browser_worker.py',
+              'tests/unit/test_browser_semantic_catalog.py',
               'tests/integration/test_browser_controller_provenance.py',
           )
           evidence = {

@@ -16,12 +16,13 @@ import sys
 from collections import deque
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
+
 # The same verified module is packaged with the script in /opt/potbot.
 if __package__:
-    from .browser_https_routes import require_egress_config, install_https_routes
+    from .browser_https_routes import install_https_routes, require_egress_config
 else:
-    from browser_https_routes import require_egress_config, install_https_routes
+    from browser_https_routes import install_https_routes, require_egress_config
 
 COMMANDS = frozenset({
     "state", "navigate", "accessibility", "interactive", "inspect.start",
@@ -94,7 +95,7 @@ def validate_command(data: Any) -> dict[str, Any]:
     elif op == "input.pointer":
         if data["action"] not in ("move", "click", "wheel") or not all(_number(data[k]) for k in ("x", "y")):
             raise ValueError("invalid pointer action")
-        if "deltaY" in data and (type(data["deltaY"]) not in (int, float) or abs(data["deltaY"]) > 1000):
+        if "deltaY" in data and (type(data["deltaY"]) not in (int, float) or not -1000 <= data["deltaY"] <= 1000):
             raise ValueError("invalid scroll delta")
         if "button" in data and data["button"] not in ("left", "right", "middle"):
             raise ValueError("invalid pointer button")
@@ -126,8 +127,9 @@ def validate_command(data: Any) -> dict[str, Any]:
                     ("mousePressed", "mouseReleased", "mouseMoved", "mouseWheel") or
                     not _number(params.get("x")) or not _number(params.get("y")) or
                     params.get("button", "none") not in ("none", "left", "right", "middle") or
+                    type(params.get("clickCount", 0)) is not int or
                     not 0 <= params.get("clickCount", 0) <= 2 or
-                    any(type(params.get(k, 0)) not in (int, float) or abs(params.get(k, 0)) > 1000
+                    any(type(params.get(k, 0)) not in (int, float) or not -1000 <= params.get(k, 0) <= 1000
                         for k in ("deltaX", "deltaY"))):
                 raise ValueError("invalid CDP pointer event")
         elif method == "Input.dispatchKeyEvent":
@@ -169,6 +171,8 @@ def _ax_node(item: dict[str, Any]) -> dict[str, Any]:
 
 class BrowserWorker:
     def __init__(self, engine: str, stealth: bool) -> None:
+        if engine not in ("playwright", "patchright") or type(stealth) is not bool:
+            raise ValueError("invalid browser engine configuration")
         self.engine, self.stealth = engine, stealth
         self.playwright: Any = None
         self.browser: Any = None
@@ -209,7 +213,9 @@ class BrowserWorker:
         self.page = await self.context.new_page()
         self.page.on("requestfailed", lambda request: self._errors.append(_safe_url(request.url)))
         self.cdp = await self.context.new_cdp_session(self.page)
-        self.cdp.on("CSS.styleSheetAdded", lambda event: self._sheets.__setitem__(event["header"]["styleSheetId"], event["header"]))
+        self.cdp.on("CSS.styleSheetAdded", self._remember_sheet)
+        self.cdp.on("CSS.styleSheetRemoved", lambda event: self._sheets.pop(event["styleSheetId"], None))
+        self.cdp.on("DOM.documentUpdated", lambda _: self._selected.clear())
         self.cdp.on("Debugger.scriptParsed", self._remember_script)
         self.cdp.on("Overlay.inspectNodeRequested", lambda event: self._selected.append(event["backendNodeId"]))
         self.cdp.on("Overlay.inspectModeCanceled", lambda _: setattr(self, "_picker", False))
@@ -218,10 +224,24 @@ class BrowserWorker:
         await self.cdp.send("Overlay.enable")
         await self.cdp.send("Accessibility.enable")
 
+    def _remember_sheet(self, event: dict[str, Any]) -> None:
+        header = event["header"]
+        identifier = header["styleSheetId"]
+        if identifier not in self._sheets and len(self._sheets) >= 400:
+            self._sheets.pop(next(iter(self._sheets)))
+        self._sheets[identifier] = {
+            "sourceURL": _clip(header.get("sourceURL"), 2048),
+            "sourceMapURL": _clip(header.get("sourceMapURL"), 2048),
+        }
+
     def _remember_script(self, event: dict[str, Any]) -> None:
-        if len(self._scripts) >= 400:
+        identifier = event["scriptId"]
+        if identifier not in self._scripts and len(self._scripts) >= 400:
             self._scripts.pop(next(iter(self._scripts)))
-        self._scripts[event["scriptId"]] = event
+        self._scripts[identifier] = {
+            "url": _clip(event.get("url"), 2048),
+            "sourceMapURL": _clip(event.get("sourceMapURL"), 2048),
+        }
 
     async def _script_metadata(self) -> None:
         if not self._scripts_enabled:
@@ -229,10 +249,31 @@ class BrowserWorker:
             self._scripts_enabled = True
 
     async def close(self) -> None:
-        if self.browser is not None:
-            await self.browser.close()
-        if self.playwright is not None:
-            await self.playwright.stop()
+        try:
+            if self.browser is not None:
+                await self.browser.close()
+        finally:
+            try:
+                if self.playwright is not None:
+                    await self.playwright.stop()
+            finally:
+                self.browser = self.playwright = self.context = self.page = self.cdp = None
+                self._picker = False
+                self._selected.clear()
+                self._sheets.clear()
+                self._scripts.clear()
+                self._scripts_enabled = False
+                self._errors.clear()
+
+    async def _aria(self, limit: int) -> str:
+        # aria_snapshot is a Locator API, not a Page API, in both engines.
+        return _clip(await self.page.locator("body").aria_snapshot(timeout=5000), limit)
+
+    async def _stop_picker(self) -> None:
+        await self.cdp.send("Overlay.setInspectMode", {"mode": "none", "highlightConfig": {}})
+        await self.cdp.send("Overlay.hideHighlight")
+        self._picker = False
+        self._selected.clear()
 
     async def inspect(self, backend_id: int) -> dict[str, Any]:
         await self.cdp.send("DOM.getDocument", {"depth": 0})
@@ -240,7 +281,7 @@ class BrowserWorker:
         node_id = (pushed.get("nodeIds") or [0])[0]
         described = (await self.cdp.send("DOM.describeNode", {"backendNodeId": backend_id, "depth": 0}))["node"]
         attrs = described.get("attributes", [])
-        safe = {k: _clip(v, 180) for k, v in zip(attrs[::2], attrs[1::2])
+        safe = {k: _clip(v, 180) for k, v in zip(attrs[::2], attrs[1::2], strict=True)
                 if k in ("id", "class", "role", "aria-label", "data-testid", "name",
                          "data-source", "data-file", "data-line", "data-component")}
         result: dict[str, Any] = {"tag": _clip(described.get("nodeName"), 50),
@@ -275,20 +316,23 @@ class BrowserWorker:
             resolved = await self.cdp.send("DOM.resolveNode", {"backendNodeId": backend_id})
             object_id = resolved.get("object", {}).get("objectId")
             if object_id:
-                listeners = await self.cdp.send("DOMDebugger.getEventListeners", {"objectId": object_id, "depth": 0})
-                result["events"] = [{
-                    "type": _clip(e.get("type"), 40),
-                    "scriptId": _clip(e.get("scriptId"), 40),
-                    "source": _safe_url(self._scripts.get(e.get("scriptId", ""), {}).get("url", "")),
-                    "sourceMap": _safe_url(self._scripts.get(e.get("scriptId", ""), {}).get("sourceMapURL", "")),
-                    "line": e.get("lineNumber"), "column": e.get("columnNumber"),
-                } for e in listeners.get("listeners", [])[:20]]
-                await self.cdp.send("Runtime.releaseObject", {"objectId": object_id})
+                try:
+                    listeners = await self.cdp.send("DOMDebugger.getEventListeners", {"objectId": object_id, "depth": 0})
+                    result["events"] = [{
+                        "type": _clip(e.get("type"), 40),
+                        "scriptId": _clip(e.get("scriptId"), 40),
+                        "source": _safe_url(self._scripts.get(e.get("scriptId", ""), {}).get("url", "")),
+                        "sourceMap": _safe_url(self._scripts.get(e.get("scriptId", ""), {}).get("sourceMapURL", "")),
+                        "line": e.get("lineNumber"), "column": e.get("columnNumber"),
+                    } for e in listeners.get("listeners", [])[:20]]
+                finally:
+                    await self.cdp.send("Runtime.releaseObject", {"objectId": object_id})
         except Exception:
             result["eventsUnavailable"] = True
         return result
 
     async def execute(self, data: dict[str, Any]) -> dict[str, Any]:
+        data = validate_command(data)
         op = data["op"]
         if op == "state":
             return {"engine": self.engine, "stealth": self.stealth,
@@ -297,13 +341,13 @@ class BrowserWorker:
         if op == "navigate":
             url = data["url"]
             if url.startswith("file:"):
-                real = Path(urlsplit(url).path).resolve(strict=True)
+                real = Path(unquote(urlsplit(url).path)).resolve(strict=True)
                 if not real.is_relative_to(Path("/home")) or not real.is_file():
                     raise ValueError("file outside workspace")
             await self.page.goto(url, wait_until="domcontentloaded", timeout=8000)
             return {"url": _safe_url(self.page.url), "title": _clip(await self.page.title(), 200)}
         if op == "accessibility":
-            return {"aria": _clip(await self.page.aria_snapshot(), 24000)}
+            return {"aria": await self._aria(24000)}
         if op == "interactive":
             data = await self.page.locator("a[href], button, input, select, textarea, [role=button], [role=link], [tabindex]").evaluate_all(
                 "els => els.slice(0, 120).map(e => ({tag:e.tagName.toLowerCase(),role:e.getAttribute('role')||'',name:e.getAttribute('aria-label')||e.innerText?.slice(0,120)||'',label:e.labels?.[0]?.innerText?.slice(0,120)||'',tabIndex:e.tabIndex,disabled:!!e.disabled,box:(()=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()}))"
@@ -312,25 +356,23 @@ class BrowserWorker:
         if op == "inspect.start":
             await self._script_metadata()
             self._selected.clear()
-            self._picker = True
             await self.cdp.send("Overlay.setInspectMode", {"mode": "searchForNode", "highlightConfig": {
                 "showInfo": True, "showStyles": True, "showAccessibilityInfo": True,
                 "contentColor": {"r": 55, "g": 145, "b": 255, "a": .17},
                 "borderColor": {"r": 55, "g": 145, "b": 255, "a": 1},
             }})
+            self._picker = True
             return {"picker": True}
         if op == "inspect.stop":
-            self._picker = False
-            self._selected.clear()
-            await self.cdp.send("Overlay.setInspectMode", {"mode": "none"})
-            await self.cdp.send("Overlay.hideHighlight")
+            await self._stop_picker()
             return {"picker": False}
         if op == "inspect.poll":
             if not self._selected:
                 return {"picker": self._picker, "selected": None}
             node_id = self._selected.pop()
-            self._selected.clear()
-            self._picker = False
+            # Ending the UI state alone does not turn off Chromium's overlay.
+            # Stop it before inspecting so subsequent clicks reach the page.
+            await self._stop_picker()
             return {"picker": False, "selected": await self.inspect(node_id)}
         if op == "inspect.at":
             await self._script_metadata()
@@ -372,17 +414,31 @@ class BrowserWorker:
                 raise ValueError("render sample exceeds bound")
             if data.get("image", True):
                 frame["base64"] = base64.b64encode(png).decode("ascii")
-            return {"frame": frame, "aria": _clip(await self.page.aria_snapshot(), 12000),
+            return {"frame": frame, "aria": await self._aria(12000),
                     "url": _safe_url(self.page.url), "failedRequests": list(self._errors)}
         raise ValueError("unrecognized browser command")
 
 
+def _unique_object(items: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in items:
+        if key in result:
+            raise ValueError("duplicate browser request key")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> Any:
+    raise ValueError("non-finite browser request number")
+
+
 async def serve(engine: str, stealth: bool) -> None:
     worker = BrowserWorker(engine, stealth)
-    await worker.start()
     try:
+        await worker.start()
         while True:
-            line = await asyncio.to_thread(sys.stdin.buffer.readline)
+            # Bound allocation, not just the check after an unbounded read.
+            line = await asyncio.to_thread(sys.stdin.buffer.readline, 4097)
             if not line:
                 return
             if len(line) > 4096:
@@ -390,7 +446,8 @@ async def serve(engine: str, stealth: bool) -> None:
             ident: Any = None
             command: dict[str, Any] | None = None
             try:
-                request = json.loads(line)
+                request = json.loads(line, object_pairs_hook=_unique_object,
+                                     parse_constant=_reject_constant)
                 if not isinstance(request, dict) or set(request) != {"id", "command"} or type(request["id"]) is not int or not 0 <= request["id"] <= 2**31:
                     raise ValueError("invalid worker envelope")
                 ident = request["id"]

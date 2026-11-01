@@ -1,0 +1,6 @@
+body { margin: 24px; font-family: sans-serif; background: #f8f8fa; }
+input, button { font-size: 18px; padding: 12px; margin: 8px; }
+.action { background-color: #e0ecff; border: 2px solid #245a99; }
+output { display: inline-block; padding: 20px; font-size: 24px; }
+body.saved { background-color: #dfefda; }
+.spacer { height: 1400px; }

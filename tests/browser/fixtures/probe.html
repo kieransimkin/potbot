@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Potbot rendered browser probe</title>
+<link rel="stylesheet" href="probe.css"></head>
+<body>
+<main aria-label="Browser probe">
+  <h1>Browser control acceptance</h1>
+  <label for="username">Username</label><input id="username" autocomplete="off">
+  <button id="save" class="action" data-component="SettingsForm"
+          data-source="BrowserProbe.tsx">Save</button>
+  <output id="count" aria-label="Saved count" aria-live="polite">0</output>
+  <label><input type="checkbox" id="notifications">Notifications</label>
+  <button class="duplicate">Duplicate</button><button class="duplicate">Duplicate</button>
+  <div class="spacer" aria-hidden="true"></div>
+  <button id="bottom">Bottom</button>
+</main>
+<script src="probe.js"></script>
+</body>
+</html>

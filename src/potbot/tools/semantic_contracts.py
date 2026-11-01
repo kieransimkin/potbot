@@ -261,6 +261,7 @@ class ToolSemanticCatalog:
         ancestry = type_ancestors(merged)
         from potbot.tools.artifact_ranges import schemas as artifact_range_schemas
         from potbot.tools.artifact_uploads import schemas as artifact_upload_schemas
+        from potbot.tools.browser_cog_contracts import schemas as browser_schemas
         from potbot.tools.execution_schemas import schemas as execution_schemas
 
         definitions = schemas()
@@ -271,6 +272,7 @@ class ToolSemanticCatalog:
                     **execution_schemas(),
                     **artifact_range_schemas(),
                     **artifact_upload_schemas(),
+                    **browser_schemas(),
                 }.items()
                 if type_identity(ref) in known
             }
@@ -321,7 +323,23 @@ class ToolSemanticCatalog:
         }
         if ref in parsers:
             parsers[ref].from_dict(value.value)
+        from potbot.tools.browser_cog_contracts import (
+            ACT_REQUEST,
+            CAPTURE_REQUEST,
+            OBSERVE_REQUEST,
+            PICK_REQUEST,
+            validate_request,
+        )
         from potbot.tools.execution_contracts import REQUEST, RESULT
+
+        browser_ports = {
+            OBSERVE_REQUEST: "observe",
+            ACT_REQUEST: "act",
+            PICK_REQUEST: "pick",
+            CAPTURE_REQUEST: "capture",
+        }
+        if ref in browser_ports:
+            validate_request(browser_ports[ref], value.value)
 
         if ref in {REQUEST, RESULT}:
             payload = value.value["input" if ref == REQUEST else "result"]
