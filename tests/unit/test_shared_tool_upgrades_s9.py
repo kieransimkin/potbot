@@ -20,7 +20,7 @@ from potbot.tools.shared_tool_upgrades import (
     stage_name,
 )
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
-from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
+from potbot.tools.workspace_concurrency import AccessRequest, AccessResource, WorkspaceLeaseLedger
 
 
 def git(cwd: Path, *argv: str) -> str:
@@ -139,6 +139,28 @@ def rollback(rig, *, confirm=True, current=None):
     )
 
 
+def hold_reader(rig):
+    """Exercise the real shared-tool read lease rather than an obsolete fake map."""
+    return rig["ledger"].claim(AccessRequest(
+        rig["workspace_id"], rig["agent_id"], "tool.read", uuid4().hex, "read",
+        (AccessResource("shared_tool", "stemlab", "read"),), rig["runtime"].image_digest,
+    ), replay_existing=False)
+
+
+def reconcile_uncertain(rig):
+    """Test-only stand-in for verified host reconciliation after an injected fault."""
+    with rig["ledger"]._connect() as db:
+        rows = db.execute(
+            "SELECT * FROM leases WHERE workspace_id=? AND state='indeterminate'",
+            (str(rig["workspace_id"]),),
+        ).fetchall()
+    assert len(rows) == 1
+    rig["ledger"].reconcile(
+        rig["ledger"]._lease(rows[0]),
+        evidence_sha256=hashlib.sha256(b"test-only-reconciled-fault").hexdigest(),
+    )
+
+
 def test_real_git_stage_tests_and_clean_probe(rig):
     prepared = prepare(rig)
     assert prepared["state"] == "ready"
@@ -220,11 +242,10 @@ def test_activation_needs_explicit_approval_and_no_stage_drift(rig):
 
 def test_atomic_activation_rejects_active_shared_tool_reader(rig):
     prepare(rig)
-    # Simulate a still-live brokered reader holding the named tool resource.
-    rig["ledger"].active_guards[(rig["workspace_id"], "stemlab")] = object()
+    reader = hold_reader(rig)
     with pytest.raises(StateMismatchError):
         activate(rig)
-    rig["ledger"].active_guards.clear()
+    rig["ledger"].finish(reader, result_sha256=hashlib.sha256(b"reader-stopped").hexdigest())
     assert (rig["tools"] / "stemlab/static/stemlab").read_bytes() == b"v1"
 
 
@@ -246,7 +267,7 @@ def test_interrupted_activation_requires_explicit_recovery(rig, monkeypatch):
     with pytest.raises(StateMismatchError):
         rig["manager"].reconcile(workspace_id=rig["workspace_id"],agent_id=rig["agent_id"],
                                   operation_id=rig["operation_id"],slug="stemlab",confirm=True)
-    rig["ledger"].active_guards.clear()  # Test-only stand-in for host lease reconciliation.
+    reconcile_uncertain(rig)
     monkeypatch.setattr(rig["manager"], "_commit_swap", original)
     recovered = rig["manager"].reconcile(
         workspace_id=rig["workspace_id"],agent_id=rig["agent_id"],
@@ -262,7 +283,7 @@ def test_interrupted_rollback_reconciles_db(rig, monkeypatch):
                         lambda *a, **kw: (_ for _ in ()).throw(OSError("simulated outage")))
     with pytest.raises(OSError):
         rollback(rig)
-    rig["ledger"].active_guards.clear()
+    reconcile_uncertain(rig)
     with pytest.raises(StateMismatchError):
         rig["store"].definition(rig["workspace_id"], "stemlab")
     monkeypatch.setattr(rig["manager"], "_commit_swap", original)

@@ -6,7 +6,6 @@ import { nextWorkspace, orbPosition } from "@/lib/orbit";
 import type { Workspace } from "@/lib/model";
 import { ResourcePulseCore } from "./ResourcePulseCore";
 
-export function WorkspaceOrbit
 export function WorkspaceOrbit({ workspaces, selected, onSelect }: {
   workspaces: Workspace[]; selected: number; onSelect: (value: number) => void;
 }) {

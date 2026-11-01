@@ -61,6 +61,7 @@ def test_operator_displays_are_independent_and_retire_only_after_worker_stop(tmp
     pool.workspace_id, pool.principal_id = uuid4(), uuid4()
     pool._lock = threading.RLock()
     pool._displays = {}
+    pool.gui_audit_factory = None  # __new__ fixture bypasses the host constructor.
     agent_one, agent_two, agent_three = uuid4(), uuid4(), uuid4()
     pool._agent = lambda agent: SimpleNamespace(directory=agent.hex)
     first = pool.acquire(agent_one)

@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,6 +16,7 @@ from uuid import UUID
 from potbot.context.model import ROLES, sha256, validate_content
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
+from potbot.tools.temporary import TemporaryDirectory
 
 if TYPE_CHECKING:
     from potbot.context.service import WorkspaceContextService
@@ -117,7 +117,9 @@ class ContextProjectionManager:
         if self._closed:
             raise StateMismatchError("Snapshot manager is closed")
         rows = self.service.read_triple(self.principal, kind, name)
-        directory = Path(tempfile.mkdtemp(prefix="potbot-context-", dir=self.parent))
+        # Use the project's owned scratch allocator; never let Python's tempfile
+        # choose a global location or replace inherited Windows directory ACLs.
+        directory = Path(TemporaryDirectory(prefix="potbot-context-", dir=self.parent).name)
         self._owned.append(directory)  # Track even a partial write for later cleanup.
         revisions: list[int] = []
         hashes: list[str] = []

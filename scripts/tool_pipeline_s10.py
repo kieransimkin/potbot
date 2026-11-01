@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import stat
 import sys
 from pathlib import Path
 from uuid import UUID
@@ -54,13 +53,14 @@ def main() -> int:
     parser.add_argument("--upgrade-plan", type=Path, required=True)
     args = parser.parse_args()
     try:
-        from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
+        from tool_upgrade_s9 import _plan
+
         from potbot.tools.agent_homes import AgentHomeRegistry
+        from potbot.tools.ai_workspace_operator import AiWorkspaceOperator
         from potbot.tools.operator_cli import parse_manifest
         from potbot.tools.shared_tool_store import SharedToolStore
         from potbot.tools.shared_tool_upgrades import SharedToolUpgradeManager
         from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
-        from tool_upgrade_s9 import _plan
 
         operator_paths = parse_manifest(args.manifest)
         replacement, suite, expected_old = _plan(args.upgrade_plan)

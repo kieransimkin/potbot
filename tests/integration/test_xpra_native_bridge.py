@@ -163,6 +163,7 @@ def test_rejected_origin_does_not_consume_another_workspaces_capability(
             assert status.json() == {
                 "workspaceId": str(server.workspace_id), "available": True,
                 "transport": "xpra-native-binary", "windowPresentation": "dockview",
+                "xpraReadOnly": False, "agentPrivateDisplaysEnabled": False,
             }
             secret = server.ticket()
             with pytest.raises(WebSocketDisconnect):

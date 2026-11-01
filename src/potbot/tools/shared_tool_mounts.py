@@ -53,7 +53,7 @@ class ToolWriteGrant:
             validate_runtime_pin,
         )
 
-        if not isinstance(self.slug, str) or not _TO.fullmatch(self.slug):
+        if not isinstance(self.slug, str) or not _TOOL.fullmatch(self.slug):
             raise InvalidInputError("maintenance tool must have an exact canonical slug")
         if not isinstance(self.agent, AgentHome) or not isinstance(
             self.guard, WorkspaceLeaseGuard

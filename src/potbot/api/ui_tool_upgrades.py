@@ -13,9 +13,9 @@ import json
 import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypedDict
+from uuid import UUID, uuid4
 
 from fastapi import Request
-from uuid import UUID, uuid4
 
 from potbot.domain.errors import (
     InvalidInputError,
@@ -26,6 +26,7 @@ from potbot.domain.errors import (
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
+
     from potbot.domain.auth import WorkspaceContext
     from potbot.persistence.database import Database
 

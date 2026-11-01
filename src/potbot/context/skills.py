@@ -11,12 +11,12 @@ import json
 import os
 import re
 import stat
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from potbot.context.model import document_templates, sha256, validate_content
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
+from potbot.tools.temporary import TemporaryDirectory
 
 _SKILL_NAME = re.compile(r"[a-z][a-z0-9-]{1,62}\Z")
 _ENTRY_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_.-]{0,80}\Z")
@@ -108,7 +108,7 @@ class SharedSkillReleaseStore:
         if target.exists() or target.is_symlink():
             self._verify(target, raw, manifest_raw)
             return SkillRelease(name, version, target, hashlib.sha256(manifest_raw).hexdigest())
-        temporary = Path(tempfile.mkdtemp(prefix=".publishing-", dir=releases))
+        temporary = Path(TemporaryDirectory(prefix=".publishing-", dir=releases).name)
         try:
             self._write(temporary, "SKILL.md", raw)
             for role, content in document_templates("skill", name).items():

@@ -40,11 +40,17 @@ class WorkspaceTempFactory:
 def pytest_configure(config: pytest.Config) -> None:
     supplied = config.option.basetemp
     configured = os.environ.get("POTBOT_TEMP_ROOT")
+    # Linux AF_UNIX paths are capped at 108 bytes. GitHub's long checkout path
+    # plus two private fixture generations can exceed that bound. On CI only,
+    # place the still-unique, mode-0700 scratch tree directly under /tmp.
+    # Explicit --basetemp and POTBOT_TEMP_ROOT always take precedence.
     parent = (
         Path(supplied).absolute()
         if supplied
         else Path(configured).absolute()
         if configured
+        else Path("/tmp")
+        if os.name == "posix" and os.environ.get("GITHUB_ACTIONS") == "true"
         else Path(__file__).parent / ".potbot" / "temporary"
     )
     owner = TemporaryDirectory(prefix="potbot-pytest-", dir=parent)
