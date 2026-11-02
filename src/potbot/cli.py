@@ -37,6 +37,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.memory.embedding_cli import main as embedding_main
 
         return embedding_main(args[1:])
+    if args and args[0] == "syn-operator":
+        from potbot.syn_release.operator_cli import main as syn_operator_main
+
+        return syn_operator_main(args[1:])
     if args and args[0] == "syn-release":
         from potbot.syn_release.cli import main as syn_release_main
 
@@ -108,6 +112,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("embedding", help="set up, index, and query local Qwen embeddings")
     commands.add_parser(
         "syn-release", help="verify and install independently pinned official Syn packages"
+    )
+    commands.add_parser(
+        "syn-operator", help="provision a native operator host and supervise verified Syn"
     )
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
     commands.add_parser("identity", help="manage native signing and verify published Agent keys")

@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -15,8 +17,29 @@ from potbot.syn_release.store import SynReleaseStore, private_read
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if (
+        platform.system() == "Windows"
+        and arguments
+        and not any(arg in {"--help", "-h"} for arg in arguments)
+    ):
+        try:
+            from .host import WslOperatorHost
+            from .wsl_controller import forward
+
+            return forward(WslOperatorHost(), "syn-release", arguments)
+        except (DomainError, OSError, ValueError):
+            print(
+                json.dumps(
+                    {
+                        "code": "source_unavailable",
+                        "message": "Prepare the managed WSL host and its reviewed Potbot controller first",
+                    }
+                )
+            )
+            return 2
     parser = argparse.ArgumentParser(
-        description="Verify and install an independently pinned official Syn release (Linux x86-64)"
+        description="Verify and install an independently pinned official Syn release on Linux/macOS"
     )
     parser.add_argument("operation", choices=("fetch", "install", "verify"))
     parser.add_argument(
@@ -42,7 +65,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--uv", type=Path, help="Exact trusted uv 0.12.23 executable for a new installation"
     )
-    options = parser.parse_args(argv)
+    options = parser.parse_args(arguments)
     if options.operation == "install" and (options.python is None or options.uv is None):
         parser.error("install requires explicit --python and --uv executable paths")
     try:

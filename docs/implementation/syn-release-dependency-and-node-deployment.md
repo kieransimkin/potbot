@@ -34,7 +34,7 @@ SYN alone owns entropy, key derivation, private-key custody, enrollment and sign
 | --- | --- | --- |
 | SYN-R01 | Upstream inventory | Canonical repository/release publisher confirmed, upstream issues for missing capabilities, compatibility matrix and signed trust policy |
 | SYN-R02 | [Operator release installer](syn-release-installation.md) implemented | Exact signature/payload verification, private cache, atomic admission, concurrent/offline reuse and tamper/revocation/downgrade checks. Actual official-package acceptance is separate from synthetic public fixtures; no node admission follows from installing packages. |
-| SYN-R03 | Operator service | Real upstream operator process, authenticated attach, protected custody, fail-closed restart and health checks |
+| SYN-R03 | [Native operator deployment candidate](syn-operator-deployment.md) | Managed Ubuntu WSL2 installation on Windows; native Linux/macOS; explicit upstream bootstrap, protected custody/allocation, authenticated attach, owned-child supervision and fail-closed health. Official-release and actual persistent-host acceptance remain separately recorded gates. |
 | SYN-R04 | Agent provisioning | Real sandbox-resident agent-mode process per agent, selected-key adoption and independently verified custody, isolated identities and persistence |
 | SYN-R05 | Execution integration | Real node identity bound to Cog authorization and monitored sandbox dispatch; no fallback to synthetic actors |
 | SYN-R06 | Upgrade and recovery | Staged upgrades, compatibility, crash recovery, rollback and nonrollback of identity/enrollment state |

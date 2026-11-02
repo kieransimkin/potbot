@@ -1,4 +1,4 @@
-"""Linux operator store: verified CAS, serialized installs and atomic admission.
+"""Native POSIX operator store: verified CAS, serialized installs and atomic admission.
 
 Virtual environments stay at their final path (moving them breaks script paths).
 An incomplete directory is never admitted. Only the atomically replaced registry
@@ -53,9 +53,27 @@ def _sha(path: Path) -> str:
     return result.hexdigest()
 
 
+def native_platform() -> str:
+    system = {"Linux": "linux", "Darwin": "darwin"}.get(platform.system())
+    machine = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}.get(
+        platform.machine().lower()
+    )
+    value = f"{system}-{machine}"
+    if os.name != "posix" or value not in {"linux-x86_64", "darwin-x86_64", "darwin-arm64"}:
+        raise CapabilityUnavailableError(
+            "Syn installation requires native Linux/macOS; Windows uses WSL"
+        )
+    return value
+
+
 def _directory(path: Path, *, create: bool = False) -> None:
     if not path.is_absolute() or path.resolve() != path or path.is_symlink():
         raise ScopeDeniedError("Syn store requires a canonical absolute operator path")
+    for parent in path.parents:
+        info = parent.stat()
+        sticky_root = info.st_uid == 0 and info.st_mode & stat.S_ISVTX
+        if info.st_uid not in {0, os.getuid()} or (info.st_mode & 0o022 and not sticky_root):
+            raise ScopeDeniedError("Syn operator path has an untrusted writable ancestor")
     if create:
         path.mkdir(mode=0o700, exist_ok=True)
     info = path.stat(follow_symlinks=False)
@@ -120,7 +138,7 @@ observed = json.loads(Path(sys.argv[3]).read_text()) if p['component'] == 'runti
 r = RuntimeContract.from_dict(observed) if observed is not None else m.runtime
 assert version('syn-client') == p['version']
 assert p['component'] != 'runtime' or version('syn') == p['version']
-check_compatibility(m, r, component=p['component'], platform='linux-x86_64',
+check_compatibility(m, r, component=p['component'], platform=sys.argv[4],
     python_version=p['python_version'], required_profiles=tuple(p['required_profiles']),
     required_capabilities=tuple(p['required_capabilities']), required_mode=p['mode'])
 print(json.dumps({'client_version': version('syn-client'), 'runtime': observed}))
@@ -135,14 +153,7 @@ class SynReleaseStore:
     """
 
     def __init__(self, root: Path) -> None:
-        if (
-            os.name != "posix"
-            or platform.system() != "Linux"
-            or platform.machine().lower() not in {"x86_64", "amd64"}
-        ):
-            raise CapabilityUnavailableError(
-                "Syn release installation currently requires Linux x86-64"
-            )
+        self.platform = native_platform()
         _directory(root, create=True)
         self.root = root
         for name in ("objects", "bundles", "installs", "inventories", "process-home", "uv-cache"):
@@ -227,7 +238,7 @@ class SynReleaseStore:
                     "Published Syn asset set differs from the signed package set"
                 )
             # Reject incompatible releases before retrieving or executing package code.
-            release.compatibility("linux-x86_64", policy.value["python_version"])
+            release.compatibility(self.platform, policy.value["python_version"])
             for asset in release.assets:
                 path = self.root / "objects" / asset.sha256
                 if path.exists() or path.is_symlink():
@@ -257,7 +268,7 @@ class SynReleaseStore:
                     raise StateMismatchError("Retained Syn envelope was altered")
             else:
                 self._save_bundle(bundle, manifest_name, signature_name, release, publication)
-        release.compatibility("linux-x86_64", policy.value["python_version"])
+        release.compatibility(self.platform, policy.value["python_version"])
         for asset in release.assets:
             self._cached_object(asset.sha256, asset.size)
         return release
@@ -297,6 +308,11 @@ class SynReleaseStore:
             "UV_LINK_MODE": "copy",
             "UV_NO_PROGRESS": "1",
         }
+        if self.platform.startswith("darwin-"):
+            # Only used after an explicit third-party source-build approval.
+            # GMP and the compiler remain trusted host prerequisites.
+            env["CFLAGS"] = "-I/opt/homebrew/include -I/usr/local/include"
+            env["LDFLAGS"] = "-L/opt/homebrew/lib -L/usr/local/lib"
         for key in ("HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "SSL_CERT_FILE", "SSL_CERT_DIR"):
             if key in os.environ:
                 env[key] = os.environ[key]
@@ -401,6 +417,7 @@ class SynReleaseStore:
                 canonical(release.policy.value).decode(),
                 str(assets / f"syn-release-{release.policy.value['version']}.json"),
                 str(descriptor),
+                self.platform,
             ],
             label="official client compatibility check",
             timeout=30,

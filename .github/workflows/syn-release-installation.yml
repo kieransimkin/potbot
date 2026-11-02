@@ -17,7 +17,7 @@ jobs:
           enable-cache: false
       - run: uv sync --locked --dev --extra security
       - name: Check trust, redirects, cache, atomic admission and concurrent offline installation
-        run: uv run --locked python -m pytest -q tests/unit/test_syn_release_installation.py --junitxml=artifacts/syn-release-boundaries.xml
+        run: uv run --locked python -m pytest -q tests/unit/test_syn_release_installation.py tests/unit/test_syn_operator_deployment.py --junitxml=artifacts/syn-release-boundaries.xml
       - name: Record the real portable operator interface
         run: uv run --locked python -m potbot syn-release --help > artifacts/syn-release-help.txt
       - name: Record the routine CI completion assessment

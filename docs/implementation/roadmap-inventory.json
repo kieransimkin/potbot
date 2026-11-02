@@ -1222,12 +1222,22 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
-      "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "0f25a71085e5ebe80fc174df51c9e9972ef33bbe42490de78eb2cbb21363c977",
-      "bytes": 8504,
+      "path": "docs/implementation/syn-operator-deployment.md",
+      "sha256": "0737ad994dca7a70631394ff7d4776ead541f169bcba640ced9bad4338895eaf",
+      "bytes": 6745,
       "kind": "narrative_text",
-      "text_sha256": "0f25a71085e5ebe80fc174df51c9e9972ef33bbe42490de78eb2cbb21363c977",
-      "characters": 8498,
+      "text_sha256": "0737ad994dca7a70631394ff7d4776ead541f169bcba640ced9bad4338895eaf",
+      "characters": 6745,
+      "lines": 122,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
+      "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
+      "sha256": "a060b92078dc123c0fec13732aea02430099d9f583c598baf5f47725cb0bd77f",
+      "bytes": 8726,
+      "kind": "narrative_text",
+      "text_sha256": "a060b92078dc123c0fec13732aea02430099d9f583c598baf5f47725cb0bd77f",
+      "characters": 8720,
       "lines": 47,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -22030,10 +22040,10 @@
       "legacy_id": "SYN-R03",
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R03",
-      "title": "Operator service",
+      "title": "[Native operator deployment candidate](syn-operator-deployment.md)",
       "locator": "line:37",
       "source_claim": "requirements_only",
-      "requirement_sha256": "d8d1086d35119e04174bdd7f79f8953dcc1379e4cc9585f3069e6d1eeb7fff3d",
+      "requirement_sha256": "519df95b1d3c0a47412fa10b01092e7143567e9c949b23224e4482ce24a1e9a4",
       "unified_owners": [
         "U02",
         "U03",
@@ -25817,11 +25827,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "bbcad1c1d2e592883c86bfa930e53db10131a6d7fcf2e7023c4cd2e04dfc121b",
-      "bytes": 10571,
+      "sha256": "6b4555d1d6f48b7cc36bb625538a67cda5c48cfe3d512d16616c39e23f420d8c",
+      "bytes": 10614,
       "kind": "narrative_text",
-      "text_sha256": "bbcad1c1d2e592883c86bfa930e53db10131a6d7fcf2e7023c4cd2e04dfc121b",
-      "characters": 10571,
+      "text_sha256": "6b4555d1d6f48b7cc36bb625538a67cda5c48cfe3d512d16616c39e23f420d8c",
+      "characters": 10614,
       "lines": 204,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -26007,11 +26017,11 @@
     },
     {
       "path": ".github/workflows/syn-release-installation.yml",
-      "sha256": "6995417725b675f0ded6a241fbe7876224f61cd4856927c16e003828264a9854",
-      "bytes": 2000,
+      "sha256": "30b997e9b1137e6cb69f8f4956bd06c7242341bdd2ee685846af3fe73554544a",
+      "bytes": 2043,
       "kind": "narrative_text",
-      "text_sha256": "6995417725b675f0ded6a241fbe7876224f61cd4856927c16e003828264a9854",
-      "characters": 2000,
+      "text_sha256": "30b997e9b1137e6cb69f8f4956bd06c7242341bdd2ee685846af3fe73554544a",
+      "characters": 2043,
       "lines": 41,
       "interpretation": "source_content_not_runtime_evidence"
     },
