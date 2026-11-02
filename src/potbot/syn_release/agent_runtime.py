@@ -39,8 +39,11 @@ def runtime_view(store: SynReleaseStore, receipt: dict[str, Any], cache: Path) -
     raw = private_read(store.root / "inventories" / identity, 16_777_216)
     if hashlib.sha256(raw).hexdigest() != identity:
         raise StateMismatchError("Syn runtime source inventory changed")
-    inventory = document(raw, canonical_only=True)
-    if canonical(store._inventory(candidate)) != raw:
+    # File inventories have their existing 16 MiB / 50,000-file bound. They
+    # are not 64 KiB wire messages. Reuse the measured canonical inventory
+    # rather than broadening the release-document parser's public limit.
+    inventory = store._inventory(candidate)
+    if canonical(inventory) != raw:
         raise StateMismatchError("Syn runtime source differs from its admitted inventory")
     expected: dict[str, Any] = {}
     for key, value in inventory.items():

@@ -91,6 +91,16 @@ def test_changed_admitted_inventory_fails_before_view_creation(admitted):
     assert not cache.exists()
 
 
+def test_realistic_file_inventory_keeps_its_separate_bound_from_wire_documents(admitted):
+    store, source, seal, cache = admitted
+    for number in range(1000):
+        (source / f"dependency_{number:04}.py").write_bytes(b"public dependency fixture")
+    receipt = seal()
+    assert len((store.root / "inventories" / receipt["files_sha256"]).read_bytes()) > 65536
+    view = agent_runtime.runtime_view(store, receipt, cache)
+    assert (view / "dependency_0999.py").read_bytes() == b"public dependency fixture"
+
+
 def test_runtime_views_require_privileged_controller(monkeypatch):
     monkeypatch.setattr(os, "getuid", lambda: 1000)
     with pytest.raises(ScopeDeniedError, match="privileged native"):
