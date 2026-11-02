@@ -1,9 +1,11 @@
 # SYN-R05 — native Syn identity at Cog dispatch
 
-**Implementation candidate, 2 November 2026.** Potbot's normal sandboxed Cog
+**Implemented; released native boundary qualified, 2 November 2026.** Potbot's normal sandboxed Cog
 execution path now requires released native Syn nodes and a one-use task grant.
-Syn 0.4.0 is the paired upstream candidate. Required CI, publication and exact
-official-package qualification must be recorded separately before selecting it.
+Signed immutable Syn 0.4.0 passed independent published-byte verification and
+official-package acceptance on Python 3.12 and 3.13. The implementation merged in
+[PR 23](https://github.com/kieransimkin/potbot/pull/23) after complete source CI.
+Positive audited Cog-host execution and general rollout retain their own gates.
 
 ![Separate operator, native Agent nodes and Cog admission boundaries](media/syn-private-pubsub.svg)
 
@@ -93,6 +95,25 @@ host acceptance and general rollout retain their own roadmap gates.
 
 ## Evidence boundaries
 
+[Official native acceptance 41526414147](https://github.com/Synsphere/syn/actions/runs/41526414147)
+passed both supported Python versions with actual installed Syn 0.4.0 and the
+reviewed Potbot consumer `2d30849f3f13fee295e7a065b4be83c9965d07a3`.
+Each job reverified the signed release and full installation, ran one real
+operator and two restricted native Agent nodes, and exercised this complete
+adapter. No package/assignment registry fixture was substituted. The jobs
+retained signed native heartbeat receptions, missing/replayed/changed-task grant
+rejections and relay-loss fencing of nodes and monitors. Independent historical
+receipt checks also passed signatures, membership, boot/request bindings and
+plaintext commitments. These are retained observations, not live readiness.
+
+Select [upstream 0.4.0's independent pins and installation policy](https://github.com/Synsphere/syn/blob/master/docs/development/releases/v0.4.0.md):
+source `6205baf95b87193133d45c749a0fe5d5b577581f`, manifest SHA-256
+`a406356fba844a28c04870e45299ccd83e406b5dbe8b7a55741db6d5a6cd1088`,
+authority SHA-256 `a47f15e010613c0a839a48f2035b8f71d6f9e46ee3df07ed58487079d56ae216`.
+The first official attempt correctly rejected an unsorted capability list before
+installation. Upstream corrected the qualification generator and repeated both
+versions successfully; published runtime assets and the strict parser were unchanged.
+
 - Unit tests reject changed task/input/repository/snapshot/Agent/boot/session,
   expired, forged, absent and replayed grants, forged heartbeat claims and loss.
 - Existing Linux sandbox-executor tests exercise leases, typed results and
@@ -107,6 +128,9 @@ host acceptance and general rollout retain their own roadmap gates.
 Source implementation and passing fixture tests do not set U00's
 `runtime_qualified` flag or qualify autonomous coding. The persisted operator's
 private unlock/upgrade is a separate host handoff; no existing keystore is reset.
+Existing installations keep their selected version and identity until the
+separate SYN-R06 upgrade transition. Disposable acceptance runs are independent
+of production Agent/Cog activation and its qualified host gates.
 
 The headless protocol has no GUI to capture. The conceptual image and sequence
 are useful media; signed native receipts and CI logs provide actual evidence.
