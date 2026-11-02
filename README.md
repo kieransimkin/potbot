@@ -15,6 +15,11 @@ materialize isolated candidates, execute registered tools under a qualified Linu
 sandbox, and reconcile interrupted runs. The standard local Qwen encoder indexes
 explicit sources and searches PostgreSQL with pgvector under hard process supervision.
 Scoped SYN snapshots, pinned semantic catalogs and bounded typed proposal validation are also implemented.
+The [native Syn Cog admission integration](docs/implementation/syn-cog-admission.md)
+binds sandbox dispatch to a genuine released Syn identity and a one-use current-task
+grant. Official Syn 0.4.0 installation, encrypted native heartbeats and loss fencing
+passed Python 3.12/3.13 acceptance. Production Cog execution retains the existing
+qualified-image, resource/audit, task, budget and host gates.
 The scripted patch pipeline now records baseline failures, freezes a coding handoff,
 applies a bounded patch, checks its exact resulting state, and exports a retained
 patch plus an immutable verification manifest. It resumes from durable checkpoints.

@@ -164,8 +164,9 @@ checks. Potbot consumes this runtime correction through the official package;
 it neither copies the custody implementation nor increases sandbox limits to
 hide a leak. Existing identities are never reseeded as a recovery shortcut.
 
-The [SYN-R05 candidate](syn-cog-admission.md) adds Cog admission and supported
-Syn messaging; its delivery evidence remains separate from R04.
+The [SYN-R05 integration](syn-cog-admission.md) adds Cog admission and supported
+Syn messaging. Official Syn 0.4.0/native adapter acceptance passed Python 3.12
+and 3.13; its delivery evidence remains separate from R04 and positive Cog-host qualification.
 SYN-R06 owns general upgrades, recovery and group rotation/revocation. SYN-R07
 owns removal of the transitional runtime after released parity. No production
 consensus, cross-host networking or autonomous coding is established by R04.
