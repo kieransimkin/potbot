@@ -1233,12 +1233,12 @@
     },
     {
       "path": "docs/implementation/syn-release-installation.md",
-      "sha256": "9a6507a7d8620da68ebad1d34dbad658c68f1239a91cc5799fb99e207a7934b5",
-      "bytes": 9969,
+      "sha256": "23e4de687db6fb41ff97dc0e810e85d24ff03578ce83d518ba442affaf90170c",
+      "bytes": 10173,
       "kind": "narrative_text",
-      "text_sha256": "9a6507a7d8620da68ebad1d34dbad658c68f1239a91cc5799fb99e207a7934b5",
-      "characters": 9969,
-      "lines": 157,
+      "text_sha256": "23e4de687db6fb41ff97dc0e810e85d24ff03578ce83d518ba442affaf90170c",
+      "characters": 10173,
+      "lines": 161,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {

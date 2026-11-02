@@ -146,6 +146,10 @@ fresh checks at their own revision; this screenshot does not prove installation
 of a private official package or a running node.*
 
 
+The source inventory assigns this adapter its own operator deployment owner and
+the stage reference `syn-release:SYN-R02`. This neither registers a model-callable
+Cog nor establishes host qualification.
+
 The focused public CI runs real signature/redirect/archive negative cases and
 Linux cache, interruption, concurrency, offline and tamper cases using explicitly
 synthetic packages. It also records actual CLI help. Official-package acceptance

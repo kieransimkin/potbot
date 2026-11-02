@@ -216,3 +216,20 @@ def test_existing_context_and_persistent_service_have_explicit_owners():
     assert all(
         item["qualification"] == "not_established_by_source_inventory" for item in owners.values()
     )
+
+
+def test_syn_release_adapter_has_its_own_source_owner_without_import_or_node_admission():
+    snapshot = fixture_snapshot(
+        extra={
+            "src/potbot/syn_release/store.py": b"raise RuntimeError('inventory must not execute an installer')"
+        }
+    )
+    inventory = build_inventory(snapshot)
+    component = next(x for x in inventory["components"] if x["id"] == "syn_release")
+    assert component["source_state"] == "present"
+    assert component["stage_refs"] == ["syn-release:SYN-R02"]
+    assert "operator-owned" in component["integration_owner"]
+    assert component["qualification"] == "not_established_by_source_inventory"
+    assert [entry["path"] for entry in component["source_files"]] == [
+        "src/potbot/syn_release/store.py"
+    ]
