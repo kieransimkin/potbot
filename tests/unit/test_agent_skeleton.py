@@ -213,13 +213,10 @@ def test_interactive_pty_sources_the_agent_bashrc(registry):
             os.close(slave)
 
 
-def test_build_includes_vendor_assets_and_required_tools():
-    import tomllib
-
+def test_image_includes_required_welcome_tools():
     repo = Path(__file__).resolve().parents[2]
-    settings = tomllib.loads((repo / "pyproject.toml").read_text(encoding="utf-8"))
-    packaged = settings["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
-    assert packaged["src/potbot/tools/agent_skeleton"] == "potbot/tools/agent_skeleton"
+    # scripts/build_release.py verifies actual archive bytes and uniqueness.
+    # A particular force-include setting does not establish installed content.
     recipe = (repo / "sandbox/image/Dockerfile").read_text(encoding="utf-8")
     for package in ("figlet", "fortune-mod", "fortunes-min", "lolcat"):
         assert package in recipe

@@ -77,7 +77,9 @@ The [SYN-R04 Agent deployment controller](docs/implementation/syn-agent-deployme
 adds release-verified Agent sessions under separate Linux/WSL host accounts,
 canonical upstream selected-key and current-group custody, and retained identities
 across restarts. The signed official Syn 0.3.0 package passed local WSL acceptance
-through the complete controller with two genuine nodes. The dated upstream record
+through the complete controller with two genuine nodes. Subsequent native resource
+testing reproduced a connection leak; select the upstream 0.3.1 patch or a later
+qualified release. The [dated patch record](https://github.com/Synsphere/syn/blob/master/docs/development/releases/v0.3.1.md)
 tracks independent CI qualification and immutable release pins. Cog authorization
 stays disabled until SYN-R05.
 

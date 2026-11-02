@@ -8,8 +8,15 @@ group custody. Node and full keystore-session restarts retained their identities
 locked stores fenced the nodes. The reviewed native consumer is
 `33bdf4d21f575adf48d99fcb01ee43a943c6398e`. The [upstream dated release
 record](https://github.com/Synsphere/syn/blob/master/docs/development/releases/v0.3.0.md)
-tracks independent GitHub qualification. Full consumer CI and preview publication
-remain separate delivery gates; no production Cog admission follows.
+tracks independent GitHub qualification. The later official run passed Python
+3.12 but failed a late status request on Python 3.13. An isolated native-store
+test reproduced an upstream connection leak at the unchanged descriptor limit.
+Select the **0.3.1 patch or a subsequently qualified release**, using independently
+retained source, authority and manifest pins; 0.3.0 remains the initial local
+fixture result. The [0.3.1 release record](https://github.com/Synsphere/syn/blob/master/docs/development/releases/v0.3.1.md)
+records correction, publication and official-package acceptance as separate gates.
+Full consumer CI and preview publication also remain separate; no production Cog
+admission follows from any package or fixture result.
 
 ![Operator authority and two separate Agent sandboxes](media/syn-agent-custody.svg)
 
@@ -149,6 +156,13 @@ installs the signed published bytes and exercises the complete `potbot syn-agent
 controller, immutable store and fresh client verification. The local WSL run
 passed this complete path. Retain each run's manifest, source, consumer and wheel
 digests; a static illustration or package publication is insufficient evidence.
+
+The upstream native fixture also performs 600 real credential operations with
+garbage collection disabled and the same 128-descriptor Agent limit. Explicit
+connection cleanup keeps resource use bounded across repeated health and status
+checks. Potbot consumes this runtime correction through the official package;
+it neither copies the custody implementation nor increases sandbox limits to
+hide a leak. Existing identities are never reseeded as a recovery shortcut.
 
 SYN-R05 still owns Cog admission and the supported Syn messaging integration.
 SYN-R06 owns general upgrades, recovery and group rotation/revocation. SYN-R07
