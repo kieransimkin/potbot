@@ -50,6 +50,7 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
         no_start=False,
         replace=False,
         download_embeddings=False,
+        operator_manifest=None,
     )
     assert service.install(opts)["started"] is True
     assert installed == ["installed", "start"]

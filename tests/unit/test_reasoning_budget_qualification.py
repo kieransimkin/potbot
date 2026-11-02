@@ -82,11 +82,11 @@ def test_reasoning_budget_migration_keeps_previous_history() -> None:
     from potbot.persistence.schema import application_migrations
 
     migrations = application_migrations()
-    assert [(m.version, m.name) for m in migrations[-2:]] == [
+    assert [(m.version, m.name) for m in migrations if m.version in {24, 25}] == [
         (24, "reasoning_runtime_schema"),
         (25, "reasoning_budget_schema"),
     ]
-    migration = migrations[-1]
+    migration = next(m for m in migrations if m.version == 25)
     assert migration.workspace_tables == ("reasoning_budget_invocations",)
     assert any("FOREIGN KEY(workspace_id,reservation_id)" in sql for sql in migration.statements)
 

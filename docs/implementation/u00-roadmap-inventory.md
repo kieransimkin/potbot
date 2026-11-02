@@ -174,6 +174,15 @@ JPEGs fail immediately. Disconnection, permission errors and cancellation do not
 trigger a fallback. Regression tests cover real coroutine timeouts and cancelled
 capture reads; no synthetic unit image qualifies a live browser or Xpra host.
 
+The next complete run reached 3,314 passing unit/Git tests, then exposed nested
+AF_UNIX fixture paths and outdated CLI/service and migration-history fixtures.
+The check runner now lets pytest allocate its own private tree directly under
+`/tmp` on hosted Linux CI, preserving an explicit `POTBOT_TEMP_ROOT`. Other child
+temporary files remain in the runner-owned tree. This changes test storage, not
+production socket permissions or admission. CLI fixtures now supply a real route
+container and current service options; historical migration assertions select
+versions 24/25 explicitly so later context migrations remain intact.
+
 Run the existing complete application, PostgreSQL, sandbox and four-profile
 rendered acceptance lanes on the repaired revision before merging. Local Windows
 checks do not qualify Linux namespaces, cgroups, Xpra or production node modes.

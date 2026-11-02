@@ -1226,12 +1226,12 @@
     },
     {
       "path": "docs/implementation/u00-roadmap-inventory.md",
-      "sha256": "b8c45e9a8603350ecead587e8b4dffc9bd0db058268ee2ec3c9b2dccdb752ff8",
-      "bytes": 11028,
+      "sha256": "fa9ad760252e14e0f5c56dc93a337edc00beeb62429635d969cef8b98354243a",
+      "bytes": 11656,
       "kind": "narrative_text",
-      "text_sha256": "b8c45e9a8603350ecead587e8b4dffc9bd0db058268ee2ec3c9b2dccdb752ff8",
-      "characters": 10996,
-      "lines": 180,
+      "text_sha256": "fa9ad760252e14e0f5c56dc93a337edc00beeb62429635d969cef8b98354243a",
+      "characters": 11624,
+      "lines": 189,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -25398,12 +25398,12 @@
     },
     {
       "path": "scripts/check.py",
-      "sha256": "0f203597e9667691823b9446edabea56dea66f238e130a3ff0830f97c4adee9d",
-      "bytes": 12956,
+      "sha256": "1410f04fc9806dbab07b2ad6d95a0ee278309b6f4189c58fa573c9e6795af2c7",
+      "bytes": 13858,
       "kind": "narrative_text",
-      "text_sha256": "0f203597e9667691823b9446edabea56dea66f238e130a3ff0830f97c4adee9d",
-      "characters": 12956,
-      "lines": 311,
+      "text_sha256": "1410f04fc9806dbab07b2ad6d95a0ee278309b6f4189c58fa573c9e6795af2c7",
+      "characters": 13858,
+      "lines": 329,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -25578,12 +25578,12 @@
     },
     {
       "path": "tests/unit/test_check_runner.py",
-      "sha256": "495575d70e0e040a1378c1750ba95fc5019edb9367941b7caa0f8ffde5e328e3",
-      "bytes": 4390,
+      "sha256": "256334eb927acf6879b02823be347bded4d64d6854a967f023a5611b77e90df2",
+      "bytes": 5932,
       "kind": "narrative_text",
-      "text_sha256": "495575d70e0e040a1378c1750ba95fc5019edb9367941b7caa0f8ffde5e328e3",
-      "characters": 4390,
-      "lines": 108,
+      "text_sha256": "256334eb927acf6879b02823be347bded4d64d6854a967f023a5611b77e90df2",
+      "characters": 5932,
+      "lines": 142,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
