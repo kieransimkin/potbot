@@ -235,6 +235,38 @@ def test_changed_policy_fences_health_before_invoking_upstream(native_deployment
         native_deployment._status(None, {})
 
 
+def test_unexpected_successful_child_exit_is_fenced(native_deployment, monkeypatch):
+    import subprocess
+    import sys
+
+    from potbot.syn_release import operator
+
+    original = subprocess.Popen
+
+    def launch(*args, **kwargs):
+        return original([sys.executable, "-c", "pass"], **kwargs)
+
+    monkeypatch.setattr(operator.subprocess, "Popen", launch)
+    monkeypatch.setattr(
+        native_deployment,
+        "_installation",
+        lambda: ({"directory": "fixture", "observed": {"runtime": {}}}, sys.executable),
+    )
+    monkeypatch.setattr(
+        native_deployment,
+        "_registered",
+        lambda: {"installation": "fixture", "base_public_key_hash": "ab" * 32},
+    )
+
+    def unavailable(*args):
+        raise StateMismatchError("Disposable child has no operator endpoint")
+
+    monkeypatch.setattr(native_deployment, "_status", unavailable)
+    with pytest.raises(StateMismatchError, match="exited unexpectedly"):
+        native_deployment.supervise()
+    assert json.loads((native_deployment.root / "lifecycle.json").read_text())["state"] == "fenced"
+
+
 def test_revoked_policy_refuses_health_before_invoking_upstream(native_deployment, tmp_path):
     changed = dict(native_deployment.policy.value)
     changed["revoked_manifests"] = [changed["manifest_sha256"]]

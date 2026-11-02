@@ -354,12 +354,14 @@ class SynOperatorDeployment:
         self._lifecycle(evidence)
         output_size = 0
         failed = True
+        requested_stop = False
         try:
             with selectors.DefaultSelector() as selector:
                 selector.register(process.stdout, selectors.EVENT_READ)
                 deadline = time.monotonic() + 20
                 while process.poll() is None:
                     if stop is not None and stop():
+                        requested_stop = True
                         break
                     if selector.select(0.1):
                         chunk = os.read(process.stdout.fileno(), 65536)
@@ -387,7 +389,7 @@ class SynOperatorDeployment:
                     # immutable package on every heartbeat would cause heavy I/O.
                     deadline = time.monotonic() + 8
                     time.sleep(2)
-                if process.poll() not in (None, 0):
+                if not requested_stop:
                     raise StateMismatchError(
                         "Operator exited unexpectedly; retained identity is fenced"
                     )
