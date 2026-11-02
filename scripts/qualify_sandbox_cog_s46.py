@@ -161,7 +161,9 @@ async def qualify(config: dict, head: str, hashes: dict[str, str]) -> dict:
     for agent, home in zip(agents, registered, strict=True):
         run_id, nonce = uuid4(), secrets.token_hex(32)
         supervisor = RecordedSupervisor()
-        executor = SandboxedCogExecutor(runtime, ledger, homes, supervisor, mesh)
+        executor = SandboxedCogExecutor(
+            runtime, ledger, homes, supervisor, mesh, development_syn_fixture=True
+        )
         # This is explicitly a direct executor smoke, not a sealed SYN catalogue
         # invocation. Full execution provenance has its own PostgreSQL gate.
         context = CogRunContext(content_hash(hashes), uuid4(), uuid4(), run_id)

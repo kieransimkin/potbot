@@ -155,7 +155,14 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
             assert database is app_env.db and actor == app_env.context
             assert all(isinstance(item, SandboxedCogOperation) for item in installed)
 
-        async def execute(self, op, value, context, actor, agent):
+        def syn_probe(self, actor, agent):
+            assert actor == app_env.context and agent == sandbox_agent
+
+        def authorize_syn(self, op, value, context, actor, agent):
+            self.syn_probe(actor, agent)
+            return None  # Explicit transport double, no native Syn qualification.
+
+        async def execute(self, op, value, context, actor, agent, *, syn_authorization=None):
             assert actor == app_env.context and agent == sandbox_agent
             assert isinstance(op, SandboxedCogOperation)
             self.dispatched.append((op.binding.kind, context.invocation_id))

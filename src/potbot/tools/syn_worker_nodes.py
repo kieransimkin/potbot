@@ -1,13 +1,8 @@
-"""Operator-mediated, workspace-local SYN heartbeat nodes for sandboxed Cog workers.
+"""Heartbeat value/monitor primitives and explicit development-only local relay.
 
-Every admitted Cog invocation owns a distinct runtime instance and *only* the
-operator's relay can deliver its typed heartbeats.  This is deliberately a local
-SYN-node protocol adapter, not an unverified external SYN network implementation.
-It grants no filesystem/network authority to an agent.  Heartbeats are advisory;
-only the host cgroup/pidfd/lease audit can establish process termination.
-
-A future signed SYN transport can replace the relay without changing the wire
-contract, but it must qualify identity, network policy and cross-host ordering.
+Production dispatch uses ReleasedSynWorkerNodeMesh with canonical released Syn
+nodes. This in-process relay remains a test/sandbox smoke fixture. Heartbeats
+are advisory; only host process, cgroup, audit and lease evidence proves exit.
 """
 
 from __future__ import annotations

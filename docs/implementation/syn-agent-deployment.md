@@ -34,9 +34,9 @@ pipe carries public documents and ciphertext. The private password prompt runs
 inside Syn and reads the controlling terminal directly.
 
 One Agent owns one long-lived Syn node. A Cog invocation does not create a new
-Agent identity. Provisioning leaves `cog_execution_authorized=false`; SYN-R05
-must bind the genuine node to the monitored execution boundary before work can
-be admitted. Existing worker actors and the transitional `syn-node/` remain
+Agent identity. Provisioning leaves `cog_execution_authorized=false`; the
+[SYN-R05 admission boundary](syn-cog-admission.md) separately binds the genuine
+node to the monitored execution path before work can be admitted. Existing worker actors and the transitional `syn-node/` remain
 historical development paths, outside this production launch path.
 
 ## Approved virtual-device policy
@@ -164,7 +164,8 @@ checks. Potbot consumes this runtime correction through the official package;
 it neither copies the custody implementation nor increases sandbox limits to
 hide a leak. Existing identities are never reseeded as a recovery shortcut.
 
-SYN-R05 still owns Cog admission and the supported Syn messaging integration.
+The [SYN-R05 candidate](syn-cog-admission.md) adds Cog admission and supported
+Syn messaging; its delivery evidence remains separate from R04.
 SYN-R06 owns general upgrades, recovery and group rotation/revocation. SYN-R07
 owns removal of the transitional runtime after released parity. No production
 consensus, cross-host networking or autonomous coding is established by R04.

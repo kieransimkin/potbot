@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="600" viewBox="0 0 1120 600" role="img" aria-labelledby="title desc">
+<title id="title">Syn transport and Potbot task authorization</title>
+<desc id="desc">Architecture illustration. A trusted controller admits task-scoped Cogs separately from two isolated native Syn nodes. An official Syn relay carries signed ciphertext. Real reception and task authorization are separate evidence.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#83e6d3"/></marker></defs>
+<rect width="1120" height="600" rx="20" fill="#111b2b"/>
+<g font-family="Arial,sans-serif" fill="#eef4fb">
+<text x="40" y="48" font-size="26" font-weight="bold">Real identity and permission are separate gates</text>
+<text x="40" y="78" font-size="16" fill="#a8bdd4">SYN-R05 architecture illustration · Linux / WSL · volatile local transport</text>
+<rect x="40" y="115" width="1040" height="120" rx="14" fill="#24344a" stroke="#88a2c4"/>
+<text x="64" y="147" font-size="20" font-weight="bold">Trusted Potbot controller</text>
+<text x="64" y="178" font-size="17">Current task + sealed Cog + input + policy → one-use dispatch grant</text>
+<text x="64" y="207" font-size="16" fill="#c5d3e5">Exact released packages · owned native sessions · image / lease / audit gates</text>
+<rect x="40" y="280" width="310" height="210" rx="14" fill="#163b40" stroke="#83e6d3"/>
+<text x="62" y="314" font-size="20" font-weight="bold">Agent A boundary</text>
+<text x="62" y="348" font-size="17">Genuine Syn node / own UID</text>
+<text x="62" y="377" font-size="17">Native leaf + group custody</text>
+<text x="62" y="414" font-size="17">Per-Cog logical monitor</text>
+<text x="62" y="445" font-size="16" fill="#b3dedc">Identity persists across Cogs</text>
+<rect x="416" y="315" width="288" height="140" rx="14" fill="#283449" stroke="#88a2c4"/>
+<text x="439" y="349" font-size="20" font-weight="bold">Canonical Syn relay</text>
+<text x="439" y="381" font-size="17">Signed ciphertext only</text>
+<text x="439" y="411" font-size="16" fill="#c5d3e5">Private local sockets · no IP</text>
+<rect x="770" y="280" width="310" height="210" rx="14" fill="#163b40" stroke="#83e6d3"/>
+<text x="792" y="314" font-size="20" font-weight="bold">Agent B boundary</text>
+<text x="792" y="348" font-size="17">Distinct Syn node / own UID</text>
+<text x="792" y="377" font-size="17">Native leaf + group custody</text>
+<text x="792" y="414" font-size="17">Signed decrypted reception</text>
+<text x="792" y="445" font-size="16" fill="#b3dedc">Heartbeat never grants work</text>
+<g stroke="#83e6d3" stroke-width="3" marker-end="url(#arrow)"><path d="M195 235V277"/><path d="M925 235V277"/><path d="M352 385H412"/><path d="M706 385H766"/></g>
+<text x="40" y="537" font-size="18">Relay acceptance ≠ peer reception ≠ task authority ≠ confirmed process exit</text>
+<text x="40" y="570" font-size="15" fill="#a8bdd4">Conceptual illustration. It does not establish package publication, a running Cog or qualified host behavior.</text>
+</g></svg>
