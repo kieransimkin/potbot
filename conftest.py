@@ -1,7 +1,8 @@
-"""Isolated project-local scratch paths for every pytest file and directory."""
+"""Isolated user-owned scratch paths for every pytest file and directory."""
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from pathlib import Path
@@ -40,6 +41,8 @@ class WorkspaceTempFactory:
 def pytest_configure(config: pytest.Config) -> None:
     supplied = config.option.basetemp
     configured = os.environ.get("POTBOT_TEMP_ROOT")
+    checkout = Path(__file__).parent.resolve()
+    checkout_key = hashlib.sha256(str(checkout).casefold().encode("utf-8")).hexdigest()[:12]
     # Linux AF_UNIX paths are capped at 108 bytes. GitHub's long checkout path
     # plus two private fixture generations can exceed that bound. On CI only,
     # place the still-unique, mode-0700 scratch tree directly under /tmp.
@@ -51,8 +54,14 @@ def pytest_configure(config: pytest.Config) -> None:
         if configured
         else Path("/tmp")
         if os.name == "posix" and os.environ.get("GITHUB_ACTIONS") == "true"
-        else Path(__file__).parent / ".potbot" / "temporary"
+        else Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+        / "potbot"
+        / "pytest"
+        / checkout_key
+        if os.name == "nt"
+        else checkout / ".potbot" / "temporary"
     )
+    parent = create_directory(parent)
     owner = TemporaryDirectory(prefix="potbot-pytest-", dir=parent)
     base = create_directory(Path(owner.name) / "run")
     config.option.basetemp = str(Path(supplied).absolute() if supplied else base)
