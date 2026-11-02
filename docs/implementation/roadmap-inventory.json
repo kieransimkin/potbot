@@ -1226,12 +1226,12 @@
     },
     {
       "path": "docs/implementation/u00-roadmap-inventory.md",
-      "sha256": "8d1b9ca15afe8616ea4576c004f3c24623bd1ce016bfdd99adc5c87fea34539f",
-      "bytes": 13069,
+      "sha256": "7c145ef84d152a88cbb5721a5e2b3cc63e5bfdf50633bbe495a40bb1b98c2af9",
+      "bytes": 13299,
       "kind": "narrative_text",
-      "text_sha256": "8d1b9ca15afe8616ea4576c004f3c24623bd1ce016bfdd99adc5c87fea34539f",
-      "characters": 13037,
-      "lines": 209,
+      "text_sha256": "7c145ef84d152a88cbb5721a5e2b3cc63e5bfdf50633bbe495a40bb1b98c2af9",
+      "characters": 13267,
+      "lines": 212,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {

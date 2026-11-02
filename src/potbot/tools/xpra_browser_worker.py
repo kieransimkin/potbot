@@ -336,6 +336,9 @@ class BrowserWorker:
         if egress is not None:
             await install_https_routes(self.context, *egress)
         self.page = await self.context.new_page()
+        # Activate the newly launched window once, as part of startup. Capture
+        # commands never steal focus from an already running browser session.
+        await asyncio.wait_for(self.page.bring_to_front(), timeout=3.0)
         self.page.on("requestfailed", lambda request: self._errors.append(_safe_url(request.url)))
         self.cdp = await self.context.new_cdp_session(self.page)
         self.cdp.on("CSS.styleSheetAdded", self._remember_sheet)

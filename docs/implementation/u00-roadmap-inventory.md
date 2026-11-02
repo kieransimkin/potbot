@@ -173,7 +173,10 @@ The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/bl
 defines the view/surface selector and base64 screenshot result. Both attempts
 share a six-second total deadline with a bounded two-frame readiness fence,
 inside the worker's 12-second command deadline. The fence waits for rendering
-without changing focus, navigation or page content. Invalid base64, missing/oversized images and malformed
+without changing focus, navigation or page content. Startup separately activates
+the newly launched browser window once, before reporting readiness. Capture never
+activates an existing window. Rendered acceptance repeats independent cold starts
+to expose first-frame display races. Invalid base64, missing/oversized images and malformed
 JPEGs fail immediately. Only the selected engine's exact capture-unavailable
 response permits the alternate read. A timeout may leave Chromium's capture
 pending even after cancellation of the local wait; starting another capture can

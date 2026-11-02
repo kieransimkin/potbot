@@ -85,6 +85,13 @@ async def browser(html):
             content=(FIXTURES / "probe.js").read_text()
             + "\n//# sourceURL=https://potbot.invalid/probe.js"
         )
+        print(
+            "initial_render_state",
+            await worker.page.evaluate(
+                "() => ({visibility: document.visibilityState, focused: document.hasFocus(), "
+                "width: innerWidth, height: innerHeight})"
+            ),
+        )
         yield worker
     finally:
         await worker.close()
@@ -168,6 +175,12 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             assert "synthetic-probe" in after["aria"]
             without_pixels = await worker.execute({"op": "sample", "image": False})
             assert "base64" not in without_pixels["frame"]
+        # Repeat independent cold starts to expose first-frame display races.
+        for _ in range(2):
+            async with browser(probe_page) as fresh:
+                observation = await fresh.execute({"op": "sample", "image": True})
+                assert 'textbox "Username"' in observation["aria"]
+                decode_frame(observation)
 
     asyncio.run(scenario())
 
