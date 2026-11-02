@@ -73,12 +73,13 @@ adds exact upstream release selection, signature/payload verification, offline
 reuse and atomic package admission. It does not qualify operator or Agent node
 modes or activate the transitional runtime.
 
-The [SYN-R04 Agent deployment candidate](docs/implementation/syn-agent-deployment.md)
+The [SYN-R04 Agent deployment controller](docs/implementation/syn-agent-deployment.md)
 adds release-verified Agent sessions under separate Linux/WSL host accounts,
 canonical upstream selected-key and current-group custody, and retained identities
-across restarts. Its source-package native check ran two genuine nodes. Signed
-publication and official-package acceptance remain separately recorded gates;
-Cog authorization stays disabled until SYN-R05.
+across restarts. The signed official Syn 0.3.0 package passed local WSL acceptance
+through the complete controller with two genuine nodes. The dated upstream record
+tracks independent CI qualification and immutable release pins. Cog authorization
+stays disabled until SYN-R05.
 
 ## Install and check
 

@@ -29,12 +29,12 @@
     },
     {
       "path": "README.md",
-      "sha256": "92232244a0cc4b21f1b99414831964e76b9bed8e8fb1fc5bc11ea3f285a7e3a9",
-      "bytes": 29966,
+      "sha256": "32e36dea26841fc7a34b0c20bdc9511fa10df6ed707fcbf51d74df5448efd3ef",
+      "bytes": 30039,
       "kind": "narrative_text",
-      "text_sha256": "92232244a0cc4b21f1b99414831964e76b9bed8e8fb1fc5bc11ea3f285a7e3a9",
-      "characters": 29964,
-      "lines": 513,
+      "text_sha256": "32e36dea26841fc7a34b0c20bdc9511fa10df6ed707fcbf51d74df5448efd3ef",
+      "characters": 30037,
+      "lines": 514,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1237,12 +1237,12 @@
     },
     {
       "path": "docs/implementation/syn-agent-deployment.md",
-      "sha256": "f84fc02c29a9becd1b606f5ce39d3d4a12dee7be08d5fccac3b6abaf2bf005cb",
-      "bytes": 7940,
+      "sha256": "b9daf78cce29c9142fff22981dfa2cd503f9e0bb78ac92a6d36725b0b90ba0c7",
+      "bytes": 9037,
       "kind": "narrative_text",
-      "text_sha256": "f84fc02c29a9becd1b606f5ce39d3d4a12dee7be08d5fccac3b6abaf2bf005cb",
-      "characters": 7938,
-      "lines": 145,
+      "text_sha256": "b9daf78cce29c9142fff22981dfa2cd503f9e0bb78ac92a6d36725b0b90ba0c7",
+      "characters": 9035,
+      "lines": 160,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1257,11 +1257,11 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "a4d95fc3ee36981b0e19df72d0db1cd92a9005627bf3859b9935cd4280af7acd",
-      "bytes": 8907,
+      "sha256": "c956e6be0bddff307052180b7076618a411b72d8658fb2f4af665191f7e01e78",
+      "bytes": 9048,
       "kind": "narrative_text",
-      "text_sha256": "a4d95fc3ee36981b0e19df72d0db1cd92a9005627bf3859b9935cd4280af7acd",
-      "characters": 8901,
+      "text_sha256": "c956e6be0bddff307052180b7076618a411b72d8658fb2f4af665191f7e01e78",
+      "characters": 9042,
       "lines": 47,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -22100,10 +22100,10 @@
       "legacy_id": "SYN-R04",
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R04",
-      "title": "[Agent provisioning candidate](syn-agent-deployment.md)",
+      "title": "[Agent provisioning and official-package acceptance](syn-agent-deployment.md)",
       "locator": "line:38",
       "source_claim": "requirements_only",
-      "requirement_sha256": "64326484f7dc0d84836286393d91cf996bc762bc3c4faacff436d2071827d110",
+      "requirement_sha256": "f3c1a31c51d4ab728ed90c2b11acbd20a384d7c56f227b109e00f4ca00fb361a",
       "unified_owners": [
         "U02",
         "U03",

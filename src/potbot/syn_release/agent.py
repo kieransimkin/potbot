@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 
 from .agent_host import provision
+from .agent_runtime import runtime_view
 from .agent_sandbox import prepared_launch
 from .commands import SynPublicCommands
 from .contracts import Policy, canonical, digest, document
@@ -245,6 +246,7 @@ class SynAgentDeployment(SynPublicCommands):
             raise StateMismatchError(
                 "Agent host registration is absent; explicit first initialization is required"
             )
+        view = runtime_view(self.store, receipt, self.root / ".runtimes")
         host = provision(self.root, agent_id=self.agent_id, uid=self.uid)
         directory = Path(host["home"]) / "syn"
         if new_identity and directory.exists():
@@ -257,7 +259,7 @@ class SynAgentDeployment(SynPublicCommands):
             python, ["-c", "import json,sys;print(json.dumps({'prefix':sys.base_prefix}))"]
         )
         prefix = Path(metadata["prefix"]).resolve(strict=True)
-        roots = tuple(dict.fromkeys((python.parent.parent, prefix)))
+        roots = tuple(dict.fromkeys((view, prefix)))
         arguments: tuple[str, ...] = (
             "--state-dir",
             str(directory),
@@ -279,7 +281,7 @@ class SynAgentDeployment(SynPublicCommands):
         if new_identity:
             arguments += ("--new-identity",)
         with prepared_launch(
-            host=host, python=python, runtime_roots=roots, arguments=arguments
+            host=host, python=view / "bin/python", runtime_roots=roots, arguments=arguments
         ) as launch:
             process = subprocess.Popen(
                 launch.argv,

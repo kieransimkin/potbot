@@ -182,6 +182,10 @@ def prepared_launch(
                 ancestors.update(parent for parent in destination.parents if parent != Path("/"))
             for ancestor in sorted(ancestors, key=lambda item: (len(item.parts), str(item))):
                 argv.extend(("--dir", str(ancestor), "--chmod", "0755", str(ancestor)))
+            # A protected runtime prefix may itself live below /tmp. Empty
+            # ancestor placeholders must not remove the private tmpfs's sticky
+            # writable mode, which native D-Bus needs for its own sockets.
+            argv.extend(("--chmod", "1777", "/tmp"))
             for path in (Path("/usr"), Path("/lib"), Path("/lib64")):
                 if path.exists():
                     argv.extend(("--ro-bind", str(path), str(path)))

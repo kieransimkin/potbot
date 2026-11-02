@@ -96,7 +96,12 @@ def main(argv: list[str] | None = None) -> int:
                             response = deployment.attach()
                             session.observe(response, owner_uid=args.uid)
                     _output(response)
-    except (DomainError, OSError, ValueError, KeyError):
+    except DomainError as error:
+        # Classified application errors are public contracts; retain their
+        # actionable reason without exposing arbitrary OS exceptions or paths.
+        print(canonical(error.to_dict()).decode(), file=sys.stderr)
+        return 2
+    except (OSError, ValueError, KeyError):
         print(
             "Syn Agent deployment refused; reconcile the pinned release, private native custody and host registration",
             file=sys.stderr,
