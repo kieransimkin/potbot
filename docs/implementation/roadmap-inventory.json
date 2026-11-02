@@ -1097,6 +1097,13 @@
       "interpretation": "asset_identity_only"
     },
     {
+      "path": "docs/implementation/media/syn-operator-pr18-merged.png",
+      "sha256": "87700a44913f2ec8e4702d0f959d06f4acf89bad136182e3d9696f3b6ae87d45",
+      "bytes": 152006,
+      "kind": "media",
+      "interpretation": "asset_identity_only"
+    },
+    {
       "path": "docs/implementation/media/syn-release-boundary-tests.jpg",
       "sha256": "4875dc88129d465eec9f1e6868c20949c259a3627dc166c805fdf57945b74752",
       "bytes": 75428,
@@ -1223,12 +1230,12 @@
     },
     {
       "path": "docs/implementation/syn-operator-deployment.md",
-      "sha256": "0737ad994dca7a70631394ff7d4776ead541f169bcba640ced9bad4338895eaf",
-      "bytes": 6745,
+      "sha256": "535557b2a84e9ccd15e1682aede9cb50053f25a19cd24abbc352191dbb78e0ca",
+      "bytes": 7941,
       "kind": "narrative_text",
-      "text_sha256": "0737ad994dca7a70631394ff7d4776ead541f169bcba640ced9bad4338895eaf",
-      "characters": 6745,
-      "lines": 122,
+      "text_sha256": "535557b2a84e9ccd15e1682aede9cb50053f25a19cd24abbc352191dbb78e0ca",
+      "characters": 7941,
+      "lines": 141,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1243,12 +1250,12 @@
     },
     {
       "path": "docs/implementation/syn-release-installation.md",
-      "sha256": "e1ee29ca8f8a9087f9536c7a09f5384504cfc5d0b6d265e1c3d177da0510ee61",
-      "bytes": 10332,
+      "sha256": "531dc0590dacab18c15688349b3ae238bc9192600c8cb8103d71d55db12f05a6",
+      "bytes": 10422,
       "kind": "narrative_text",
-      "text_sha256": "e1ee29ca8f8a9087f9536c7a09f5384504cfc5d0b6d265e1c3d177da0510ee61",
-      "characters": 10332,
-      "lines": 163,
+      "text_sha256": "531dc0590dacab18c15688349b3ae238bc9192600c8cb8103d71d55db12f05a6",
+      "characters": 10422,
+      "lines": 165,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
