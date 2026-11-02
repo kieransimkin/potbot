@@ -87,8 +87,9 @@ This never permits a source checkout or source build of Syn itself. Build tools
 run with no GitHub token, release key, node identity or inherited user package
 configuration. The preparation host must be trusted to execute these approved
 builds; this installer is not a hostile-build sandbox or a hermetic build-system
-attestation. The retained cache inventory identifies the exact resulting build
-inputs and wheels for explicit offline selection.
+attestation. The retained cache inventory identifies downloaded dependency data and prepared
+wheels for explicit offline selection; it does not attest the host compiler or
+system libraries.
 
 The installed official `syn-client` repeats schema and compatibility checks.
 A runtime also repeats official signature verification and must report exactly
