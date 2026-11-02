@@ -56,19 +56,18 @@ def pytest_configure(config: pytest.Config) -> None:
         if os.name == "posix" and os.environ.get("GITHUB_ACTIONS") == "true"
         else Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
         / "potbot"
-        / "pytest"
-        / checkout_key
+        / "pytest-tmp"
         if os.name == "nt"
         else checkout / ".potbot" / "temporary"
     )
     parent = create_directory(parent)
-    owner = TemporaryDirectory(prefix="potbot-pytest-", dir=parent)
+    owner = TemporaryDirectory(prefix=f"potbot-pytest-{checkout_key}-", dir=parent)
     base = create_directory(Path(owner.name) / "run")
     config.option.basetemp = str(Path(supplied).absolute() if supplied else base)
     config.stash[_FACTORY] = WorkspaceTempFactory(base)
     # Cache writes must inherit the same tested parent ACL, including v/cache.
     cache = create_directory(Path(owner.name) / "cache" / "v" / "cache").parents[1]
-    config.inicfg["cache_dir"] = str(cache)
+    config._inicache["cache_dir"] = str(cache)
     config.add_cleanup(owner.cleanup)
 
 
