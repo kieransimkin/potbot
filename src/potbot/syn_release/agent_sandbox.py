@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
-import tempfile
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -17,6 +16,7 @@ from typing import Any
 
 from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
 from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
+from potbot.tools.temporary import TemporaryDirectory
 
 
 @contextmanager
@@ -90,7 +90,7 @@ def prepared_launch(*, host: Mapping[str, Any], python: Path, runtime_roots: tup
     tool = executable.stat()
     if tool.st_uid != 0 or tool.st_mode & 0o022 or not stat.S_ISREG(tool.st_mode):
         raise ScopeDeniedError("Bubblewrap must be a root-owned native executable")
-    with tempfile.TemporaryDirectory(prefix="run-", dir=home.parent) as transient, native_user_namespace(uid, gid) as userns:
+    with TemporaryDirectory(prefix="syn-agent-run-", dir=home.parent) as transient, native_user_namespace(uid, gid) as userns:
         runtime = Path(transient) / "runtime"
         runtime.mkdir(mode=0o700)
         os.chown(runtime, uid, gid)
