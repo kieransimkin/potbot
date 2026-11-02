@@ -105,6 +105,15 @@ Runtime memory, process, descriptor and file-size limits are applied. This is a
 Syn runtime profile; it does not replace Cog image, lease, syscall-audit,
 PostgreSQL or budget qualification.
 
+The admitted installer environment stays private and immutable. Before a native
+UID can execute it, the root controller creates a separate execution view of
+only that environment's runtime files. Every byte, relative link and executable
+bit is checked against the retained admission inventory; the view normalizes
+read/execute permissions without changing the sealed store. The root-owned view
+is mounted read-only in the Agent sandbox. Changed or partial views fence launch
+and are never repaired or accepted automatically. Verification probes explicitly
+disable bytecode writes, including when the controller runs as root.
+
 ## Controller entry point
 
 Use `potbot syn-agent --help` for the complete argument contract. Operations run
