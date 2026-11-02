@@ -42,9 +42,10 @@ def pytest_configure(config: pytest.Config) -> None:
     supplied = config.option.basetemp
     configured = os.environ.get("POTBOT_TEMP_ROOT")
     checkout = Path(__file__).parent.resolve()
-    checkout_key = hashlib.sha256(str(checkout).casefold().encode("utf-8")).hexdigest()[:12]
+    checkout_key = hashlib.sha256(str(checkout).casefold().encode("utf-8")).hexdigest()[:6]
     # Linux AF_UNIX paths are capped at 108 bytes. GitHub's long checkout path
-    # plus two private fixture generations can exceed that bound. On CI only,
+    # plus two private fixture generations can exceed that bound. Keep labels
+    # short while retaining the complete 128-bit allocation nonce at each level. On CI only,
     # place the still-unique, mode-0700 scratch tree directly under /tmp.
     # Explicit --basetemp and POTBOT_TEMP_ROOT always take precedence.
     parent = (
@@ -78,5 +79,5 @@ def tmp_path_factory(request: pytest.FixtureRequest) -> WorkspaceTempFactory:
 
 @pytest.fixture
 def tmp_path(tmp_path_factory: WorkspaceTempFactory, request: pytest.FixtureRequest) -> Path:
-    name = re.sub(r"[^A-Za-z0-9._-]", "_", request.node.name)[:12] or "test"
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", request.node.name)[:6] or "test"
     return tmp_path_factory.mktemp(name)
