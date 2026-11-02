@@ -5,6 +5,7 @@ upstream two-node native gate, not these small public-controller regressions.
 """
 from __future__ import annotations
 
+import sys
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -43,3 +44,21 @@ def test_enrollment_frame_bound_is_checked_before_any_write():
     session = AgentSession(SimpleNamespace(stdin=RefuseWrites()))
     with pytest.raises(ScopeDeniedError, match="bound"):
         session.exchange("offer", {"padding": "x" * 65536})
+
+
+def test_existing_group_is_not_adopted_by_new_agent_account(monkeypatch, tmp_path):
+    if sys.platform != "linux":
+        pytest.skip("Native Linux account policy")
+    import grp
+    import pwd
+
+    from potbot.domain.errors import StateMismatchError
+    from potbot.syn_release.agent_host import _provision_locked
+    def absent(_):
+        raise KeyError
+    monkeypatch.setattr(pwd, "getpwnam", absent)
+    monkeypatch.setattr(pwd, "getpwuid", absent)
+    monkeypatch.setattr(grp, "getgrgid", lambda _: SimpleNamespace(gr_name="foreign"))
+    with pytest.raises(StateMismatchError, match="GID is already allocated"):
+        _provision_locked(tmp_path, agent_id=UUID("be31002b-b7a6-4e46-bd29-4e39fb04e31e"), uid=53102)
+    assert not (tmp_path / "be31002bb7a64e46bd294e39fb04e31e").exists()

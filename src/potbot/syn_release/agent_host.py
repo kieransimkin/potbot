@@ -83,6 +83,7 @@ def provision(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
 
 
 def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
+    import grp
     import pwd
     name = "synag-" + agent_id.hex[:16]
     directory = root / agent_id.hex
@@ -115,6 +116,12 @@ def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]
         pass
     else:
         raise StateMismatchError("Selected Agent UID is already allocated")
+    try:
+        grp.getgrgid(uid)
+    except KeyError:
+        pass
+    else:
+        raise StateMismatchError("Selected Agent GID is already allocated")
     directory.mkdir(mode=0o700)
     _write_new(directory / "initializing.json", canonical(expected))
     result = subprocess.run(["/usr/sbin/useradd", "--no-create-home", "--no-log-init", "--user-group",
@@ -122,6 +129,10 @@ def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15, check=False)
     if result.returncode:
         raise StateMismatchError("Native Agent account provisioning failed; reconcile retained marker")
+    created = pwd.getpwnam(name)
+    if (created.pw_uid != uid or created.pw_gid != uid or created.pw_dir != str(home)
+            or created.pw_shell != "/usr/sbin/nologin" or grp.getgrgid(uid).gr_name != name):
+        raise StateMismatchError("Native Agent account readback differs; reconcile retained marker")
     home.mkdir(mode=0o700)
     os.chown(home, uid, uid)
     _delegate(Path("/etc/subuid"), uid)
