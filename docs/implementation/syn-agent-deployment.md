@@ -1,11 +1,15 @@
 # SYN-R04 — genuine Syn Agent provisioning
 
-**Delivery status, 2 November 2026:** the canonical Syn 0.3.0 candidate and this
-Potbot controller implement Agent provisioning. Disposable WSL source-package
-acceptance has run two real nodes with native encrypted keystores, separate host
-UIDs, selected keys and retained identities across node and full keystore-session
-restarts. Signed publication and exact official-package acceptance are separate
-gates; this source record does not claim that 0.3.0 is already published.
+**Delivery status, 2 November 2026:** [Syn 0.3.0 is published as an immutable
+release](https://github.com/Synsphere/syn/releases/tag/v0.3.0). Its signed bytes
+passed local WSL installation and complete-controller acceptance with two real
+Agents, encrypted native keystores, distinct host UIDs, selected keys and current
+group custody. Node and full keystore-session restarts retained their identities;
+locked stores fenced the nodes. The reviewed native consumer is
+`33bdf4d21f575adf48d99fcb01ee43a943c6398e`. The [upstream dated release
+record](https://github.com/Synsphere/syn/blob/master/docs/development/releases/v0.3.0.md)
+tracks independent GitHub qualification. Full consumer CI and preview publication
+remain separate delivery gates; no production Cog admission follows.
 
 ![Operator authority and two separate Agent sandboxes](media/syn-agent-custody.svg)
 
@@ -139,10 +143,12 @@ locked-store refusal and outside-the-sandbox process inspection. Portable client
 tests separately reject wrong issuers, nodes, groups, epochs and changed signed
 commitments. Fault fixtures are labelled separately from native custody evidence.
 
-The upstream native workflow must repeat this against the exact reviewed Potbot
-consumer and then against the signed published release. The official lane must
-exercise the complete `potbot syn-agent` controller, immutable store and fresh
-client verification. Retain its manifest, source, consumer and wheel digests.
+The upstream native workflow pins the reviewed Potbot consumer. The separate
+[official lane](https://github.com/Synsphere/syn/actions/workflows/agent-release.yml)
+installs the signed published bytes and exercises the complete `potbot syn-agent`
+controller, immutable store and fresh client verification. The local WSL run
+passed this complete path. Retain each run's manifest, source, consumer and wheel
+digests; a static illustration or package publication is insufficient evidence.
 
 SYN-R05 still owns Cog admission and the supported Syn messaging integration.
 SYN-R06 owns general upgrades, recovery and group rotation/revocation. SYN-R07
