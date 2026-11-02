@@ -159,12 +159,15 @@ class ExecutionCogRuntime:
         sandbox_executor: SandboxedCogExecutor | None = None,
         sandbox_agent_id: UUID | None = None,
         child_plans: tuple[InstalledChildPlan, ...] = (),
+        admit_transport_recovery: Callable[[UUID], None] | None = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
         from potbot.domain.syn import SynSnapshot
         from potbot.semantics.ember_service import EmberContractService
         from potbot.semantics.service import SynService
+        from potbot.tools.queue_transport import queue_target
+        from potbot.tools.queue_transport_worker import REQUEST as QUEUE_REQUEST
         from potbot.tools.repository import RepositoryStateStore
 
         if not callable(admit) or not isinstance(operations, tuple) or len(operations) > 128:
@@ -174,6 +177,16 @@ class ExecutionCogRuntime:
         # The only installed *worker* implementation is an admitted sandbox
         # executable. Legacy HostOperation callbacks cannot dispatch model work.
         require_isolated_work(operations)
+        queue_operations = tuple(
+            op for op in operations if op.binding.input_type_ref == QUEUE_REQUEST
+        )
+        for op in queue_operations:
+            queue_target(op)
+        if queue_operations and (
+            len(operations) != 1 or artifact_ranges is not None or browser_service is not None
+        ):
+            raise ScopeDeniedError("Queue requires a dedicated installed transport profile")
+        self.admit_transport_recovery = admit_transport_recovery
         if operations and (
             not isinstance(sandbox_executor, SandboxedCogExecutor)
             or not isinstance(sandbox_agent_id, UUID)
@@ -238,8 +251,10 @@ class ExecutionCogRuntime:
             ember_bundle = browser_ember_bundle
             self._direct_operations = browser_operations(browser_service, policy)
         else:
-            self.registry = BoundCogRegistry.provenance()
-            ember_bundle = execution_ember_bundle
+            self.registry = BoundCogRegistry.provenance(queue_transport=bool(queue_operations))
+            from functools import partial
+
+            ember_bundle = partial(execution_ember_bundle, queue_transport=bool(queue_operations))
             self._direct_operations = {}
         with database.transaction(actor) as connection:
             sealed = SynService._snapshot(connection, actor, snapshot_id)
@@ -317,6 +332,11 @@ class ExecutionCogRuntime:
     ) -> CogOutcome:
         return await self._invoke(signature, source, context)
 
+    async def reconcile_transport_effect(self, run_id: UUID) -> dict[str, Any]:
+        from potbot.controller.sandbox_transport import reconcile_queue_effect
+
+        return await reconcile_queue_effect(self, run_id)
+
     async def _invoke(
         self,
         signature: CogSignature,
@@ -386,6 +406,13 @@ class ExecutionCogRuntime:
             and kind in TRANSPORT_EFFECT_KINDS
             and binding.effect_class != "read_only"
         )
+        from potbot.controller.sandbox_transport import QueueEffect
+        from potbot.tools.queue_transport_worker import REQUEST as QUEUE_REQUEST
+
+        queue_effect = None
+        if isinstance(op, SandboxedCogOperation) and op.binding.input_type_ref == QUEUE_REQUEST:
+            assert self.sandbox_agent_id is not None
+            queue_effect = QueueEffect.installed(op, typed.value, self.sandbox_agent_id)
         journal = PinnedExecutionJournal(
             self.db,
             self.artifacts,
@@ -397,6 +424,7 @@ class ExecutionCogRuntime:
             binding=binding,
             emitter=self.emitter,
             isolated_transport_effect=transport_effect,
+            queue_effect=queue_effect,
         )
         monitor = CogWorkMonitor(
             journal, self.artifacts, self.actor, emitter_run_id=self.emitter, event_type_ref=EVENT

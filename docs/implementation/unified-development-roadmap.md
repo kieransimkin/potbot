@@ -129,19 +129,16 @@ Across these waves, follow the existing MG dependency cut rather than waiting fo
 ExecutionStore, ToolGateway, Outbox, PostgresReasoningStore, steering inbox,
 BudgetLedger and pinned execution journal.
 
-The [first sandbox transport recovery increment](u01-a-sandbox-transport-recovery.md)
-adds a durable dispatch barrier and a recovery read over the existing journal.
-Actual admitted transport service, target outcome verification and budget
-settlement remain subsequent work.
+The [sandbox transport recovery implementation](u01-a-sandbox-transport-recovery.md)
+connects a durable local queue through the existing worker. The target records
+stable effect IDs and can resolve lost acknowledgements with a receipt or a
+cancellation. The existing PostgreSQL budget ledger settles each resolved
+dispatch in the same transaction as its outcome.
 
-Enumerate actual dispatch producers, then extend the existing local-tool
-recovery path to a controller-admitted transport effect with a controlled local
-service. Review/rebase open PR13's factories against current released-Syn grants
-before integration. Require real PostgreSQL fault tests before/after intent,
-dispatch, effect, acknowledgement, receipt and settlement; duplicates, stale
-owners, task changes, cancellation and restart must never blindly replay an
-uncertain effect or settle/release its budget twice. Add no competing scheduler
-or state store. The closeout records the concrete acceptance matrix.
+The controlled queue provides the U01-A reference transport. Additional
+producers and open PR13's factories need equivalent target evidence and
+qualification against released-Syn grants. Live native worker qualification
+remains under the existing host gates.
 
 The monitoring and recent-development reconciliations remain historical mapping
 inputs. Their U03/U06/U13/U16 gates survive audit closure. The old requested

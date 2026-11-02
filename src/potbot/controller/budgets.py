@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import nullcontext
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -153,6 +154,8 @@ class BudgetLedger:
         reservation_id: UUID,
         actual: Mapping[str, int],
         origin: str,
+        *,
+        connection: Any = None,
     ) -> dict[str, Any]:
         """Retain actual overruns; they exhaust the task instead of erasing usage."""
         from psycopg.types.json import Jsonb
@@ -166,7 +169,10 @@ class BudgetLedger:
             raise InvalidInputError(
                 "usage origin must be measured, synthetic, provider_reported, or conservative_estimate"
             )
-        with self.database.transaction(context) as conn:
+        transaction = (
+            self.database.transaction(context) if connection is None else nullcontext(connection)
+        )
+        with transaction as conn:
             initial = _reservation(conn, context, reservation_id)
             episode_id = initial["episode_id"]
             episode = lock_episode(conn, context, episode_id)
@@ -258,10 +264,13 @@ class BudgetLedger:
         reason: str,
         *,
         confirmed_not_started: bool,
+        connection: Any = None,
     ) -> dict[str, Any]:
         if confirmed_not_started is not True:
             raise InvalidInputError("release requires confirmation that execution never started")
-        return self._resolve_without_usage(context, reservation_id, "released", reason)
+        return self._resolve_without_usage(
+            context, reservation_id, "released", reason, connection=connection
+        )
 
     def _resolve_without_usage(
         self,
@@ -269,9 +278,14 @@ class BudgetLedger:
         reservation_id: UUID,
         target: str,
         reason: str,
+        *,
+        connection: Any = None,
     ) -> dict[str, Any]:
         nonempty(reason, "reason")
-        with self.database.transaction(context) as conn:
+        transaction = (
+            self.database.transaction(context) if connection is None else nullcontext(connection)
+        )
+        with transaction as conn:
             initial = _reservation(conn, context, reservation_id)
             episode_id = initial["episode_id"]
             lock_episode(conn, context, episode_id)

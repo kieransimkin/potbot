@@ -242,6 +242,9 @@ class SandboxedCogExecutor:
         cancel: threading.Event,
         syn_fault: threading.Event | None = None,
     ) -> TypedCogValue:
+        from potbot.tools.queue_transport import EXECUTABLE as QUEUE_EXECUTABLE
+        from potbot.tools.queue_transport_worker import REQUEST as QUEUE_REQUEST
+
         home = self.homes.lookup(actor.workspace_id, agent_id)
         if home is None or home.workspace_id != actor.workspace_id or home.agent_id != agent_id:
             raise ScopeDeniedError("Cog worker agent identity is not registered")
@@ -283,6 +286,7 @@ class SandboxedCogExecutor:
             selected_supervisor.monitor_config = self.supervisor.monitor_config
         stopped = False
         dispatched = False
+        queue_stopped = False
         try:
             guard.start()
             request = ProcessRequest(
@@ -313,6 +317,13 @@ class SandboxedCogExecutor:
                 ),
             )
             stopped = result.processes_stopped is True
+            queue_stopped = (
+                stopped
+                and result.dispatched
+                and result.outcome != "inconclusive"
+                and op.argv[0] == QUEUE_EXECUTABLE
+                and op.binding.input_type_ref == QUEUE_REQUEST
+            )
             if not stopped or result.outcome == "inconclusive":
                 raise IndeterminateExecutionError(
                     "sandbox Cog process tree or audit is not confirmed stopped"
@@ -340,7 +351,7 @@ class SandboxedCogExecutor:
         except BaseException:
             # Never release a lease after possibly dispatched and unconfirmed effects.
             try:
-                if dispatched:
+                if dispatched and not queue_stopped:
                     guard.finish(
                         evidence_sha256=content_hash(
                             {"attempt": str(cog_context.invocation_id), "state": "indeterminate"}
@@ -350,7 +361,12 @@ class SandboxedCogExecutor:
                 else:
                     guard.finish(
                         evidence_sha256=content_hash(
-                            {"attempt": str(cog_context.invocation_id), "state": "not_dispatched"}
+                            {
+                                "attempt": str(cog_context.invocation_id),
+                                "state": "stopped_queue_effect_unknown"
+                                if queue_stopped
+                                else "not_dispatched",
+                            }
                         )
                     )
             except Exception:

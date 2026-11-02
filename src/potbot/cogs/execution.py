@@ -59,7 +59,7 @@ REPLAY = signature("replay", REPLAY_REQUEST, REPLAY_RESULT)
 EXECUTION_COGS = (*WORK_COGS, SEAL, REPLAY)
 
 
-def execution_cog_snapshot() -> SynSnapshot:
+def execution_cog_snapshot(*, queue_transport: bool = False) -> SynSnapshot:
     from potbot.cogs.debugger import debugger_cog_snapshot
     from potbot.cogs.registry import _type, builtin_cog_snapshot
     from potbot.cogs.tool_contracts import contract_cog_snapshot
@@ -82,7 +82,22 @@ def execution_cog_snapshot() -> SynSnapshot:
         ),
     ]
     wire_schemas = schemas()
-    for ref in (REQUEST, RESULT, SEAL_REQUEST, SEAL_RESULT, REPLAY_REQUEST, REPLAY_RESULT, RECEIPT):
+    refs: tuple[str, ...] = (
+        REQUEST,
+        RESULT,
+        SEAL_REQUEST,
+        SEAL_RESULT,
+        REPLAY_REQUEST,
+        REPLAY_RESULT,
+        RECEIPT,
+    )
+    if queue_transport:
+        from potbot.tools.queue_transport import schemas as queue_schemas
+
+        transport_schemas = queue_schemas()
+        wire_schemas.update(transport_schemas)
+        refs += tuple(transport_schemas)
+    for ref in refs:
         types.append(
             replace(
                 _type(
@@ -136,14 +151,18 @@ def execution_cog_snapshot() -> SynSnapshot:
         )
     return replace(
         base,
-        source_label="potbot-execution-provenance-v1",
+        source_label=(
+            "potbot-execution-queue-transport-v1"
+            if queue_transport
+            else "potbot-execution-provenance-v1"
+        ),
         types=tuple(types),
         objects=tuple(objects),
     )
 
 
 def execution_ember_bundle(
-    *, workspace_id: UUID, snapshot_id: UUID, namespace: str
+    *, workspace_id: UUID, snapshot_id: UUID, namespace: str, queue_transport: bool = False
 ) -> EmberContractBundle:
     from potbot.cogs.tool_contracts import contract_ember_bundle
 
@@ -151,7 +170,7 @@ def execution_ember_bundle(
         workspace_id=workspace_id,
         snapshot_id=snapshot_id,
         namespace=namespace,
-        _snapshot=execution_cog_snapshot(),
+        _snapshot=execution_cog_snapshot(queue_transport=queue_transport),
         _installed=EXECUTION_COGS,
         _cog_type=WORK_COG,
     )

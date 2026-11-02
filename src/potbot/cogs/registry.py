@@ -232,6 +232,7 @@ class BoundCogRegistry:
     artifact_range_profile: bool = False
     artifact_upload_profile: bool = False
     browser_profile: bool = False
+    queue_transport_profile: bool = False
 
     def installed(self) -> tuple[CogSignature, ...]:
         if self.browser_profile:
@@ -292,6 +293,8 @@ class BoundCogRegistry:
             > 1
         ):
             raise ScopeDeniedError("Choose one exact installed execution profile")
+        if self.queue_transport_profile and not self.provenance_profile:
+            raise ScopeDeniedError("Queue transport requires the execution provenance profile")
         expected = (
             browser_cog_snapshot()
             if self.browser_profile
@@ -299,7 +302,7 @@ class BoundCogRegistry:
             if self.artifact_upload_profile
             else artifact_range_snapshot()
             if self.artifact_range_profile
-            else execution_cog_snapshot()
+            else execution_cog_snapshot(queue_transport=self.queue_transport_profile)
             if self.provenance_profile
             else contract_cog_snapshot()
             if self.contracts_profile
@@ -358,10 +361,14 @@ class BoundCogRegistry:
         return cls(debugger_cog_snapshot(), execution_profile=True)
 
     @classmethod
-    def provenance(cls) -> BoundCogRegistry:
+    def provenance(cls, *, queue_transport: bool = False) -> BoundCogRegistry:
         from potbot.cogs.execution import execution_cog_snapshot
 
-        return cls(execution_cog_snapshot(), provenance_profile=True)
+        return cls(
+            execution_cog_snapshot(queue_transport=queue_transport),
+            provenance_profile=True,
+            queue_transport_profile=queue_transport,
+        )
 
     @classmethod
     def browser(cls) -> BoundCogRegistry:
