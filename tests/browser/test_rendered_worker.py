@@ -142,6 +142,7 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             capture_send = worker.cdp.send
 
             async def trace_capture(method, params=None):
+                started = asyncio.get_running_loop().time()
                 try:
                     result = await capture_send(method, params)
                 except BaseException as error:
@@ -152,6 +153,9 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
                                 {
                                     "fromSurface": params["fromSurface"],
                                     "outcome": type(error).__name__,
+                                    "elapsed_seconds": round(
+                                        asyncio.get_running_loop().time() - started, 3
+                                    ),
                                 }
                             ),
                         )
@@ -159,7 +163,15 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
                 if method == "Page.captureScreenshot":
                     print(
                         "capture_attempt",
-                        json.dumps({"fromSurface": params["fromSurface"], "outcome": "returned"}),
+                        json.dumps(
+                            {
+                                "fromSurface": params["fromSurface"],
+                                "outcome": "returned",
+                                "elapsed_seconds": round(
+                                    asyncio.get_running_loop().time() - started, 3
+                                ),
+                            }
+                        ),
                     )
                 return result
 

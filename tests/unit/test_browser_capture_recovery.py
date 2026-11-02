@@ -106,30 +106,37 @@ def test_capture_timeout_never_overlaps_a_still_pending_native_capture():
     worker.page.screenshot.assert_not_awaited()
 
 
-def test_real_capture_timeout_cancels_each_read_with_bounded_budget(monkeypatch):
+@pytest.mark.parametrize("fallback", [False, True])
+def test_real_timeout_is_one_shared_budget_and_cancels_pending_capture(monkeypatch, fallback):
     from potbot.tools import xpra_browser_worker as module
 
     worker = browser()
     cancelled = []
     budgets = []
-    original_wait_for = asyncio.wait_for
+    original_timeout = asyncio.timeout
+    native_error = type("Error", (Exception,), {"__module__": "playwright._impl._errors"})
 
     async def stalled(method, params):
+        if fallback and params["fromSurface"]:
+            raise native_error(
+                "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+            )
         try:
             await asyncio.Future()
         finally:
             cancelled.append(params["fromSurface"])
 
-    async def short_wait(awaitable, *, timeout):
-        budgets.append(timeout)
-        return await original_wait_for(awaitable, timeout=0.01)
+    def short_timeout(delay):
+        budgets.append(delay)
+        return original_timeout(0.01)
 
     worker.cdp.send.side_effect = stalled
-    monkeypatch.setattr(module.asyncio, "wait_for", short_wait)
+    monkeypatch.setattr(module.asyncio, "timeout", short_timeout)
     with pytest.raises(TimeoutError):
         sample(worker)
-    assert budgets == [3.0]
-    assert cancelled == [True]
+    assert budgets == [6.0]
+    assert cancelled == [not fallback]
+    assert worker.cdp.send.await_count == 1 + int(fallback)
 
 
 def test_invalid_view_fallback_is_rejected_without_third_attempt():

@@ -529,20 +529,20 @@ class BrowserWorker:
         # Let Chromium synchronize its own capture. Page JavaScript (including
         # requestAnimationFrame) can be replaced or suspended by the document;
         # it must not gate this private observation of the compositor.
+        # One deadline covers both paths. Do not cancel a cold surface read
+        # early merely to reserve time for a fallback that only a completed
+        # native error may authorize.
         async with asyncio.timeout(6.0):
             for from_surface in (True, False):
                 try:
-                    reply = await asyncio.wait_for(
-                        self.cdp.send(
-                            "Page.captureScreenshot",
-                            {
-                                "format": "jpeg",
-                                "quality": 48,
-                                "fromSurface": from_surface,
-                                "captureBeyondViewport": False,
-                            },
-                        ),
-                        timeout=3.0,
+                    reply = await self.cdp.send(
+                        "Page.captureScreenshot",
+                        {
+                            "format": "jpeg",
+                            "quality": 48,
+                            "fromSurface": from_surface,
+                            "captureBeyondViewport": False,
+                        },
                     )
                     break
                 except Exception as error:

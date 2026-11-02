@@ -155,11 +155,11 @@ capture-unavailable error. Capture permits one private, read-only fallback:
 
 ```mermaid
 flowchart LR
-    A[Capture current viewport] --> B[Direct surface path: at most 3 seconds]
+    A[Capture current viewport] --> B[Surface path: shared 6-second deadline]
     B -->|valid JPEG| D[Validate bounds and hash evidence]
-    B -->|native capture unavailable| C[View path: at most 3 seconds]
+    B -->|native capture unavailable| C[View path: remaining shared deadline]
     C -->|valid JPEG| D
-    B -->|timeout, other error or invalid data| E
+    B -->|timeout, other error or invalid data| E[Fail closed]
     C -->|any error or invalid data| E
 ```
 
@@ -169,7 +169,11 @@ rule remain in force. This diagram is not evidence of a passing rendered run.*
 
 The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Page.pdl)
 defines the view/surface selector and base64 screenshot result. Both attempts
-share a six-second total deadline inside the worker's 12-second command deadline.
+share one six-second deadline inside the worker's 12-second command deadline.
+The first read can use the full budget; a completed native error leaves only the
+remaining time for the alternate read. Reserving three seconds for a fallback
+cancelled a cold surface read early without authorizing any safe recovery. Real
+capture diagnostics retain elapsed time as well as outcome.
 Capture does not evaluate page JavaScript: a document can replace or suspend
 animation callbacks independently of Chromium's private capture operation. A
 two-frame readiness experiment stalled before any capture on otherwise loaded,
