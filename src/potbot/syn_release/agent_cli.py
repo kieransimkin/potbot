@@ -3,6 +3,7 @@
 The private local terminal belongs to Syn. Stdin/stdout carry only bounded
 public/encrypted enrollment frames, never passwords, seeds or private keys.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,11 +42,23 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if sys.platform != "linux" or os.getuid() != 0:
-            raise ScopeDeniedError("Run the privileged Syn Agent controller in native Linux or the managed WSL2 host")
+            raise ScopeDeniedError(
+                "Run the privileged Syn Agent controller in native Linux or the managed WSL2 host"
+            )
         policy = Policy.parse(private_read(args.policy))
-        deployment = SynAgentDeployment(SynReleaseStore(args.store), policy, args.agent_root, agent_id=args.agent_id,
-            uid=args.uid, expected_operator=args.expected_operator, network_id=args.network_id, group_id=args.group_id,
-            group_epoch=args.group_epoch, device_profile=args.approved_device_profile, policy_path=args.policy)
+        deployment = SynAgentDeployment(
+            SynReleaseStore(args.store),
+            policy,
+            args.agent_root,
+            agent_id=args.agent_id,
+            uid=args.uid,
+            expected_operator=args.expected_operator,
+            network_id=args.network_id,
+            group_id=args.group_id,
+            group_epoch=args.group_epoch,
+            device_profile=args.approved_device_profile,
+            policy_path=args.policy,
+        )
         if args.operation == "attach":
             if args.new_identity:
                 raise ScopeDeniedError("Read-only attachment cannot create an identity")
@@ -58,7 +71,9 @@ def main(argv: list[str] | None = None) -> int:
                 selector.register(sys.stdin.buffer, selectors.EVENT_READ)
                 while True:
                     if session.process.poll() is not None:
-                        raise StateMismatchError("Owned Syn Agent session exited; deployment fenced")
+                        raise StateMismatchError(
+                            "Owned Syn Agent session exited; deployment fenced"
+                        )
                     if not selector.select(0.25):
                         continue
                     raw = sys.stdin.buffer.readline(65538)
@@ -66,19 +81,26 @@ def main(argv: list[str] | None = None) -> int:
                         return 0
                     if len(raw) > 65537 or not raw.endswith(b"\n"):
                         raise ScopeDeniedError("Private Syn enrollment frame exceeds its bound")
-                    frame = fields(document(raw[:-1], canonical_only=True), {"operation", "payload"})
+                    frame = fields(
+                        document(raw[:-1], canonical_only=True), {"operation", "payload"}
+                    )
                     response = session.exchange(frame["operation"], frame["payload"])
                     if frame["operation"] == "activate":
                         certificate = frame["payload"]
                     elif frame["operation"] in {"serve", "restart"}:
                         if certificate is not None:
-                            response = deployment.retain_assignment(response, adoption_receipt=certificate, session=session)
+                            response = deployment.retain_assignment(
+                                response, adoption_receipt=certificate, session=session
+                            )
                         else:
                             response = deployment.attach()
                             session.observe(response, owner_uid=args.uid)
                     _output(response)
     except (DomainError, OSError, ValueError, KeyError):
-        print("Syn Agent deployment refused; reconcile the pinned release, private native custody and host registration", file=sys.stderr)
+        print(
+            "Syn Agent deployment refused; reconcile the pinned release, private native custody and host registration",
+            file=sys.stderr,
+        )
         return 2
 
 

@@ -105,8 +105,12 @@ def runtime_roots() -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def _seccomp_fd(*, private_loopback_ipc: bool = False, private_x11_unix: bool = False,
-                private_syn_unix: bool = False) -> int:
+def _seccomp_fd(
+    *,
+    private_loopback_ipc: bool = False,
+    private_x11_unix: bool = False,
+    private_syn_unix: bool = False,
+) -> int:
     """Default deny with optional explicit, namespace-confined X11 AF_UNIX IPC.
 
     X11 admission must also mount only the workspace socket into a private

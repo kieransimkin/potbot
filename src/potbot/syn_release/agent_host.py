@@ -3,6 +3,7 @@
 The registry records OS resource ownership, not Potbot task or Cog authority.
 Every existing resource needs an exact receipt; ambiguity never causes repair.
 """
+
 from __future__ import annotations
 
 import os
@@ -20,8 +21,13 @@ from .store import _directory, _write_new, private_read
 
 def _root_file(path: Path) -> bytes:
     info = path.lstat()
-    if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022
-            or info.st_nlink != 1 or info.st_size > 65536):
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_uid != 0
+        or info.st_mode & 0o022
+        or info.st_nlink != 1
+        or info.st_size > 65536
+    ):
         raise ScopeDeniedError("Native account policy has unsafe ownership, links or size")
     return path.read_bytes()
 
@@ -62,11 +68,21 @@ def provision(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
         raise ScopeDeniedError("Agent provisioning requires an exact Agent UUID and restricted UID")
     import fcntl
     import time
+
     _directory(root, create=True)
-    fd = os.open("/run/lock/potbot-syn-agent-provision.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    fd = os.open(
+        "/run/lock/potbot-syn-agent-provision.lock",
+        os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+    )
     try:
         info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077 or info.st_nlink != 1:
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != 0
+            or info.st_mode & 0o077
+            or info.st_nlink != 1
+        ):
             raise ScopeDeniedError("Unsafe native Agent provisioning lock")
         deadline = time.monotonic() + 5
         while True:
@@ -75,7 +91,9 @@ def provision(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
                 break
             except BlockingIOError:
                 if time.monotonic() >= deadline:
-                    raise StateMismatchError("Another controller owns native Agent provisioning") from None
+                    raise StateMismatchError(
+                        "Another controller owns native Agent provisioning"
+                    ) from None
                 time.sleep(0.05)
         return _provision_locked(root, agent_id=agent_id, uid=uid)
     finally:
@@ -85,20 +103,34 @@ def provision(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
 def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
     import grp
     import pwd
+
     name = "synag-" + agent_id.hex[:16]
     directory = root / agent_id.hex
     registration = directory / "host.json"
     home = directory / "home"
-    expected = {"profile": "potbot.syn-agent-host/1", "agent_id": str(agent_id), "uid": uid,
-                "gid": uid, "account": name, "home": str(home), "device_profile": "syn.host-bound-virtual-device/1"}
+    expected = {
+        "profile": "potbot.syn-agent-host/1",
+        "agent_id": str(agent_id),
+        "uid": uid,
+        "gid": uid,
+        "account": name,
+        "home": str(home),
+        "device_profile": "syn.host-bound-virtual-device/1",
+    }
     if directory.exists() or directory.is_symlink():
         actual = document(private_read(registration), canonical_only=True)
         if actual != expected:
             raise StateMismatchError("Agent OS registration differs; no replacement")
         account = pwd.getpwnam(name)
-        if (account.pw_uid != uid or account.pw_gid != uid or account.pw_dir != str(home)
-                or account.pw_shell != "/usr/sbin/nologin" or home.is_symlink()
-                or home.stat().st_uid != uid or home.stat().st_mode & 0o077):
+        if (
+            account.pw_uid != uid
+            or account.pw_gid != uid
+            or account.pw_dir != str(home)
+            or account.pw_shell != "/usr/sbin/nologin"
+            or home.is_symlink()
+            or home.stat().st_uid != uid
+            or home.stat().st_mode & 0o077
+        ):
             raise StateMismatchError("Registered Agent OS resources changed")
         for path in (Path("/etc/subuid"), Path("/etc/subgid")):
             if f"root:{uid}:1".encode() not in _root_file(path).splitlines():
@@ -124,14 +156,38 @@ def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]
         raise StateMismatchError("Selected Agent GID is already allocated")
     directory.mkdir(mode=0o700)
     _write_new(directory / "initializing.json", canonical(expected))
-    result = subprocess.run(["/usr/sbin/useradd", "--no-create-home", "--no-log-init", "--user-group",
-        "--uid", str(uid), "--home-dir", str(home), "--shell", "/usr/sbin/nologin", name],
-        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15, check=False)
+    result = subprocess.run(
+        [
+            "/usr/sbin/useradd",
+            "--no-create-home",
+            "--no-log-init",
+            "--user-group",
+            "--uid",
+            str(uid),
+            "--home-dir",
+            str(home),
+            "--shell",
+            "/usr/sbin/nologin",
+            name,
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=15,
+        check=False,
+    )
     if result.returncode:
-        raise StateMismatchError("Native Agent account provisioning failed; reconcile retained marker")
+        raise StateMismatchError(
+            "Native Agent account provisioning failed; reconcile retained marker"
+        )
     created = pwd.getpwnam(name)
-    if (created.pw_uid != uid or created.pw_gid != uid or created.pw_dir != str(home)
-            or created.pw_shell != "/usr/sbin/nologin" or grp.getgrgid(uid).gr_name != name):
+    if (
+        created.pw_uid != uid
+        or created.pw_gid != uid
+        or created.pw_dir != str(home)
+        or created.pw_shell != "/usr/sbin/nologin"
+        or grp.getgrgid(uid).gr_name != name
+    ):
         raise StateMismatchError("Native Agent account readback differs; reconcile retained marker")
     home.mkdir(mode=0o700)
     os.chown(home, uid, uid)

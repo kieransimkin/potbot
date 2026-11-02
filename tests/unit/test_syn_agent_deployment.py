@@ -3,6 +3,7 @@
 Real UID, keyring, namespace, replay and restart qualification belongs to the
 upstream two-node native gate, not these small public-controller regressions.
 """
+
 from __future__ import annotations
 
 import sys
@@ -22,11 +23,18 @@ def test_installing_a_service_package_cannot_provision_an_agent(tmp_path):
     policy = Policy.parse(canonical(bundle.value))
     destination = tmp_path / "agents"
     with pytest.raises(ScopeDeniedError, match="explicit upstream Linux Agent"):
-        SynAgentDeployment(SimpleNamespace(root=tmp_path / "packages"), policy, destination,
-            agent_id=UUID("be31002b-b7a6-4e46-bd29-4e39fb04e31e"), uid=53102,
-            expected_operator="12" * 32, network_id="fixture",
-            group_id=UUID("4f672321-11ba-4405-843d-a5961a784bf6"), group_epoch=1,
-            device_profile="syn.host-bound-virtual-device/1")
+        SynAgentDeployment(
+            SimpleNamespace(root=tmp_path / "packages"),
+            policy,
+            destination,
+            agent_id=UUID("be31002b-b7a6-4e46-bd29-4e39fb04e31e"),
+            uid=53102,
+            expected_operator="12" * 32,
+            network_id="fixture",
+            group_id=UUID("4f672321-11ba-4405-843d-a5961a784bf6"),
+            group_epoch=1,
+            device_profile="syn.host-bound-virtual-device/1",
+        )
     assert not destination.exists()
 
 
@@ -41,6 +49,7 @@ def test_enrollment_frame_bound_is_checked_before_any_write():
     class RefuseWrites:
         def write(self, _):
             raise AssertionError("Oversized frame reached the child")
+
     session = AgentSession(SimpleNamespace(stdin=RefuseWrites()))
     with pytest.raises(ScopeDeniedError, match="bound"):
         session.exchange("offer", {"padding": "x" * 65536})
@@ -54,11 +63,15 @@ def test_existing_group_is_not_adopted_by_new_agent_account(monkeypatch, tmp_pat
 
     from potbot.domain.errors import StateMismatchError
     from potbot.syn_release.agent_host import _provision_locked
+
     def absent(_):
         raise KeyError
+
     monkeypatch.setattr(pwd, "getpwnam", absent)
     monkeypatch.setattr(pwd, "getpwuid", absent)
     monkeypatch.setattr(grp, "getgrgid", lambda _: SimpleNamespace(gr_name="foreign"))
     with pytest.raises(StateMismatchError, match="GID is already allocated"):
-        _provision_locked(tmp_path, agent_id=UUID("be31002b-b7a6-4e46-bd29-4e39fb04e31e"), uid=53102)
+        _provision_locked(
+            tmp_path, agent_id=UUID("be31002b-b7a6-4e46-bd29-4e39fb04e31e"), uid=53102
+        )
     assert not (tmp_path / "be31002bb7a64e46bd294e39fb04e31e").exists()

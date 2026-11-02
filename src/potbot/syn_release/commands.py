@@ -1,4 +1,5 @@
 """Shared bounded public-CLI execution for verified upstream Syn packages."""
+
 from __future__ import annotations
 
 import os
@@ -53,9 +54,7 @@ class SynPublicCommands:
                 deadline = time.monotonic() + timeout
                 while True:
                     if time.monotonic() >= deadline:
-                        raise StateMismatchError(
-                            "Upstream Syn operation exceeded its deadline"
-                        )
+                        raise StateMismatchError("Upstream Syn operation exceeded its deadline")
                     if not selector.select(0.1):
                         continue
                     part = os.read(process.stdout.fileno(), min(65536, 65537 - len(raw)))
@@ -63,9 +62,7 @@ class SynPublicCommands:
                         break
                     raw.extend(part)
                     if len(raw) > 65536:
-                        raise StateMismatchError(
-                            "Upstream Syn public response exceeded its bound"
-                        )
+                        raise StateMismatchError("Upstream Syn public response exceeded its bound")
             if process.wait(timeout=5) != 0:
                 raise StateMismatchError(
                     "Upstream Syn refused; reconcile native keystore and state"

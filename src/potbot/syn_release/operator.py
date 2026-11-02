@@ -79,7 +79,6 @@ class SynOperatorDeployment(SynPublicCommands):
         if result.returncode:
             raise StateMismatchError("Native keystore unlock requires its private local Syn prompt")
 
-
     def bootstrap(
         self,
         *,
