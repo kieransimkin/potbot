@@ -41,6 +41,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.syn_release.operator_cli import main as syn_operator_main
 
         return syn_operator_main(args[1:])
+    if args and args[0] == "syn-agent":
+        from potbot.syn_release.agent_cli import main as syn_agent_main
+
+        return syn_agent_main(args[1:])
     if args and args[0] == "syn-release":
         from potbot.syn_release.cli import main as syn_release_main
 
@@ -116,6 +120,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser(
         "syn-operator", help="provision a native operator host and supervise verified Syn"
     )
+    commands.add_parser("syn-agent", help="provision release-verified Syn Agents in native Linux/WSL sandboxes")
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
     commands.add_parser("identity", help="manage native signing and verify published Agent keys")
     commands.add_parser("execution", help="capture repositories and run qualified isolated tools")

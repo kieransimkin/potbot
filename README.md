@@ -8,7 +8,7 @@ and [U00-A source inventory](docs/implementation/u00-roadmap-inventory.md).
 The retained Plan 1.1 contains 204 steps; historical phase summaries below are
 scoped implementation records, not a complete current qualification inventory.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev9`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev10`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
@@ -72,6 +72,13 @@ The operator-only [Syn release installer](docs/implementation/syn-release-instal
 adds exact upstream release selection, signature/payload verification, offline
 reuse and atomic package admission. It does not qualify operator or Agent node
 modes or activate the transitional runtime.
+
+The [SYN-R04 Agent deployment candidate](docs/implementation/syn-agent-deployment.md)
+adds release-verified Agent sessions under separate Linux/WSL host accounts,
+canonical upstream selected-key and current-group custody, and retained identities
+across restarts. Its source-package native check ran two genuine nodes. Signed
+publication and official-package acceptance remain separately recorded gates;
+Cog authorization stays disabled until SYN-R05.
 
 ## Install and check
 

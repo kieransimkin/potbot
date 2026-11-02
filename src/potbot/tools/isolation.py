@@ -105,14 +105,15 @@ def runtime_roots() -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def _seccomp_fd(*, private_loopback_ipc: bool = False, private_x11_unix: bool = False) -> int:
+def _seccomp_fd(*, private_loopback_ipc: bool = False, private_x11_unix: bool = False,
+                private_syn_unix: bool = False) -> int:
     """Default deny with optional explicit, namespace-confined X11 AF_UNIX IPC.
 
     X11 admission must also mount only the workspace socket into a private
     Bubblewrap filesystem, unshare the network and verify its Xauthority.
     This syscall gate alone is not an X11 capability.
     """
-    if private_loopback_ipc and private_x11_unix:
+    if sum((private_loopback_ipc, private_x11_unix, private_syn_unix)) > 1:
         raise CapabilityUnavailableError("IPC profiles must not be combined")
     library = ctypes.util.find_library("seccomp")
     if library is None or not hasattr(os, "memfd_create"):
@@ -141,6 +142,8 @@ def _seccomp_fd(*, private_loopback_ipc: bool = False, private_x11_unix: bool = 
     fd = -1
     try:
         for name in _DENIED_SYSCALLS:
+            if private_syn_unix and name in _PRIVATE_IPC_SYSCALLS:
+                continue
             if private_loopback_ipc and name in _PRIVATE_IPC_SYSCALLS:
                 continue
             if private_x11_unix and name in {
@@ -154,7 +157,7 @@ def _seccomp_fd(*, private_loopback_ipc: bool = False, private_x11_unix: bool = 
             number = lib.seccomp_syscall_resolve_name(name.encode())
             if number >= 0 and lib.seccomp_rule_add(context, 0x00050001, number, 0) != 0:
                 raise CapabilityUnavailableError("seccomp policy could not be compiled")
-        if private_x11_unix:
+        if private_x11_unix or private_syn_unix:
             # Only AF_UNIX sockets. Bwrap's --unshare-all provides a separate
             # network namespace; filesystem paths visible to the guest are
             # limited to its verified rootfs, /home and the single Xpra socket.
