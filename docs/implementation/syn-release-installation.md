@@ -122,6 +122,15 @@ refresh, authorized upgrade/restore and rollback policy remain SYN-R06 work.
 
 ## Evidence boundary
 
+![Actual GitHub Actions result for the Linux Syn installation boundary suite](media/syn-release-boundary-tests.jpg)
+
+*Actual public CI at consumer revision `9647c759ad895bfde2e8c23493e9965af24a78bb`,
+[run 41391526279](https://github.com/kieransimkin/potbot/actions/runs/41391526279).
+All 41 then-current security and Linux store cases passed. Later changes require
+fresh checks at their own revision; this screenshot does not prove installation
+of a private official package or a running node.*
+
+
 The focused public CI runs real signature/redirect/archive negative cases and
 Linux cache, interruption, concurrency, offline and tamper cases using explicitly
 synthetic packages. It also records actual CLI help. Official-package acceptance

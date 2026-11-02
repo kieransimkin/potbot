@@ -29,12 +29,12 @@
     },
     {
       "path": "README.md",
-      "sha256": "9649f156bb5b5cc587bdeaf4711b07e515bcf744a103ca72f39dcf0d466612b0",
-      "bytes": 29219,
+      "sha256": "ec6b32d8a7e8e11b7a730443e80624746c0633769d7f76dad7a2296622a438ce",
+      "bytes": 29513,
       "kind": "narrative_text",
-      "text_sha256": "9649f156bb5b5cc587bdeaf4711b07e515bcf744a103ca72f39dcf0d466612b0",
-      "characters": 29217,
-      "lines": 501,
+      "text_sha256": "ec6b32d8a7e8e11b7a730443e80624746c0633769d7f76dad7a2296622a438ce",
+      "characters": 29511,
+      "lines": 506,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1097,6 +1097,13 @@
       "interpretation": "asset_identity_only"
     },
     {
+      "path": "docs/implementation/media/syn-release-boundary-tests.jpg",
+      "sha256": "4875dc88129d465eec9f1e6868c20949c259a3627dc166c805fdf57945b74752",
+      "bytes": 75428,
+      "kind": "media",
+      "interpretation": "asset_identity_only"
+    },
+    {
       "path": "docs/implementation/media/tool-inventory.json",
       "sha256": "80c99ffef3af9c4e325c8f84df68b547185b2c2b150f2ed8abea5161faaa2c89",
       "bytes": 47916,
@@ -1216,12 +1223,22 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "0d6a8569045b680f9e0fb03f4f68ecad27b48ae402788e6cffbb5ae298a1750f",
-      "bytes": 7946,
+      "sha256": "0f25a71085e5ebe80fc174df51c9e9972ef33bbe42490de78eb2cbb21363c977",
+      "bytes": 8504,
       "kind": "narrative_text",
-      "text_sha256": "0d6a8569045b680f9e0fb03f4f68ecad27b48ae402788e6cffbb5ae298a1750f",
-      "characters": 7940,
+      "text_sha256": "0f25a71085e5ebe80fc174df51c9e9972ef33bbe42490de78eb2cbb21363c977",
+      "characters": 8498,
       "lines": 47,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
+      "path": "docs/implementation/syn-release-installation.md",
+      "sha256": "3a54381f598aff2d296ca84d8309335e3df37fd1eb290d4eafb111044eb68ba3",
+      "bytes": 8493,
+      "kind": "narrative_text",
+      "text_sha256": "3a54381f598aff2d296ca84d8309335e3df37fd1eb290d4eafb111044eb68ba3",
+      "characters": 8493,
+      "lines": 142,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -21977,10 +21994,10 @@
       "legacy_id": "SYN-R02",
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R02",
-      "title": "Release installer",
+      "title": "[Operator release installer](syn-release-installation.md) implemented",
       "locator": "line:36",
       "source_claim": "requirements_only",
-      "requirement_sha256": "a9ef5dab0c1e0eb8d697e8541a07e77e539627276c2bfd210b4a8b78cb7296e3",
+      "requirement_sha256": "9f10ceacabca28d35025c4729f4058317fc41ef5c44c6e0e5112aa4576fe4472",
       "unified_owners": [
         "U02",
         "U03",
@@ -22160,7 +22177,7 @@
       "title": "Removal and CI",
       "locator": "line:41",
       "source_claim": "requirements_only",
-      "requirement_sha256": "92a9e9e1621f5495d833c29e2c8a8d64fe4144420104cf8c781ad0f4a898460f",
+      "requirement_sha256": "bd71d0030f1fc61f49efff0d590875d5a74ec8ab105ee9211aaaffd21213cd9a",
       "unified_owners": [
         "U02",
         "U03",
@@ -25986,6 +26003,16 @@
       "text_sha256": "64b1d5e5d32564d24261f33707d9f20ed602a754b8a72f97096b3dbaf0c3ef75",
       "characters": 3287,
       "lines": 73,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
+      "path": ".github/workflows/syn-release-installation.yml",
+      "sha256": "b658a75124b85f52c50f9a7702c125b9305282722314b9e0b3cb9cbc59fe32bd",
+      "bytes": 1224,
+      "kind": "narrative_text",
+      "text_sha256": "b658a75124b85f52c50f9a7702c125b9305282722314b9e0b3cb9cbc59fe32bd",
+      "characters": 1224,
+      "lines": 28,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {

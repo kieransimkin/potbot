@@ -344,7 +344,14 @@ class TestLinuxStore:
             return {"client_version": release.policy.value["version"], "runtime": None}
 
         monkeypatch.setattr(store, "_build", build)
-        monkeypatch.setattr(store, "_observe", lambda *_args: {"runtime": None})
+        monkeypatch.setattr(
+            store,
+            "_observe",
+            lambda _candidate, release: {
+                "client_version": release.policy.value["version"],
+                "runtime": None,
+            },
+        )
         return store
 
     def test_offline_install_is_idempotent_and_records_exact_provenance(self, store, bundle):
@@ -497,3 +504,34 @@ def test_cli_help_is_portable_and_imports_no_node(capsys):
 def test_ambiguous_json_is_rejected_before_trust_selection():
     with pytest.raises(InvalidInputError):
         document(b'{"version":"0.1.0","version":"9.0.0"}')
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "--extra-index-url https://evil.invalid",
+        "-r /private/file",
+        "package @ https://evil.invalid/file",
+        "package>=1",
+        "--trusted-host example.invalid",
+    ],
+)
+def test_dependency_lock_cannot_override_download_or_source_policy(tmp_path, text):
+    from potbot.syn_release.contracts import inspect_requirements
+
+    lock = tmp_path / "requirements.txt"
+    lock.write_text(text)
+    with pytest.raises(ScopeDeniedError):
+        inspect_requirements(lock)
+
+
+def test_signed_uv_export_form_is_accepted(tmp_path):
+    from potbot.syn_release.contracts import inspect_requirements
+
+    lock = tmp_path / "requirements.txt"
+    lock.write_text(
+        "# exported\nexample[binary]==1.2.3 ; python_version >= '3.12' \\\n    --hash=sha256:"
+        + "a" * 64
+        + "\n"
+    )
+    inspect_requirements(lock)

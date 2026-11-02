@@ -327,6 +327,7 @@ class SynReleaseStore:
                     if len(data) > 1_048_576:
                         raise StateMismatchError(f"Syn {label} exceeded its output bound")
             if process.wait(timeout=5) != 0:
+                _write_new(self.root / ("process-" + uuid4().hex + ".log"), bytes(data))
                 raise StateMismatchError(f"Syn {label} failed; installation is not admitted")
             return bytes(data)
         finally:
@@ -348,6 +349,13 @@ class SynReleaseStore:
             or info.st_mode & 0o022
         ):
             raise ScopeDeniedError("Installer executable is writable by another principal")
+        for parent in path.parents:
+            parent_info = parent.stat()
+            sticky_root = parent_info.st_uid == 0 and parent_info.st_mode & stat.S_ISVTX
+            if parent_info.st_uid not in {0, os.getuid()} or (
+                parent_info.st_mode & 0o022 and not sticky_root
+            ):
+                raise ScopeDeniedError("Installer executable has an untrusted writable parent")
         return str(path), _sha(path)
 
     def _observe(self, candidate: Path, release: Release) -> dict[str, Any]:
@@ -581,7 +589,21 @@ class SynReleaseStore:
             or canonical(self._inventory(candidate)) != raw
         ):
             raise StateMismatchError("Installed Syn files differ from the admitted inventory")
-        self._observe(candidate, release)
+        if record["artifacts"] != [
+            {"role": a.role, "sha256": a.sha256, "size": a.size} for a in release.assets
+        ]:
+            raise StateMismatchError(
+                "Retained Syn artifact provenance differs from the signed manifest"
+            )
+        original_policy = private_read(candidate / "policy.json")
+        if hashlib.sha256(original_policy).hexdigest() != record["policy_sha256"]:
+            raise StateMismatchError(
+                "Retained Syn policy provenance differs from its admitted digest"
+            )
+        if self._observe(candidate, release) != record["observed"]:
+            raise StateMismatchError(
+                "Installed Syn compatibility differs from the admitted observation"
+            )
         return {
             **record,
             "checked_policy_sha256": release.policy.fingerprint,
