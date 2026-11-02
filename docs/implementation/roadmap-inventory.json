@@ -25398,12 +25398,12 @@
     },
     {
       "path": "scripts/check.py",
-      "sha256": "289b1172dd53bc172308f76c5b79837e24a3abf1e0fdcea4eaa96f9e94cb546d",
-      "bytes": 14164,
+      "sha256": "8603f67891db95636ee2eef78e0ef76b8be4a904e95ab847a07bc8c68d999459",
+      "bytes": 14494,
       "kind": "narrative_text",
-      "text_sha256": "289b1172dd53bc172308f76c5b79837e24a3abf1e0fdcea4eaa96f9e94cb546d",
-      "characters": 14164,
-      "lines": 338,
+      "text_sha256": "8603f67891db95636ee2eef78e0ef76b8be4a904e95ab847a07bc8c68d999459",
+      "characters": 14494,
+      "lines": 342,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
