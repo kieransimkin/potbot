@@ -29,12 +29,12 @@
     },
     {
       "path": "README.md",
-      "sha256": "ec6b32d8a7e8e11b7a730443e80624746c0633769d7f76dad7a2296622a438ce",
-      "bytes": 29513,
+      "sha256": "92232244a0cc4b21f1b99414831964e76b9bed8e8fb1fc5bc11ea3f285a7e3a9",
+      "bytes": 29966,
       "kind": "narrative_text",
-      "text_sha256": "ec6b32d8a7e8e11b7a730443e80624746c0633769d7f76dad7a2296622a438ce",
-      "characters": 29511,
-      "lines": 506,
+      "text_sha256": "92232244a0cc4b21f1b99414831964e76b9bed8e8fb1fc5bc11ea3f285a7e3a9",
+      "characters": 29964,
+      "lines": 513,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1097,6 +1097,13 @@
       "interpretation": "asset_identity_only"
     },
     {
+      "path": "docs/implementation/media/syn-agent-custody.svg",
+      "sha256": "2e32fc5a99e3fc1be0552a43b44333d307a453904b8c50a9011e467638503a78",
+      "bytes": 2770,
+      "kind": "media",
+      "interpretation": "asset_identity_only"
+    },
+    {
       "path": "docs/implementation/media/syn-operator-pr18-merged.png",
       "sha256": "87700a44913f2ec8e4702d0f959d06f4acf89bad136182e3d9696f3b6ae87d45",
       "bytes": 152006,
@@ -1229,6 +1236,16 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": "docs/implementation/syn-agent-deployment.md",
+      "sha256": "f84fc02c29a9becd1b606f5ce39d3d4a12dee7be08d5fccac3b6abaf2bf005cb",
+      "bytes": 7940,
+      "kind": "narrative_text",
+      "text_sha256": "f84fc02c29a9becd1b606f5ce39d3d4a12dee7be08d5fccac3b6abaf2bf005cb",
+      "characters": 7938,
+      "lines": 145,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": "docs/implementation/syn-operator-deployment.md",
       "sha256": "535557b2a84e9ccd15e1682aede9cb50053f25a19cd24abbc352191dbb78e0ca",
       "bytes": 7941,
@@ -1240,11 +1257,11 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "a060b92078dc123c0fec13732aea02430099d9f583c598baf5f47725cb0bd77f",
-      "bytes": 8726,
+      "sha256": "a4d95fc3ee36981b0e19df72d0db1cd92a9005627bf3859b9935cd4280af7acd",
+      "bytes": 8907,
       "kind": "narrative_text",
-      "text_sha256": "a060b92078dc123c0fec13732aea02430099d9f583c598baf5f47725cb0bd77f",
-      "characters": 8720,
+      "text_sha256": "a4d95fc3ee36981b0e19df72d0db1cd92a9005627bf3859b9935cd4280af7acd",
+      "characters": 8901,
       "lines": 47,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -22083,10 +22100,10 @@
       "legacy_id": "SYN-R04",
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R04",
-      "title": "Agent provisioning",
+      "title": "[Agent provisioning candidate](syn-agent-deployment.md)",
       "locator": "line:38",
       "source_claim": "requirements_only",
-      "requirement_sha256": "43e885e7267c9b6c1f609eba30d745f368a2f6ba172337c482bc7569ad72d367",
+      "requirement_sha256": "64326484f7dc0d84836286393d91cf996bc762bc3c4faacff436d2071827d110",
       "unified_owners": [
         "U02",
         "U03",
