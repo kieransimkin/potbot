@@ -149,3 +149,33 @@ def test_invalid_surface_fallback_is_rejected_without_third_attempt():
     with pytest.raises(ValueError, match="render sample"):
         sample(worker)
     assert worker.cdp.send.await_count == 2
+
+
+@pytest.mark.parametrize("engine", ["playwright", "patchright"])
+def test_native_capture_unavailable_uses_the_other_private_capture_path(engine):
+    native_error = type("Error", (Exception,), {"__module__": engine + "._impl._errors"})
+    failure = native_error(
+        "CDPSession.send: Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+    )
+    worker = browser()
+    worker.engine = engine
+    worker.cdp.send.side_effect = [failure, {"data": base64.b64encode(JPEG).decode()}]
+    assert sample(worker)["frame"]["sha256"] == hashlib.sha256(JPEG).hexdigest()
+    assert worker.cdp.send.await_count == 2
+    assert worker.cdp.send.await_args_list[1].args[1]["fromSurface"] is True
+
+
+def test_non_engine_error_with_similar_text_is_not_retried():
+    worker = browser(
+        error=RuntimeError("Protocol error (Page.captureScreenshot): Unable to capture screenshot")
+    )
+    with pytest.raises(RuntimeError):
+        sample(worker)
+    worker.cdp.send.assert_awaited_once()
+
+
+def test_cancellation_propagates_without_capture_fallback():
+    worker = browser(error=asyncio.CancelledError())
+    with pytest.raises(asyncio.CancelledError):
+        sample(worker)
+    worker.cdp.send.assert_awaited_once()

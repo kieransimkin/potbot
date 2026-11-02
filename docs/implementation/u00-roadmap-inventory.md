@@ -150,13 +150,14 @@ use. Interactive monitoring invokes the existing pinned native cgroup wrapper;
 the obsolete reference to a removed Python pre-execution hook is gone.
 
 The initial rendered-browser failure occurred while obtaining the first image,
-before any click or fill. Capture now permits one private, read-only fallback:
+before any click or fill. A later run also exposed Chromium's explicit
+capture-unavailable error. Capture permits one private, read-only fallback:
 
 ```mermaid
 flowchart LR
     A[Capture current viewport] --> B[View path: at most 3 seconds]
     B -->|valid JPEG| D[Validate bounds and hash evidence]
-    B -->|timeout only| C[Surface path: at most 3 seconds]
+    B -->|timeout or native capture unavailable| C[Surface path: at most 3 seconds]
     C -->|valid JPEG| D
     B -->|other error or invalid data| E[Fail closed]
     C -->|any error or invalid data| E
@@ -170,7 +171,8 @@ The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/bl
 defines the view/surface selector and base64 screenshot result. Both attempts
 share the existing six-second capture budget and remain inside the worker's
 12-second command deadline. Invalid base64, missing/oversized images and malformed
-JPEGs fail immediately. Disconnection, permission errors and cancellation do not
+JPEGs fail immediately. Only a timeout or the selected engine's exact capture-unavailable error permits
+the alternate read. Disconnection, permission errors and cancellation do not
 trigger a fallback. Regression tests cover real coroutine timeouts and cancelled
 capture reads; no synthetic unit image qualifies a live browser or Xpra host.
 

@@ -124,6 +124,31 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             record_property(
                 "browser_binary", json.dumps(binary_identity(executable, mode), sort_keys=True)
             )
+            capture_send = worker.cdp.send
+
+            async def trace_capture(method, params=None):
+                try:
+                    result = await capture_send(method, params)
+                except BaseException as error:
+                    if method == "Page.captureScreenshot":
+                        record_property(
+                            "capture_attempt",
+                            json.dumps(
+                                {
+                                    "fromSurface": params["fromSurface"],
+                                    "outcome": type(error).__name__,
+                                }
+                            ),
+                        )
+                    raise
+                if method == "Page.captureScreenshot":
+                    record_property(
+                        "capture_attempt",
+                        json.dumps({"fromSurface": params["fromSurface"], "outcome": "returned"}),
+                    )
+                return result
+
+            worker.cdp.send = trace_capture
             before = await worker.execute({"op": "sample", "image": True})
             assert 'textbox "Username"' in before["aria"]
             assert 'button "Save"' in (await worker.execute({"op": "accessibility"}))["aria"]

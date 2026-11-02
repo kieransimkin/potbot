@@ -520,12 +520,12 @@ class BrowserWorker:
         The Playwright Page.screenshot helper relies on headful compositor
         surfaces and font readiness; in Xvfb/Xpra it may fail or time out even
         while the actual page is alive. This bounded read-only CDP operation
-        tries Chromium's view capture path, then its surface path only after
-        a timeout. Both are private reads within the same capture budget;
+        tries Chromium's view capture path, then its surface path after
+        a timeout or the engine's exact capture-unavailable error. Both are private reads within the same capture budget;
         neither broadens the user-callable CDP allowlist or retries an action.
         """
         # Each path has half of the existing six-second capture budget. Only
-        # a timeout permits a second read; malformed evidence fails immediately.
+        # a transient capture fault permits a second read; invalid data fails closed.
         for from_surface in (False, True):
             try:
                 reply = await asyncio.wait_for(
@@ -541,8 +541,13 @@ class BrowserWorker:
                     timeout=3.0,
                 )
                 break
-            except TimeoutError:
-                if from_surface:
+            except Exception as error:
+                capture_unavailable = type(
+                    error
+                ).__module__ == f"{self.engine}._impl._errors" and str(error).endswith(
+                    "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+                )
+                if from_surface or not (isinstance(error, TimeoutError) or capture_unavailable):
                     raise
         encoded = reply.get("data") if isinstance(reply, dict) else None
         if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
