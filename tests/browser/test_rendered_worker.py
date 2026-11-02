@@ -76,7 +76,14 @@ async def browser(html):
         # No fixture resource may fetch anything from the network. This route
         # is only test hygiene, not evidence of the production egress boundary.
         await worker.context.route("**/*", lambda route: route.abort())
-        await worker.page.set_content(html)
+        # Commit a real document through the public navigation path. Replacing
+        # the initial about:blank document via document.write can leave a
+        # headful compositor without its first committed rendering lifecycle.
+        await worker.page.route(
+            "https://potbot.invalid/probe.html",
+            lambda route: route.fulfill(status=200, content_type="text/html", body=html),
+        )
+        await worker.execute({"op": "navigate", "url": "https://potbot.invalid/probe.html"})
         await worker.page.add_style_tag(
             content=(FIXTURES / "probe.css").read_text()
             + "\n/*# sourceURL=https://potbot.invalid/probe.css */"
@@ -88,7 +95,8 @@ async def browser(html):
         print(
             "initial_render_state",
             await worker.page.evaluate(
-                "() => ({visibility: document.visibilityState, focused: document.hasFocus(), "
+                "() => ({url: location.href, ready: document.readyState, "
+                "visibility: document.visibilityState, focused: document.hasFocus(), "
                 "width: innerWidth, height: innerHeight})"
             ),
         )

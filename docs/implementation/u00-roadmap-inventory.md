@@ -179,7 +179,13 @@ activates an existing window. Rendered acceptance repeats independent cold start
 to expose first-frame display races. Hosted acceptance starts an owned Openbox
 window manager within Xvfb and checks its EWMH readiness before the headed tests;
 plain Xvfb can report a visible, focused page while initial frames stall. The
-manager log is retained and its process exits with the disposable display. Invalid base64, missing/oversized images and malformed
+manager log is retained and its process exits with the disposable display.
+The synthetic page now commits through the worker's navigation operation, served
+by an exact intercepted HTTPS route; all other requests remain aborted. This
+exercises navigation as well as capture without external network access.
+[Playwright documents](https://playwright.dev/python/docs/api/class-page#page-set-content)
+that `set_content` uses document replacement; it is not a substitute for a
+committed navigation when qualifying the initial rendered-document lifecycle. Invalid base64, missing/oversized images and malformed
 JPEGs fail immediately. Only the selected engine's exact capture-unavailable
 response permits the alternate read. A timeout may leave Chromium's capture
 pending even after cancellation of the local wait; starting another capture can
