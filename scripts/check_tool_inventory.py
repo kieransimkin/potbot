@@ -17,6 +17,21 @@ from potbot.tools.inventory import OWNERS, STAGES
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_stage_references(references: dict[str, tuple[str, ...]], root: Path = ROOT) -> None:
+    """Validate legacy tool IDs and namespaced stages against their retained plans."""
+    stages = json.loads(
+        (
+            root / "docs/potbot-tool-mcp-implementation-bundle/potbot-tool-integration-stages.json"
+        ).read_text()
+    )
+    ids = {stage["id"] for stage in stages}
+    roadmap = json.loads((root / "docs/implementation/roadmap-inventory.json").read_text())
+    assert roadmap["schema"] == "potbot.roadmap-inventory/1"
+    ids.update(row["key"] for row in roadmap["requirements"])
+    unknown = {ref for refs in references.values() for ref in refs} - ids
+    assert not unknown, f"Undocumented inventory stage references: {sorted(unknown)}"
+
+
 def check(value: dict) -> dict:
     assert (
         value["result"] == "passed" and value["qualification"] == "real_Git_SYN_Cog_PostgreSQL_API"
@@ -36,13 +51,7 @@ def check(value: dict) -> dict:
     assert all(
         not r["enabled"] and r["state"] == "unqualified" for r in inventory["specialist_routes"]
     )
-    stages = json.loads(
-        (
-            ROOT / "docs/potbot-tool-mcp-implementation-bundle/potbot-tool-integration-stages.json"
-        ).read_text()
-    )
-    ids = {s["id"] for s in stages}
-    assert all(set(refs) <= ids for refs in STAGES.values())
+    check_stage_references(STAGES)
     receipt, events = value["receipt"], value["events"]
     assert (
         receipt["cog_ref"] == str(SIGNATURE.cog_ref)

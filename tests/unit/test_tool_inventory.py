@@ -25,6 +25,15 @@ from potbot.tools.repository_snapshot import SnapshotProfile, _entry, _snapshot
 from tests.unit.test_debugger_cogs_live import FixtureArtifacts, FixtureEvents
 
 
+def test_acceptance_recognizes_documented_namespaced_stages_and_rejects_unknown_refs():
+    from potbot.tools.inventory import STAGES
+    from scripts.check_tool_inventory import check_stage_references
+
+    check_stage_references(STAGES)
+    with pytest.raises(AssertionError, match="Undocumented inventory stage references"):
+        check_stage_references({**STAGES, "syn_release": ("syn-release:SYN-R99",)})
+
+
 def fixture_snapshot(*, omit=(), extra=None, kind="committed", version="0.5.0.dev4"):
     files = {path: b"# synthetic source fixture\n" for path in (*CORE_ANCHORS, *PYTHON_ANCHORS)}
     files.update(
