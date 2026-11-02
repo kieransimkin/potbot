@@ -526,17 +526,10 @@ class BrowserWorker:
         pending, so never overlap it with another capture. Both paths remain
         private reads; neither broadens public CDP authority or retries actions.
         """
-        # DOM readiness can precede the first compositor frame in a headful
-        # display. This constant, read-only fence does not focus or modify it.
-        # Keep readiness and both capture paths inside the same total budget.
+        # Let Chromium synchronize its own capture. Page JavaScript (including
+        # requestAnimationFrame) can be replaced or suspended by the document;
+        # it must not gate this private observation of the compositor.
         async with asyncio.timeout(6.0):
-            await asyncio.wait_for(
-                self.page.evaluate(
-                    "() => new Promise(resolve => requestAnimationFrame(() => "
-                    "requestAnimationFrame(() => resolve(null))))"
-                ),
-                timeout=2.0,
-            )
             for from_surface in (True, False):
                 try:
                     reply = await asyncio.wait_for(

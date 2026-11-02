@@ -155,9 +155,7 @@ capture-unavailable error. Capture permits one private, read-only fallback:
 
 ```mermaid
 flowchart LR
-    A[Capture current viewport] --> R[Two animation frames: at most 2 seconds]
-    R --> B[Direct surface path: at most 3 seconds]
-    R -->|timeout or error| E[Fail closed]
+    A[Capture current viewport] --> B[Direct surface path: at most 3 seconds]
     B -->|valid JPEG| D[Validate bounds and hash evidence]
     B -->|native capture unavailable| C[View path: at most 3 seconds]
     C -->|valid JPEG| D
@@ -171,14 +169,16 @@ rule remain in force. This diagram is not evidence of a passing rendered run.*
 
 The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Page.pdl)
 defines the view/surface selector and base64 screenshot result. Both attempts
-share a six-second total deadline with a bounded two-frame readiness fence,
-inside the worker's 12-second command deadline. The fence waits for rendering
-without changing focus, navigation or page content. Startup separately activates
+share a six-second total deadline inside the worker's 12-second command deadline.
+Capture does not evaluate page JavaScript: a document can replace or suspend
+animation callbacks independently of Chromium's private capture operation. A
+two-frame readiness experiment stalled before any capture on otherwise loaded,
+visible and focused synthetic pages; that prerequisite was removed. Startup activates
 the newly launched browser window once, before reporting readiness. Capture never
 activates an existing window. Rendered acceptance repeats independent cold starts
 to expose first-frame display races. Hosted acceptance starts an owned Openbox
 window manager within Xvfb and checks its EWMH readiness before the headed tests;
-plain Xvfb can report a visible, focused page while initial frames stall. The
+the fixture supplies a managed headed display rather than only an X server. The
 manager log is retained and its process exits with the disposable display.
 The synthetic page now commits through the worker's navigation operation, served
 by an exact intercepted HTTPS route; all other requests remain aborted. This
