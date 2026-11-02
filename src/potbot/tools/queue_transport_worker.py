@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, BinaryIO
 from uuid import UUID
 
+EXECUTABLE = "/usr/local/libexec/potbot-queue-transport"
 DB = ".potbot-transport-queue.sqlite3"
 REQUEST = "syn://type/potbot-local-queue-request-v1"
 RESULT = "syn://type/potbot-local-queue-receipt-v1"

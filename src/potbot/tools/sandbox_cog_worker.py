@@ -242,7 +242,7 @@ class SandboxedCogExecutor:
         cancel: threading.Event,
         syn_fault: threading.Event | None = None,
     ) -> TypedCogValue:
-        from potbot.tools.queue_transport import EXECUTABLE as QUEUE_EXECUTABLE
+        from potbot.tools.queue_transport_worker import EXECUTABLE as QUEUE_EXECUTABLE
         from potbot.tools.queue_transport_worker import REQUEST as QUEUE_REQUEST
 
         home = self.homes.lookup(actor.workspace_id, agent_id)
@@ -318,11 +318,11 @@ class SandboxedCogExecutor:
             )
             stopped = result.processes_stopped is True
             queue_stopped = (
-                stopped
+                op.argv[0] == QUEUE_EXECUTABLE
+                and op.binding.input_type_ref == QUEUE_REQUEST
+                and stopped
                 and result.dispatched
                 and result.outcome != "inconclusive"
-                and op.argv[0] == QUEUE_EXECUTABLE
-                and op.binding.input_type_ref == QUEUE_REQUEST
             )
             if not stopped or result.outcome == "inconclusive":
                 raise IndeterminateExecutionError(

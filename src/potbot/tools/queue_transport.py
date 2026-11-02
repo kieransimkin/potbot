@@ -8,10 +8,8 @@ from uuid import UUID
 
 from potbot.domain.errors import ScopeDeniedError
 from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
-from potbot.tools.queue_transport_worker import REQUEST, RESULT, operation_ref
+from potbot.tools.queue_transport_worker import EXECUTABLE, REQUEST, RESULT, operation_ref
 from potbot.tools.sandbox_cog_worker import SandboxedCogOperation
-
-EXECUTABLE = "/usr/local/libexec/potbot-queue-transport"
 
 
 def schemas() -> dict[str, dict[str, Any]]:

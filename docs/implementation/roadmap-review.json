@@ -187,7 +187,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "1e4be9b135d7cee84304ec0d3301f2d674b16c83a17bbd2062684b990c6ae461",
+          "sha256": "fb7567ec083bb117fad171f1553dd845cd7233e00bc105bc39f0f230ecc1189f",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -1540,7 +1540,7 @@
         {
           "path": "src/potbot/tools/queue_transport_worker.py",
           "symbol": "target_result",
-          "sha256": "37c9d547de8cf2935d3a908232964de2dddd5a78cafde42c271448788a794926",
+          "sha256": "6e6690c82cfbfb4dc5ed96eba7d7480ff85bd95a4c87fcc3987be2cb946570ca",
           "basis": "U01-A queue and settlement source."
         }
       ],
