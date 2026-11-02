@@ -1237,12 +1237,12 @@
     },
     {
       "path": "docs/implementation/syn-agent-deployment.md",
-      "sha256": "f84fc02c29a9becd1b606f5ce39d3d4a12dee7be08d5fccac3b6abaf2bf005cb",
-      "bytes": 7940,
+      "sha256": "cb8c17560a072e0e0c25706a53d726e86ec6a67738bec7090439c3a1d62a50ec",
+      "bytes": 8566,
       "kind": "narrative_text",
-      "text_sha256": "f84fc02c29a9becd1b606f5ce39d3d4a12dee7be08d5fccac3b6abaf2bf005cb",
-      "characters": 7938,
-      "lines": 145,
+      "text_sha256": "cb8c17560a072e0e0c25706a53d726e86ec6a67738bec7090439c3a1d62a50ec",
+      "characters": 8564,
+      "lines": 154,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
