@@ -47,6 +47,10 @@ invocation and upstream receipt, exact installed operation/binary/protocol,
 typed input, mesh session and native node boot. It expires after ten seconds,
 is held only by the trusted controller, and is consumed once before any worker
 launch. Reconstructed, changed, expired or replayed grants fail closed.
+The existing PostgreSQL execution telemetry retains the native selected node,
+boot/session, Agent, release source/version, manifest and policy digests alongside
+the pinned operation. These are public identity pins, never private credentials.
+Grant consumption rechecks the actual installed package and current policy.
 
 `SandboxedCogExecutor` requires this native mesh by default. The original
 in-process `SynWorkerNodeMesh` remains available only with the explicit

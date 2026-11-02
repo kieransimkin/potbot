@@ -181,6 +181,12 @@ class SandboxedCogExecutor:
             return self.syn_mesh.authorize(op, source, context, actor, agent_id)
         return None  # Explicit development fixture, never production qualification.
 
+    def syn_provenance(self, actor: WorkspaceContext, agent_id: UUID) -> dict[str, Any] | None:
+        self.syn_probe(actor, agent_id)
+        if isinstance(self.syn_mesh, ReleasedSynWorkerNodeMesh):
+            return self.syn_mesh.transport.provenance(agent_id)
+        return None
+
     def bind_context(
         self, database: Any, actor: WorkspaceContext, operations: tuple[SandboxedCogOperation, ...]
     ) -> None:

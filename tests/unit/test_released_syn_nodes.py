@@ -61,6 +61,9 @@ class PublicTransportDouble(SynPrivateMesh):
         self.probes.append((agent, verify_installation))
         return {}
 
+    def provenance(self, agent):
+        return {"manifest_sha256": "a" * 64, "source_commit": "b" * 40, "version": "0.4.0"}
+
     def call(self, agent, operation, payload=None):
         self.probe(agent)
         if operation == "publish":

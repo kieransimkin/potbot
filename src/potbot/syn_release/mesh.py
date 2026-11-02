@@ -141,6 +141,24 @@ class SynPrivateMesh(SynPublicCommands):
             raise ScopeDeniedError("Agent is outside the operator-selected native Syn cohort")
         return self._participants[agent_id]
 
+    def provenance(self, agent_id: UUID) -> dict[str, Any]:
+        """Public installation/identity pins for the existing execution journal."""
+        selected = self.participant(agent_id)
+        policy = selected.deployment.policy
+        return {
+            "profile": "potbot.syn-cog-native-binding/1",
+            "workspace_id": str(self.workspace_id),
+            "agent_id": str(agent_id),
+            "session_id": self.scope["session_id"],
+            "node": selected.selected_hash,
+            "boot_id": selected.proof["status"]["boot_id"],
+            "manifest_sha256": policy.manifest_sha256,
+            "release_policy_sha256": policy.fingerprint,
+            "source_commit": policy.value["source_commit"],
+            "version": policy.value["version"],
+            "owner_uid": selected.deployment.uid,
+        }
+
     def call(self, agent_id: UUID, operation: str, payload: object = None) -> dict[str, Any]:
         if not self.healthy or operation not in {"status", "publish", "receive"}:
             raise StateMismatchError(

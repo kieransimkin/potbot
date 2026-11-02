@@ -91,6 +91,7 @@ class ReleasedSynWorkerNodeMesh(SynWorkerNodeMesh):
                 "session": self.transport.scope["session_id"],
                 "node": selected.selected_hash,
                 "boot": selected.proof["status"]["boot_id"],
+                "release_binding": self.transport.provenance(agent),
             }
         )
 
@@ -132,7 +133,7 @@ class ReleasedSynWorkerNodeMesh(SynWorkerNodeMesh):
             or issued[1] != self._binding(op, source, context, actor, agent)
         ):
             raise ScopeDeniedError("Cog grant is absent, changed, expired or already consumed")
-        self.probe(actor.workspace_id, agent)
+        self.probe(actor.workspace_id, agent, installation=True)
 
     def node(self, workspace_id: UUID, agent_id: UUID, worker_run_id: UUID) -> SynWorkerNode:
         self.probe(workspace_id, agent_id)

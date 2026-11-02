@@ -405,7 +405,14 @@ class ExecutionCogRuntime:
         if source.fingerprint != original_hash:
             raise StateMismatchError("Admission changed the frozen work input")
         try:
-            work = monitor.begin(signature, source, context, implementation=binding.to_dict())
+            implementation = binding.to_dict()
+            if self.sandbox_executor is not None and self.sandbox_agent_id is not None:
+                native_binding = self.sandbox_executor.syn_provenance(
+                    self.actor, self.sandbox_agent_id
+                )
+                if native_binding is not None:
+                    implementation["syn_native"] = native_binding
+            work = monitor.begin(signature, source, context, implementation=implementation)
         except Exception:
             self._poisoned = True
             raise

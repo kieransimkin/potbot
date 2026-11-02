@@ -1254,12 +1254,12 @@
     },
     {
       "path": "docs/implementation/syn-cog-admission.md",
-      "sha256": "4a596dad1dd44da4d4b4a049814264d51bf65f82452ea9cfe463de0f46b64515",
-      "bytes": 6254,
+      "sha256": "4964e37bdcf87331c3bcb05e35c7bd141fdb2f0f0fda5c11ae05a6d4c81c99d8",
+      "bytes": 6572,
       "kind": "narrative_text",
-      "text_sha256": "4a596dad1dd44da4d4b4a049814264d51bf65f82452ea9cfe463de0f46b64515",
-      "characters": 6252,
-      "lines": 110,
+      "text_sha256": "4964e37bdcf87331c3bcb05e35c7bd141fdb2f0f0fda5c11ae05a6d4c81c99d8",
+      "characters": 6570,
+      "lines": 114,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
