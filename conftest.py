@@ -61,7 +61,11 @@ def pytest_configure(config: pytest.Config) -> None:
         else checkout / ".potbot" / "temporary"
     )
     parent = create_directory(parent)
-    owner = TemporaryDirectory(prefix=f"potbot-pytest-{checkout_key}-", dir=parent)
+    # Windows needs the checkout identity because all worktrees share the
+    # project LocalAppData parent. Linux CI already uses /tmp and AF_UNIX has a
+    # 108-byte path ceiling, so keep that unique prefix deliberately short.
+    owner_prefix = f"potbot-pytest-{checkout_key}-" if os.name == "nt" else "potbot-pytest-"
+    owner = TemporaryDirectory(prefix=owner_prefix, dir=parent)
     base = create_directory(Path(owner.name) / "run")
     config.option.basetemp = str(Path(supplied).absolute() if supplied else base)
     config.stash[_FACTORY] = WorkspaceTempFactory(base)
