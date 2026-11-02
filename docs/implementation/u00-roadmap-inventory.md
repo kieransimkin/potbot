@@ -176,7 +176,10 @@ inside the worker's 12-second command deadline. The fence waits for rendering
 without changing focus, navigation or page content. Startup separately activates
 the newly launched browser window once, before reporting readiness. Capture never
 activates an existing window. Rendered acceptance repeats independent cold starts
-to expose first-frame display races. Invalid base64, missing/oversized images and malformed
+to expose first-frame display races. Hosted acceptance starts an owned Openbox
+window manager within Xvfb and checks its EWMH readiness before the headed tests;
+plain Xvfb can report a visible, focused page while initial frames stall. The
+manager log is retained and its process exits with the disposable display. Invalid base64, missing/oversized images and malformed
 JPEGs fail immediately. Only the selected engine's exact capture-unavailable
 response permits the alternate read. A timeout may leave Chromium's capture
 pending even after cancellation of the local wait; starting another capture can

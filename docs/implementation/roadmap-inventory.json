@@ -1226,12 +1226,12 @@
     },
     {
       "path": "docs/implementation/u00-roadmap-inventory.md",
-      "sha256": "7c145ef84d152a88cbb5721a5e2b3cc63e5bfdf50633bbe495a40bb1b98c2af9",
-      "bytes": 13299,
+      "sha256": "c2734fee33f087b16cb18e95193457b8b2c8fb9823edb5c09900995e19454827",
+      "bytes": 13576,
       "kind": "narrative_text",
-      "text_sha256": "7c145ef84d152a88cbb5721a5e2b3cc63e5bfdf50633bbe495a40bb1b98c2af9",
-      "characters": 13267,
-      "lines": 212,
+      "text_sha256": "c2734fee33f087b16cb18e95193457b8b2c8fb9823edb5c09900995e19454827",
+      "characters": 13544,
+      "lines": 215,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -25760,12 +25760,12 @@
     },
     {
       "path": ".github/workflows/browser-rendered-acceptance.yml",
-      "sha256": "b333aa8388c8e8f5a820feb6d8331447157eaa4c3dc7507b18a04ab38df0701b",
-      "bytes": 4630,
+      "sha256": "394356820815851c2563ad323d0773052662727c82405c53e8c414dbfb3a2269",
+      "bytes": 5464,
       "kind": "narrative_text",
-      "text_sha256": "b333aa8388c8e8f5a820feb6d8331447157eaa4c3dc7507b18a04ab38df0701b",
-      "characters": 4630,
-      "lines": 111,
+      "text_sha256": "394356820815851c2563ad323d0773052662727c82405c53e8c414dbfb3a2269",
+      "characters": 5464,
+      "lines": 127,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
