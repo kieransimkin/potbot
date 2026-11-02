@@ -1,8 +1,12 @@
 # Deploying the native Syn operator
 
 SYN-R03 adds host provisioning, explicit bootstrap, authenticated attachment
-and user-service supervision. The upstream 0.2.0 operator is a candidate until
-the exact release is signed, published and accepted. Syn 0.1.0 remains
+and user-service supervision. Upstream Syn 0.2.0 was signed, published and
+accepted against the reviewed Potbot controller on Linux and both Mac
+architectures. The first persistent WSL handoff then found an interactive
+terminal/unlock defect before password entry. Use the qualified 0.2.1 patch
+for a new installation requiring private native-keystore unlock; its publication
+and acceptance are separate gates. Syn 0.1.0 remains
 service-only and is rejected by this deployment policy.
 
 ```mermaid
@@ -118,5 +122,20 @@ Development evidence: managed WSL Ubuntu 24.04 provisioning completed; actual
 native Secret Service and separate Syn processes retained one disposable
 identity across graceful and forced restart and refused a locked store.
 This is development qualification, not an official-package production receipt.
+
+![Actual merged Potbot native operator implementation](media/syn-operator-pr18-merged.png)
+
+*Actual [Potbot PR18](https://github.com/kieransimkin/potbot/pull/18), merged
+at `eefd32ee42d9a9d1b55d9364d820705ca3c949d9` after its required checks.
+The upstream four-platform official-package qualification subsequently passed
+against this exact reviewed controller. Neither result proves that a user's
+private keystore is unlocked or that a persistent user node has started.*
+
+The WSL host and exact reviewed controller are installed, and the official
+package was admitted from an authenticated offline preparing cache. The
+interactive-unlock fix belongs to upstream Syn; Potbot does not copy its
+terminal, password or native-custody implementation. First-time confirmation,
+no-echo input and wrong-password refusal must pass in the actual native
+credential-service acceptance before a private host retries that handoff.
 There is no node UI or Agent exchange to film at this stage; the diagram and
 sanitized execution receipts explain the actual boundary without exposing keys.
