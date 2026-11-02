@@ -155,11 +155,13 @@ capture-unavailable error. Capture permits one private, read-only fallback:
 
 ```mermaid
 flowchart LR
-    A[Capture current viewport] --> B[Direct surface path: at most 3 seconds]
+    A[Capture current viewport] --> R[Two animation frames: at most 2 seconds]
+    R --> B[Direct surface path: at most 3 seconds]
+    R -->|timeout or error| E[Fail closed]
     B -->|valid JPEG| D[Validate bounds and hash evidence]
     B -->|native capture unavailable| C[View path: at most 3 seconds]
     C -->|valid JPEG| D
-    B -->|timeout, other error or invalid data| E[Fail closed]
+    B -->|timeout, other error or invalid data| E
     C -->|any error or invalid data| E
 ```
 
@@ -169,8 +171,9 @@ rule remain in force. This diagram is not evidence of a passing rendered run.*
 
 The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Page.pdl)
 defines the view/surface selector and base64 screenshot result. Both attempts
-share the existing six-second capture budget and remain inside the worker's
-12-second command deadline. Invalid base64, missing/oversized images and malformed
+share a six-second total deadline with a bounded two-frame readiness fence,
+inside the worker's 12-second command deadline. The fence waits for rendering
+without changing focus, navigation or page content. Invalid base64, missing/oversized images and malformed
 JPEGs fail immediately. Only the selected engine's exact capture-unavailable
 response permits the alternate read. A timeout may leave Chromium's capture
 pending even after cancellation of the local wait; starting another capture can

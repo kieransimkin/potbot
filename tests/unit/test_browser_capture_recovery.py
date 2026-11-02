@@ -26,6 +26,7 @@ def browser(packet=None, *, error=None):
     worker.page = SimpleNamespace(
         screenshot=AsyncMock(side_effect=AssertionError("Page.screenshot helper must not run")),
         url="about:blank",
+        evaluate=AsyncMock(return_value=None),
     )
     worker.cdp = SimpleNamespace(send=AsyncMock(return_value=packet, side_effect=error))
     worker._aria = AsyncMock(return_value='- button "Sample"')
@@ -127,7 +128,7 @@ def test_real_capture_timeout_cancels_each_read_with_bounded_budget(monkeypatch)
     monkeypatch.setattr(module.asyncio, "wait_for", short_wait)
     with pytest.raises(TimeoutError):
         sample(worker)
-    assert budgets == [3.0]
+    assert budgets == [2.0, 3.0]
     assert cancelled == [True]
 
 
@@ -169,3 +170,30 @@ def test_cancellation_propagates_without_capture_fallback():
     with pytest.raises(asyncio.CancelledError):
         sample(worker)
     worker.cdp.send.assert_awaited_once()
+
+
+def test_render_readiness_timeout_never_dispatches_a_capture():
+    worker = browser()
+    worker.page.evaluate.side_effect = TimeoutError()
+    with pytest.raises(TimeoutError):
+        sample(worker)
+    worker.cdp.send.assert_not_awaited()
+
+
+def test_capture_waits_for_readiness_before_requesting_pixels():
+    worker = browser({"data": base64.b64encode(JPEG).decode()})
+    events = []
+
+    async def ready(script):
+        assert "requestAnimationFrame" in script
+        events.append("ready")
+
+    async def capture(method, params):
+        assert events == ["ready"]
+        events.append("capture")
+        return {"data": base64.b64encode(JPEG).decode()}
+
+    worker.page.evaluate.side_effect = ready
+    worker.cdp.send.side_effect = capture
+    assert sample(worker)["frame"]["sha256"] == hashlib.sha256(JPEG).hexdigest()
+    assert events == ["ready", "capture"]

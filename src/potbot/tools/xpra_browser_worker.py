@@ -523,30 +523,40 @@ class BrowserWorker:
         pending, so never overlap it with another capture. Both paths remain
         private reads; neither broadens public CDP authority or retries actions.
         """
-        # Each path has half of the existing six-second capture budget.
-        for from_surface in (True, False):
-            try:
-                reply = await asyncio.wait_for(
-                    self.cdp.send(
-                        "Page.captureScreenshot",
-                        {
-                            "format": "jpeg",
-                            "quality": 48,
-                            "fromSurface": from_surface,
-                            "captureBeyondViewport": False,
-                        },
-                    ),
-                    timeout=3.0,
-                )
-                break
-            except Exception as error:
-                capture_unavailable = type(
-                    error
-                ).__module__ == f"{self.engine}._impl._errors" and str(error).endswith(
-                    "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
-                )
-                if not from_surface or not capture_unavailable:
-                    raise
+        # DOM readiness can precede the first compositor frame in a headful
+        # display. This constant, read-only fence does not focus or modify it.
+        # Keep readiness and both capture paths inside the same total budget.
+        async with asyncio.timeout(6.0):
+            await asyncio.wait_for(
+                self.page.evaluate(
+                    "() => new Promise(resolve => requestAnimationFrame(() => "
+                    "requestAnimationFrame(() => resolve(null))))"
+                ),
+                timeout=2.0,
+            )
+            for from_surface in (True, False):
+                try:
+                    reply = await asyncio.wait_for(
+                        self.cdp.send(
+                            "Page.captureScreenshot",
+                            {
+                                "format": "jpeg",
+                                "quality": 48,
+                                "fromSurface": from_surface,
+                                "captureBeyondViewport": False,
+                            },
+                        ),
+                        timeout=3.0,
+                    )
+                    break
+                except Exception as error:
+                    capture_unavailable = type(
+                        error
+                    ).__module__ == f"{self.engine}._impl._errors" and str(error).endswith(
+                        "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+                    )
+                    if not from_surface or not capture_unavailable:
+                        raise
         encoded = reply.get("data") if isinstance(reply, dict) else None
         if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
             raise ValueError("render sample is absent or exceeds bound")
