@@ -19,3 +19,13 @@ def test_pytest_temp_root_supports_atomic_io(tmp_path: Path) -> None:
     if os.name == "nt":
         local_app_data = Path(os.environ["LOCALAPPDATA"]).resolve()
         assert local_app_data == tmp_path.resolve() or local_app_data in tmp_path.resolve().parents
+
+
+def test_github_posix_fixture_root_preserves_unix_socket_path_budget(
+    pytestconfig, tmp_path_factory
+) -> None:
+    if os.name != "posix" or os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    root = str(tmp_path_factory.getbasetemp())
+    assert root.startswith("/tmp/potbot-pytest-")
+    assert len(root.encode()) <= 64
