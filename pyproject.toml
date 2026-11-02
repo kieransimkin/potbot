@@ -53,7 +53,7 @@ dev = [
 # Enforce release boundaries even in managed worktrees where VCS ignore discovery
 # may resolve differently. Scratch and generated storage are never source assets.
 exclude = [
-  "/.potbot/**", "/.codex/**", "/.git/**", "/.test-runs/**", "/.test-tmp/**",
+  "/.potbot/**", "/.codex/**", "/.git", "/.git/**", "/.test-runs/**", "/.test-tmp/**",
   "/.venv/**", "/.uv-cache/**", "/.env", "/.env.*", "/models/**",
   "/artifacts/**", "/build/**", "/dist/**",
   "**/__pycache__/**", "**/.pytest_cache/**", "**/.mypy_cache/**",
