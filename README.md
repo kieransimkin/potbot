@@ -68,6 +68,11 @@ The [canonical semantic tool contracts](docs/implementation/12-canonical-tool-co
 
 The [execution provenance core](docs/implementation/13-execution-provenance.md) adds 17 registered work-kind Cogs and seal/replay Cogs with policy-bound causal runs, signed trace artifacts and read-only historical inspection. T01.3 remains in progress for universal production adoption, general artifact range transport and remote hardware qualification. [Shared temporary storage](docs/implementation/14-windows-temporary-storage.md) preserves inherited Windows scratch ACLs across tests, builds and workers, with actual file-lifecycle checks and explicit cleanup failures.
 
+The operator-only [Syn release installer](docs/implementation/syn-release-installation.md)
+adds exact upstream release selection, signature/payload verification, offline
+reuse and atomic package admission. It does not qualify operator or Agent node
+modes or activate the transitional runtime.
+
 ## Install and check
 
 Run the entry point for your platform from the extracted checkout:
