@@ -18,3 +18,7 @@ artifacts/
 /.potbot/
 # Native identity build products are local, never source artifacts.
 /native/potbot-identity/target/
+
+# Local test scratch is never source or release evidence.
+.pytest_cache/
+.test-tmp/

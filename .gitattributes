@@ -69,3 +69,6 @@ Dockerfile text eol=lf
 *.dll binary
 *.so binary
 *.dylib binary
+
+# Keep the catch-all policy explicit: text is LF both in Git and the checkout.
+* text=auto eol=lf
