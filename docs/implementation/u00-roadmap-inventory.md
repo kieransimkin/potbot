@@ -209,6 +209,13 @@ progress checks now include those existing sources explicitly. Capture-path
 diagnostics use test output, preserving the rendered gate's closed identity
 metadata schema.
 
+The reconciled run cleared 3,351 unit/Git cases, including the corrected browser
+metadata contract. PostgreSQL then exceeded the old 600-second harness budget
+while still progressing through migration tests without a reported assertion
+failure. The expanded database suite has a bounded 900-second allowance, with
+a 30-minute enclosing verification job and slow-test timings retained. The full
+suite and its assertions still have to pass; a timeout remains a failed gate.
+
 Run the existing complete application, PostgreSQL, sandbox and four-profile
 rendered acceptance lanes on the repaired revision before merging. Local Windows
 checks do not qualify Linux namespaces, cgroups, Xpra or production node modes.

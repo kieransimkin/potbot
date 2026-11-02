@@ -123,8 +123,16 @@ def main() -> int:
                 try:
                     run(
                         label,
-                        [sys.executable, "-m", "pytest", "-m", selector, f"--junitxml={junit}"],
-                        timeout=600 if label == "postgres" else 240,
+                        [
+                            sys.executable,
+                            "-m",
+                            "pytest",
+                            "-m",
+                            selector,
+                            "--durations=10",
+                            f"--junitxml={junit}",
+                        ],
+                        timeout=900 if label == "postgres" else 240,
                         temporary_root=pytest_root,
                     )
                 finally:

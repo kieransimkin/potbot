@@ -1226,12 +1226,12 @@
     },
     {
       "path": "docs/implementation/u00-roadmap-inventory.md",
-      "sha256": "c2734fee33f087b16cb18e95193457b8b2c8fb9823edb5c09900995e19454827",
-      "bytes": 13576,
+      "sha256": "3b5ecae53c7df8b34e9cb10f8433597f5e489ca17e8f0845650f84417bd44a96",
+      "bytes": 14049,
       "kind": "narrative_text",
-      "text_sha256": "c2734fee33f087b16cb18e95193457b8b2c8fb9823edb5c09900995e19454827",
-      "characters": 13544,
-      "lines": 215,
+      "text_sha256": "3b5ecae53c7df8b34e9cb10f8433597f5e489ca17e8f0845650f84417bd44a96",
+      "characters": 14017,
+      "lines": 222,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -25398,12 +25398,12 @@
     },
     {
       "path": "scripts/check.py",
-      "sha256": "1e4c4a3cb4a3b27d949266c038beba08a291ed4000d0c8b97acd4f5669275adf",
-      "bytes": 13923,
+      "sha256": "289b1172dd53bc172308f76c5b79837e24a3abf1e0fdcea4eaa96f9e94cb546d",
+      "bytes": 14164,
       "kind": "narrative_text",
-      "text_sha256": "1e4c4a3cb4a3b27d949266c038beba08a291ed4000d0c8b97acd4f5669275adf",
-      "characters": 13923,
-      "lines": 330,
+      "text_sha256": "289b1172dd53bc172308f76c5b79837e24a3abf1e0fdcea4eaa96f9e94cb546d",
+      "characters": 14164,
+      "lines": 338,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -25800,10 +25800,10 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "ed818123337b4208aa9e1b7401fa17837c4837c2f213f298aaa132f423469237",
+      "sha256": "bbcad1c1d2e592883c86bfa930e53db10131a6d7fcf2e7023c4cd2e04dfc121b",
       "bytes": 10571,
       "kind": "narrative_text",
-      "text_sha256": "ed818123337b4208aa9e1b7401fa17837c4837c2f213f298aaa132f423469237",
+      "text_sha256": "bbcad1c1d2e592883c86bfa930e53db10131a6d7fcf2e7023c4cd2e04dfc121b",
       "characters": 10571,
       "lines": 204,
       "interpretation": "source_content_not_runtime_evidence"
