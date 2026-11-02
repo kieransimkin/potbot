@@ -49,11 +49,21 @@ dev = [
   "websockets>=15,<17",
 ]
 
+[tool.hatch.build]
+# Enforce release boundaries even in managed worktrees where VCS ignore discovery
+# may resolve differently. Scratch and generated storage are never source assets.
+exclude = [
+  "/.potbot/**", "/.codex/**", "/.git/**", "/.test-runs/**", "/.test-tmp/**",
+  "/.venv/**", "/.uv-cache/**", "/.env", "/.env.*", "/models/**",
+  "/artifacts/**", "/build/**", "/dist/**",
+  "**/__pycache__/**", "**/.pytest_cache/**", "**/.mypy_cache/**",
+  "**/.ruff_cache/**", "**/node_modules/**", "**/.next/**", "**/target/**",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/potbot"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/potbot/tools/agent_skeleton" = "potbot/tools/agent_skeleton"
 "vocab" = "potbot/semantics/data"
 "native/potbot-identity/Cargo.toml" = "potbot/security/native_source/Cargo.toml"
 "native/potbot-identity/Cargo.lock" = "potbot/security/native_source/Cargo.lock"

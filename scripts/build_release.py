@@ -98,11 +98,37 @@ def main() -> None:
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
                 raise SystemExit("Wheel debugger source differs from build input")
         names = wheel.namelist()
+        if len(names) != len(set(names)):
+            raise SystemExit("Duplicate wheel entries make package contents ambiguous")
+        skeleton = ROOT / "src/potbot/tools/agent_skeleton"
+        for file in skeleton.rglob("*"):
+            if file.is_file():
+                member = "potbot/tools/agent_skeleton/" + file.relative_to(skeleton).as_posix()
+                if member not in names or wheel.read(member) != file.read_bytes():
+                    raise SystemExit("Installed Agent home skeleton differs from source")
     with tarfile.open(sources[0]) as source_archive:
         source_names = source_archive.getnames()
     for name in [*names, *source_names]:
         parts = Path(name).parts
-        if any(p in {".codex", ".potbot", ".test-runs", ".venv", ".env"} for p in parts):
+        if any(
+            p
+            in {
+                ".codex",
+                ".potbot",
+                ".test-runs",
+                ".venv",
+                ".env",
+                ".uv-cache",
+                "__pycache__",
+                ".pytest_cache",
+                ".mypy_cache",
+                ".ruff_cache",
+                "node_modules",
+                ".git",
+                "target",
+            }
+            for p in parts
+        ):
             raise SystemExit("Private/cache material found in distribution")
         if name.endswith((".safetensors", ".gguf", ".ckpt", ".pth", ".onnx")):
             raise SystemExit("Model weights found in distribution")
