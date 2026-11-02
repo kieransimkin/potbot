@@ -1,5 +1,11 @@
 # Recent Potbot development conversations: requirements reconciliation
 
+**Binary-source follow-up, 2 November 2026:** [U00-A's source inventory](u00-roadmap-inventory.md)
+verifies the committed Plan 1.1 (P001–P204) and Architecture 1.1 (G01–G35).
+This historical reconciliation's P001–P153/G01–G24 crosswalk remains valid for
+its earlier saved sources; it is not the full later inventory. The additional
+51 steps and 11 gates must retain their own requirement/evidence review.
+
 **Date:** 2026-11-01. **Delivery baseline:** `6f6b16dce984398d939ce5d0360d7e708938a9dd` on `main`. The detailed audit began at `6bc2db628bc66995e1d5979881455378747b1bdf`; the later delta was checked before delivery.
 
 **Result:** the consolidated roadmap needed additional source mappings, explicit acceptance gates and corrections to conflicting descriptions. Many requested features already have detailed companion plans or documented implementation foundations. This reconciliation preserves those foundations and identifies the remaining work; it does not mark any runtime stage as qualified.

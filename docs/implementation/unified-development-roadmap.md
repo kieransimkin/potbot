@@ -2,6 +2,14 @@
 
 **Status:** Proposed consolidation, 2026-11-01. A full repository-wide document and issue audit remains necessary. This roadmap preserves existing stages and adds the agent-runtime modernization programme without asserting that planned features have shipped.
 
+**U00-A started, 2 November 2026:** the [source inventory implementation](u00-roadmap-inventory.md)
+opens the committed Word sources as well as the text plans. Plan **1.1** preserves
+P001–P153 and adds **P154–P204**; Architecture **1.1** defines **G01–G35**.
+The older P153/G24 crosswalks below describe their historical source scope.
+Preserve the additional requirements and independent ID namespaces. The new
+checker detects source/stage drift; complete narrative/code/test reconciliation
+and runtime qualification remain open.
+
 **Targeted reconciliation, 2026-11-01:** the plans recovered from the **Monitor Worker Resource Usage** conversation are explicitly mapped in [the worker monitoring and SYN reconciliation](monitor-worker-resource-usage-reconciliation.md), against `main` at `ef9a48a9c46a3ccfabc1d969665073f57224117e`. Its requirement rows and acceptance gates are part of this roadmap. This completes that targeted mapping, not the remaining repository-wide U00 audit or production qualification.
 
 **Broader conversation reconciliation, 2026-11-01:** [recent Potbot development requirements](recent-potbot-development-reconciliation.md) maps other recovered October–November conversations against `main` at `6bc2db628bc66995e1d5979881455378747b1bdf`, which already contains the monitoring reconciliation. Its RD01–RD39 requirements and gates are part of this roadmap. The review adds the original P001–P153/E01–E09 programmes, the 32-stage object-memory plan and detailed service, sandbox, tool, browser, UI, context and learning requirements. It distinguishes missing mappings, conflicting guarantees, partial integration and unverified prerequisites. It does not close the remaining binary-source, issue/CI or production audit. Delivery was checked against `6f6b16dce984398d939ce5d0360d7e708938a9dd`, including the new [browser verification closeout](browser-verification-closeout.md); that test-infrastructure increment preserves the real host, database, image and provenance-fixture gates.
@@ -117,6 +125,11 @@ Across these waves, follow the existing MG dependency cut rather than waiting fo
 ## First next milestone
 
 **U00-A: full roadmap inventory and evidence reconciliation.** The present consolidation covers known plans and targeted GitHub evidence, but not an exhaustive traversal of the repository's documentation tree or issues. Produce a source-linked legacy-stage ↔ U-ID mapping before assigning new implementation stage numbers. After that, **U01-A: durable side-effect and crash recovery gap closure** is the first high-priority code milestone.
+
+The [first U00-A increment](u00-roadmap-inventory.md) supplies a checked source
+inventory and explicit-stage mapping, including the recovered binary variants.
+It does not yet meet U00's full exit gate. Use its open findings to continue the
+evidence review before claiming completion or starting a replacement runtime.
 
 The **Monitor Worker Resource Usage** slice of U00-A is now recorded in the companion reconciliation. Carry its open items into U03/U06/U13/U16 rather than restarting the implemented stages. In the SYN sequence, Phase 48 provides confidential intake and explicitly defers its approved enrollment bridge. No SYN Phase 49 artifact was verified in the pinned tree or the recovered artifacts: retain the user's Phase 49 continuation request as **requested / unverified**, and use U06-E below to track the bridge without inventing a completed Phase 49.
 
