@@ -137,6 +137,5 @@ def test_pytest_uses_its_own_short_private_tree_and_preserves_explicit_root(
     assert len(observed) == 1
     expected = root if explicit else Path("/tmp")
     assert Path(observed[0]["POTBOT_TEMP_ROOT"]) == expected
-    assert Path(observed[0]["TMPDIR"]) != expected
-    assert "potbot-check-process-" in observed[0]["TMPDIR"]
+    assert all(Path(observed[0][name]) == expected for name in ("TEMP", "TMP", "TMPDIR"))
     assert json.loads((artifacts / "summary.json").read_text())["success"] is False

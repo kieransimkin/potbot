@@ -52,7 +52,8 @@ def main() -> int:
             )
             if temporary_root is not None:
                 child_environment = dict(child_environment or os.environ)
-                child_environment["POTBOT_TEMP_ROOT"] = str(temporary_root)
+                for name in ("TEMP", "TMP", "TMPDIR", "POTBOT_TEMP_ROOT"):
+                    child_environment[name] = str(temporary_root)
             completed = subprocess.run(
                 command,
                 cwd=cwd,
