@@ -38,6 +38,7 @@ The closed `potbot.syn-install-policy/1` object contains:
 | --- | --- |
 | Publisher | `repository` must be `Synsphere/syn`; `public_key` is the independently approved raw Ed25519 public key in hex; `release_key_sha256` binds that public key |
 | Exact release | Stable `version`, full `source_commit`, and canonical `manifest_sha256`; no `latest`, branch, prerelease or metadata-derived trust |
+| Dependency preparation | `dependency_source_builds` defaults to false; true explicitly approves building third-party source distributions authenticated by the signed hash lock on the trusted preparation host |
 | Offline dependencies | `dependency_cache_sha256` is null for initial online preparation, or the independently retained digest from a trusted preparing installation receipt for a fresh offline runtime |
 | Current restrictions | `minimum_version`, sorted `revoked_keys` and `revoked_manifests`; restrictions are checked again on every operation |
 | Installation | `component` is `runtime` or `client`; `mode` is explicit for a runtime and null for a client; `python_version` is `3.12` or `3.13` |
@@ -78,8 +79,16 @@ The bootstrap adapter verifies the independently pinned canonical manifest,
 Ed25519 signature, exact tag/source, immutable non-draft publication and all five
 payload digests. It checks wheel paths without unpacking archives. Only the
 signed official wheels are installed; sdists remain retained verification
-inputs. Runtime dependencies use the signed hashed export with binary-only
-resolution from PyPI. Missing compatible dependency wheels fail closed.
+inputs. Runtime dependencies use the signed hashed export from PyPI. Binary-only
+resolution is the default. Some approved releases pin dependencies without Linux
+wheels; an operator can explicitly set `dependency_source_builds: true` to build
+those third-party distributions after uv verifies their signed source hashes.
+This never permits a source checkout or source build of Syn itself. Build tools
+run with no GitHub token, release key, node identity or inherited user package
+configuration. The preparation host must be trusted to execute these approved
+builds; this installer is not a hostile-build sandbox or a hermetic build-system
+attestation. The retained cache inventory identifies the exact resulting build
+inputs and wheels for explicit offline selection.
 
 The installed official `syn-client` repeats schema and compatibility checks.
 A runtime also repeats official signature verification and must report exactly

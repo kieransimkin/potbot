@@ -579,3 +579,15 @@ def test_signed_uv_export_form_is_accepted(tmp_path):
         + "\n"
     )
     inspect_requirements(lock)
+
+
+def test_third_party_source_build_approval_is_explicit_and_defaults_to_denied(bundle):
+    assert bundle.policy.value["dependency_source_builds"] is False
+    assert (
+        Policy.parse(canonical({**bundle.value, "dependency_source_builds": True})).value[
+            "dependency_source_builds"
+        ]
+        is True
+    )
+    with pytest.raises(InvalidInputError):
+        Policy.parse(canonical({**bundle.value, "dependency_source_builds": "yes"}))

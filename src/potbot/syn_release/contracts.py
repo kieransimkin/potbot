@@ -96,6 +96,9 @@ class Policy:
     @classmethod
     def parse(cls, raw: bytes) -> Policy:
         supplied = document(raw)
+        supplied.setdefault("dependency_source_builds", False)
+        if type(supplied["dependency_source_builds"]) is not bool:
+            raise InvalidInputError("Dependency source-build approval must be an explicit boolean")
         supplied.setdefault("dependency_cache_sha256", None)
         if supplied["dependency_cache_sha256"] is not None:
             digest(supplied["dependency_cache_sha256"])
@@ -118,6 +121,7 @@ class Policy:
                 "required_profiles",
                 "required_capabilities",
                 "dependency_cache_sha256",
+                "dependency_source_builds",
             },
         )
         if value["profile"] != "potbot.syn-install-policy/1" or value["repository"] != REPOSITORY:

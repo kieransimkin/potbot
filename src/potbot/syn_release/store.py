@@ -455,8 +455,7 @@ class SynReleaseStore:
                 [
                     *common,
                     "--require-hashes",
-                    "--only-binary",
-                    ":all:",
+                    *([] if selected["dependency_source_builds"] else ["--only-binary", ":all:"]),
                     "--index-url",
                     "https://pypi.org/simple",
                     "-r",
