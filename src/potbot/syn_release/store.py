@@ -473,7 +473,8 @@ class SynReleaseStore:
         for wheel in wheels:
             inspect_wheel(Path(wheel))
         self._run(
-            [*common, "--no-index", "--no-deps", *wheels], label="authenticated official wheels"
+            [*common, "--no-cache", "--no-index", "--no-deps", *wheels],
+            label="authenticated official wheels",
         )
         return self._observe(candidate, release)
 
@@ -514,6 +515,68 @@ class SynReleaseStore:
                     raise InvalidInputError("Installed Syn file inventory exceeds its bound")
         return result
 
+    def _dependency_inventory(self) -> bytes:
+        cache = self.root / "uv-cache"
+        result: dict[str, Any] = {}
+        for parent, directories, files in os.walk(cache, followlinks=False):
+            for name in sorted([*directories, *files]):
+                path = Path(parent) / name
+                info = path.lstat()
+                if info.st_uid != os.getuid():
+                    raise ScopeDeniedError("Dependency cache has a different owner")
+                key = path.relative_to(cache).as_posix()
+                if stat.S_ISLNK(info.st_mode):
+                    if not path.resolve().is_relative_to(cache):
+                        raise ScopeDeniedError("Dependency cache link escapes the retained cache")
+                    result[key] = {"link": os.readlink(path)}
+                elif stat.S_ISREG(info.st_mode):
+                    if info.st_nlink != 1:
+                        raise ScopeDeniedError("Dependency cache must not share mutable hardlinks")
+                    result[key] = {"sha256": _sha(path), "size": info.st_size}
+                elif stat.S_ISDIR(info.st_mode):
+                    result[key] = {"directory": True}
+                else:
+                    raise ScopeDeniedError("Unexpected dependency cache object")
+                if len(result) > 50_000:
+                    raise InvalidInputError("Dependency cache inventory exceeds its bound")
+        raw = canonical(result)
+        if len(raw) > 16_777_216:
+            raise InvalidInputError("Dependency cache inventory exceeds its byte bound")
+        return raw
+
+    def _check_dependency_cache(
+        self, policy: Policy, history: list[dict[str, Any]], offline: bool
+    ) -> None:
+        if policy.value["component"] != "runtime":
+            return  # Official wheels use --no-cache and cannot consume cached unpacked code.
+        seal = self.root / "dependency-cache-inventory.json"
+        expected = policy.value["dependency_cache_sha256"]
+        if expected is None and history:
+            expected = history[-1]["dependency_cache_sha256"]
+        if offline and policy.value["dependency_cache_sha256"] is None:
+            raise ScopeDeniedError(
+                "Fresh offline runtime installation requires an independently retained dependency-cache digest"
+            )
+        observed = self._dependency_inventory()
+        if seal.exists() or seal.is_symlink():
+            raw = private_read(seal, 16_777_216)
+            if expected is None or hashlib.sha256(raw).hexdigest() != expected or raw != observed:
+                raise StateMismatchError(
+                    "Retained dependency cache differs from its independently admitted inventory"
+                )
+        elif offline or observed != b"{}" or expected is not None:
+            raise StateMismatchError(
+                "Dependency cache lacks its admitted inventory; reconcile or prepare a fresh store"
+            )
+
+    def _seal_dependency_cache(self) -> str:
+        raw = self._dependency_inventory()
+        temporary = self.root / (uuid4().hex + ".cache-inventory")
+        _write_new(temporary, raw)
+        os.replace(temporary, self.root / "dependency-cache-inventory.json")
+        _sync_directory(self.root)
+        return hashlib.sha256(raw).hexdigest()
+
     def _registry(self) -> list[dict[str, Any]]:
         path = self.root / "registry.json"
         if path.is_symlink():
@@ -546,6 +609,7 @@ class SynReleaseStore:
             "installed_at",
             "node_qualified",
             "acquisition",
+            "dependency_cache_sha256",
         }
         seen: set[str] = set()
         for record in value["installations"]:
@@ -647,6 +711,7 @@ class SynReleaseStore:
                 raise StateMismatchError(
                     "Syn admission history is full; retain and reconcile it explicitly"
                 )
+            self._check_dependency_cache(policy, history, offline)
             python_path, python_sha = self._tool(python)
             uv_path, uv_sha = self._tool(uv)
             candidate.mkdir(mode=0o700)
@@ -673,6 +738,7 @@ class SynReleaseStore:
                     if not path.is_symlink():
                         path.chmod(0o500 if path.is_dir() or path.stat().st_mode & 0o111 else 0o400)
             candidate.chmod(0o500)
+            dependency_cache_sha = self._seal_dependency_cache()
             inventory = canonical(self._inventory(candidate))
             inventory_sha = hashlib.sha256(inventory).hexdigest()
             _write_new(self.root / "inventories" / inventory_sha, inventory)
@@ -691,6 +757,7 @@ class SynReleaseStore:
                 ],
                 "python_sha256": python_sha,
                 "uv_sha256": uv_sha,
+                "dependency_cache_sha256": dependency_cache_sha,
                 "observed": observed,
                 "installed_at": datetime.now(UTC).isoformat(),
                 "node_qualified": False,

@@ -95,8 +95,12 @@ class Policy:
 
     @classmethod
     def parse(cls, raw: bytes) -> Policy:
+        supplied = document(raw)
+        supplied.setdefault("dependency_cache_sha256", None)
+        if supplied["dependency_cache_sha256"] is not None:
+            digest(supplied["dependency_cache_sha256"])
         value = fields(
-            document(raw),
+            supplied,
             {
                 "profile",
                 "repository",
@@ -113,6 +117,7 @@ class Policy:
                 "python_version",
                 "required_profiles",
                 "required_capabilities",
+                "dependency_cache_sha256",
             },
         )
         if value["profile"] != "potbot.syn-install-policy/1" or value["repository"] != REPOSITORY:

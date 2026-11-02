@@ -38,6 +38,7 @@ The closed `potbot.syn-install-policy/1` object contains:
 | --- | --- |
 | Publisher | `repository` must be `Synsphere/syn`; `public_key` is the independently approved raw Ed25519 public key in hex; `release_key_sha256` binds that public key |
 | Exact release | Stable `version`, full `source_commit`, and canonical `manifest_sha256`; no `latest`, branch, prerelease or metadata-derived trust |
+| Offline dependencies | `dependency_cache_sha256` is null for initial online preparation, or the independently retained digest from a trusted preparing installation receipt for a fresh offline runtime |
 | Current restrictions | `minimum_version`, sorted `revoked_keys` and `revoked_manifests`; restrictions are checked again on every operation |
 | Installation | `component` is `runtime` or `client`; `mode` is explicit for a runtime and null for a client; `python_version` is `3.12` or `3.13` |
 | Compatibility | Sorted explicit `required_profiles` and `required_capabilities`; missing requirements fail without negotiation |
@@ -98,10 +99,14 @@ node. Existing identities, enrollment state and databases are outside this store
 ## Offline use, concurrency and refusals
 
 `fetch` retains all five payloads plus the canonical manifest and signature.
-`install --offline` rechecks them and requires any runtime dependencies already
-present in the operator's private uv cache. It performs no online fallback.
-Retain that complete dependency cache with the payloads when preparing an offline
-host. Offline success establishes retained-byte verification, not a fresh GitHub
+`install --offline` rechecks them. A fresh offline runtime requires the complete
+private dependency cache, its retained inventory, and an explicit
+`dependency_cache_sha256` adopted from the trusted preparing installation
+receipt. Every dependency-cache file is checked against that inventory before
+uv can consume it. Official local wheels use `--no-cache` so cached unpacked
+code cannot substitute for their authenticated bytes. It performs no online fallback.
+Retain `uv-cache/` and `dependency-cache-inventory.json` with the payloads when
+preparing an offline host; carry the independent digest through trusted policy. Offline success establishes retained-byte verification, not a fresh GitHub
 query or fresh knowledge of external revocation; the current operator policy
 still supplies the revocation decision.
 

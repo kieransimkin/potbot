@@ -476,6 +476,50 @@ class TestLinuxStore:
         with pytest.raises(ScopeDeniedError, match="revoked"):
             store.verify(bundle.policy)
 
+    def test_dependency_cache_tamper_is_refused_against_retained_selection(self, store, bundle):
+        from potbot.domain.errors import StateMismatchError
+
+        item = store.root / "uv-cache" / "synthetic-dependency"
+        item.write_bytes(b"prepared dependency fixture")
+        selected_digest = store._seal_dependency_cache()
+        selected = Policy.parse(
+            canonical(
+                {
+                    **bundle.value,
+                    "component": "runtime",
+                    "mode": "service",
+                    "dependency_cache_sha256": selected_digest,
+                }
+            )
+        )
+        store._check_dependency_cache(selected, [], True)
+        item.write_bytes(b"altered dependency fixture")
+        with pytest.raises(StateMismatchError, match="dependency cache"):
+            store._check_dependency_cache(selected, [], True)
+
+    def test_fresh_offline_runtime_requires_independent_cache_selection(self, store, bundle):
+        selected = Policy.parse(
+            canonical({**bundle.value, "component": "runtime", "mode": "service"})
+        )
+        with pytest.raises(ScopeDeniedError, match="dependency-cache digest"):
+            store._check_dependency_cache(selected, [], True)
+
+    def test_changed_artifact_provenance_is_refused(self, store, bundle):
+        from potbot.domain.errors import StateMismatchError
+
+        store.install(
+            bundle.policy,
+            python=Path("/fixture/python"),
+            uv=Path("/fixture/uv"),
+            source=FakeSource(bundle),
+        )
+        journal = store.root / "registry.json"
+        value = json.loads(journal.read_bytes())
+        value["installations"][0]["artifacts"][0]["sha256"] = "0" * 64
+        journal.write_bytes(canonical(value))
+        with pytest.raises(StateMismatchError, match="provenance"):
+            store.verify(bundle.policy)
+
     def test_concurrent_install_has_one_admission(self, store, bundle):
         from concurrent.futures import ThreadPoolExecutor
 
