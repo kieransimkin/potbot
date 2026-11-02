@@ -8,6 +8,7 @@ external references, or fetching anything. Refresh is explicit; check is read-on
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -20,6 +21,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = "docs/implementation/roadmap-inventory.json"
 POLICY = "docs/implementation/roadmap-inventory-policy.json"
+REVIEW = "docs/implementation/roadmap-review.json"
 SCHEMA = "potbot.roadmap-inventory/1"
 MAX_SOURCE_BYTES = 16 * 1024 * 1024
 MAX_XML_BYTES = 8 * 1024 * 1024
@@ -114,7 +116,7 @@ def documentation_paths(root: Path) -> list[str]:
     return sorted(
         name
         for name in paths
-        if name != SNAPSHOT
+        if name not in {SNAPSHOT, REVIEW}
         and (name.startswith("docs/") or PurePosixPath(name).suffix.lower() in DOC_SUFFIXES)
     )
 
@@ -245,7 +247,259 @@ def owners_for(identity: str, programme: dict[str, Any]) -> list[str]:
     return sorted(owners)
 
 
-def build_inventory(root: Path, policy: dict[str, Any]) -> dict[str, Any]:
+def narrative_units(root: Path, source: dict[str, Any]) -> list[dict[str, Any]]:
+    """Cover all text, not just matches for 'must' or an explicit stage ID.
+
+    Markdown sections include examples/tables as data. Word paragraph ordinals
+    include cells. Structured artifacts are covered as a whole, with their
+    explicit requirements separately selected by the existing programme policy.
+    """
+    if source["kind"] == "media":
+        return []
+    raw = safe_source(root, source["path"]).read_bytes()
+    is_word = source["kind"] == "word_document_text"
+    lines = word_paragraphs(raw) if is_word else raw.decode("utf-8-sig").splitlines()
+    starts = [0]
+    fenced = False
+    if is_word:
+        starts = list(range(len(lines)))
+    elif source["kind"] == "narrative_text":
+        for index, line in enumerate(lines):
+            if line.startswith(("```", "~~~")):
+                fenced = not fenced
+            if index and not fenced and re.match(r"^#{1,6} ", line):
+                starts.append(index)
+    units = []
+    for start, end in zip(starts, [*starts[1:], len(lines)], strict=True):
+        text = "\n".join(lines[start:end])
+        if not text.strip():
+            continue
+        units.append(
+            {
+                "locator": f"{'paragraph' if is_word else 'line'}:{start + 1}-{end}",
+                "sha256": hashlib.sha256(text.encode()).hexdigest(),
+                "excerpt": text.strip()[:160],
+            }
+        )
+    return units
+
+
+def checked_index(rows: list[dict[str, Any]], field: str, label: str) -> dict[str, Any]:
+    result = {row[field]: row for row in rows}
+    require(len(result) == len(rows), f"Duplicate {label}")
+    return result
+
+
+def validate_review(root: Path, inventory: dict[str, Any], review: dict[str, Any]) -> None:
+    """Validate a separately authored reconciliation; refresh cannot create it.
+
+    This validates traceability and stale-evidence detection, not the truth of a
+    reviewer's judgement or the authenticity of arbitrary downloaded CI JSON.
+    GitHub URLs identify the independently inspected service records.
+    """
+    require(review["schema"] == "potbot.roadmap-review/1", "Unknown review schema")
+    require(review["reviewed_base"] == inventory["reviewed_base"], "Review base differs")
+    require(review["runtime_qualified"] is False, "Review cannot qualify runtime")
+    require(review["decision"] == "audit_complete", "Incomplete audit decision")
+    families = checked_index(review["families"], "id", "review family")
+    for family in families.values():
+        require(
+            family["status"]
+            in {"planned", "partial", "implemented_unqualified", "qualified_subset"},
+            "Unknown family disposition",
+        )
+        require(bool(family["assessment"]) and bool(family["next_action"]), "Empty assessment")
+        require(bool(family["owners"]), "Missing review owner")
+        require(
+            all(re.fullmatch(r"U(?:0[0-9]|1[0-6])", x) for x in family["owners"]),
+            "Unknown review owner",
+        )
+        require(family["remaining"] and family["support_scope"], "Missing evidence boundary")
+        for field in ("code", "tests"):
+            for evidence in family[field]:
+                raw = safe_source(root, evidence["path"]).read_bytes()
+                require(
+                    hashlib.sha256(raw).hexdigest() == evidence["sha256"],
+                    "Stale code/test evidence",
+                )
+                tree = ast.parse(raw, filename=evidence["path"])
+                names = {
+                    node.name
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+                }
+                require(evidence["symbol"] in names, "Missing code/test symbol")
+        if family["status"] != "planned":
+            require(family["code"] and family["tests"], "Unsupported implementation disposition")
+    sources = checked_index(review["sources"], "path", "source review")
+    require(
+        set(sources) == {s["path"] for s in inventory["sources"]}, "Unreviewed documentation source"
+    )
+    narrative = []
+    for source in inventory["sources"]:
+        disposition = sources[source["path"]]
+        require(disposition["sha256"] == source["sha256"], "Stale source review")
+        require(
+            disposition["assessment"] and disposition["disposition"], "Empty source disposition"
+        )
+        require(
+            disposition["families"] and set(disposition["families"]) <= set(families),
+            "Unmapped narrative",
+        )
+        units = narrative_units(root, source)
+        retained_units = disposition["narrative"]
+        require(
+            [(x["locator"], x["sha256"]) for x in retained_units]
+            == [(x["locator"], x["sha256"]) for x in units],
+            "Missing or stale narrative review unit",
+        )
+        for unit, retained in zip(units, retained_units, strict=True):
+            require(
+                retained["families"] and set(retained["families"]) <= set(families),
+                "Unmapped narrative unit",
+            )
+            narrative.append(
+                {"source": source["path"], **unit, "review_families": retained["families"]}
+            )
+    stages = checked_index(review["requirements"], "key", "stage review")
+    require(
+        set(stages) == {r["key"] for r in inventory["requirements"]}, "Unreviewed stage requirement"
+    )
+    for row in inventory["requirements"]:
+        disposition = stages[row["key"]]
+        require(
+            disposition["requirement_sha256"] == row["requirement_sha256"], "Stale stage review"
+        )
+        require(disposition["assessment"] and disposition["next_action"], "Empty stage assessment")
+        require(
+            disposition["status"]
+            in {"historical", "partial", "planned", "implemented_unqualified", "qualified_subset"},
+            "Unknown stage disposition",
+        )
+        require(
+            disposition["families"] and set(disposition["families"]) <= set(families),
+            "Unmapped stage",
+        )
+        selected = [families[x] for x in disposition["families"]]
+        if disposition["status"] in {"implemented_unqualified", "qualified_subset"}:
+            require(
+                any(f["code"] and f["tests"] for f in selected),
+                "Stage has no implementation evidence",
+            )
+        row.update(
+            evidence_state="reviewed_" + disposition["status"],
+            review_families=disposition["families"],
+            reviewed_unified_owners=sorted({o for f in selected for o in f["owners"]}),
+            assessment=disposition["assessment"],
+            blockers=sorted({b for f in selected for b in f["remaining"]}),
+            next_action=disposition["next_action"],
+        )
+    github = review["github"]
+    require(
+        github["repository"] == "kieransimkin/potbot" and github["pagination_complete"] is True,
+        "Incomplete GitHub inventory",
+    )
+    require(github["non_pr_issues"] == [], "Issues need explicit requirement dispositions")
+    pulls = checked_index(github["pull_requests"], "number", "pull request")
+    require(
+        set(pulls) == set(range(1, github["last_pr_at_checkpoint"] + 1)),
+        "Incomplete pull-request inventory",
+    )
+    require(
+        all(
+            p["families"] and set(p["families"]) <= set(families) and p["assessment"]
+            for p in pulls.values()
+        ),
+        "Unmapped pull request",
+    )
+    require(
+        {p["number"] for p in pulls.values() if p["state"] == "open"} == {1, 13},
+        "Open-PR review needs renewal",
+    )
+    require(
+        {1, 13} == {p["number"] for p in github["open_pr_sources"]}, "Missing open-PR source review"
+    )
+    for branch in github["open_pr_sources"]:
+        require(
+            branch["head_sha"] == pulls[branch["number"]]["head_sha"] and branch["sources"],
+            "Unpinned open-PR source",
+        )
+        for source in branch["sources"]:
+            require(
+                re.fullmatch(r"[0-9a-f]{64}", source["sha256"])
+                and source["families"]
+                and set(source["families"]) <= set(families)
+                and source["assessment"],
+                "Unmapped branch documentation",
+            )
+        require(
+            all(
+                x["families"] and set(x["families"]) <= set(families) and x["remaining_gate"]
+                for x in branch["additional_requirements"]
+            ),
+            "Unmapped open-branch requirement",
+        )
+    checks = github["baseline_checks"]
+    require(checks["head_sha"] == inventory["reviewed_base"], "CI belongs to another revision")
+    require(
+        checks["jobs"]
+        and all(
+            j["status"] == "completed" and j["conclusion"] == "success" for j in checks["jobs"]
+        ),
+        "Unsuccessful baseline CI",
+    )
+    require(
+        {j["name"] for j in checks["jobs"]}
+        >= {
+            "verify",
+            "roadmap-inventory",
+            "boundaries",
+            "windows-launchers",
+            "keywordmoves-offline",
+            "native-identity (ubuntu-24.04)",
+            "native-identity (windows-latest)",
+        },
+        "Missing baseline CI job",
+    )
+    require(
+        {w["path"] for w in github["workflows"]} == {w["path"] for w in inventory["ci_workflows"]},
+        "Unmapped acceptance workflow",
+    )
+    require(
+        {w["path"]: w["sha256"] for w in github["workflows"]}
+        == {w["path"]: w["sha256"] for w in inventory["ci_workflows"]},
+        "Stale acceptance workflow",
+    )
+    require(
+        all(w["scope"] and w["qualification_limit"] for w in github["workflows"]),
+        "Missing workflow evidence boundary",
+    )
+    require(
+        review["inaccessible_sources"]
+        and all(
+            x["reason"] and x["owners"] and x["next_action"] for x in review["inaccessible_sources"]
+        ),
+        "Unrecorded inaccessible evidence",
+    )
+    require(
+        review["next_milestone"]["id"] == "U01-A" and review["next_milestone"]["acceptance"],
+        "Missing actionable continuation",
+    )
+    inventory.update(
+        scope="U00-A reviewed source, narrative, requirement, GitHub and CI reconciliation; runtime qualification remains separate",
+        u00_exit_met=True,
+        review_sha256=hashlib.sha256(
+            json.dumps(review, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        review_file=REVIEW,
+        narrative_coverage=narrative,
+        review_families=review["families"],
+    )
+
+
+def build_inventory(
+    root: Path, policy: dict[str, Any], *, apply_review: bool = True
+) -> dict[str, Any]:
     require(policy["schema"] == "potbot.roadmap-inventory-policy/1", "Unknown inventory policy")
     require(bool(re.fullmatch(r"[0-9a-f]{40}", policy["reviewed_base"])), "Unpinned audit base")
     sources = [source_record(root, name) for name in documentation_paths(root)]
@@ -304,7 +558,7 @@ def build_inventory(root: Path, policy: dict[str, Any]) -> dict[str, Any]:
             safe_source(root, name)
     keys = [row["key"] for row in requirements]
     require(len(keys) == len(set(keys)), "Duplicate qualified requirement key")
-    return {
+    inventory = {
         "schema": SCHEMA,
         "reviewed_base": policy["reviewed_base"],
         "scope": "U00-A first increment: source and explicit-stage coverage; not full narrative or runtime closure",
@@ -327,15 +581,16 @@ def build_inventory(root: Path, policy: dict[str, Any]) -> dict[str, Any]:
         ],
         "open_findings": policy["open_findings"],
     }
+    if apply_review and (root / REVIEW).exists():
+        validate_review(root, inventory, load_json(safe_source(root, REVIEW)))
+    return inventory
 
 
 def validate_snapshot(actual: dict[str, Any], expected: dict[str, Any]) -> None:
     require(
         actual == expected, "Stale roadmap inventory: review changes, then explicitly --refresh"
     )
-    require(
-        actual["u00_exit_met"] is False and actual["runtime_qualified"] is False, "False closure"
-    )
+    require(actual["runtime_qualified"] is False, "False runtime closure")
 
 
 def main() -> int:
@@ -360,7 +615,7 @@ def main() -> int:
                 "schema": SCHEMA,
                 "source_files": len(expected["sources"]),
                 "requirements": len(expected["requirements"]),
-                "u00_exit_met": False,
+                "u00_exit_met": expected["u00_exit_met"],
                 "runtime_qualified": False,
                 "mode": "refresh" if args.refresh else "check",
             },

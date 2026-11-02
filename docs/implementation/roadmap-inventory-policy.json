@@ -1,6 +1,6 @@
 {
   "schema": "potbot.roadmap-inventory-policy/1",
-  "reviewed_base": "63a7ba08d4c3a4fe9530add78dbcd371ea6e97b2",
+  "reviewed_base": "95610037311c80cdf7163372998b08e1b8958926",
   "programmes": [
     {
       "namespace": "plan-1.0",
@@ -3820,67 +3820,67 @@
     },
     {
       "id": "U00-F03",
-      "status": "open",
+      "status": "reconciled",
       "owners": [
         "U00"
       ],
-      "finding": "Original user U01-U15, unified U00-U16, architecture G01-G35, tool gaps G01-G18 and monitoring G1-G7 are independent namespaces. Do not merge equal labels."
+      "finding": "All 21 programme namespaces retained; original/unified U and architecture/tool/monitoring G identities stay distinct."
     },
     {
       "id": "U00-F04",
-      "status": "open",
+      "status": "mapped_future_work",
       "owners": [
         "U01",
         "U02",
         "U04",
         "U16"
       ],
-      "finding": "S12 tool-release enforcement and S36 guest /var/logs/ai remain unverified prerequisites. Missing documentation does not establish absent code."
+      "finding": "S9-S11 contain build/test/activation, independent runtime-pin proposals and confirm_repin checks. S12 is not established: current code only reads trusted_tool_release_gates in status and supplies no complete release-gate writer/enforcer. S36 guest /var/logs/ai was requested but no owning implementation/plan was found in inspected main source. S17 protects host Xpra /var/logs/ai/operator only and does not deliver the guest topology."
     },
     {
       "id": "U00-F05",
-      "status": "open",
+      "status": "reconciled",
       "owners": [
         "U09",
         "U16"
       ],
-      "finding": "Root MODEL.md and historical context plans describe a standalone prototype. Application migrations 29-33 and Stage 10D are the later baseline; never migrate the prototype as the application context store."
+      "finding": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts."
     },
     {
       "id": "U00-F06",
-      "status": "blocked",
+      "status": "historical_failure_resolved",
       "owners": [
         "U16"
       ],
-      "finding": "Exact reviewed main CI 41358430672 failed at mypy before its complete application/acceptance sequence; separate native-identity, Windows-launcher and KeywordMoves results do not override that failure.",
-      "evidence": "https://github.com/kieransimkin/potbot/actions/runs/41358430672"
+      "finding": "Historical 41358430672 mypy failure remains recorded. Current baseline 9561003 core CI 41532663749 passed; never apply the old verdict to current main.",
+      "evidence": "https://github.com/kieransimkin/potbot/actions/runs/41532663749"
     },
     {
       "id": "U00-F07",
-      "status": "blocked",
+      "status": "qualified_subset_with_remaining_gates",
       "owners": [
         "U06",
         "U16"
       ],
-      "finding": "Production Syn launch still requires an actual official signed upstream release and qualified operator/Agent modes. A proposed inventory/package contract is insufficient; transitional syn-node source is not a production fallback."
+      "finding": "SYN-R01-R04 now have actual signed release acquisition and native operator/Agent deployment paths. Official Syn 0.4.0 consumer acceptance passed at its recorded source; successful package installation alone supplies no Cog execution authority. SYN-R05 binds one-use task/repository grants to real selected native identities and released private heartbeat transport. Official consumer CI 41526414147 passed Python 3.12/3.13; it explicitly dispatched no positive audited Cog process."
     },
     {
       "id": "U00-F08",
-      "status": "open",
+      "status": "mapped_with_inaccessible_evidence",
       "owners": [
         "U00",
         "U01",
         "U16"
       ],
-      "finding": "Audit retrieved 0 non-PR issues and all 13 PRs at the checkpoint. PR1 and PR13 were open; their code is outside main. Historical P6-001-P6-045 saved artifacts remain unavailable; do not invent their contents."
+      "finding": "All 24 PRs and zero non-PR issues inspected. Open PR1/13 remain outside main. P6-001-P6-045 and unlocated historical security/tool-platform artifacts retain named owners and next actions."
     },
     {
       "id": "U00-F09",
-      "status": "open",
+      "status": "reconciled",
       "owners": [
         "U00"
       ],
-      "finding": "This increment checks explicit stage identity and complete local source inventory. Narrative-only requirements, per-stage code/test evidence, CI history and supported-host qualification still require closure review. Inventory refresh never certifies human review."
+      "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
   "anchor_routes": {
