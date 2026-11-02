@@ -132,7 +132,11 @@ def main() -> int:
                             "--durations=10",
                             f"--junitxml={junit}",
                         ],
-                        timeout=900 if label == "postgres" else 240,
+                        # The sandbox selection has a measured green baseline of
+                        # roughly 165 seconds on GitHub-hosted Linux runners. A
+                        # 240-second cap flakes under ordinary runner contention;
+                        # keep a bounded two-baseline allowance instead.
+                        timeout={"postgres": 900, "sandbox": 360}.get(label, 240),
                         temporary_root=pytest_root,
                     )
                 finally:
