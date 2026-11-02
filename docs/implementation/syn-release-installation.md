@@ -3,9 +3,11 @@
 SYN-R02 introduces an operator-only package installer: `potbot syn-release`.
 It consumes exact official assets from the canonical `Synsphere/syn` GitHub
 release channel. It never builds Syn from a source checkout or activates the
-transitional `syn-node/` implementation. Linux x86-64 is the initial installer
-host; the CLI help remains portable. Windows native installation is a separate
-qualification, even where an upstream client wheel supports Windows.
+transitional `syn-node/` implementation. Linux x86-64 was the initial installer
+host. SYN-R03 adds native macOS ARM/Intel deployment and managed Ubuntu 24.04
+WSL2 provisioning on Windows; see the
+[operator deployment guide](syn-operator-deployment.md). Windows runs the Linux
+runtime inside that native WSL boundary.
 
 ```mermaid
 flowchart LR
