@@ -113,7 +113,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser(
         "syn-release", help="verify and install independently pinned official Syn packages"
     )
-    commands.add_parser("syn-operator", help="provision a native operator host and supervise verified Syn")
+    commands.add_parser(
+        "syn-operator", help="provision a native operator host and supervise verified Syn"
+    )
     commands.add_parser("syn", help="import, resolve and search typed local SYN snapshots")
     commands.add_parser("identity", help="manage native signing and verify published Agent keys")
     commands.add_parser("execution", help="capture repositories and run qualified isolated tools")
