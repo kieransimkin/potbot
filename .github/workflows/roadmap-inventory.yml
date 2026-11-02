@@ -34,3 +34,8 @@ jobs:
         run: |
           uv run --locked ruff check scripts/roadmap_inventory.py tests/unit/test_roadmap_inventory.py
           uv run --locked ruff format --check scripts/roadmap_inventory.py tests/unit/test_roadmap_inventory.py
+      - name: Record run blogworthiness
+        if: always()
+        shell: bash
+        run: |
+          echo "Blogworthiness: FAIL — routine source/review regression verification, with no new user feature or independent story. Evidence: workflow checks at $GITHUB_SHA; inspect failed checks before treating the audit as current." >> "$GITHUB_STEP_SUMMARY"

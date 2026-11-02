@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="520" viewBox="0 0 1000 520" role="img" aria-labelledby="title desc">
 <title id="title">Potbot U00 roadmap inventory</title>
-<desc id="desc">Plan 1.0 has 153 steps and Plan 1.1 has 204. Architecture 1.1 has 35 gates. Independent programme namespaces feed a source-hashed inventory with drift checks. Runtime and complete U00 qualification remain open.</desc>
+<desc id="desc">Plan 1.0 has 153 steps and Plan 1.1 has 204. Architecture 1.1 has 35 gates. Independent programme namespaces feed a source-hashed inventory with drift checks. A separately authored review closes U00; runtime qualification remains separate.</desc>
 <rect width="1000" height="520" rx="18" fill="#f1f5fa"/>
 <g font-family="Arial,sans-serif" fill="#19344a">
 <text x="35" y="47" font-size="27" font-weight="bold">Potbot U00 · preserve requirements before extending the runtime</text>
@@ -16,9 +16,9 @@
 <path d="M260 242V278H500M740 242V278H500V305" fill="none" stroke="#436b94" stroke-width="2"/>
 <rect x="170" y="305" width="660" height="95" rx="12" fill="#fff" stroke="#436b94"/>
 <text x="500" y="338" text-anchor="middle" font-size="23" font-weight="bold">Source hashes + exact stage locators + U owners</text>
-<text x="500" y="370" text-anchor="middle" font-size="18">Changed sources, lost stages or ambiguous identities fail the check</text>
+<text x="500" y="370" text-anchor="middle" font-size="18">Narrative coverage · code/test scope · PRs/issues · CI heads · blockers</text>
 <path d="M500 400V428" stroke="#436b94" stroke-width="2"/>
-<rect x="170" y="428" width="660" height="60" rx="12" fill="#fff0d7" stroke="#a98c54" stroke-dasharray="6 4"/>
-<text x="500" y="454" text-anchor="middle" font-size="18">Next: per-requirement code/test review and supported-host evidence</text>
-<text x="500" y="478" text-anchor="middle" font-size="16">U00 remains in progress · inventory does not qualify runtime capabilities</text>
+<rect x="170" y="428" width="660" height="60" rx="12" fill="#e3f2ea" stroke="#6b9d84"/>
+<text x="500" y="454" text-anchor="middle" font-size="18">U00-A audit complete → U01-A durable effect and crash recovery</text>
+<text x="500" y="478" text-anchor="middle" font-size="16">Runtime gates remain open · refresh cannot manufacture a review</text>
 </g></svg>

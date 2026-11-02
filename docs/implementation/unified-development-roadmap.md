@@ -1,14 +1,14 @@
 # Potbot unified development roadmap
 
-**Status:** Proposed consolidation, 2026-11-01. A full repository-wide document and issue audit remains necessary. This roadmap preserves existing stages and adds the agent-runtime modernization programme without asserting that planned features have shipped.
+**U00-A completed, 2 November 2026:** the [closeout](u00-a-closeout.md) reconciles
+the pinned main `95610037311c80cdf7163372998b08e1b8958926`, retained documents,
+731 explicit source rows, narrative sections, code/test evidence, all 24 PRs and
+32 CI workflows. The separately authored review and drift checks close the audit;
+runtime qualification remains false. **U01-A is the next implementation milestone.**
 
-**U00-A started, 2 November 2026:** the [source inventory implementation](u00-roadmap-inventory.md)
-opens the committed Word sources as well as the text plans. Plan **1.1** preserves
-P001–P153 and adds **P154–P204**; Architecture **1.1** defines **G01–G35**.
-The older P153/G24 crosswalks below describe their historical source scope.
-Preserve the additional requirements and independent ID namespaces. The new
-checker detects source/stage drift; complete narrative/code/test reconciliation
-and runtime qualification remain open.
+Plan **1.1** preserves P001–P153 and adds **P154–P204**; Architecture **1.1**
+defines **G01–G35**. Older P153/G24 crosswalks below describe their historical
+source scope. Preserve the additional requirements and independent ID namespaces.
 
 **Targeted reconciliation, 2026-11-01:** the plans recovered from the **Monitor Worker Resource Usage** conversation are explicitly mapped in [the worker monitoring and SYN reconciliation](monitor-worker-resource-usage-reconciliation.md), against `main` at `ef9a48a9c46a3ccfabc1d969665073f57224117e`. Its requirement rows and acceptance gates are part of this roadmap. This completes that targeted mapping, not the remaining repository-wide U00 audit or production qualification.
 
@@ -16,7 +16,7 @@ and runtime qualification remain open.
 
 ## Baseline and source-of-truth rules
 
-The README's `0.5.0.dev8` phase summary is an earlier baseline, not the final inventory of current capabilities. Retain its durable patch checkpoints, model records, PostgreSQL queue, signed SYN provenance and sandboxed execution. Later documents 20/21 describe migration 24 PostgreSQL-fenced bounded R6 reasoning and migration 25 optional task-bound budget accounting; context documents 42–50 describe application migrations 29–33, authored skills, registered-object lifecycle and normal worker context integration. Existing `reasoning_runtime.py` and `reasoning_tree.py` remain integration points. Preserve these documented foundations while qualifying live model/tool integration, host deployment, complete producer adoption and remaining memory/discovery work. A document or source implementation does not establish production qualification.
+Older README phase summaries (`0.5.0.dev8`/`dev9`) are historical; the reviewed main reports `0.5.0.dev11`. They are not the final inventory of current capabilities. Retain its durable patch checkpoints, model records, PostgreSQL queue, signed SYN provenance and sandboxed execution. Later documents 20/21 describe migration 24 PostgreSQL-fenced bounded R6 reasoning and migration 25 optional task-bound budget accounting; context documents 42–50 describe application migrations 29–33, authored skills, registered-object lifecycle and normal worker context integration. Existing `reasoning_runtime.py` and `reasoning_tree.py` remain integration points. Preserve these documented foundations while qualifying live model/tool integration, host deployment, complete producer adoption and remaining memory/discovery work. A document or source implementation does not establish production qualification.
 
 Retain the synchronized **48-stage tool roadmap** and `scripts/check_tool_plan.py` as canonical for its existing stages. Do not renumber or reset it. Treat plans as requirements, not evidence. Status vocabulary: qualified; implemented but unqualified; partial; planned; blocked; unknown. PostgreSQL remains authoritative, Markdown context documents are controlled projections, and the operator retains security and side-effect authority.
 
@@ -54,7 +54,7 @@ Also retain original **P001–P153**, embedding **E01–E09**, and object-memory
 | `docs/ui/implementation-plan.md`, frontend/backend contract, UI9/UI10/UI11 and browser S37–S42 documents | Exact workspace/panel design, durable chat versus inference lifetime, PTY/history/graph gaps, transfer readiness and browser capabilities |
 | `docs/syn-semantic-integration.md`, `docs/syn-primitive-semantics-and-ember-contracts.md`, `vocab/retrieval-profiles.json`, `docs/embeddings.md`, `docs/named-embeddings.md` | Complete type inventory, seven retrieval purposes, applicability, faithful typed encodings and standard-before-custom embedding qualification |
 | Saved `tool-platform-audit.md` | Aggregate operation catalogue, readiness/acquisition/update states and shared invocation/accounting projection; historical proposed filenames remain unlocated in pinned main |
-| Remaining sandbox, Syn, frontend, browser, model and provider documents | Must be exhaustively enumerated at milestone U00; this inventory is not exhaustive |
+| Remaining sandbox, Syn, frontend, browser, model and provider documents | Enumerated and mapped in the U00-A source inventory/review at its pinned checkpoint; renew affected dispositions when they change |
 
 ## Unified work packages
 
@@ -124,14 +124,25 @@ Across these waves, follow the existing MG dependency cut rather than waiting fo
 
 ## First next milestone
 
-**U00-A: full roadmap inventory and evidence reconciliation.** The present consolidation covers known plans and targeted GitHub evidence, but not an exhaustive traversal of the repository's documentation tree or issues. Produce a source-linked legacy-stage ↔ U-ID mapping before assigning new implementation stage numbers. After that, **U01-A: durable side-effect and crash recovery gap closure** is the first high-priority code milestone.
+**U01-A: durable side-effect and crash recovery gap closure.** U00-A's
+[reviewed closeout](u00-a-closeout.md) is complete. Preserve the existing
+ExecutionStore, ToolGateway, Outbox, PostgresReasoningStore, steering inbox,
+BudgetLedger and pinned execution journal.
 
-The [first U00-A increment](u00-roadmap-inventory.md) supplies a checked source
-inventory and explicit-stage mapping, including the recovered binary variants.
-It does not yet meet U00's full exit gate. Use its open findings to continue the
-evidence review before claiming completion or starting a replacement runtime.
+Enumerate actual dispatch producers, then extend the existing local-tool
+recovery path to a controller-admitted transport effect with a controlled local
+service. Review/rebase open PR13's factories against current released-Syn grants
+before integration. Require real PostgreSQL fault tests before/after intent,
+dispatch, effect, acknowledgement, receipt and settlement; duplicates, stale
+owners, task changes, cancellation and restart must never blindly replay an
+uncertain effect or settle/release its budget twice. Add no competing scheduler
+or state store. The closeout records the concrete acceptance matrix.
 
-The **Monitor Worker Resource Usage** slice of U00-A is now recorded in the companion reconciliation. Carry its open items into U03/U06/U13/U16 rather than restarting the implemented stages. In the SYN sequence, Phase 48 provides confidential intake and explicitly defers its approved enrollment bridge. No SYN Phase 49 artifact was verified in the pinned tree or the recovered artifacts: retain the user's Phase 49 continuation request as **requested / unverified**, and use U06-E below to track the bridge without inventing a completed Phase 49.
+The monitoring and recent-development reconciliations remain historical mapping
+inputs. Their U03/U06/U13/U16 gates survive audit closure. The old requested
+Phase 49 artifact remains unverified; later official SYN-R04/R05 supply actual
+native adoption/heartbeat integration under their own release contracts. Positive
+audited Cog dispatch, upgrade/recovery and general rollout remain independent.
 
 ## Required follow-through from the monitoring chat
 

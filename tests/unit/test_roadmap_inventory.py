@@ -157,7 +157,7 @@ def test_json_duplicate_fields_cannot_replace_audit_policy(tmp_path: Path) -> No
 
 def test_snapshot_rejects_stale_data_missing_namespace_and_false_closure() -> None:
     policy = audit.load_json(audit.ROOT / audit.POLICY)
-    current = audit.build_inventory(audit.ROOT, policy)
+    current = audit.build_inventory(audit.ROOT, policy, apply_review=False)
     assert current["runtime_qualified"] is False
     assert current["u00_exit_met"] is False
     keys = {row["key"] for row in current["requirements"]}
@@ -194,3 +194,149 @@ def test_public_snapshot_has_no_private_evidence_or_host_paths() -> None:
     assert "C:\\\\Users" not in rendered
     assert "document-text" not in rendered
     assert "blog-inventory" not in rendered
+
+
+@pytest.fixture(scope="module")
+def review_inputs():
+    policy = audit.load_json(audit.ROOT / audit.POLICY)
+    inventory = audit.build_inventory(audit.ROOT, policy, apply_review=False)
+    review = audit.load_json(audit.ROOT / audit.REVIEW)
+    return inventory, review
+
+
+def test_complete_review_closes_only_audit_and_keeps_planned_work_visible(review_inputs) -> None:
+    inventory, review = copy.deepcopy(review_inputs)
+    audit.validate_review(audit.ROOT, inventory, review)
+    assert inventory["u00_exit_met"] is True
+    assert inventory["runtime_qualified"] is False
+    assert len(inventory["requirements"]) == 731
+    by_key = {r["key"]: r for r in inventory["requirements"]}
+    assert by_key["object-memory:MG01.1"]["evidence_state"] == "reviewed_planned"
+    assert by_key["syn-release:SYN-R05"]["evidence_state"] == "reviewed_qualified_subset"
+    assert by_key["syn-release:SYN-R06"]["evidence_state"] == "reviewed_planned"
+    assert all(r["assessment"] and r["blockers"] and r["next_action"] for r in by_key.values())
+    covered = {u["source"] for u in inventory["narrative_coverage"]}
+    assert covered == {s["path"] for s in inventory["sources"] if s["kind"] != "media"}
+    assert {"guest-logs", "tool-upgrade", "journal"} <= {
+        f for u in inventory["narrative_coverage"] for f in u["review_families"]
+    }
+    assert audit.REVIEW not in {s["path"] for s in inventory["sources"]}
+
+
+@pytest.mark.parametrize(
+    ("area", "change", "message"),
+    [
+        ("requirements", "remove", "Unreviewed stage"),
+        ("requirements", "duplicate", "Duplicate stage"),
+        ("requirements", "hash", "Stale stage"),
+        ("requirements", "empty", "Empty stage"),
+        ("requirements", "family", "Unmapped stage"),
+        ("sources", "remove", "Unreviewed documentation"),
+        ("sources", "hash", "Stale source"),
+        ("sources", "unit", "Missing or stale narrative"),
+        ("families", "owner", "Unknown review owner"),
+        ("families", "hash", "Stale code/test"),
+        ("families", "symbol", "Missing code/test symbol"),
+        ("families", "unsupported", "Unsupported implementation"),
+    ],
+)
+def test_review_rejects_incomplete_or_stale_traceability(review_inputs, area, change, message):
+    inventory, review = copy.deepcopy(review_inputs)
+    rows = review[area]
+    if change == "remove":
+        rows.pop()
+    elif change == "duplicate":
+        rows.append(copy.deepcopy(rows[0]))
+    elif change == "hash":
+        row = rows[0]["code"][0] if area == "families" else rows[0]
+        row["requirement_sha256" if area == "requirements" else "sha256"] = "0" * 64
+    elif change == "empty":
+        rows[0]["assessment"] = ""
+    elif change == "family":
+        rows[0]["families"] = ["invented_owner"]
+    elif change == "unit":
+        next(s for s in rows if s["narrative"])["narrative"].pop()
+    elif change == "owner":
+        rows[0]["owners"] = ["U99"]
+    elif change == "symbol":
+        rows[0]["tests"][0]["symbol"] = "test_invented"
+    elif change == "unsupported":
+        rows[0]["code"] = []
+    with pytest.raises(ValueError, match=message):
+        audit.validate_review(audit.ROOT, inventory, review)
+    assert inventory["u00_exit_met"] is False
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("revision", "CI belongs to another"),
+        ("pending", "Unsuccessful baseline CI"),
+        ("failed", "Unsuccessful baseline CI"),
+        ("missing_job", "Missing baseline CI job"),
+        ("missing_workflow", "Unmapped acceptance workflow"),
+        ("workflow_hash", "Stale acceptance workflow"),
+        ("missing_pr", "Incomplete pull-request"),
+        ("branch_head", "Unpinned open-PR"),
+        ("branch_owner", "Unmapped branch documentation"),
+        ("inaccessible", "Unrecorded inaccessible"),
+        ("runtime", "cannot qualify runtime"),
+        ("unfinished", "Incomplete audit"),
+    ],
+)
+def test_review_cannot_borrow_ci_or_lose_external_and_inaccessible_scope(
+    review_inputs, change, message
+):
+    inventory, review = copy.deepcopy(review_inputs)
+    github = review["github"]
+    checks = github["baseline_checks"]
+    if change == "revision":
+        checks["head_sha"] = "0" * 40
+    elif change == "pending":
+        checks["jobs"][0]["status"] = "queued"
+    elif change == "failed":
+        checks["jobs"][0]["conclusion"] = "failure"
+    elif change == "missing_job":
+        checks["jobs"] = [j for j in checks["jobs"] if j["name"] != "verify"]
+    elif change == "missing_workflow":
+        github["workflows"].pop()
+    elif change == "workflow_hash":
+        github["workflows"][0]["sha256"] = "0" * 64
+    elif change == "missing_pr":
+        github["pull_requests"].pop()
+    elif change == "branch_head":
+        github["open_pr_sources"][0]["head_sha"] = "0" * 40
+    elif change == "branch_owner":
+        github["open_pr_sources"][0]["sources"][0]["families"] = ["invented"]
+    elif change == "inaccessible":
+        review["inaccessible_sources"][0]["next_action"] = ""
+    elif change == "runtime":
+        review["runtime_qualified"] = True
+    elif change == "unfinished":
+        review["decision"] = "in_progress"
+    with pytest.raises(ValueError, match=message):
+        audit.validate_review(audit.ROOT, inventory, review)
+    assert inventory["u00_exit_met"] is False
+
+
+def test_narrative_coverage_includes_unlabelled_text_tables_and_examples(tmp_path: Path) -> None:
+    path = tmp_path / "plan.md"
+    path.write_text(
+        "Future behavior without an ID or modal keyword.\n\n# Acceptance\n"
+        "| case | needed |\n|---|---|\n| restart | retain state |\n"
+        "```python\n# Example heading remains source data\nraise RuntimeError('never execute')\n```\n",
+        encoding="utf-8",
+    )
+    units = audit.narrative_units(tmp_path, audit.source_record(tmp_path, "plan.md"))
+    assert [u["locator"] for u in units] == ["line:1-2", "line:3-10"]
+    (tmp_path / "plan.docx").write_bytes(word("Preface", "Requirement with no ID", ""))
+    units = audit.narrative_units(tmp_path, audit.source_record(tmp_path, "plan.docx"))
+    assert [u["locator"] for u in units] == ["paragraph:1-1", "paragraph:2-2"]
+
+
+def test_planned_graph_work_cannot_be_promoted_without_implementation_evidence(review_inputs):
+    inventory, review = copy.deepcopy(review_inputs)
+    row = next(r for r in review["requirements"] if r["key"] == "object-memory:MG01.1")
+    row["status"] = "qualified_subset"
+    with pytest.raises(ValueError, match="Stage has no implementation evidence"):
+        audit.validate_review(audit.ROOT, inventory, review)

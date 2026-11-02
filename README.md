@@ -49,10 +49,11 @@ policy does not attest the executable or qualify a deployment host. See the
 [implementation addendum](docs/agent-identity-and-ember-runtime.md) for commands,
 exact Type inventory, custody limits and recorded verification results.
 
-The current execution flow uses operator-selected tools and scripted proposals.
-Multi-model reasoning-tree selection, local-model live qualification, learned memory
-admission, live web discovery, IBM MCP, DanceFlow MCP, and the custom semantic embedding
-space remain later stages. The five default reasoning and coding models are registered
+Operator-selected tools and the scripted patch slice are joined by the later
+bounded R6 reasoning and PostgreSQL steering/accounting foundations. Complete
+ensemble selection, local-model live qualification, learned memory admission,
+live web discovery, IBM/DanceFlow MCP qualification and custom semantic embeddings
+remain later work. The five default reasoning and coding models are registered
 as **unqualified catalog entries**; a name is never treated as a tested deployment.
 
 The [plugin discovery strategy](docs/implementation/plugin-discovery-strategy.md)
@@ -62,7 +63,7 @@ tool platform's existing stage statuses; this roadmap does not establish live di
 
 The [tool-plan gap audit](docs/implementation/09-tool-plan-gap-audit.md) defines
 18 additional requirement groups, concrete acceptance scenarios and independent
-core/Python/specialist qualification gates. The [mandatory SYN tool-Cog contract](docs/implementation/10-syn-tool-cogs.md) specifies one typed input/output, handler binding, controller-mediated effects and the Cog-driven Python debugger test. These remain planned work; validate
+core/Python/specialist qualification gates. The [mandatory SYN tool-Cog contract](docs/implementation/10-syn-tool-cogs.md) specifies one typed input/output, handler binding, controller-mediated effects and the Cog-driven Python debugger test. Selected core and Python implementations below do not complete the whole programme; validate
 the synchronized 48-stage roadmap with `python scripts/check_tool_plan.py`.
 
 The [Python-first debugger Cog interface](docs/implementation/08-debugger-python-first.md) adds registered language-neutral operations, controller admission, stop-scoped stack/variable handles and start/progress/terminal telemetry on the existing execution ledger. Python is the first backend; the guide separates local fixture, durable PostgreSQL and qualified Linux sandbox evidence.
@@ -85,8 +86,14 @@ across restarts. The signed official Syn 0.3.0 package passed local WSL acceptan
 through the complete controller with two genuine nodes. Subsequent native resource
 testing reproduced a connection leak; select the upstream 0.3.1 patch or a later
 qualified release. The [dated patch record](https://github.com/Synsphere/syn/blob/master/docs/development/releases/v0.3.1.md)
-tracks independent CI qualification and immutable release pins. Cog authorization
-stays disabled until SYN-R05.
+tracks independent CI qualification and immutable release pins. Later SYN-R05
+provides native grant/heartbeat integration; production dispatch also requires
+the independently qualified U03/U16 image, resource/audit and host gates.
+
+[U00-A is complete](docs/implementation/u00-a-closeout.md): the roadmap audit
+preserves source claims and qualification limits. The next implementation
+milestone is **U01-A, durable tool-effect crash recovery**, extending the existing
+PostgreSQL execution, lease, outbox, receipt and accounting owners.
 
 ## Install and check
 
