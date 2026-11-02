@@ -29,12 +29,12 @@
     },
     {
       "path": "README.md",
-      "sha256": "32e36dea26841fc7a34b0c20bdc9511fa10df6ed707fcbf51d74df5448efd3ef",
-      "bytes": 30039,
+      "sha256": "8f7213872158fefb6f4c646b81a879c9e586445c3e4c7000bd5de6e2385a7fa5",
+      "bytes": 30247,
       "kind": "narrative_text",
-      "text_sha256": "32e36dea26841fc7a34b0c20bdc9511fa10df6ed707fcbf51d74df5448efd3ef",
-      "characters": 30037,
-      "lines": 514,
+      "text_sha256": "8f7213872158fefb6f4c646b81a879c9e586445c3e4c7000bd5de6e2385a7fa5",
+      "characters": 30245,
+      "lines": 516,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1237,12 +1237,12 @@
     },
     {
       "path": "docs/implementation/syn-agent-deployment.md",
-      "sha256": "b9daf78cce29c9142fff22981dfa2cd503f9e0bb78ac92a6d36725b0b90ba0c7",
-      "bytes": 9037,
+      "sha256": "b0626e465250a0a4c4e37ff83be430ef48f083dc034fedd73b741806b104c73d",
+      "bytes": 10095,
       "kind": "narrative_text",
-      "text_sha256": "b9daf78cce29c9142fff22981dfa2cd503f9e0bb78ac92a6d36725b0b90ba0c7",
-      "characters": 9035,
-      "lines": 160,
+      "text_sha256": "b0626e465250a0a4c4e37ff83be430ef48f083dc034fedd73b741806b104c73d",
+      "characters": 10093,
+      "lines": 174,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1257,11 +1257,11 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "c956e6be0bddff307052180b7076618a411b72d8658fb2f4af665191f7e01e78",
-      "bytes": 9048,
+      "sha256": "f287b51a49f41d3952f2a2f577a167adb3c70f8e950a4ae883cee2c363c2a8a9",
+      "bytes": 9105,
       "kind": "narrative_text",
-      "text_sha256": "c956e6be0bddff307052180b7076618a411b72d8658fb2f4af665191f7e01e78",
-      "characters": 9042,
+      "text_sha256": "f287b51a49f41d3952f2a2f577a167adb3c70f8e950a4ae883cee2c363c2a8a9",
+      "characters": 9099,
       "lines": 47,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -22103,7 +22103,7 @@
       "title": "[Agent provisioning and official-package acceptance](syn-agent-deployment.md)",
       "locator": "line:38",
       "source_claim": "requirements_only",
-      "requirement_sha256": "f3c1a31c51d4ab728ed90c2b11acbd20a384d7c56f227b109e00f4ca00fb361a",
+      "requirement_sha256": "9b33b5506efdc6dee3c9974dbc0ad52ca0ef8d9cb40ef76c31e008c6177e8631",
       "unified_owners": [
         "U02",
         "U03",
