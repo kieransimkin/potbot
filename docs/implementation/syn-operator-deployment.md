@@ -36,6 +36,22 @@ It refuses an existing distribution without its receipt, a missing registered
 distribution, or inconsistent lifecycle state. It never unregisters a distro,
 silently adopts another installation, or replaces a Syn identity.
 
+To prepare Windows forwarding, select an exact tested Potbot wheel and its
+independently retained SHA-256:
+
+```powershell
+potbot syn-operator host-setup --controller-wheel C:\Reviewed\potbot.whl --controller-sha256 <selected-sha256>
+```
+
+This installs the selected controller in a permanent digest-specific native
+environment, verifies its CLI and records its interpreter. Subsequent Windows
+`syn-release` and `syn-operator` operations forward argument arrays directly
+to that controller. Supply native absolute paths for store/policy/state and
+trusted tools. No caller string becomes shell code. Only package acquisition
+may forward the repository read token; it never reaches Syn child processes.
+An unfinished controller installation is not admitted and requires explicit
+reconciliation rather than silent replacement.
+
 Linux uses the native OS and explicit apt prerequisites; other Linux package
 managers require operator preparation. macOS uses native Keychain without a
 VM. Password creation/unlock is an explicit private Syn terminal operation.

@@ -233,3 +233,31 @@ def test_changed_policy_fences_health_before_invoking_upstream(native_deployment
     native_deployment.policy_path = path
     with pytest.raises(StateMismatchError, match="trust policy changed"):
         native_deployment._status(None, {})
+
+
+def test_wsl_controller_digest_is_checked_before_native_install(managed_host, tmp_path):
+    from potbot.syn_release.wsl_controller import install_controller
+
+    manager, _, calls = managed_host
+    wheel = tmp_path / "potbot-0.5.0.dev9-py3-none-any.whl"
+    wheel.write_bytes(b"synthetic-not-a-controller")
+    with pytest.raises(StateMismatchError, match="differs"):
+        install_controller(manager, wheel, "00" * 32)
+    assert calls == []
+
+
+def test_wsl_controller_cannot_be_redirected_to_another_executable(managed_host):
+    from potbot.syn_release.wsl_controller import forward
+
+    manager, _, calls = managed_host
+    record = manager.setup()
+    record["controller"] = {
+        "profile": "potbot.syn-wsl-controller/1",
+        "wheel_sha256": "ab" * 32,
+        "python": "/tmp/untrusted-python",
+    }
+    manager.receipt.write_text(json.dumps(record))
+    calls.clear()
+    with pytest.raises(StateMismatchError, match="exact reviewed"):
+        forward(manager, "syn-operator", ["attach"])
+    assert calls == []

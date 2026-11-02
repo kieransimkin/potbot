@@ -55,6 +55,22 @@ def _decode(raw: bytes) -> str:
     return raw.decode("utf-16-le" if b"\0" in raw else "utf-8", errors="replace").lstrip("\ufeff")
 
 
+def windows_environment() -> dict[str, str]:
+    names = (
+        "SystemRoot",
+        "WINDIR",
+        "SystemDrive",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "TEMP",
+        "TMP",
+    )
+    environment = {name: os.environ[name] for name in names if name in os.environ}
+    environment["PATH"] = str(Path(os.environ["SystemRoot"]) / "System32")
+    return environment
+
+
 def run_host(argv: list[str], *, timeout: int = 30) -> str:
     # Output goes to a bounded caller-controlled process, never a hidden shell.
     # Provisioning has a fixed wall-clock cap and cannot unregister a distro.
@@ -66,6 +82,7 @@ def run_host(argv: list[str], *, timeout: int = 30) -> str:
         timeout=timeout,
         check=False,
         creationflags=flags,
+        env=windows_environment() if os.name == "nt" else None,
     )
     if len(result.stdout) + len(result.stderr) > 4 * 1024 * 1024:
         raise StateMismatchError("Native setup diagnostics exceeded their bound")

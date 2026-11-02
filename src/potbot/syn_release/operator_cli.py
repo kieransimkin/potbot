@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import signal
+import sys
 import threading
 from collections.abc import Sequence
 from pathlib import Path
@@ -13,12 +15,35 @@ from potbot.domain.errors import DomainError
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if (
+        platform.system() == "Windows"
+        and arguments
+        and arguments[0] not in {"host-setup", "--help", "-h"}
+    ):
+        try:
+            from .host import WslOperatorHost
+            from .wsl_controller import forward
+
+            return forward(WslOperatorHost(), "syn-operator", arguments)
+        except (DomainError, OSError, ValueError):
+            print(
+                json.dumps(
+                    {
+                        "code": "operator_unavailable",
+                        "message": "Prepare the managed WSL host and its reviewed Potbot controller first",
+                    }
+                )
+            )
+            return 2
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
-    commands.add_parser(
+    setup = commands.add_parser(
         "host-setup",
         help="Provision native keystore prerequisites; Windows installs its managed WSL2 distro",
     )
+    setup.add_argument("--controller-wheel", type=Path)
+    setup.add_argument("--controller-sha256")
     for name in ("unlock", "bootstrap", "attach", "serve", "install-service"):
         sub = commands.add_parser(name)
         sub.add_argument("--store", type=Path, required=True)
@@ -29,12 +54,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             sub.add_argument("--keyring-service", required=True)
             sub.add_argument("--keyring-account", required=True)
             sub.add_argument("--network-id", required=True)
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
+    if args.operation == "host-setup" and bool(args.controller_wheel) != bool(
+        args.controller_sha256
+    ):
+        parser.error(
+            "Controller installation requires both --controller-wheel and --controller-sha256"
+        )
     try:
         if args.operation == "host-setup":
             from .host import native_host_setup
 
             value = native_host_setup()
+            if args.controller_wheel:
+                from .host import WslOperatorHost
+                from .wsl_controller import install_controller
+
+                value = {
+                    **value,
+                    "controller": install_controller(
+                        WslOperatorHost(), args.controller_wheel, args.controller_sha256
+                    ),
+                }
         else:
             from .contracts import Policy
             from .operator import SynOperatorDeployment
