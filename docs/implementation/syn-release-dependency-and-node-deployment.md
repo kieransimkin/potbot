@@ -1,6 +1,6 @@
 # SYN release dependency and independent node deployment
 
-**Status:** Mandatory architecture decision; implementation and production qualification outstanding (2026-11-01).
+**Status:** Mandatory architecture decision, updated 2 November 2026. SYN-R02 package installation is implemented in the [operator installer](syn-release-installation.md); actual upstream acceptance and remaining node qualification must be recorded separately.
 **Scope:** U02/U03/U04/U06/U16 and Syn phases 35, 39–48. This document overrides conflicting implementation suggestions without rewriting historical phase records.
 
 ## Non-negotiable ownership
@@ -11,7 +11,7 @@ SYN is independently developed and released by its canonical upstream repository
 
 ## Release acquisition and trust
 
-1. Record the canonical SYN repository URL, publisher identity, supported platforms/architectures, release manifest schema, trust-root provisioning and version compatibility matrix. **These values are not yet verified; never guess them.**
+1. Record the canonical SYN repository URL, publisher identity, supported platforms/architectures, release manifest schema, trust-root provisioning and version compatibility matrix. SYN-R01 now defines the official five payloads, detached signature and canonical manifest. The first upstream release supports only service mode; operators still supply independently trusted pins and current revocations.
 2. Discover releases from the configured canonical upstream release channel. Require immutable version, platform artifact, SHA-256 digest and authenticated publisher signature or equivalent verified release provenance rooted in an operator-approved trust root. HTTPS or checksum alone is not publisher authentication. Reject untrusted redirects, mismatched metadata, revoked keys, missing artifacts and mutable tags. Verify before unpacking or executing.
 3. Stage downloads outside the sandbox, with bounded size, retries, concurrency-safe locking and content-addressed storage. Pin the exact digest in an operator-controlled installation manifest and audit journal. No network retrieval from model-controlled inputs or agent-writable locations.
 4. Extract safely (no traversal, symlink escape or unsafe permissions), install atomically into an operator-owned immutable directory, then mount approved runtime files read-only into sandboxes. Never expose updater authority to an agent. Package files may be shared; identities, keystores, configuration, logs and process lifecycles MUST be separate.
@@ -33,14 +33,14 @@ SYN alone owns entropy, key derivation, private-key custody, enrollment and sign
 | Gate | Deliverable | Proof required |
 | --- | --- | --- |
 | SYN-R01 | Upstream inventory | Canonical repository/release publisher confirmed, upstream issues for missing capabilities, compatibility matrix and signed trust policy |
-| SYN-R02 | Release installer | Verified immutable artifacts, safe atomic installation, concurrent/offline install, tamper/revocation and downgrade tests |
+| SYN-R02 | [Operator release installer](syn-release-installation.md) implemented | Exact signature/payload verification, private cache, atomic admission, concurrent/offline reuse and tamper/revocation/downgrade checks. Actual official-package acceptance is separate from synthetic public fixtures; no node admission follows from installing packages. |
 | SYN-R03 | Operator service | Real upstream operator process, authenticated attach, protected custody, fail-closed restart and health checks |
 | SYN-R04 | Agent provisioning | Real sandbox-resident agent-mode process per agent, selected-key adoption and independently verified custody, isolated identities and persistence |
 | SYN-R05 | Execution integration | Real node identity bound to Cog authorization and monitored sandbox dispatch; no fallback to synthetic actors |
 | SYN-R06 | Upgrade and recovery | Staged upgrades, compatibility, crash recovery, rollback and nonrollback of identity/enrollment state |
 | SYN-R07 | Removal and CI | Transitional `syn-node/` runtime removed, tests use pinned upstream release artifacts, negative security and multi-agent live-host qualification |
 
-All gates must run against the actual pinned upstream release on a supported host, with evidence of process isolation, live P2P/IPC, multiple simultaneous agents, revocation, restart, fail-closed behavior, operator permission unlock and resource accounting. Synthetic fixtures do not qualify production. CI must not download an unpinned `latest` release. Preserve prior phase records as historical evidence; do not mark them complete by rewriting their descriptions.
+SYN-R02 must qualify actual package installation against the pinned upstream release on a supported host. SYN-R03 through SYN-R07 additionally require process isolation, live P2P/IPC, multiple simultaneous agents, revocation, restart, fail-closed behavior, operator permission unlock and resource accounting. Synthetic fixtures do not qualify production. CI must not download an unpinned `latest` release. Preserve prior phase records as historical evidence; do not mark them complete by rewriting their descriptions.
 
 ## Integration sequencing
 

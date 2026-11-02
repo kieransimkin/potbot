@@ -25,6 +25,15 @@ from potbot.tools.repository_snapshot import SnapshotProfile, _entry, _snapshot
 from tests.unit.test_debugger_cogs_live import FixtureArtifacts, FixtureEvents
 
 
+def test_acceptance_recognizes_documented_namespaced_stages_and_rejects_unknown_refs():
+    from potbot.tools.inventory import STAGES
+    from scripts.check_tool_inventory import check_stage_references
+
+    check_stage_references(STAGES)
+    with pytest.raises(AssertionError, match="Undocumented inventory stage references"):
+        check_stage_references({**STAGES, "syn_release": ("syn-release:SYN-R99",)})
+
+
 def fixture_snapshot(*, omit=(), extra=None, kind="committed", version="0.5.0.dev4"):
     files = {path: b"# synthetic source fixture\n" for path in (*CORE_ANCHORS, *PYTHON_ANCHORS)}
     files.update(
@@ -216,3 +225,20 @@ def test_existing_context_and_persistent_service_have_explicit_owners():
     assert all(
         item["qualification"] == "not_established_by_source_inventory" for item in owners.values()
     )
+
+
+def test_syn_release_adapter_has_its_own_source_owner_without_import_or_node_admission():
+    snapshot = fixture_snapshot(
+        extra={
+            "src/potbot/syn_release/store.py": b"raise RuntimeError('inventory must not execute an installer')"
+        }
+    )
+    inventory = build_inventory(snapshot)
+    component = next(x for x in inventory["components"] if x["id"] == "syn_release")
+    assert component["source_state"] == "present"
+    assert component["stage_refs"] == ["syn-release:SYN-R02"]
+    assert "operator-owned" in component["integration_owner"]
+    assert component["qualification"] == "not_established_by_source_inventory"
+    assert [entry["path"] for entry in component["source_files"]] == [
+        "src/potbot/syn_release/store.py"
+    ]

@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _project(tmp_path: Path) -> Path:
     """Build a tiny self-contained pytest project to exercise the real plugin."""
@@ -97,3 +99,25 @@ def test_explicit_basetemp_is_not_overridden(tmp_path: Path) -> None:
     result, output = _call(project, _environment(temp_root), f"--basetemp={explicit}")
     assert result == 0, output
     assert _base(output) == explicit.resolve()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Linux AF_UNIX path bound")
+def test_ci_private_fixture_preserves_room_for_real_operator_socket(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    with (project / "test_probe.py").open("a", encoding="utf-8") as target:
+        target.write(
+            "\ndef test_operator_socket_inside_private_fixture(tmp_path):\n"
+            "    import os, socket\n"
+            "    private = tmp_path / 'private'\n"
+            "    private.mkdir(mode=0o700)\n"
+            "    path = private / 'operator.sock'\n"
+            "    assert len(os.fsencode(path)) < 108\n"
+            "    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:\n"
+            "        connection.bind(str(path))\n"
+        )
+    env = _environment(tmp_path)
+    env.pop("POTBOT_TEMP_ROOT")
+    env["GITHUB_ACTIONS"] = "true"
+    result, output = _call(project, env)
+    assert result == 0, output
+    assert _base(output).parent.parent == Path("/tmp")
