@@ -236,7 +236,7 @@ def test_syn_release_adapter_has_its_own_source_owner_without_import_or_node_adm
     inventory = build_inventory(snapshot)
     component = next(x for x in inventory["components"] if x["id"] == "syn_release")
     assert component["source_state"] == "present"
-    assert component["stage_refs"] == ["syn-release:SYN-R02"]
+    assert component["stage_refs"] == ["syn-release:SYN-R02", "syn-release:SYN-R03"]
     assert "operator-owned" in component["integration_owner"]
     assert component["qualification"] == "not_established_by_source_inventory"
     assert [entry["path"] for entry in component["source_files"]] == [

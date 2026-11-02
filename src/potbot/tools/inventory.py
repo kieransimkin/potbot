@@ -102,7 +102,7 @@ STAGES = {
     "research": ("T05.1", "T05.2", "T05.4"),
     "security": ("T03.3",),
     "semantics": ("T01.2", "T10.1"),
-    "syn_release": ("syn-release:SYN-R02",),
+    "syn_release": ("syn-release:SYN-R02", "syn-release:SYN-R03"),
     "tools": ("T02.1", "T02.2", "T02.3", "T02.4", "T03.4"),
     "entrypoints": ("T12.1",),
     "credentials": ("T03.3",),

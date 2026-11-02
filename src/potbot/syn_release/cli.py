@@ -16,7 +16,7 @@ from potbot.syn_release.store import SynReleaseStore, private_read
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Verify and install an independently pinned official Syn release (Linux x86-64)"
+        description="Verify and install an independently pinned official Syn release on Linux/macOS"
     )
     parser.add_argument("operation", choices=("fetch", "install", "verify"))
     parser.add_argument(

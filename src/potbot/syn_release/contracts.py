@@ -299,8 +299,8 @@ def verify_manifest(raw: bytes, signature: bytes, policy: Policy) -> Release:
         raise InvalidInputError("Syn requires exactly five signed package payloads")
     allowed = {
         "python_versions": {"3.12", "3.13"},
-        "runtime_platforms": {"linux-x86_64", "windows-x86_64"},
-        "client_platforms": {"linux-x86_64", "windows-x86_64"},
+        "runtime_platforms": {"darwin-arm64", "darwin-x86_64", "linux-x86_64", "windows-x86_64"},
+        "client_platforms": {"darwin-arm64", "darwin-x86_64", "linux-x86_64", "windows-x86_64"},
         "node_modes": {"service", "operator", "agent"},
     }
     for name, choices in allowed.items():

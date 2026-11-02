@@ -1,0 +1,99 @@
+# Deploying the native Syn operator
+
+SYN-R03 adds host provisioning, explicit bootstrap, authenticated attachment
+and user-service supervision. The upstream 0.2.0 operator is a candidate until
+the exact release is signed, published and accepted. Syn 0.1.0 remains
+service-only and is rejected by this deployment policy.
+
+```mermaid
+flowchart TD
+  H{Base operating system}
+  H -->|Windows| W[Install owned Ubuntu 24.04 WSL2]
+  H -->|Linux| L[Native Secret Service]
+  H -->|macOS| M[Native Keychain]
+  W --> K[Private native unlock in Syn]
+  L --> K
+  M --> K
+  P[Independently pinned official operator release] --> V[Verify installed package]
+  K --> B[Explicit new-identity bootstrap]
+  V --> B
+  B --> S[Native user service runs Potbot supervisor]
+  S --> O[Separate Syn operator process]
+  O --> A[Fresh signed status + native peer UID]
+```
+
+*Conceptual deployment flow. WSL provisioning was executed on Windows during
+development. Production identity and official-release node acceptance are
+recorded separately and are not implied by this diagram.*
+
+## Host preparation
+
+`potbot syn-operator host-setup` installs a dedicated
+`Potbot-SynOperator` WSL2 distribution from official Ubuntu 24.04 on Windows.
+It retains an ownership receipt and installs Python, build prerequisites and
+GNOME Secret Service under a dedicated non-root `synoperator` account.
+It refuses an existing distribution without its receipt, a missing registered
+distribution, or inconsistent lifecycle state. It never unregisters a distro,
+silently adopts another installation, or replaces a Syn identity.
+
+Linux uses the native OS and explicit apt prerequisites; other Linux package
+managers require operator preparation. macOS uses native Keychain without a
+VM. Password creation/unlock is an explicit private Syn terminal operation.
+Potbot never receives a password or operator key.
+
+## Deploy the selected release
+
+Install Potbot's tested controller in the native account, then use the
+[SYN-R02 installer](syn-release-installation.md) with a runtime policy selecting
+`mode: operator`, profile `syn.operator-local/1` and these capabilities:
+`authenticated-operator-ipc`, `native-os-operator-custody` and
+`retained-operator-identity`. The exact version/source/manifest/key pins come
+from an independently retained official-release receipt.
+
+```bash
+potbot syn-operator unlock --store /operator/packages --policy /operator/policy/syn.json --operator-root /operator/node
+potbot syn-operator bootstrap --store /operator/packages --policy /operator/policy/syn.json \
+  --operator-root /operator/node --new-identity --keyring-service syn.operator \
+  --keyring-account primary --network-id private-network
+potbot syn-operator install-service --store /operator/packages --policy /operator/policy/syn.json --operator-root /operator/node
+potbot syn-operator attach --store /operator/packages --policy /operator/policy/syn.json --operator-root /operator/node
+```
+
+Paths are illustrative native absolute paths. The package store, policy and
+mutable node root are private and separately owned. Bootstrap requires explicit
+new-identity intent, calls only verified upstream Syn and stores public
+identity/configuration/release pins. Existing or partially initialized state
+requires reconciliation; bootstrap never repairs it by generating another key.
+
+Linux/WSL uses a systemd user service; macOS uses a launchd user agent.
+Each invokes Potbot's verifier/supervisor, which starts a separate official
+Syn process. Automatic restart is disabled after faults. A locked keystore,
+changed policy/configuration, missing custody, unhealthy signed status or
+unexpected exit fences the deployment. Human reconciliation precedes restart.
+
+## Ownership and evidence
+
+Attachment authenticates the exact base key, configuration and installed
+runtime with a fresh challenge and native peer UID. An adopted operator remains
+unowned by the attaching process. Supervision checks that the authenticated
+endpoint's PID matches its child before declaring readiness. It stops only that
+child/process group and never kills a PID recovered from a stale receipt.
+
+Full package inventories are verified at startup/attach; heartbeat challenges
+avoid repeatedly hashing the entire dependency environment. Policy changes are
+rechecked during supervision. Immutable packages and mutable identity/state
+are separate; neither admission nor host setup grants Agent activation.
+
+Upstream Syn exclusively implements HD keys, custody, allocation, enrollment
+permission and IPC. Its exclusive maintenance command commits public candidate
+reservations before signatures. Agent process deployment, selected-key adoption,
+encrypted transport and hardware qualification remain SYN-R04. The transitional
+`syn-node/` tree stays unactivated until its qualified released replacement
+permits removal at SYN-R07.
+
+Development evidence: managed WSL Ubuntu 24.04 provisioning completed; actual
+native Secret Service and separate Syn processes retained one disposable
+identity across graceful and forced restart and refused a locked store.
+This is development qualification, not an official-package production receipt.
+There is no node UI or Agent exchange to film at this stage; the diagram and
+sanitized execution receipts explain the actual boundary without exposing keys.
