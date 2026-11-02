@@ -261,7 +261,7 @@ class SynEnrollmentLedger:
         return PledgeRecord(digest, "pending", current + _ENROLLMENT_TTL)
 
     def _get_locked(self, db: sqlite3.Connection, offer_sha256: str) -> sqlite3.Row:
-        row = db.execute(
+        row: sqlite3.Row | None = db.execute(
             "SELECT * FROM syn_agent_pledges WHERE offer_sha256=? AND master_hash=?",
             (offer_sha256, self.master_hash.hex()),
         ).fetchone()

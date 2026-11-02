@@ -16,13 +16,13 @@ from potbot.context.catalogue import list_objects
 from potbot.context.model import ROLES, sha256, validate_content, validate_identity
 from potbot.context.service import WorkspaceContextService
 from potbot.context.sessions import _BoundTransaction
-from potbot.context.skill_projection import SkillLibraryProjector, _directory, _json
+from potbot.context.skill_projection import _directory, _json, _ProjectionCustody
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError, StateMismatchError
 from potbot.tools.temporary import TemporaryDirectory, allocate_file
 
 
-class ObjectContextProjector(SkillLibraryProjector):
+class ObjectContextProjector(_ProjectionCustody):
     def __init__(self, root: Path) -> None:
         # Reuse the qualified custody/atomic-file helpers, not the skill namespace.
         if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):

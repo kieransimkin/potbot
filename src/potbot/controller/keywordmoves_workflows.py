@@ -606,7 +606,7 @@ class KeywordMovesWorkflow:
 
         def search(*, query: str, limit: int, run_id: str) -> tuple[Any, ...]:
             query = query.casefold().strip()
-            found = []
+            found: list[dict[str, Any]] = []
             for stage in stages:
                 if len(found) >= limit:
                     break

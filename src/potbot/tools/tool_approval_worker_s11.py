@@ -63,20 +63,25 @@ class ToolApprovalWorker:
             agent_id=claim["agent_id"],
             operation_id=claim["id"],
         )
-        for expected, actual in (
+        for field, expected_value in (
             ("id", str(claim["id"])),
             ("slug", claim["slug"]),
             ("old_commit", claim["old_commit"]),
             ("new_commit", claim["new_commit"]),
             ("test_evidence_sha256", claim["evidence_sha256"]),
         ):
-            if tested.get(expected) != actual:
+            if tested.get(field) != expected_value:
                 raise StateMismatchError("S11 published evidence no longer matches S9")
         if tested["state"] != "ready" or tested.get("suite_sha256") != claim["suite_sha256"]:
             raise StateMismatchError("S11 upgrade not in tested/ready state")
         expected = claim["tests"]
         if isinstance(expected, str):
             expected = json.loads(expected)
+        raw_results = tested.get("test_results", [])
+        if not isinstance(raw_results, list) or any(
+            not isinstance(item, dict) for item in raw_results
+        ):
+            raise StateMismatchError("S11 test evidence is invalid")
         actual = [
             {
                 "name": item["name"],
@@ -84,7 +89,7 @@ class ToolApprovalWorker:
                 "elapsedMs": item["elapsed_ms"],
                 "passed": item["passed"],
             }
-            for item in tested.get("test_results", [])
+            for item in raw_results
         ]
         if expected != actual or len(actual) != claim["passed_tests"]:
             raise StateMismatchError("S11 user-visible test summary differs from S9 evidence")

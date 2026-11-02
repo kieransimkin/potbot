@@ -215,14 +215,36 @@ class SharedToolDefinition:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> SharedToolDefinition:
+        cleanup = data.get("cleanup_paths")
+        downloads = data.get("model_downloads", False)
+        if (
+            not isinstance(cleanup, list | tuple)
+            or not 1 <= len(cleanup) <= 64
+            or any(not isinstance(path, str) for path in cleanup)
+        ):
+            raise InvalidInputError("cleanup paths must be a bounded array of paths")
+        if type(downloads) is not bool:
+            raise InvalidInputError("model download classification must be boolean")
+
+        def pairs(name: str, limit: int) -> tuple[tuple[str, str], ...]:
+            value = data.get(name, [])
+            if not isinstance(value, list | tuple) or len(value) > limit:
+                raise InvalidInputError("invalid tool manifest declarations")
+            result = []
+            for item in value:
+                if not isinstance(item, list | tuple) or len(item) != 2:
+                    raise InvalidInputError("tool declarations require path and SHA-256 pairs")
+                result.append((str(item[0]), str(item[1])))
+            return tuple(result)
+
         return cls(
             str(data["slug"]),
             str(data["repository"]),
             str(data["commit"]),
-            tuple(data["cleanup_paths"]),
-            tuple((str(a), str(b)) for a, b in data.get("lockfiles", [])),
-            data.get("model_downloads", False),
-            tuple((str(a), str(b)) for a, b in data.get("reusable_artifacts", [])),
+            tuple(cleanup),
+            pairs("lockfiles", 24),
+            downloads,
+            pairs("reusable_artifacts", 48),
         )
 
 

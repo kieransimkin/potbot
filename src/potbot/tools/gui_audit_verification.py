@@ -272,11 +272,10 @@ def _verify_child(
         if successful != s_total or failed != f_total or not successful + failed:
             raise ValueError("GUI file access totals inconsistent")
         first, last = item.get("first_at"), item.get("last_at")
-        if (
-            type(first) not in (int, float)
-            or type(last) not in (int, float)
-            or not 0 < first <= last < 1e12
-        ):
+        if type(first) not in (int, float) or type(last) not in (int, float):
+            raise ValueError("GUI file access times invalid")
+        assert isinstance(first, (int, float)) and isinstance(last, (int, float))
+        if not 0 < first <= last < 1e12:
             raise ValueError("GUI file access times invalid")
         total_events += successful + failed
     if file_index.get("events") != total_events or receipt.get("file_event_count") != total_events:
@@ -353,7 +352,7 @@ def inspect_recovery(audit_root: Path, workspace_id: UUID, *, limit: int = 512) 
             _canonical_uuid(marker.name[:-5])
             _document(marker, 65536)
             active_names.add(marker.name[:-5])
-    entries = []
+    entries: list[dict[str, Any]] = []
     counts: dict[str, int] = {}
     for child in sorted(workspace.iterdir(), key=lambda path: path.name):
         if child.name == ".active":

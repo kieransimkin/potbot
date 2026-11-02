@@ -123,6 +123,9 @@ def application(args: argparse.Namespace) -> FastAPI:
         if any(path is None for path in configured):
             raise InvalidInputError("Browser gallery needs all six explicit operator paths")
         index, artifact_root, rootfs, home, staging, tools = configured
+        assert isinstance(index, Path) and isinstance(artifact_root, Path)
+        assert isinstance(rootfs, Path) and isinstance(home, Path)
+        assert isinstance(staging, Path) and isinstance(tools, Path)
         browser_gallery = BrowserEvidenceGallery(
             index,
             ArtifactStore(database, LocalArtifactBackend(artifact_root)),

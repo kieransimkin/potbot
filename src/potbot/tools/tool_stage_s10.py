@@ -298,14 +298,15 @@ class OfflineToolStager:
         """
         if expected_source_commit != plan.source_commit:
             raise StateMismatchError("S10 build source revision differs from plan")
+        isolation_identity = getattr(result, "isolation_identity", None)
         if not (
             getattr(result, "dispatched", None) is True
             and getattr(result, "processes_stopped", None) is True
             and getattr(result, "outcome", None) == "completed"
             and getattr(result, "exit_code", None) == 0
-            and isinstance(getattr(result, "isolation_identity", None), str)
-            and len(result.isolation_identity) == 64
-            and _HEX.fullmatch(result.isolation_identity)
+            and isinstance(isolation_identity, str)
+            and len(isolation_identity) == 64
+            and _HEX.fullmatch(isolation_identity)
         ):
             raise StateMismatchError("S10 build lacks a qualified completed process receipt")
         root = self.shared_tools
@@ -350,7 +351,7 @@ class OfflineToolStager:
             "expected_old_commit": plan.expected_old_commit,
             "new_commit": plan.source_commit,
             "command_sha256": plan.approved_argv_sha256,
-            "isolation_identity": result.isolation_identity,
+            "isolation_identity": isolation_identity,
             "stage_name": target,
             "inventory": evidence,
             "recorded_ns": time.time_ns(),

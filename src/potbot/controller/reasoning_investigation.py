@@ -271,6 +271,7 @@ class InferenceCallback(Protocol):
         on_text: Callable[[str], None],
         run_id: str,
         cancelled: Callable[[], bool] | None,
+        /,
     ) -> tuple[str, dict[str, int], str]: ...
 
 
@@ -409,12 +410,11 @@ class ReasoningInvestigator:
         if task_identity is not None and self.budget_journal is None:
             raise InvalidInputError("Task budgeting is not configured for reasoning")
         episode_id = UUID(task_identity) if task_identity is not None else None
-        lease_token = (
-            self.state_store.start(context, run_id) if self.state_store is not None else None
-        )
+        state_store = self.state_store
+        lease_token = state_store.start(context, run_id) if state_store is not None else None
         checkpoint = (
-            (lambda data: self.state_store.checkpoint(context, run_id, lease_token, data))
-            if self.state_store is not None and lease_token is not None
+            (lambda data: state_store.checkpoint(context, run_id, lease_token, data))
+            if state_store is not None and lease_token is not None
             else None
         )
         tree = ReasoningTree(
@@ -507,6 +507,7 @@ class ReasoningInvestigator:
             # Any failure after dispatch holds the reservation for reconciliation.
             try:
                 if ticket is not None:
+                    assert self.budget_journal is not None and lease_token is not None
                     self.budget_journal.dispatch(context, ticket, lease_token)
                 started_at = time.monotonic()
                 output, measured, finish = invoke(
@@ -520,6 +521,7 @@ class ReasoningInvestigator:
                 )
                 invocations += 1
                 if ticket is not None:
+                    assert self.budget_journal is not None
                     self.budget_journal.observe(
                         context,
                         ticket,
@@ -530,6 +532,7 @@ class ReasoningInvestigator:
                     )
             except Exception:
                 if ticket is not None:
+                    assert self.budget_journal is not None
                     self.budget_journal.uncertain(context, ticket)
                 raise
             if finish != "stop":

@@ -83,7 +83,7 @@ def review_health_events(
         seen.add(key)
         groups[(event.kind, event.identity, event.source_digest)].append(event)
     snapshots = []
-    alerts = []
+    alerts: list[dict[str, Any]] = []
     for (kind, identity, source_digest), records in sorted(groups.items()):
         records.sort(key=lambda x: (x.observed_at, x.case_id))
         recent = records[-window:]

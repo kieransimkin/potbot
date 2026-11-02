@@ -341,11 +341,8 @@ class SharedBashSessionSupervisor:
                     cpu_seconds=request.cpu_seconds,
                     max_file_bytes=request.max_file_bytes,
                     max_open_files=request.max_open_files,
-                    **(
-                        {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
-                        if request.guest_uid is not None
-                        else {}
-                    ),
+                    guest_uid=request.guest_uid,
+                    guest_gid=request.guest_gid,
                 )
                 process = subprocess.Popen(
                     launch.argv,

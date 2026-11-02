@@ -7,7 +7,7 @@ return a bounded result, but cannot select an operation, actor or child command.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from potbot.context.rpc_contract import (
     ContextRequest,
@@ -17,6 +17,9 @@ from potbot.context.rpc_contract import (
     canonical_uuid,
 )
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
+
+if TYPE_CHECKING:
+    from potbot.context.sessions import ContextSession, ContextSessionStore
 
 MAX_WORK_BYTES = 16 * 1024
 
@@ -78,7 +81,9 @@ class ContextWorkExchange:
     def result(self) -> dict[str, Any] | None:
         return bounded_work(self._result) if self._result is not None else None
 
-    def execute(self, store: Any, grant: Any, request: WorkRequest) -> dict[str, Any]:
+    def execute(
+        self, store: ContextSessionStore, grant: ContextSession, request: WorkRequest
+    ) -> dict[str, Any]:
         if not isinstance(request, WorkRequest):
             raise ScopeDeniedError("Not a typed work request")
         if request.method == "work.input":

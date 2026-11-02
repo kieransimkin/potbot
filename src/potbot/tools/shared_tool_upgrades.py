@@ -267,7 +267,7 @@ class SandboxedToolTestExecutor:
         self,
         runtime: SharedWorkspaceRuntime,
         *,
-        monitor: object | None = None,
+        monitor: AiConfigHistoryMonitor | None = None,
         supervisor_factory: Callable[
             [SharedWorkspaceBubblewrapBackend], ProcessSupervisor
         ] = ProcessSupervisor,
@@ -569,11 +569,12 @@ class SharedToolUpgradeManager:
                     # Validate the immutable stage before reporting a test failure.
                     self._verify_at(stage, replacement)
                     uncertain = False
+                output_sha256 = result.get("output_sha256")
                 if result.get("name") != case.name or (
                     result.get("kind") != case.kind
                     or result.get("passed") is not True
-                    or not isinstance(result.get("output_sha256"), str)
-                    or not _DIGEST.fullmatch(result["output_sha256"])
+                    or not isinstance(output_sha256, str)
+                    or not _DIGEST.fullmatch(output_sha256)
                     or not isinstance(result.get("isolation_identity"), str)
                     or not result["isolation_identity"]
                     or result.get("dispatched") is not True

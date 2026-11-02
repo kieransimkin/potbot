@@ -31,7 +31,7 @@ def _prepare(
     principal: WorkspaceContext,
     request: ProcessRequest,
     guard: WorkspaceLeaseGuard,
-    approve: Callable[[ProcessRequest], None],
+    approve: Callable[[ProcessRequest], object],
 ) -> Any:
     """Provision before admission; hold the operator lock through process claim."""
     from uuid import UUID
@@ -96,7 +96,7 @@ async def dispatch_context_worker(
     request: ProcessRequest,
     guard: WorkspaceLeaseGuard,
     *,
-    approve: Callable[[ProcessRequest], None],
+    approve: Callable[[ProcessRequest], object],
 ) -> ContextWorkerResult:
     """Provision, launch, bind RPC, revoke, stop, then release the process claim.
 

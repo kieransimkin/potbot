@@ -281,9 +281,12 @@ class ExecutionCogRuntime:
         ):
             raise ScopeDeniedError("Duplicate or differently pinned host installations")
         self.child_plans = compile_child_plans(operations, child_plans)
-        for op in (*operations, *self._direct_operations.values()):
-            self.catalog.schema_hash(op.binding.input_type_ref)
-            self.catalog.schema_hash(op.binding.output_type_ref)
+        for installed in operations:
+            self.catalog.schema_hash(installed.binding.input_type_ref)
+            self.catalog.schema_hash(installed.binding.output_type_ref)
+        for direct in self._direct_operations.values():
+            self.catalog.schema_hash(direct.binding.input_type_ref)
+            self.catalog.schema_hash(direct.binding.output_type_ref)
         if operations:
             # Bind the ordinary execution path, not an opt-in helper left to callers.
             assert self.sandbox_executor is not None
@@ -333,7 +336,7 @@ class ExecutionCogRuntime:
             source.type_ref, json.loads(canonical_json(source.value)), source.source_artifact_id
         )
         self.catalog.validate(source)
-        op = None
+        op: SandboxedCogOperation | HostOperation | None = None
         if signature in WORK_COGS:
             request = fields(source.value, {"schema_version", "operation_ref", "input"})
             kind = WORK_KINDS[WORK_COGS.index(signature)]

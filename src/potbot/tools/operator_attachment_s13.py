@@ -60,7 +60,7 @@ def _peer_uid(conn: socket.socket) -> int:
     pid, uid, _gid = struct.unpack("3i", payload)
     if pid <= 0:
         raise ScopeDeniedError("Operator peer has no kernel identity")
-    return uid
+    return int(uid)
 
 
 def _socket_path(path: Path, *, existing: bool) -> Path:

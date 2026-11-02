@@ -16,15 +16,22 @@ import json
 import os
 import sys
 from collections import deque
+from importlib import import_module
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 # The same verified module is packaged with the script in /opt/potbot.
-if __package__:
+if TYPE_CHECKING:
     from .browser_https_routes import install_https_routes, require_egress_config
 else:
-    from browser_https_routes import install_https_routes, require_egress_config
+    _routes = (
+        import_module(".browser_https_routes", __package__)
+        if __package__
+        else import_module("browser_https_routes")
+    )
+    install_https_routes = _routes.install_https_routes
+    require_egress_config = _routes.require_egress_config
 
 COMMANDS = frozenset(
     {
@@ -302,9 +309,9 @@ class BrowserWorker:
         # No launch can inherit a host CDP websocket. Browser/driver start inside
         # the namespace; Playwright/Patchright manage Chromium via local pipes.
         if self.engine == "patchright":
-            from patchright.async_api import async_playwright
+            async_playwright = import_module("patchright.async_api").async_playwright
         else:
-            from playwright.async_api import async_playwright
+            async_playwright = import_module("playwright.async_api").async_playwright
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(
             headless=False,
@@ -323,7 +330,7 @@ class BrowserWorker:
             service_workers="block",
         )
         if self.stealth:
-            from playwright_stealth import Stealth
+            Stealth = import_module("playwright_stealth").Stealth
 
             await Stealth().apply_stealth_async(self.context)
         if egress is not None:
@@ -513,21 +520,30 @@ class BrowserWorker:
         The Playwright Page.screenshot helper relies on headful compositor
         surfaces and font readiness; in Xvfb/Xpra it may fail or time out even
         while the actual page is alive. This bounded read-only CDP operation
-        uses Chromium's non-surface capture path and does not broaden the
-        user-callable CDP allowlist. There is no action retry.
+        tries Chromium's view capture path, then its surface path only after
+        a timeout. Both are private reads within the same capture budget;
+        neither broadens the user-callable CDP allowlist or retries an action.
         """
-        reply = await asyncio.wait_for(
-            self.cdp.send(
-                "Page.captureScreenshot",
-                {
-                    "format": "jpeg",
-                    "quality": 48,
-                    "fromSurface": False,
-                    "captureBeyondViewport": False,
-                },
-            ),
-            timeout=6.0,
-        )
+        # Each path has half of the existing six-second capture budget. Only
+        # a timeout permits a second read; malformed evidence fails immediately.
+        for from_surface in (False, True):
+            try:
+                reply = await asyncio.wait_for(
+                    self.cdp.send(
+                        "Page.captureScreenshot",
+                        {
+                            "format": "jpeg",
+                            "quality": 48,
+                            "fromSurface": from_surface,
+                            "captureBeyondViewport": False,
+                        },
+                    ),
+                    timeout=3.0,
+                )
+                break
+            except TimeoutError:
+                if from_surface:
+                    raise
         encoded = reply.get("data") if isinstance(reply, dict) else None
         if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
             raise ValueError("render sample is absent or exceeds bound")

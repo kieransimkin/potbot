@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from potbot.domain.errors import InvalidInputError, StateMismatchError
@@ -240,7 +240,7 @@ class GitHubGraphQLClient:
         self._token_supplier = token_supplier
         self._allowlist = frozenset(repo.casefold() for repo in allowed_repositories)
 
-    def _query(self, repository: str, query: str, variables: dict[str, object]) -> dict:
+    def _query(self, repository: str, query: str, variables: dict[str, object]) -> dict[str, Any]:
         import http.client
         import json
         import ssl
@@ -280,13 +280,10 @@ class GitHubGraphQLClient:
                 payload = json.loads(raw)
             except (UnicodeDecodeError, ValueError) as exc:
                 raise StateMismatchError("GitHub GraphQL response is invalid") from exc
-            if (
-                not isinstance(payload, dict)
-                or payload.get("errors")
-                or not isinstance(payload.get("data"), dict)
-            ):
+            data = payload.get("data") if isinstance(payload, dict) else None
+            if not isinstance(payload, dict) or payload.get("errors") or not isinstance(data, dict):
                 raise StateMismatchError("GitHub rejected the authorized operation")
-            return payload["data"]
+            return data
         finally:
             conn.close()
 

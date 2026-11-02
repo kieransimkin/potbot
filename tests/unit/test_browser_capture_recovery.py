@@ -86,7 +86,7 @@ def test_invalid_capture_fails_closed_without_retry(packet):
 
 @pytest.mark.parametrize(
     "failure",
-    [RuntimeError("browser disconnected"), PermissionError("fixture denial"), TimeoutError()],
+    [RuntimeError("browser disconnected"), PermissionError("fixture denial")],
 )
 def test_capture_errors_propagate_with_no_second_attempt(failure):
     worker = browser(error=failure)
@@ -94,3 +94,58 @@ def test_capture_errors_propagate_with_no_second_attempt(failure):
         sample(worker)
     worker.cdp.send.assert_awaited_once()
     worker.page.screenshot.assert_not_awaited()
+
+
+def test_capture_timeout_uses_one_private_surface_fallback():
+    worker = browser()
+    worker.cdp.send.side_effect = [TimeoutError(), {"data": base64.b64encode(JPEG).decode("ascii")}]
+    frame = sample(worker)["frame"]
+    assert frame["sha256"] == hashlib.sha256(JPEG).hexdigest()
+    assert worker.cdp.send.await_count == 2
+    assert worker.cdp.send.await_args_list[0].args == ("Page.captureScreenshot", PARAMS)
+    assert worker.cdp.send.await_args_list[1].args == (
+        "Page.captureScreenshot",
+        {**PARAMS, "fromSurface": True},
+    )
+    worker.page.screenshot.assert_not_awaited()
+
+
+def test_both_capture_paths_timeout_without_further_retries():
+    worker = browser(error=TimeoutError())
+    with pytest.raises(TimeoutError):
+        sample(worker)
+    assert worker.cdp.send.await_count == 2
+
+
+def test_real_capture_timeout_cancels_each_read_with_bounded_budget(monkeypatch):
+    from potbot.tools import xpra_browser_worker as module
+
+    worker = browser()
+    cancelled = []
+    budgets = []
+    original_wait_for = asyncio.wait_for
+
+    async def stalled(method, params):
+        try:
+            await asyncio.Future()
+        finally:
+            cancelled.append(params["fromSurface"])
+
+    async def short_wait(awaitable, *, timeout):
+        budgets.append(timeout)
+        return await original_wait_for(awaitable, timeout=0.01)
+
+    worker.cdp.send.side_effect = stalled
+    monkeypatch.setattr(module.asyncio, "wait_for", short_wait)
+    with pytest.raises(TimeoutError):
+        sample(worker)
+    assert budgets == [3.0, 3.0]
+    assert cancelled == [False, True]
+
+
+def test_invalid_surface_fallback_is_rejected_without_third_attempt():
+    worker = browser()
+    worker.cdp.send.side_effect = [TimeoutError(), {"data": "$$$"}]
+    with pytest.raises(ValueError, match="render sample"):
+        sample(worker)
+    assert worker.cdp.send.await_count == 2

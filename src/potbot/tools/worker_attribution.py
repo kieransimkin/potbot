@@ -9,7 +9,7 @@ must be installed on the controller before a worker may claim agent identity.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
 from potbot.domain.auth import WorkspaceContext
@@ -23,7 +23,9 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class WorkerSubject:
     subject_id: UUID
-    identity_kind: str  # 'agent' only for a matching host registry; otherwise 'principal'
+    identity_kind: Literal[
+        "agent", "principal"
+    ]  # 'agent' only for a matching host registry; otherwise 'principal'
 
 
 def validate_host_agent_binding(

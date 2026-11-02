@@ -109,7 +109,11 @@ class ToolGateway:
         self.shared_leases = shared_leases
         self.agent_homes, self.host_agent_id = agent_homes, host_agent_id
         self.supervisor = supervisor or ProcessSupervisor()
-        self.ai_monitor = self.supervisor.backend.ai_monitor if shared_runtime is not None else None
+        self.ai_monitor = (
+            self.supervisor.backend.ai_monitor
+            if isinstance(self.supervisor.backend, SharedWorkspaceBubblewrapBackend)
+            else None
+        )
         self.secrets = secrets or SecretReferenceProvider({})
         self.read_only_roots = read_only_roots
         self.workspace_sandbox = workspace_sandbox
@@ -430,6 +434,8 @@ class ToolGateway:
                 )
             # A host-bound registry may identify the Cog agent. A principal
             # alone is NOT an agent and must not contribute to agent heat bars.
+            if self.shared_runtime is not None and self.shared_leases is None:
+                raise ScopeDeniedError("Shared execution requires its workspace ledger")
             subject = (
                 worker_subject(
                     context,
@@ -437,7 +443,7 @@ class ToolGateway:
                     agent_id=getattr(self, "host_agent_id", None),
                     ledger=self.shared_leases,
                 )
-                if self.shared_runtime is not None
+                if self.shared_runtime is not None and self.shared_leases is not None
                 else None
             )
             request = ProcessRequest(

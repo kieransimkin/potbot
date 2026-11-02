@@ -49,7 +49,7 @@ _COMMIT = re.compile(r"[a-f0-9]{40}\Z")
 _DIGEST = re.compile(r"[a-f0-9]{64}\Z")
 
 
-def _approval_mac(token: str, record: dict[str, Any], approver: UUID, revision: int) -> str:
+def _approval_mac(token: str | None, record: dict[str, Any], approver: UUID, revision: int) -> str:
     """Versioned decision MAC, independently checked by the host worker.
 
     A general workspace DB login can update RLS-scoped data, but cannot mint
@@ -73,7 +73,7 @@ def _approval_mac(token: str, record: dict[str, Any], approver: UUID, revision: 
         "suite_sha256",
         "evidence_sha256",
     )
-    message = {name: str(record[name]) for name in names}
+    message: dict[str, Any] = {name: str(record[name]) for name in names}
     tests = record["tests"]
     if isinstance(tests, str):
         tests = json.loads(tests)
@@ -196,7 +196,7 @@ class UiToolUpgradeStore:
         ):
             raise InvalidInputError("Published S9 evidence is incomplete")
         _digest(suite)
-        _digest(evidence)
+        evidence = _digest(evidence)
         safe_tests: list[dict[str, object]] = []
         for case in tests:
             if (
@@ -475,7 +475,7 @@ class UiToolUpgradeStore:
 def register_tool_upgrade_routes(
     app: FastAPI,
     database: Database,
-    authenticate: Any,
+    authenticate: Callable[[str | None], WorkspaceContext],
     allowed_origins: tuple[str, ...],
     authorize_setup: Callable[[str | None], None],
 ) -> None:

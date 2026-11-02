@@ -15,7 +15,7 @@ import statistics
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from potbot.domain.errors import InvalidInputError
 from potbot.domain.serialization import canonical_json, content_hash
@@ -252,7 +252,7 @@ def _subset(expected: Any, actual: Any) -> bool:
         return len(expected) == len(actual) and all(
             _subset(a, b) for a, b in zip(expected, actual, strict=True)
         )
-    return expected == actual
+    return bool(expected == actual)
 
 
 def _shape(schema: Any, actual: Any) -> bool:
@@ -488,6 +488,38 @@ def _wilson_lower(successes: int, total: int) -> float:
     return max(0.0, (center - margin) / denom)
 
 
+class _ModelSummary(TypedDict):
+    role: str
+    model_id: str
+    variant: str
+    revision: str
+    backend: str
+    tier: str
+    case_trials: list[tuple[str, int]]
+    total: int
+    completed: int
+    passed: int
+    distinct_cases: int
+    objective_cases: int
+    structural_only_cases: int
+    cases_all_trials_passed: int
+    accuracy: float | None
+    wilson_lower_95: float | None
+    median_latency_ms: int | None
+    measured_billed_microunits: int | None
+    missing_usage_attempts: int
+    indeterminate: int
+    eligible_for_advisory_routing: bool
+    production_qualified: bool
+
+
+def _quality(row: _ModelSummary) -> float:
+    confidence = row["wilson_lower_95"]
+    if confidence is None:
+        raise InvalidInputError("Routing requires objective confidence evidence")
+    return confidence
+
+
 def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12) -> dict[str, Any]:
     rows = list(observations)
     if not 1 <= minimum_samples <= 10000:
@@ -497,7 +529,7 @@ def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12)
         if not isinstance(record, Observation):
             raise InvalidInputError("invalid benchmark observation")
         groups[(record.role, record.model_id, record.variant)].append(record)
-    results = []
+    results: list[_ModelSummary] = []
     for (role, model, variant), records in sorted(groups.items()):
         completed = [r for r in records if r.status == "completed" and r.score is not None]
         passed = sum(r.score == 1 for r in completed)
@@ -557,7 +589,7 @@ def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12)
                 "production_qualified": False,
             }
         )
-    recommendations = {}
+    recommendations: dict[str, dict[str, Any]] = {}
     for role in sorted({r["role"] for r in results}):
         candidates = [
             r for r in results if r["role"] == role and r["eligible_for_advisory_routing"]
@@ -566,14 +598,14 @@ def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12)
             recommendations[role] = {"decision": "insufficient_evidence"}
             continue
         # Withhold model rankings if the candidates saw different case/trial sets.
-        cohorts = {tuple(map(tuple, r["case_trials"])) for r in candidates}
+        cohorts = {tuple(r["case_trials"]) for r in candidates}
         if len(cohorts) != 1:
             recommendations[role] = {"decision": "unpaired_evidence"}
             continue
         # Conservative quality-first ordering. Cost/latency only break ties.
         candidates.sort(
             key=lambda r: (
-                -r["wilson_lower_95"],
+                -_quality(r),
                 r["median_latency_ms"] or 10**12,
                 r["model_id"],
                 r["variant"],
@@ -587,12 +619,12 @@ def summarise(observations: Iterable[Observation], *, minimum_samples: int = 12)
             for r in candidates
             if r["backend"] == "loopback_openai"
             and r["tier"] in {"micro", "small"}
-            and r["wilson_lower_95"] >= best["wilson_lower_95"] - 0.03
+            and _quality(r) >= _quality(best) - 0.03
             and r["median_latency_ms"] is not None
             and best["median_latency_ms"] is not None
             and r["median_latency_ms"] < best["median_latency_ms"]
         ]
-        substitutes.sort(key=lambda r: (r["median_latency_ms"], -r["wilson_lower_95"]))
+        substitutes.sort(key=lambda r: (r["median_latency_ms"], -_quality(r)))
         recommendations[role] = {
             "decision": "recommend_for_operator_review",
             "model_id": best["model_id"],

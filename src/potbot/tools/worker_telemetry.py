@@ -447,7 +447,7 @@ class WorkerMonitorConfig:
                 "POTBOT_OPERATOR_CGROUP_JOIN_SHA256",
             )
         )
-        if not all((root, cgroup, tracer, helper, tracer_sha, helper_sha)):
+        if not root or not cgroup or not tracer or not helper or not tracer_sha or not helper_sha:
             raise CapabilityUnavailableError(
                 "operator telemetry binaries, pinned digests and roots must be configured"
             )

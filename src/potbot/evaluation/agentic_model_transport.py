@@ -172,12 +172,16 @@ class BenchmarkTransport:
         result = body["choices"][0].get("message", {}).get("content")
         if not isinstance(result, str):
             raise InvalidInputError("non-text local response is unavailable")
-        usage = body.get("usage") or {}
+        local_usage = body.get("usage") or {}
         return Generation(
             result,
             round((time.monotonic() - started) * 1000),
-            usage.get("prompt_tokens") if type(usage.get("prompt_tokens")) is int else None,
-            usage.get("completion_tokens") if type(usage.get("completion_tokens")) is int else None,
+            local_usage.get("prompt_tokens")
+            if type(local_usage.get("prompt_tokens")) is int
+            else None,
+            local_usage.get("completion_tokens")
+            if type(local_usage.get("completion_tokens")) is int
+            else None,
             billed_microunits=None,
             returned_model=body.get("model"),
         )

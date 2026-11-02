@@ -45,12 +45,16 @@ def _configured_client(workspace_id: UUID) -> OperatorAttachmentClient | None:
         not isinstance(v, str) or not _SHA.fullmatch(v) for v in variables
     ):
         raise CapabilityUnavailableError("Managed operator has no verified pins")
+    image_digest, qualification, mounts = variables
+    assert isinstance(image_digest, str)
+    assert isinstance(qualification, str)
+    assert isinstance(mounts, str)
     return OperatorAttachmentClient(
         socket_path=Path(path),
         workspace_id=workspace_id,
-        image_digest=variables[0],
-        qualification_sha256=variables[1],
-        mounts_sha256=variables[2],
+        image_digest=image_digest,
+        qualification_sha256=qualification,
+        mounts_sha256=mounts,
     )
 
 

@@ -18,9 +18,10 @@ import socketserver
 import stat
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 
@@ -71,7 +72,7 @@ class ConnectPolicy:
             raise InvalidInputError("duplicate CONNECT policy host")
 
     def resolve(
-        self, authority: str, *, resolver: Callable[..., object] = socket.getaddrinfo
+        self, authority: str, *, resolver: Callable[..., Sequence[Any]] = socket.getaddrinfo
     ) -> str:
         if not isinstance(authority, str) or authority.count(":") != 1:
             raise ScopeDeniedError("CONNECT must specify one approved hostname and TLS port")
@@ -117,7 +118,7 @@ class BrowserConnectGateway:
         *,
         policy: ConnectPolicy,
         token: str,
-        resolver: Callable[..., object] = socket.getaddrinfo,
+        resolver: Callable[..., Sequence[Any]] = socket.getaddrinfo,
         connect: Callable[..., socket.socket] = socket.create_connection,
     ) -> None:
         path = Path(socket_path).absolute()

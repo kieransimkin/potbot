@@ -203,7 +203,8 @@ class ContextMutationBroker:
         if self.registry.lookup(identity.principal.workspace_id, identity.agent_id) is None:
             raise ScopeDeniedError("Unregistered agent cannot mutate context")
         pin = self.ledger.image_status(identity.principal.workspace_id)
-        if pin is None or not isinstance(pin.get("digest"), str):
+        image_digest = pin.get("digest") if pin is not None else None
+        if not isinstance(image_digest, str):
             raise StateMismatchError("No qualified pinned workspace image")
         resource = f"potbot:context:{kind}:{name}:{role.lower()}"
         request = AccessRequest(
@@ -213,7 +214,7 @@ class ContextMutationBroker:
             idempotency_key,
             "write",
             (AccessResource("external", resource, "write"),),
-            pin["digest"],
+            image_digest,
         )
         lease = self.ledger.claim(request, ttl_seconds=120, replay_existing=False)
         uncertain = True  # An interrupted DB commit cannot be assumed rolled back.

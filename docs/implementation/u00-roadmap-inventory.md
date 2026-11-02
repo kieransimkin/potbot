@@ -123,12 +123,58 @@ Continue the requirement-level code/test reconciliation, including narrative-onl
 requirements, context/worker protocols, U03 accounting, U06 custody and supported
 host gates. Retain S12 release enforcement, S36 guest `/var/logs/ai`, unavailable
 P6-001–P6-045 artifacts and authoritative-journal migration as named open items.
-Close baseline typing/acceptance failures with source-specific fixes. Then define
+Complete the CI recovery checks below. Then define
 U01-A against the existing intent, lease, checkpoint, outbox and accounting owners;
 add no competing scheduler or state store.
 
-There is no application migration, executable activation or runtime protocol
-change in this increment. Rollback removes the audit lane, script and generated
-planning artifacts; the existing T/MG registries and production data stay intact.
-No software release is claimed from an audit check, and failed mandatory
-application CI remains a release blocker.
+There is no application migration, executable activation or change to the public
+worker command schema. The continuation also repairs application typing and
+bounded screenshot capture, as described below. Rollback the runtime repair
+commit separately from the original audit commit; both leave the existing T/MG
+registries and production data intact. No software release is claimed from an
+audit check, and failed mandatory application CI remains a release blocker.
+
+## CI recovery while preparing the increment
+
+The initial PR application run reproduced all 158 baseline mypy errors. The
+continuation repairs those contracts with typed records, concrete service
+interfaces and explicit narrowing after existing admission checks. The complete
+Linux type check now passes for 326 source files. No type-check exclusions or
+blanket ignores were added. PostgreSQL remains authoritative, optional browser
+packages remain optional, and isolated work still rejects arbitrary host callbacks.
+
+Object and skill projections now share custody primitives through a common base,
+while retaining their distinct inventory bounds and namespaces. Tool manifest
+arrays and replayed steering decisions reject malformed structural data before
+use. Interactive monitoring invokes the existing pinned native cgroup wrapper;
+the obsolete reference to a removed Python pre-execution hook is gone.
+
+The initial rendered-browser failure occurred while obtaining the first image,
+before any click or fill. Capture now permits one private, read-only fallback:
+
+```mermaid
+flowchart LR
+    A[Capture current viewport] --> B[View path: at most 3 seconds]
+    B -->|valid JPEG| D[Validate bounds and hash evidence]
+    B -->|timeout only| C[Surface path: at most 3 seconds]
+    C -->|valid JPEG| D
+    B -->|other error or invalid data| E[Fail closed]
+    C -->|any error or invalid data| E
+```
+
+*Conceptual flow of the implemented capture recovery. Neither branch performs
+navigation, input or focus changes. The existing action protocol and no-replay
+rule remain in force. This diagram is not evidence of a passing rendered run.*
+
+The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Page.pdl)
+defines the view/surface selector and base64 screenshot result. Both attempts
+share the existing six-second capture budget and remain inside the worker's
+12-second command deadline. Invalid base64, missing/oversized images and malformed
+JPEGs fail immediately. Disconnection, permission errors and cancellation do not
+trigger a fallback. Regression tests cover real coroutine timeouts and cancelled
+capture reads; no synthetic unit image qualifies a live browser or Xpra host.
+
+Run the existing complete application, PostgreSQL, sandbox and four-profile
+rendered acceptance lanes on the repaired revision before merging. Local Windows
+checks do not qualify Linux namespaces, cgroups, Xpra or production node modes.
+A successful audit lane still leaves the full U00 requirement reconciliation open.

@@ -197,3 +197,47 @@ def test_forced_shutdown_terminates_subprocess_group(tmp_path: Path):
             pytest.fail("grandchild remains runnable after process group shutdown")
 
     run(scenario())
+
+
+def test_monitored_launch_uses_native_wrapper_without_python_preexec(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from unittest.mock import AsyncMock
+    from uuid import uuid4
+
+    from potbot.tools import interactive_supervisor as module
+    from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
+    source = script(tmp_path, "raise AssertionError('must never execute')")
+    selected = replace(
+        request(tmp_path, source),
+        telemetry_workspace_id=uuid4(),
+        telemetry_agent_id=uuid4(),
+        telemetry_run_id=uuid4(),
+    )
+
+    class FixtureBackend(SharedWorkspaceBubblewrapBackend):
+        def __init__(self):
+            self.runtime = SimpleNamespace(home=selected.workspace_root)
+
+        def prepare(self, *, argv, status_fd, **kwargs):
+            return SimpleNamespace(argv=argv, pass_fds=(status_fd,), identity="a" * 64)
+
+    class FixtureMonitor:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def command(self, argv):
+            return ("/operator/cgroup-join", "/operator/cgroup", "--", *argv)
+
+    config = SimpleNamespace(
+        audit_root=tmp_path / "audit", strace=tmp_path / "strace", cgroup_root=tmp_path / "cgroup"
+    )
+    spawn = AsyncMock(side_effect=RuntimeError("fixture stops before spawning"))
+    monkeypatch.setattr(module, "WorkerMonitorSession", FixtureMonitor)
+    monkeypatch.setattr(module.asyncio, "create_subprocess_exec", spawn)
+    with pytest.raises(RuntimeError, match="fixture stops before spawning"):
+        run(InteractiveProcessSupervisor(FixtureBackend(), monitor_config=config).open(selected))
+    assert spawn.await_count == 1
+    assert spawn.await_args.args[:3] == ("/operator/cgroup-join", "/operator/cgroup", "--")
+    assert spawn.await_args.args[3:] == selected.argv
+    assert "preexec_fn" not in spawn.await_args.kwargs

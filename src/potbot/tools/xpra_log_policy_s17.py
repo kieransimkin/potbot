@@ -14,12 +14,26 @@ import re
 import stat
 import time
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, TypedDict
 from uuid import uuid4
 
 _MAX_ACTIVE = 64 * 1024 * 1024
 _ARCHIVE = re.compile(r"xpra-([0-9]{10,20})-([0-9a-f]{32})\.log\Z")
 _INSTANCE = re.compile(r"[0-9a-f]{32}\Z")
+
+
+class XpraLogInstance(TypedDict):
+    namespace: str
+    archived: int
+    orphanedArchives: int
+    active: bool
+    requiresReconciliation: bool
+
+
+class XpraLogInventory(TypedDict):
+    schema: str
+    instances: list[XpraLogInstance]
+    requiresReconciliation: bool
 
 
 class XpraLogError(RuntimeError):
@@ -216,12 +230,12 @@ class XpraLogCustody:
             raise
 
 
-def inspect_xpra_logs(operator_root: Path, *, limit: int = 256) -> dict[str, object]:
+def inspect_xpra_logs(operator_root: Path, *, limit: int = 256) -> XpraLogInventory:
     """Read-only host recovery index; never returns paths, raw contents or secrets."""
     if type(limit) is not int or not 1 <= limit <= 4096:
         raise XpraLogError("invalid log inventory limit")
     root = _private_dir(Path(operator_root))
-    result: list[dict[str, object]] = []
+    result: list[XpraLogInstance] = []
     for folder in sorted(root.iterdir(), key=lambda p: p.name):
         if len(result) >= limit:
             raise XpraLogError("operator log inventory bound exceeded")

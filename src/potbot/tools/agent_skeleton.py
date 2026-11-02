@@ -199,9 +199,10 @@ def install_agent_skeleton(agent_dir_fd: int, *, workspace_name: str) -> str:
     for alias, target in sorted(MODEL_HOME_ALIASES.items()):
         _create_model_alias(agent_dir_fd, alias, target)
     _create_model_alias(agent_dir_fd, "Tools", "/usr/local/tools")
+    template_sha256 = skeleton_digest()
     receipt = {
         "schema": SKELETON_VERSION,
-        "template_sha256": skeleton_digest(),
+        "template_sha256": template_sha256,
         "source": SKELETON_SOURCE,
         "source_commit": SKELETON_SOURCE_COMMIT,
         "original_scripts": ["10-figbanner", "20-fortune", "99-insult"],
@@ -217,7 +218,7 @@ def install_agent_skeleton(agent_dir_fd: int, *, workspace_name: str) -> str:
         0o644,
     )
     os.fsync(agent_dir_fd)
-    return receipt["template_sha256"]
+    return template_sha256
 
 
 def _parents(name: str) -> tuple[str, ...]:

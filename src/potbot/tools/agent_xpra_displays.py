@@ -19,7 +19,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from potbot.domain.errors import (
@@ -31,6 +31,9 @@ from potbot.domain.errors import (
 from potbot.domain.serialization import content_hash
 from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
+if TYPE_CHECKING:
+    from potbot.tools.x11_workspace_server import WorkspaceXServer
 
 # The private display is deliberately view-only.  Browser input goes through
 # the already reserved Playwright/CDP RPC, not through native Xpra input.
@@ -61,7 +64,7 @@ def _private_directory(path: Path, *, must_exist: bool = True) -> Path:
 class AgentXpraDisplay:
     agent_id: UUID
     home_name: str
-    server: Any
+    server: WorkspaceXServer
 
     @property
     def display(self) -> str:
@@ -86,7 +89,7 @@ class AgentXpraDisplayPool:
         ledger: Any,
         homes: Any,
         backend: Any,
-        server_factory: Callable[..., Any] | None = None,
+        server_factory: Callable[..., WorkspaceXServer] | None = None,
         browser_gateway: Any = None,
         maximum: int = _MAX_DISPLAYS,
         gui_audit_factory: Callable[..., Any] | None = None,
