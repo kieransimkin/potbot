@@ -129,6 +129,11 @@ Across these waves, follow the existing MG dependency cut rather than waiting fo
 ExecutionStore, ToolGateway, Outbox, PostgresReasoningStore, steering inbox,
 BudgetLedger and pinned execution journal.
 
+The [first sandbox transport recovery increment](u01-a-sandbox-transport-recovery.md)
+adds a durable dispatch barrier and a recovery read over the existing journal.
+Actual admitted transport service, target outcome verification and budget
+settlement remain subsequent work.
+
 Enumerate actual dispatch producers, then extend the existing local-tool
 recovery path to a controller-admitted transport effect with a controlled local
 service. Review/rebase open PR13's factories against current released-Syn grants

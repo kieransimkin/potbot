@@ -101,6 +101,8 @@ jobs:
         run: uv run --locked python -m pytest -q tests/integration/test_process_isolation.py
       - name: Start real PostgreSQL with pgvector
         run: docker compose up --detach --wait --wait-timeout 90
+      - name: Verify sandbox transport crash recovery on PostgreSQL
+        run: uv run --locked python -m pytest -q tests/integration/test_sandbox_transport_recovery.py
       - name: Qualify MODEL.md context, ACLs, recovery and refresh against PostgreSQL
         run: >-
           uv run --locked python -m pytest -q
@@ -202,3 +204,15 @@ jobs:
           path: artifacts/tool-contracts/
           if-no-files-found: error
           retention-days: 14
+      - name: Record run blogworthiness
+        if: always()
+        env:
+          POTBOT_CI_RESULT: ${{ job.status }}
+        shell: bash
+        run: |
+          if [[ "$POTBOT_CI_RESULT" == success ]]; then
+            reason="Routine regression evidence; this run alone adds no new public story."
+          else
+            reason="The run needs diagnosis before it can support a verified public story."
+          fi
+          echo "Blogworthiness: FAIL — $reason Evidence: $POTBOT_CI_RESULT at $GITHUB_SHA." >> "$GITHUB_STEP_SUMMARY"
