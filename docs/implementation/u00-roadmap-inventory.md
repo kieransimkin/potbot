@@ -92,7 +92,7 @@ lane independently of the application lane.
 The GitHub API and fetched `origin/main` agreed on the pinned baseline. The audit
 retrieved all 13 PRs and zero non-PR issues. [PR 1](https://github.com/kieransimkin/potbot/pull/1)
 and [PR 13](https://github.com/kieransimkin/potbot/pull/13) were open; their branches
-are not assumed merged into main. The latest preview release was `v0.5.0.dev8`;
+are not assumed merged into main. The latest preview release was `v0.5.0.dev9`;
 a release version and the newer main revision are separate identities.
 
 The baseline [Potbot verification run](https://github.com/kieransimkin/potbot/actions/runs/41358430672)
