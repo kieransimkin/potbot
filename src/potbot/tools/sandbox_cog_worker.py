@@ -41,6 +41,7 @@ from potbot.domain.errors import (
 from potbot.domain.serialization import canonical_json, content_hash
 from potbot.tools.agent_homes import AgentHomeRegistry
 from potbot.tools.execution_contracts import WORK_KINDS, WorkBinding
+from potbot.tools.released_syn_nodes import ReleasedSynWorkerNodeMesh, SynCogGrant
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
@@ -136,6 +137,8 @@ class SandboxedCogExecutor:
         homes: AgentHomeRegistry,
         supervisor: ProcessSupervisor,
         syn_mesh: SynWorkerNodeMesh,
+        *,
+        development_syn_fixture: bool = False,
     ) -> None:
         if (
             not isinstance(runtime, SharedWorkspaceRuntime)
@@ -146,11 +149,43 @@ class SandboxedCogExecutor:
             or not isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend)
             or supervisor.backend.runtime != runtime
             or not isinstance(syn_mesh, SynWorkerNodeMesh)
+            or (
+                not isinstance(syn_mesh, ReleasedSynWorkerNodeMesh)
+                and development_syn_fixture is not True
+            )
         ):
             raise ScopeDeniedError("Cog runner requires the qualified pinned host sandbox")
         self.runtime, self.ledger, self.homes, self.supervisor = runtime, ledger, homes, supervisor
         self.syn_mesh = syn_mesh
+        self.development_syn_fixture = development_syn_fixture
         self._context_binding: ContextExecutionBinding | None = None
+
+    def syn_probe(self, actor: WorkspaceContext, agent_id: UUID) -> None:
+        if isinstance(self.syn_mesh, ReleasedSynWorkerNodeMesh):
+            self.syn_mesh.probe(actor.workspace_id, agent_id)
+        elif getattr(self, "development_syn_fixture", False) is not True:
+            raise CapabilityUnavailableError(
+                "Cog dispatch requires independently released native Syn nodes"
+            )
+
+    def authorize_syn(
+        self,
+        op: SandboxedCogOperation,
+        source: TypedCogValue,
+        context: CogRunContext,
+        actor: WorkspaceContext,
+        agent_id: UUID,
+    ) -> SynCogGrant | None:
+        self.syn_probe(actor, agent_id)
+        if isinstance(self.syn_mesh, ReleasedSynWorkerNodeMesh):
+            return self.syn_mesh.authorize(op, source, context, actor, agent_id)
+        return None  # Explicit development fixture, never production qualification.
+
+    def syn_provenance(self, actor: WorkspaceContext, agent_id: UUID) -> dict[str, Any] | None:
+        self.syn_probe(actor, agent_id)
+        if isinstance(self.syn_mesh, ReleasedSynWorkerNodeMesh):
+            return self.syn_mesh.transport.provenance(agent_id)
+        return None
 
     def bind_context(
         self, database: Any, actor: WorkspaceContext, operations: tuple[SandboxedCogOperation, ...]
@@ -291,6 +326,7 @@ class SandboxedCogExecutor:
             guard.ensure_live()
             if syn_fault is not None and syn_fault.is_set():
                 raise IndeterminateExecutionError("worker SYN node failed during sandbox execution")
+            self.syn_probe(actor, agent_id)
             guard.finish(
                 evidence_sha256=content_hash(
                     {
@@ -341,6 +377,8 @@ class SandboxedCogExecutor:
         cog_context: CogRunContext,
         actor: WorkspaceContext,
         agent_id: UUID,
+        *,
+        syn_authorization: SynCogGrant | None = None,
     ) -> TypedCogValue:
         if not isinstance(op, SandboxedCogOperation) or not isinstance(agent_id, UUID):
             raise ScopeDeniedError("Cog worker requires trusted installed operation and agent")
@@ -351,10 +389,14 @@ class SandboxedCogExecutor:
         # opens guest-to-guest sockets or grants a capability to the worker.
         if not isinstance(getattr(self, "syn_mesh", None), SynWorkerNodeMesh):
             raise CapabilityUnavailableError("worker SYN node relay must be configured")
+        self.syn_probe(actor, agent_id)
+        if isinstance(self.syn_mesh, ReleasedSynWorkerNodeMesh):
+            self.syn_mesh.consume(syn_authorization, op, source, cog_context, actor, agent_id)
         cancelled = threading.Event()
         async with self.syn_mesh.node(
             actor.workspace_id, agent_id, cog_context.invocation_id
         ) as node:
+            node.mark_executing()
             if op.protocol == "context-rpc/v1":
                 from potbot.context.runtime_integration import execute_context_operation
 
@@ -377,7 +419,18 @@ class SandboxedCogExecutor:
                     )
                 )
             try:
-                return await asyncio.shield(job)
+                result: TypedCogValue = await asyncio.shield(job)
+                try:
+                    self.syn_probe(actor, agent_id)
+                    if not node.healthy:
+                        raise StateMismatchError(
+                            "Native Syn monitor failed before result acceptance"
+                        )
+                except Exception:
+                    raise IndeterminateExecutionError(
+                        "Cog effects require reconciliation after Syn loss"
+                    ) from None
+                return result
             except asyncio.CancelledError:
                 cancelled.set()
                 # Never confuse an interrupted controller task with a stopped

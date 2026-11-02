@@ -90,6 +90,7 @@ def _fixture(tmp_path: Path):
     executor._context_binding = None
     executor.homes = SimpleNamespace(lookup=lambda *_: registered)
     executor.syn_mesh = SynWorkerNodeMesh(interval_seconds=0.05)
+    executor.development_syn_fixture = True
     requests = []
     result = SimpleNamespace(
         processes_stopped=True,

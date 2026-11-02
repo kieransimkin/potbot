@@ -94,6 +94,10 @@ def main() -> None:
             "tools/artifact_uploads.py",
             "persistence/artifact_uploads_schema.py",
             "persistence/artifacts.py",
+            "syn_release/mesh.py",
+            "tools/released_syn_nodes.py",
+            "tools/sandbox_cog_worker.py",
+            "controller/execution_cogs.py",
         ):
             if wheel.read("potbot/" + source) != (ROOT / "src/potbot" / source).read_bytes():
                 raise SystemExit("Wheel debugger source differs from build input")

@@ -155,7 +155,24 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
             assert database is app_env.db and actor == app_env.context
             assert all(isinstance(item, SandboxedCogOperation) for item in installed)
 
-        async def execute(self, op, value, context, actor, agent):
+        def syn_probe(self, actor, agent):
+            assert actor == app_env.context and agent == sandbox_agent
+
+        def authorize_syn(self, op, value, context, actor, agent):
+            self.syn_probe(actor, agent)
+            return None  # Explicit transport double, no native Syn qualification.
+
+        def syn_provenance(self, actor, agent):
+            self.syn_probe(actor, agent)
+            return {
+                "profile": "potbot.syn-cog-native-binding/1",
+                "fixture": "synthetic-public-pins",
+                "manifest_sha256": "1" * 64,
+                "node": "2" * 64,
+                "boot_id": "3" * 32,
+            }
+
+        async def execute(self, op, value, context, actor, agent, *, syn_authorization=None):
             assert actor == app_env.context and agent == sandbox_agent
             assert isinstance(op, SandboxedCogOperation)
             self.dispatched.append((op.binding.kind, context.invocation_id))
@@ -314,6 +331,10 @@ def test_real_signed_causal_work_cogs_and_readonly_receipt_replay(app_env, tmp_p
     )
     read = ExecutionEventService(app_env.db)
     root_events = read.events(app_env.context, run_id=root.receipt.invocation_id)["items"]
+    assert all(
+        event["telemetry"]["implementation"]["syn_native"]["manifest_sha256"] == "1" * 64
+        for event in root_events
+    )
     expected = {
         "schema_version": 1,
         "root_run_id": str(root.receipt.invocation_id),

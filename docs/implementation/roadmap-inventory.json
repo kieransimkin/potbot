@@ -29,10 +29,10 @@
     },
     {
       "path": "README.md",
-      "sha256": "8f7213872158fefb6f4c646b81a879c9e586445c3e4c7000bd5de6e2385a7fa5",
+      "sha256": "2f160b6ede47214cda58f0235bad1c3332420bfb59b8aebf6ab174d5f77811fd",
       "bytes": 30247,
       "kind": "narrative_text",
-      "text_sha256": "8f7213872158fefb6f4c646b81a879c9e586445c3e4c7000bd5de6e2385a7fa5",
+      "text_sha256": "2f160b6ede47214cda58f0235bad1c3332420bfb59b8aebf6ab174d5f77811fd",
       "characters": 30245,
       "lines": 516,
       "interpretation": "source_content_not_runtime_evidence"
@@ -1111,6 +1111,13 @@
       "interpretation": "asset_identity_only"
     },
     {
+      "path": "docs/implementation/media/syn-private-pubsub.svg",
+      "sha256": "833f0ec0d2948e652f02b38e46da382132b8dea32967df6bb8a2a11967f83240",
+      "bytes": 3109,
+      "kind": "media",
+      "interpretation": "asset_identity_only"
+    },
+    {
       "path": "docs/implementation/media/syn-release-boundary-tests.jpg",
       "sha256": "4875dc88129d465eec9f1e6868c20949c259a3627dc166c805fdf57945b74752",
       "bytes": 75428,
@@ -1237,12 +1244,22 @@
     },
     {
       "path": "docs/implementation/syn-agent-deployment.md",
-      "sha256": "b0626e465250a0a4c4e37ff83be430ef48f083dc034fedd73b741806b104c73d",
-      "bytes": 10095,
+      "sha256": "bb11b587c336747b20975f78506ce65e163072e4588f97797a111f546c5ab0bd",
+      "bytes": 10210,
       "kind": "narrative_text",
-      "text_sha256": "b0626e465250a0a4c4e37ff83be430ef48f083dc034fedd73b741806b104c73d",
-      "characters": 10093,
-      "lines": 174,
+      "text_sha256": "bb11b587c336747b20975f78506ce65e163072e4588f97797a111f546c5ab0bd",
+      "characters": 10208,
+      "lines": 175,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
+      "path": "docs/implementation/syn-cog-admission.md",
+      "sha256": "4964e37bdcf87331c3bcb05e35c7bd141fdb2f0f0fda5c11ae05a6d4c81c99d8",
+      "bytes": 6572,
+      "kind": "narrative_text",
+      "text_sha256": "4964e37bdcf87331c3bcb05e35c7bd141fdb2f0f0fda5c11ae05a6d4c81c99d8",
+      "characters": 6570,
+      "lines": 114,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1257,11 +1274,11 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "f287b51a49f41d3952f2a2f577a167adb3c70f8e950a4ae883cee2c363c2a8a9",
-      "bytes": 9105,
+      "sha256": "2d1c093c917aa323c374ef1f5e7de17ef19259396d2b7a8345ebf059a1051875",
+      "bytes": 9299,
       "kind": "narrative_text",
-      "text_sha256": "f287b51a49f41d3952f2a2f577a167adb3c70f8e950a4ae883cee2c363c2a8a9",
-      "characters": 9099,
+      "text_sha256": "2d1c093c917aa323c374ef1f5e7de17ef19259396d2b7a8345ebf059a1051875",
+      "characters": 9293,
       "lines": 47,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -22136,10 +22153,10 @@
       "legacy_id": "SYN-R05",
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R05",
-      "title": "Execution integration",
+      "title": "[Native identity and Cog admission](syn-cog-admission.md)",
       "locator": "line:39",
       "source_claim": "requirements_only",
-      "requirement_sha256": "f2d0042a5fb2d4b92e25aaaf27b65dee7d05cd4fb3a112bba4a57f19037e88b0",
+      "requirement_sha256": "b3f91134355f9ceb0e9e93b77ecdee6112cfa6e723ae2e6e22b322e3518c97ce",
       "unified_owners": [
         "U02",
         "U03",

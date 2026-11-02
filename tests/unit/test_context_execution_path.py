@@ -347,10 +347,19 @@ def actual_cog_module(rig, monkeypatch):
     class Mesh:
         @asynccontextmanager
         async def node(self, *args):
-            yield SimpleNamespace(fault_event=threading.Event())
+            yield SimpleNamespace(
+                fault_event=threading.Event(), healthy=True, mark_executing=lambda: None
+            )
 
     monkeypatch.setitem(
         sys.modules, "potbot.tools.syn_worker_nodes", SimpleNamespace(SynWorkerNodeMesh=Mesh)
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "potbot.tools.released_syn_nodes",
+        SimpleNamespace(
+            ReleasedSynWorkerNodeMesh=type("NativeMeshDouble", (), {}), SynCogGrant=object
+        ),
     )
     path = Path(__file__).resolve().parents[2] / "src/potbot/tools/sandbox_cog_worker.py"
     spec = importlib.util.spec_from_file_location("_context_actual_cog_unit", path)
@@ -360,6 +369,7 @@ def actual_cog_module(rig, monkeypatch):
     executor = object.__new__(module.SandboxedCogExecutor)
     executor.__dict__.update(rig.executor.__dict__)
     executor.syn_mesh = Mesh()
+    executor.development_syn_fixture = True
     executor.homes = SimpleNamespace(
         lookup=lambda *args: SimpleNamespace(
             directory="alice",

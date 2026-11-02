@@ -305,6 +305,8 @@ class ExecutionCogRuntime:
         self.admit(signature, checked, context)
         if checked.fingerprint != source.fingerprint:
             raise StateMismatchError("Admission changed the supplied work input")
+        if self.sandbox_executor is not None and self.sandbox_agent_id is not None:
+            self.sandbox_executor.syn_probe(self.actor, self.sandbox_agent_id)
 
     async def invoke(
         self, signature: CogSignature, source: TypedCogValue, context: CogRunContext
@@ -403,7 +405,14 @@ class ExecutionCogRuntime:
         if source.fingerprint != original_hash:
             raise StateMismatchError("Admission changed the frozen work input")
         try:
-            work = monitor.begin(signature, source, context, implementation=binding.to_dict())
+            implementation = binding.to_dict()
+            if self.sandbox_executor is not None and self.sandbox_agent_id is not None:
+                native_binding = self.sandbox_executor.syn_provenance(
+                    self.actor, self.sandbox_agent_id
+                )
+                if native_binding is not None:
+                    implementation["syn_native"] = native_binding
+            work = monitor.begin(signature, source, context, implementation=implementation)
         except Exception:
             self._poisoned = True
             raise
@@ -425,12 +434,16 @@ class ExecutionCogRuntime:
                             if self.sandbox_executor is None or self.sandbox_agent_id is None:
                                 raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
                             call.progress("sandbox_worker_dispatched")
+                            syn_grant = self.sandbox_executor.authorize_syn(
+                                op, typed, context, self.actor, self.sandbox_agent_id
+                            )
                             response = await self.sandbox_executor.execute(
                                 op,
                                 typed,
                                 context,
                                 self.actor,
                                 self.sandbox_agent_id,
+                                syn_authorization=syn_grant,
                             )
                             # Validate the parent result before authorizing *any*
                             # planned child effect. A malformed guest response
