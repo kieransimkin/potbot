@@ -226,12 +226,23 @@ def test_supervisor_fences_foreign_endpoint_and_stops_only_its_child(
 
 def test_changed_policy_fences_health_before_invoking_upstream(native_deployment, tmp_path):
     changed = dict(native_deployment.policy.value)
-    changed["minimum_version"] = "0.3.0"
+    changed["minimum_version"] = "0.1.1"
     path = tmp_path / "policy.json"
     path.write_bytes(canonical(changed))
     path.chmod(0o600)
     native_deployment.policy_path = path
     with pytest.raises(StateMismatchError, match="trust policy changed"):
+        native_deployment._status(None, {})
+
+
+def test_revoked_policy_refuses_health_before_invoking_upstream(native_deployment, tmp_path):
+    changed = dict(native_deployment.policy.value)
+    changed["revoked_manifests"] = [changed["manifest_sha256"]]
+    path = tmp_path / "policy.json"
+    path.write_bytes(canonical(changed))
+    path.chmod(0o600)
+    native_deployment.policy_path = path
+    with pytest.raises(ScopeDeniedError, match="revoked"):
         native_deployment._status(None, {})
 
 
