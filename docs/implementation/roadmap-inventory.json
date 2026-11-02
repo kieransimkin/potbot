@@ -1223,12 +1223,12 @@
     },
     {
       "path": "docs/implementation/syn-operator-deployment.md",
-      "sha256": "d25697d8358f282f1f4430cedfffe5e3690a333fa2d41c860fe6429ca3a11f44",
-      "bytes": 6111,
+      "sha256": "0737ad994dca7a70631394ff7d4776ead541f169bcba640ced9bad4338895eaf",
+      "bytes": 6745,
       "kind": "narrative_text",
-      "text_sha256": "d25697d8358f282f1f4430cedfffe5e3690a333fa2d41c860fe6429ca3a11f44",
-      "characters": 6111,
-      "lines": 115,
+      "text_sha256": "0737ad994dca7a70631394ff7d4776ead541f169bcba640ced9bad4338895eaf",
+      "characters": 6745,
+      "lines": 122,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -25827,11 +25827,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "bbcad1c1d2e592883c86bfa930e53db10131a6d7fcf2e7023c4cd2e04dfc121b",
-      "bytes": 10571,
+      "sha256": "6b4555d1d6f48b7cc36bb625538a67cda5c48cfe3d512d16616c39e23f420d8c",
+      "bytes": 10614,
       "kind": "narrative_text",
-      "text_sha256": "bbcad1c1d2e592883c86bfa930e53db10131a6d7fcf2e7023c4cd2e04dfc121b",
-      "characters": 10571,
+      "text_sha256": "6b4555d1d6f48b7cc36bb625538a67cda5c48cfe3d512d16616c39e23f420d8c",
+      "characters": 10614,
       "lines": 204,
       "interpretation": "source_content_not_runtime_evidence"
     },

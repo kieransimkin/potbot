@@ -106,9 +106,26 @@ def forward(manager: WslOperatorHost, command: str, arguments: list[str]) -> int
     if command == "syn-release" and "POTBOT_SYN_GITHUB_TOKEN" in os.environ:
         environment["POTBOT_SYN_GITHUB_TOKEN"] = os.environ["POTBOT_SYN_GITHUB_TOKEN"]
         environment["WSLENV"] = "POTBOT_SYN_GITHUB_TOKEN"
+    install_service = command == "syn-operator" and arguments and arguments[0] == "install-service"
     result = subprocess.run(
         manager.command(controller["python"], ["-I", "-B", "-m", "potbot", command, *arguments]),
         check=False,
         env=environment,
+        stdout=subprocess.PIPE if install_service else None,
     )
+    if install_service:
+        if len(result.stdout) > 65536:
+            raise StateMismatchError("Native user service response exceeded its bound")
+        native = json.loads(result.stdout)
+        if result.returncode == 0:
+            from .windows_service import install_windows_service
+
+            print(
+                json.dumps(
+                    {"native": native, "windows_lifetime": install_windows_service(manager)},
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(json.dumps(native, sort_keys=True))
     return result.returncode

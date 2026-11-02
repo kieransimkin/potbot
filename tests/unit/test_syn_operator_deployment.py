@@ -272,3 +272,40 @@ def test_wsl_controller_cannot_be_redirected_to_another_executable(managed_host)
     with pytest.raises(StateMismatchError, match="exact reviewed"):
         forward(manager, "syn-operator", ["attach"])
     assert calls == []
+
+
+def test_windows_lifetime_helpers_parse_in_the_native_powershell_host(tmp_path):
+    if os.name != "nt":
+        pytest.skip("Actual Windows PowerShell parser qualification")
+    import subprocess
+    from pathlib import Path
+
+    from potbot.syn_release.windows_service import INSTALL, WAIT
+
+    parser = tmp_path / "parse.ps1"
+    parser.write_text(
+        "param([string]$Source)\n$tokens=$null;$errors=$null\n"
+        "[System.Management.Automation.Language.Parser]::ParseFile($Source,[ref]$tokens,[ref]$errors) | Out-Null\n"
+        "if($errors.Count){exit 2}\n",
+        encoding="utf-8",
+    )
+    executable = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    for index, source in enumerate((INSTALL, WAIT)):
+        path = tmp_path / f"native-{index}.ps1"
+        path.write_text(source, encoding="utf-8")
+        result = subprocess.run(
+            [
+                str(executable),
+                "-NoProfile",
+                "-NonInteractive",
+                "-File",
+                str(parser),
+                "-Source",
+                str(path),
+            ],
+            capture_output=True,
+            timeout=20,
+            check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        assert result.returncode == 0, "Native Windows task helper did not parse"

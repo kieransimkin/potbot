@@ -82,6 +82,13 @@ identity/configuration/release pins. Existing or partially initialized state
 requires reconciliation; bootstrap never repairs it by generating another key.
 
 Linux/WSL uses a systemd user service; macOS uses a launchd user agent.
+On Windows, `install-service` also registers one user-owned Task Scheduler task.
+Its foreground WSL command waits for the native service to stop, keeping the
+distribution alive while the operator runs. The task starts at that user's
+logon, has no execution time limit and has no automatic fault restart.
+Microsoft documents that [systemd services alone do not keep WSL alive](https://learn.microsoft.com/en-us/windows/wsl/systemd#how-does-enabling-systemd-affect-wsl-architecture).
+An existing task with another host identity or action is refused. No Windows
+password is collected or stored; the task uses the interactive user token.
 Each invokes Potbot's verifier/supervisor, which starts a separate official
 Syn process. Automatic restart is disabled after faults. A locked keystore,
 changed policy/configuration, missing custody, unhealthy signed status or
