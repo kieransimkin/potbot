@@ -155,11 +155,11 @@ capture-unavailable error. Capture permits one private, read-only fallback:
 
 ```mermaid
 flowchart LR
-    A[Capture current viewport] --> B[View path: at most 3 seconds]
+    A[Capture current viewport] --> B[Direct surface path: at most 3 seconds]
     B -->|valid JPEG| D[Validate bounds and hash evidence]
-    B -->|timeout or native capture unavailable| C[Surface path: at most 3 seconds]
+    B -->|native capture unavailable| C[View path: at most 3 seconds]
     C -->|valid JPEG| D
-    B -->|other error or invalid data| E[Fail closed]
+    B -->|timeout, other error or invalid data| E[Fail closed]
     C -->|any error or invalid data| E
 ```
 
@@ -171,18 +171,22 @@ The [CDP protocol source](https://github.com/ChromeDevTools/devtools-protocol/bl
 defines the view/surface selector and base64 screenshot result. Both attempts
 share the existing six-second capture budget and remain inside the worker's
 12-second command deadline. Invalid base64, missing/oversized images and malformed
-JPEGs fail immediately. Only a timeout or the selected engine's exact capture-unavailable error permits
-the alternate read. Disconnection, permission errors and cancellation do not
-trigger a fallback. Regression tests cover real coroutine timeouts and cancelled
-capture reads; no synthetic unit image qualifies a live browser or Xpra host.
+JPEGs fail immediately. Only the selected engine's exact capture-unavailable
+response permits the alternate read. A timeout may leave Chromium's capture
+pending even after cancellation of the local wait; starting another capture can
+then fail. Capture diagnostics established this overlap in the real acceptance
+fixture. Direct surface capture now runs first, bypassing the higher-level font
+readiness helper, and timeouts stop without overlap. Disconnection, permission
+errors and cancellation also stop immediately. Regression tests cover actual
+coroutine cancellation; synthetic unit images do not qualify a browser or host.
 
 The next complete run reached 3,314 passing unit/Git tests, then exposed nested
 AF_UNIX fixture paths and outdated CLI/service and migration-history fixtures.
 The check runner now lets pytest allocate its own private tree directly under
 `/tmp` on hosted Linux CI, preserving an explicit `POTBOT_TEMP_ROOT`. The pytest
 child's standard temporary-file variables select the same parent for ordinary
-`tempfile` socket fixtures; non-pytest checks retain the runner-owned tree. This changes test storage, not
-production socket permissions or admission. CLI fixtures now supply a real route
+`tempfile` socket fixtures; non-pytest checks retain the runner-owned tree.
+Production socket permissions and admission checks remain unchanged. CLI fixtures now supply a real route
 container and current service options; historical migration assertions select
 versions 24/25 explicitly so later context migrations remain intact.
 

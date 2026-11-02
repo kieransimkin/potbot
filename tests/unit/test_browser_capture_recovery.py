@@ -1,4 +1,4 @@
-"""Private non-surface capture regression; test doubles do not qualify Xpra."""
+"""Private direct-CDP capture regression; test doubles do not qualify Xpra."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ JPEG = b"\xff\xd8" + b"synthetic-evidence" * 20 + b"\xff\xd9"
 PARAMS = {
     "format": "jpeg",
     "quality": 48,
-    "fromSurface": False,
+    "fromSurface": True,
     "captureBeyondViewport": False,
 }
 
@@ -24,7 +24,7 @@ PARAMS = {
 def browser(packet=None, *, error=None):
     worker = BrowserWorker("playwright", False)
     worker.page = SimpleNamespace(
-        screenshot=AsyncMock(side_effect=AssertionError("surface screenshot must not run")),
+        screenshot=AsyncMock(side_effect=AssertionError("Page.screenshot helper must not run")),
         url="about:blank",
     )
     worker.cdp = SimpleNamespace(send=AsyncMock(return_value=packet, side_effect=error))
@@ -36,7 +36,7 @@ def sample(worker, *, image=True):
     return asyncio.run(worker.execute({"op": "sample", "image": image}))
 
 
-def test_private_capture_is_one_bounded_nonsurface_request_and_exact_bytes():
+def test_private_capture_is_one_bounded_surface_request_and_exact_bytes():
     worker = browser({"data": base64.b64encode(JPEG).decode("ascii")})
     value = sample(worker)
     frame = value["frame"]
@@ -96,25 +96,13 @@ def test_capture_errors_propagate_with_no_second_attempt(failure):
     worker.page.screenshot.assert_not_awaited()
 
 
-def test_capture_timeout_uses_one_private_surface_fallback():
+def test_capture_timeout_never_overlaps_a_still_pending_native_capture():
     worker = browser()
-    worker.cdp.send.side_effect = [TimeoutError(), {"data": base64.b64encode(JPEG).decode("ascii")}]
-    frame = sample(worker)["frame"]
-    assert frame["sha256"] == hashlib.sha256(JPEG).hexdigest()
-    assert worker.cdp.send.await_count == 2
-    assert worker.cdp.send.await_args_list[0].args == ("Page.captureScreenshot", PARAMS)
-    assert worker.cdp.send.await_args_list[1].args == (
-        "Page.captureScreenshot",
-        {**PARAMS, "fromSurface": True},
-    )
-    worker.page.screenshot.assert_not_awaited()
-
-
-def test_both_capture_paths_timeout_without_further_retries():
-    worker = browser(error=TimeoutError())
+    worker.cdp.send.side_effect = [TimeoutError(), {"data": base64.b64encode(JPEG).decode()}]
     with pytest.raises(TimeoutError):
         sample(worker)
-    assert worker.cdp.send.await_count == 2
+    worker.cdp.send.assert_awaited_once_with("Page.captureScreenshot", PARAMS)
+    worker.page.screenshot.assert_not_awaited()
 
 
 def test_real_capture_timeout_cancels_each_read_with_bounded_budget(monkeypatch):
@@ -139,13 +127,15 @@ def test_real_capture_timeout_cancels_each_read_with_bounded_budget(monkeypatch)
     monkeypatch.setattr(module.asyncio, "wait_for", short_wait)
     with pytest.raises(TimeoutError):
         sample(worker)
-    assert budgets == [3.0, 3.0]
-    assert cancelled == [False, True]
+    assert budgets == [3.0]
+    assert cancelled == [True]
 
 
-def test_invalid_surface_fallback_is_rejected_without_third_attempt():
+def test_invalid_view_fallback_is_rejected_without_third_attempt():
     worker = browser()
-    worker.cdp.send.side_effect = [TimeoutError(), {"data": "$$$"}]
+    native_error = type("Error", (Exception,), {"__module__": "playwright._impl._errors"})
+    failure = native_error("Protocol error (Page.captureScreenshot): Unable to capture screenshot")
+    worker.cdp.send.side_effect = [failure, {"data": "$$$"}]
     with pytest.raises(ValueError, match="render sample"):
         sample(worker)
     assert worker.cdp.send.await_count == 2
@@ -162,7 +152,7 @@ def test_native_capture_unavailable_uses_the_other_private_capture_path(engine):
     worker.cdp.send.side_effect = [failure, {"data": base64.b64encode(JPEG).decode()}]
     assert sample(worker)["frame"]["sha256"] == hashlib.sha256(JPEG).hexdigest()
     assert worker.cdp.send.await_count == 2
-    assert worker.cdp.send.await_args_list[1].args[1]["fromSurface"] is True
+    assert worker.cdp.send.await_args_list[1].args[1]["fromSurface"] is False
 
 
 def test_non_engine_error_with_similar_text_is_not_retried():

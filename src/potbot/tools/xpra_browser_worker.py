@@ -517,16 +517,14 @@ class BrowserWorker:
     async def _capture_jpeg(self) -> bytes:
         """Capture the visible page through the *private* CDP session.
 
-        The Playwright Page.screenshot helper relies on headful compositor
-        surfaces and font readiness; in Xvfb/Xpra it may fail or time out even
-        while the actual page is alive. This bounded read-only CDP operation
-        tries Chromium's view capture path, then its surface path after
-        a timeout or the engine's exact capture-unavailable error. Both are private reads within the same capture budget;
-        neither broadens the user-callable CDP allowlist or retries an action.
+        Direct CDP surface capture avoids Page.screenshot's font-readiness
+        helper and the headful view capture path. A completed native capture
+        failure may use the view path once. A timeout leaves Chromium's request
+        pending, so never overlap it with another capture. Both paths remain
+        private reads; neither broadens public CDP authority or retries actions.
         """
-        # Each path has half of the existing six-second capture budget. Only
-        # a transient capture fault permits a second read; invalid data fails closed.
-        for from_surface in (False, True):
+        # Each path has half of the existing six-second capture budget.
+        for from_surface in (True, False):
             try:
                 reply = await asyncio.wait_for(
                     self.cdp.send(
@@ -547,7 +545,7 @@ class BrowserWorker:
                 ).__module__ == f"{self.engine}._impl._errors" and str(error).endswith(
                     "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
                 )
-                if from_surface or not (isinstance(error, TimeoutError) or capture_unavailable):
+                if not from_surface or not capture_unavailable:
                     raise
         encoded = reply.get("data") if isinstance(reply, dict) else None
         if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
