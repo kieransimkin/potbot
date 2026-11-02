@@ -10,6 +10,7 @@ from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI
 
 from potbot.api import jobs_cli, server_cli
 from potbot.domain.auth import WorkspaceContext
@@ -50,7 +51,9 @@ def rig(monkeypatch, tmp_path):
         ),
         reconcile=Mock(return_value={"status": "reconciled"}),
     )
-    directory = SimpleNamespace(catalog=Mock(return_value={}), discover=Mock(return_value={}))
+    directory = SimpleNamespace(
+        catalog=Mock(return_value={}), discover=Mock(return_value={}), invalidate_provider=Mock()
+    )
     runner = SimpleNamespace(run_once=Mock(return_value={"id": str(job_id), "state": "succeeded"}))
 
     def resolve(reference):
@@ -105,7 +108,7 @@ def test_help_never_imports_optional_runtime_dependencies(module, args, monkeypa
 
 
 def test_serve_wires_scoped_services_origin_defaults_and_bounded_transport(rig, monkeypatch):
-    app = object()
+    app = FastAPI()
     factory, run = Mock(return_value=app), Mock()
     monkeypatch.setattr("potbot.api.server.create_app", factory)
     monkeypatch.setattr("uvicorn.run", run)
@@ -153,7 +156,7 @@ def test_invalid_listener_configuration_never_binds_or_connects(rig, options, mo
 
 
 def test_explicit_external_origin_and_scope_aliases(rig, monkeypatch):
-    factory = Mock(return_value=object())
+    factory = Mock(return_value=FastAPI())
     run = Mock()
     monkeypatch.setattr("potbot.api.server.create_app", factory)
     monkeypatch.setattr("uvicorn.run", run)

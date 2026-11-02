@@ -8,6 +8,7 @@ No network, model execution, deserialization or arbitrary source imports occur.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -16,15 +17,17 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 from typing import Literal
-
-try:
-    import fcntl
-except ImportError:  # pragma: no cover - library executes in Linux/WSL operator only
-    fcntl = None
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.tools.model_cache_routes import SHARED_MODELS_GUEST
+
+fcntl: ModuleType | None
+try:
+    fcntl = importlib.import_module("fcntl")
+except ImportError:  # pragma: no cover - library executes in Linux/WSL operator only
+    fcntl = None
 
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
 _REV = re.compile(r"[a-f0-9]{40,64}\Z")

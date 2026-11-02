@@ -23,8 +23,11 @@ import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from potbot.context.runtime_integration import ContextExecutionBinding
 
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
 from potbot.domain.auth import WorkspaceContext
@@ -147,7 +150,7 @@ class SandboxedCogExecutor:
             raise ScopeDeniedError("Cog runner requires the qualified pinned host sandbox")
         self.runtime, self.ledger, self.homes, self.supervisor = runtime, ledger, homes, supervisor
         self.syn_mesh = syn_mesh
-        self._context_binding = None
+        self._context_binding: ContextExecutionBinding | None = None
 
     def bind_context(
         self, database: Any, actor: WorkspaceContext, operations: tuple[SandboxedCogOperation, ...]
@@ -323,7 +326,10 @@ class SandboxedCogExecutor:
 
     def _context_live(self, actor: WorkspaceContext) -> bool:
         try:
-            self._context_binding.check(self, actor)
+            binding = self._context_binding
+            if binding is None:
+                return False
+            binding.check(self, actor)
             return True
         except Exception:
             return False

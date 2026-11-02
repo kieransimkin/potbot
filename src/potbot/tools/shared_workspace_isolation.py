@@ -254,8 +254,8 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         history_ai: Path | None = None
         if ai_enabled:
             for item in ("etc/ai", "etc/ai-past"):
-                target = rootfs / item
-                if not target.is_dir() or target.is_symlink():
+                mount_target = rootfs / item
+                if not mount_target.is_dir() or mount_target.is_symlink():
                     raise CapabilityUnavailableError(
                         "system rootfs lacks safe /etc/ai mount targets"
                     )
@@ -305,8 +305,8 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 skills = source.resolve(strict=True)
             except OSError as exc:
                 raise CapabilityUnavailableError("shared skills have not been provisioned") from exc
-            target = rootfs / "usr/local/skills"
-            if not skills.is_dir() or target.is_symlink() or not target.is_dir():
+            mount_target = rootfs / "usr/local/skills"
+            if not skills.is_dir() or mount_target.is_symlink() or not mount_target.is_dir():
                 raise CapabilityUnavailableError("shared skills require an image mount target")
             if skills.stat().st_mode & 0o022:
                 raise ScopeDeniedError(
@@ -320,13 +320,17 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 raise ScopeDeniedError("shared skills overlap a sandbox mount")
         context_files: tuple[Path, ...] = ()
         context_mounts: list[str] = []
-        if self.runtime.context_projection is not None:
-            projection = self.runtime.context_projection
+        projection = self.runtime.context_projection
+        if projection is not None:
             if not isinstance(projection, ContextProjection):
                 raise InvalidInputError("context projection must be operator-owned")
             for role in ROLES:
-                target = rootfs / role
-                if target.is_symlink() or not target.is_file() or target.stat().st_size != 0:
+                mount_target = rootfs / role
+                if (
+                    mount_target.is_symlink()
+                    or not mount_target.is_file()
+                    or mount_target.stat().st_size != 0
+                ):
                     raise CapabilityUnavailableError("rootfs has no safe context file placeholder")
             context_files = projection.inspect(
                 excluded_roots=(
@@ -424,25 +428,33 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         guest_parts = guest_cwd.split("/")
         guest_home = "/home" if len(guest_parts) < 3 else "/home/" + guest_parts[2]
         tool_write_source: Path | None = None
-        if self.tool_write_grant is not None:
+        write_grant = self.tool_write_grant
+        writable_slug: str | None = None
+        write_lease_id: str | None = None
+        if write_grant is not None:
             # A writable installation mount is issued only by a trusted host
             # runner holding an active, exclusive per-tool maintenance lease.
             if guest.startswith("/usr/local/tools/"):
                 raise ScopeDeniedError("installers must execute a verified rootfs program")
-            tool_write_source = self.tool_write_grant.admit(
+            tool_write_source = write_grant.admit(
                 runtime=self.runtime,
                 cwd=cwd,
                 guest_uid=guest_uid,
                 guest_gid=guest_gid,
             )
+            # admit() has verified the active lease before granting this mount.
+            assert write_grant.guard.lease is not None
+            writable_slug = write_grant.slug
+            write_lease_id = write_grant.guard.lease.lease_id
         # --clearenv removes caller-supplied variables. Use the operator's
         # dedicated cache policy for installation, per-agent state for use.
         guest_env = model_environment()
         if tool_write_source is not None:
+            assert writable_slug is not None
             from potbot.tools.shared_tool_store import tool_process_environment
 
             guest_env = tool_process_environment(
-                self.tool_write_grant.slug, guest_home.split("/")[-1], installing=True
+                writable_slug, guest_home.split("/")[-1], installing=True
             )
         elif guest.startswith("/usr/local/tools/"):
             if guest_home == "/home":
@@ -493,7 +505,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     (
                         "--bind",
                         str(tool_write_source),
-                        "/usr/local/tools/" + self.tool_write_grant.slug,
+                        f"/usr/local/tools/{writable_slug}",
                     )
                     if tool_write_source is not None
                     else ()
@@ -575,12 +587,8 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     "shared_models": str(library),
                     "shared_tools": str(tools),
                     "shared_skills": str(skills) if skills is not None else None,
-                    "context_revisions": self.runtime.context_projection.revisions
-                    if context_files
-                    else None,
-                    "context_digests": self.runtime.context_projection.digests
-                    if context_files
-                    else None,
+                    "context_revisions": projection.revisions if projection is not None else None,
+                    "context_digests": projection.digests if projection is not None else None,
                     "agent_context_id": str(agent_binding.agent_id) if agent_binding else None,
                     "agent_context_directory": agent_binding.directory if agent_binding else None,
                     "agent_context_revisions": (
@@ -594,10 +602,8 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     else "legacy-none",
                     "ai_config": str(config_ai) if ai_enabled else None,
                     "ai_history": str(history_ai) if ai_enabled else None,
-                    "writable_tool": self.tool_write_grant.slug if tool_write_source else None,
-                    "tool_write_lease": (
-                        self.tool_write_grant.guard.lease.lease_id if tool_write_source else None
-                    ),
+                    "writable_tool": writable_slug,
+                    "tool_write_lease": write_lease_id,
                     "tool_entrypoints": sorted(self.runtime.tool_entrypoints),
                     "guest_uid": guest_uid,
                     "guest_gid": guest_gid,

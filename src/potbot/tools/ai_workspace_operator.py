@@ -9,7 +9,7 @@ termination remain mandatory. This is not a controller network endpoint.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -91,7 +91,7 @@ class AiManagedProcessSupervisor(ProcessSupervisor):
                 self._gate.notify_all()
 
     @contextmanager
-    def pause_context(self):
+    def pause_context(self) -> Iterator[None]:
         """Fence all local dispatch while refreshing next-launch bindings.
 
         The caller must ALSO claim an exclusive cross-process workspace lease.
@@ -216,7 +216,7 @@ class AiWorkspaceOperator:
                 except BaseException:
                     self._context_manager.close()
                     raise
-                agent_bindings = ()
+                agent_bindings: tuple[AgentContextProjection, ...] = ()
                 if self._project_agent_context:
                     from potbot.context.projection import AgentContextProjection
 

@@ -16,15 +16,22 @@ import json
 import os
 import sys
 from collections import deque
+from importlib import import_module
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 # The same verified module is packaged with the script in /opt/potbot.
-if __package__:
+if TYPE_CHECKING:
     from .browser_https_routes import install_https_routes, require_egress_config
 else:
-    from browser_https_routes import install_https_routes, require_egress_config
+    _routes = (
+        import_module(".browser_https_routes", __package__)
+        if __package__
+        else import_module("browser_https_routes")
+    )
+    install_https_routes = _routes.install_https_routes
+    require_egress_config = _routes.require_egress_config
 
 COMMANDS = frozenset(
     {
@@ -302,9 +309,9 @@ class BrowserWorker:
         # No launch can inherit a host CDP websocket. Browser/driver start inside
         # the namespace; Playwright/Patchright manage Chromium via local pipes.
         if self.engine == "patchright":
-            from patchright.async_api import async_playwright
+            async_playwright = import_module("patchright.async_api").async_playwright
         else:
-            from playwright.async_api import async_playwright
+            async_playwright = import_module("playwright.async_api").async_playwright
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(
             headless=False,
@@ -323,12 +330,15 @@ class BrowserWorker:
             service_workers="block",
         )
         if self.stealth:
-            from playwright_stealth import Stealth
+            Stealth = import_module("playwright_stealth").Stealth
 
             await Stealth().apply_stealth_async(self.context)
         if egress is not None:
             await install_https_routes(self.context, *egress)
         self.page = await self.context.new_page()
+        # Activate the newly launched window once, as part of startup. Capture
+        # commands never steal focus from an already running browser session.
+        await asyncio.wait_for(self.page.bring_to_front(), timeout=3.0)
         self.page.on("requestfailed", lambda request: self._errors.append(_safe_url(request.url)))
         self.cdp = await self.context.new_cdp_session(self.page)
         self.cdp.on("CSS.styleSheetAdded", self._remember_sheet)
@@ -510,24 +520,39 @@ class BrowserWorker:
     async def _capture_jpeg(self) -> bytes:
         """Capture the visible page through the *private* CDP session.
 
-        The Playwright Page.screenshot helper relies on headful compositor
-        surfaces and font readiness; in Xvfb/Xpra it may fail or time out even
-        while the actual page is alive. This bounded read-only CDP operation
-        uses Chromium's non-surface capture path and does not broaden the
-        user-callable CDP allowlist. There is no action retry.
+        Direct CDP surface capture avoids Page.screenshot's font-readiness
+        helper and the headful view capture path. A completed native capture
+        failure may use the view path once. A timeout leaves Chromium's request
+        pending, so never overlap it with another capture. Both paths remain
+        private reads; neither broadens public CDP authority or retries actions.
         """
-        reply = await asyncio.wait_for(
-            self.cdp.send(
-                "Page.captureScreenshot",
-                {
-                    "format": "jpeg",
-                    "quality": 48,
-                    "fromSurface": False,
-                    "captureBeyondViewport": False,
-                },
-            ),
-            timeout=6.0,
-        )
+        # Let Chromium synchronize its own capture. Page JavaScript (including
+        # requestAnimationFrame) can be replaced or suspended by the document;
+        # it must not gate this private observation of the compositor.
+        # One deadline covers both paths. Do not cancel a cold surface read
+        # early merely to reserve time for a fallback that only a completed
+        # native error may authorize.
+        async with asyncio.timeout(6.0):
+            for from_surface in (True, False):
+                try:
+                    reply = await self.cdp.send(
+                        "Page.captureScreenshot",
+                        {
+                            "format": "jpeg",
+                            "quality": 48,
+                            "fromSurface": from_surface,
+                            "captureBeyondViewport": False,
+                        },
+                    )
+                    break
+                except Exception as error:
+                    capture_unavailable = type(
+                        error
+                    ).__module__ == f"{self.engine}._impl._errors" and str(error).endswith(
+                        "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+                    )
+                    if not from_surface or not capture_unavailable:
+                        raise
         encoded = reply.get("data") if isinstance(reply, dict) else None
         if not isinstance(encoded, str) or not 0 < len(encoded) <= 800_000:
             raise ValueError("render sample is absent or exceeds bound")

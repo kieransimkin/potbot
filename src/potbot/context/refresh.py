@@ -37,7 +37,8 @@ def exclusive_context_refresh(
     if not isinstance(principal, WorkspaceContext):
         raise ScopeDeniedError("Refresh requires an authenticated operator principal")
     pin = ledger.image_status(principal.workspace_id)
-    if pin is None or not isinstance(pin.get("digest"), str):
+    image_digest = pin.get("digest") if pin is not None else None
+    if not isinstance(image_digest, str):
         raise StateMismatchError("Cannot refresh an unpinned workspace")
     request = AccessRequest(
         principal.workspace_id,
@@ -46,7 +47,7 @@ def exclusive_context_refresh(
         uuid4().hex,
         "write",
         (AccessResource("workspace", "*", "write"),),
-        pin["digest"],
+        image_digest,
     )
     lease = ledger.claim(request, ttl_seconds=300, replay_existing=False)
     uncertain = True

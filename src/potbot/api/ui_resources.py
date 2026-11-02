@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
@@ -292,7 +293,10 @@ class UiResourceStore:
 
 
 def register_ui_routes(
-    app: FastAPI, database: Database, authenticate: Any, allowed_origins: tuple[str, ...]
+    app: FastAPI,
+    database: Database,
+    authenticate: Callable[[str | None], WorkspaceContext],
+    allowed_origins: tuple[str, ...],
 ) -> None:
     """Install backend routes without broadening the existing bearer-token scope."""
     store = UiResourceStore(database)

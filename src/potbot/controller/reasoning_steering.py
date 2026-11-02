@@ -194,7 +194,10 @@ class SteeringInbox:
         key = request["id"]
         target = mailbox / (key + ".decision.json")
         if target.exists():
-            return json.loads(target.read_text(encoding="utf-8"))
+            existing = json.loads(target.read_text(encoding="utf-8"))
+            if not isinstance(existing, dict):
+                raise ScopeDeniedError("steering decision is unavailable")
+            return existing
         result = {
             "id": key,
             "request_id": request["request_id"],

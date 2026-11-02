@@ -69,13 +69,16 @@ def control_plane_summary(
         _require(isinstance(event, dict), "event is not an object")
         ident, run = event.get("id"), event.get("run_id")
         _require(_uuid(ident) and _uuid(run), "invalid event or run identity")
+        assert isinstance(ident, str) and isinstance(run, str)
         _require(ident not in seen, "duplicate event identity")
         seen.add(ident)
         current = event.get("sequence")
         _require(type(current) is int and current > sequence, "ledger sequence is not increasing")
+        assert isinstance(current, int)
         sequence = current
         telemetry = event.get("telemetry")
         _require(isinstance(telemetry, dict), "telemetry is absent")
+        assert isinstance(telemetry, dict)
         ref = telemetry.get("cog_ref")
         _require(isinstance(ref, str) and ref in allowed, "unexpected or executable work Cog")
         _require("parent_run_id" in event and "parent_event_id" in event, "missing causal fields")
@@ -138,6 +141,7 @@ def control_plane_summary(
                 "unmeasured or invalid " + key,
             )
         terminal = stages[-1]
+        assert isinstance(terminal, str)
         counts[terminal] += 1
         if terminal == "completed":
             output = last.get("output_artifact_ref")

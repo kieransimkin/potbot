@@ -71,7 +71,7 @@ def _json_bytes(value: object) -> bytes:
     ).encode()
 
 
-def _relative(value: str) -> PurePosixPath:
+def _relative(value: object) -> PurePosixPath:
     if (
         not isinstance(value, str)
         or not value
@@ -272,8 +272,7 @@ def reconstruct_prior_snapshot(
     for item in changes:
         if not isinstance(item, dict):
             raise InvalidInputError("AI reversal entry is not an object")
-        name = item.get("path")
-        _relative(name)
+        name = _relative(item.get("path")).as_posix()
         if name in seen or item.get("after") != prior.get(name):
             raise StateMismatchError("AI reversal does not match this filesystem state")
         seen.add(name)

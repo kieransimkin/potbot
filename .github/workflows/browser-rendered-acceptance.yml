@@ -78,7 +78,7 @@ jobs:
           else
             .venv/bin/python -m playwright install --with-deps chromium
           fi
-          sudo apt-get install --yes xvfb xauth
+          sudo apt-get install --yes xvfb xauth openbox x11-utils
       - name: Run worker security and evidence-gate regression tests
         run: |
           mkdir -p artifacts/browser-rendered
@@ -92,10 +92,26 @@ jobs:
       - name: Exercise real pixels, accessibility, picker, input and worker pipes
         # Do not use uv run here: re-syncing would remove the separately pinned
         # browser packages. Only trusted synthetic pages are exercised.
-        run: >-
-          xvfb-run -a .venv/bin/python -m pytest -q
-          tests/browser/test_rendered_worker.py -o junit_family=xunit1
-          --junitxml=artifacts/browser-rendered/rendered.xml
+        run: |
+          xvfb-run -a bash -euo pipefail <<'DISPLAY_TEST'
+          # A headed browser needs a managed window to produce initial frames.
+          # Own this disposable display only; keep observations free of focus changes.
+          openbox --sm-disable > artifacts/browser-rendered/window-manager.log 2>&1 &
+          display_manager_pid=$!
+          trap 'kill "$display_manager_pid" 2>/dev/null || true; wait "$display_manager_pid" 2>/dev/null || true' EXIT
+          display_manager_ready=0
+          for attempt in {1..50}; do
+            kill -0 "$display_manager_pid"
+            if xprop -root _NET_SUPPORTING_WM_CHECK | grep -q 'window id #'; then
+              display_manager_ready=1
+              break
+            fi
+            sleep 0.1
+          done
+          test "$display_manager_ready" = 1
+          .venv/bin/python -m pytest -q tests/browser/test_rendered_worker.py \
+            -o junit_family=xunit1 --junitxml=artifacts/browser-rendered/rendered.xml
+          DISPLAY_TEST
       - name: Require every rendered case and exact image package pins
         run: >-
           .venv/bin/python scripts/check_browser_rendered.py

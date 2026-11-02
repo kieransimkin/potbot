@@ -8,6 +8,7 @@ turn completed. Unknown outcomes remain indeterminate, never replayed.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -126,7 +127,7 @@ class UiChatStore:
         conn: Any, context: WorkspaceContext, session_id: UUID, *, lock: bool = False
     ) -> dict[str, Any]:
         clause = " FOR UPDATE" if lock else ""
-        row = conn.execute(
+        row: dict[str, Any] | None = conn.execute(
             "SELECT id,title,revision,updated_at FROM ui_chat_sessions "
             "WHERE workspace_id=%s AND id=%s AND principal_id=%s" + clause,
             (context.workspace_id, session_id, context.principal_id),
@@ -309,7 +310,10 @@ class UiChatStore:
 
 
 def register_chat_routes(
-    app: FastAPI, database: Database, authenticate: Any, allowed_origins: tuple[str, ...]
+    app: FastAPI,
+    database: Database,
+    authenticate: Callable[[str | None], WorkspaceContext],
+    allowed_origins: tuple[str, ...],
 ) -> None:
     """Authenticated routes, strictly scoped by database role and workspace RLS."""
     store = UiChatStore(database)

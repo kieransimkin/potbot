@@ -12,11 +12,35 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 from potbot.domain.errors import InvalidInputError
 
 ModelKind = Literal["generator", "reranker", "encoder", "embedding"]
+
+
+class ParameterEstimate(TypedDict):
+    quantization: str
+    bits_per_weight_estimate: float
+    estimated_disk_mib: int
+    estimated_weight_only_vram_mib: int
+    illustrative_full_gpu_vram_mib: int
+    context_runtime_allowance_mib: int
+    exact_artifact_available: None
+    exact_disk_bytes: None
+    measured_peak_vram_mib: None
+    installed: bool
+    qualified: bool
+    requires_exact_artifact_discovery: bool
+    estimate_warning: str
+
+
+class QuantizationPreview(ParameterEstimate):
+    model_id: str
+    architecture: str
+    kind: ModelKind
+    total_parameters_b: float
+    active_parameters_b: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,7 +294,7 @@ def quantization_choices(model_id: str) -> tuple[str, ...]:
 
 def parameter_estimate(
     total_parameters_b: float, quantization: str, *, extra_context_vram_mib: int = 1024
-) -> dict[str, object]:
+) -> ParameterEstimate:
     """Estimates for model profiles that do not have an exact quantized artifact."""
     if (
         not isinstance(total_parameters_b, int | float)
@@ -305,7 +329,7 @@ def parameter_estimate(
 
 def quantization_preview(
     model_id: str, quantization: str, *, extra_context_vram_mib: int = 1024
-) -> dict[str, object]:
+) -> QuantizationPreview:
     """Produce a labelled approximation; never make an installation/readiness claim."""
     model = specialist_model(model_id)
     if quantization not in quantization_choices(model_id):

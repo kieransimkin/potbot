@@ -59,6 +59,8 @@ def default_context_manager(
             sql.SQL("SET LOCAL search_path TO {},pg_catalog").format(sql.Identifier(schema))
         )
         login = conn.execute("SELECT session_user AS role").fetchone()
+        if login is None:
+            raise ScopeDeniedError("Operator login identity is unavailable")
         _restricted_login(conn, schema, login["role"])
         identities = conn.execute(
             "SELECT p.id FROM principals p JOIN workspace_memberships m ON m.principal_id=p.id "

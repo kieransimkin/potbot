@@ -1,0 +1,36 @@
+name: Potbot roadmap source inventory
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  roadmap-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          enable-cache: false
+          python-version: "3.12"
+      - run: uv sync --locked --dev
+      - name: Preserve canonical tool and memory-plan checks
+        run: |
+          uv run --locked python scripts/check_tool_plan.py
+          uv run --locked python scripts/check_memory_graph_plan.py
+      - name: Check source inventory and namespaced stage coverage
+        run: uv run --locked python scripts/roadmap_inventory.py
+      - name: Verify inventory rejection and source parsing contracts
+        run: uv run --locked python -m pytest -q tests/unit/test_roadmap_inventory.py
+      - name: Check changed Python code
+        run: |
+          uv run --locked ruff check scripts/roadmap_inventory.py tests/unit/test_roadmap_inventory.py
+          uv run --locked ruff format --check scripts/roadmap_inventory.py tests/unit/test_roadmap_inventory.py

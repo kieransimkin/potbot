@@ -3,6 +3,11 @@
 An evidence-driven, multi-model coding agent, built in stages from the architecture
 and implementation plan in `docs/`.
 
+For the current delivery order, use the [unified roadmap](docs/implementation/unified-development-roadmap.md)
+and [U00-A source inventory](docs/implementation/u00-roadmap-inventory.md).
+The retained Plan 1.1 contains 204 steps; historical phase summaries below are
+scoped implementation records, not a complete current qualification inventory.
+
 **Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev8`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,

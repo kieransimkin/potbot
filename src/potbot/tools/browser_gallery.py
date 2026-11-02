@@ -162,6 +162,7 @@ class BrowserEvidenceGallery:
             raise ScopeDeniedError("browser evidence manifest scope or references do not match")
         self._artifact(actor, observation_id, observation_sha, _MAX_OBSERVATION)
         if image_id is not None:
+            assert image_sha is not None
             self._artifact(actor, image_id, image_sha, _MAX_JPEG)
         created_ns = manifest.get("captured_unix_ns")
         if type(created_ns) is not int or created_ns <= 0:
@@ -196,7 +197,7 @@ class BrowserEvidenceGallery:
     def _row(self, actor: WorkspaceContext, invocation_id: str) -> sqlite3.Row:
         uid = _uid(invocation_id)
         with self._connect() as db:
-            row = db.execute(
+            row: sqlite3.Row | None = db.execute(
                 """SELECT * FROM browser_evidence_index
                 WHERE workspace_id=? AND principal_id=? AND invocation_id=?""",
                 (str(actor.workspace_id), str(actor.principal_id), uid),

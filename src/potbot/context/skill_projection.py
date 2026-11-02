@@ -55,18 +55,11 @@ class SkillProjectionBusy(StateMismatchError):
     """Another trusted publisher holds the short-lived local projection lock."""
 
 
-class SkillLibraryProjector:
-    """Single-host, locked publication under /usr/local/skills/_agents.
+class _ProjectionCustody:
+    """Shared custody checks for immutable, operator-owned projections."""
 
-    PostgreSQL is authoritative. flock coordinates projections only, never
-    database writes or distributed worker admission. There is no SQLite store.
-    """
-
-    def __init__(self, root: Path) -> None:
-        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
-            raise ScopeDeniedError("Skill projection requires the qualified Linux/WSL operator")
-        self.root = _directory(Path(root))
-        self.library = _directory(self.root / "_agents", create=True)
+    root: Path
+    library: Path
 
     @contextmanager
     def _lock(self) -> Iterator[None]:
@@ -131,6 +124,20 @@ class SkillLibraryProjector:
                         raise StateMismatchError("Skill snapshot integrity mismatch")
             finally:
                 os.close(fd)
+
+
+class SkillLibraryProjector(_ProjectionCustody):
+    """Single-host, locked publication under /usr/local/skills/_agents.
+
+    PostgreSQL is authoritative. flock coordinates projections only, never
+    database writes or distributed worker admission. There is no SQLite store.
+    """
+
+    def __init__(self, root: Path) -> None:
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            raise ScopeDeniedError("Skill projection requires the qualified Linux/WSL operator")
+        self.root = _directory(Path(root))
+        self.library = _directory(self.root / "_agents", create=True)
 
     def _snapshot(self, context: WorkspaceContext, document: dict[str, Any]) -> dict[str, Any]:
         try:

@@ -17,13 +17,18 @@ import secrets
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import websockets
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket
 from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
+
+if TYPE_CHECKING:
+    from potbot.tools.xpra_app_sessions import XpraApplicationSupervisor
 
 from potbot.tools.xpra_operator_fence_s14 import XpraOperatorFence
 from potbot.tools.xpra_seamless import XpraSeamlessSession
@@ -62,7 +67,8 @@ class WorkspaceXServer:
         self.auth_file = root / ".potbot" / "x11" / "Xauthority"
         self.session_file = root / ".potbot" / "x11" / "session.json"
         self._xpra: XpraSeamlessSession | None = None
-        self.gui_audit_factory = None  # Operator-owned; selected by private policy.
+        # Operator-owned; selected by private policy.
+        self.gui_audit_factory: Callable[..., Any] | None = None
         self._runtime_lock: int | None = None
         self._display_lock: int | None = None
         self._owned_session = False
@@ -255,7 +261,7 @@ def create_app(
     server: WorkspaceXServer,
     token: str,
     allowed_origin: str,
-    apps: object | None = None,
+    apps: XpraApplicationSupervisor | None = None,
     operator_fence: XpraOperatorFence | None = None,
 ) -> FastAPI:
     """Private HTTP admission and one-use WebSocket relay to Xpra over AF_UNIX."""

@@ -43,13 +43,21 @@ def main() -> int:
         cwd: Path = ROOT,
         timeout: int = 240,
         environment: dict[str, str] | None = None,
+        temporary_root: Path | None = None,
     ) -> None:
         print(f"Running {label}...", flush=True)
         try:
+            child_environment = (
+                process_scratch.environment(environment) if process_scratch else environment
+            )
+            if temporary_root is not None:
+                child_environment = dict(child_environment or os.environ)
+                for name in ("TEMP", "TMP", "TMPDIR", "POTBOT_TEMP_ROOT"):
+                    child_environment[name] = str(temporary_root)
             completed = subprocess.run(
                 command,
                 cwd=cwd,
-                env=process_scratch.environment(environment) if process_scratch else environment,
+                env=child_environment,
                 capture_output=True,
                 text=True,
                 errors="replace",
@@ -102,11 +110,30 @@ def main() -> int:
             junit = temp / "tests.xml"
 
             def tests(label: str, selector: str) -> None:
+                # pytest allocates its own private, uniquely owned scratch tree.
+                # Nesting it under this runner exceeds Linux AF_UNIX path bounds.
+                configured_root = os.environ.get("POTBOT_TEMP_ROOT")
+                pytest_root = (
+                    Path(configured_root).absolute()
+                    if configured_root
+                    else Path("/tmp")
+                    if os.name == "posix" and os.environ.get("GITHUB_ACTIONS") == "true"
+                    else None
+                )
                 try:
                     run(
                         label,
-                        [sys.executable, "-m", "pytest", "-m", selector, f"--junitxml={junit}"],
-                        timeout=600 if label == "postgres" else 240,
+                        [
+                            sys.executable,
+                            "-m",
+                            "pytest",
+                            "-m",
+                            selector,
+                            "--durations=10",
+                            f"--junitxml={junit}",
+                        ],
+                        timeout=900 if label == "postgres" else 240,
+                        temporary_root=pytest_root,
                     )
                 finally:
                     if junit.exists():

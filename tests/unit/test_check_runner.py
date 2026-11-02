@@ -106,3 +106,36 @@ def test_denied_private_recovery_storage_fails_before_database_creation(
     assert check_script.main() == 1
     assert not any("db" in command for command in commands)
     assert json.loads((artifacts / "summary.json").read_text())["success"] is False
+
+
+@pytest.mark.parametrize("ci,explicit", [(True, False), (True, True), (False, True)])
+def test_pytest_uses_its_own_short_private_tree_and_preserves_explicit_root(
+    check_script, tmp_path, monkeypatch, ci, explicit
+):
+    from types import SimpleNamespace
+
+    artifacts = tmp_path / "artifacts"
+    root = tmp_path / "selected"
+    root.mkdir()
+    monkeypatch.setattr(sys, "argv", ["check.py", "--artifacts", str(artifacts)])
+    monkeypatch.setenv("GITHUB_ACTIONS", "true" if ci else "false")
+    monkeypatch.delenv("POTBOT_TEMP_ROOT", raising=False)
+    if explicit:
+        monkeypatch.setenv("POTBOT_TEMP_ROOT", str(root))
+    # Simulate the POSIX runner without changing pathlib's host platform.
+    monkeypatch.setattr(check_script, "os", SimpleNamespace(name="posix", environ=os.environ))
+    observed = []
+
+    def process(command, **kwargs):
+        if "pytest" in command:
+            observed.append(kwargs["env"])
+            return subprocess.CompletedProcess(command, 1, stdout="synthetic stop", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(check_script.subprocess, "run", process)
+    assert check_script.main() == 1
+    assert len(observed) == 1
+    expected = root if explicit else Path("/tmp")
+    assert Path(observed[0]["POTBOT_TEMP_ROOT"]) == expected
+    assert all(Path(observed[0][name]) == expected for name in ("TEMP", "TMP", "TMPDIR"))
+    assert json.loads((artifacts / "summary.json").read_text())["success"] is False

@@ -340,7 +340,8 @@ class OpenAICompatibility:
     def model(self, context: WorkspaceContext, model_id: str) -> dict[str, Any]:
         for model in self.models(context)["data"]:
             if model["id"] == model_id:
-                return model
+                selected: dict[str, Any] = model
+                return selected
         raise CompatibilityError(
             "The requested model is unavailable or disallowed.", status=404, code="model_not_found"
         )

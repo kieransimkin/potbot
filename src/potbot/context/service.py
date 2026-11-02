@@ -65,7 +65,8 @@ class WorkspaceContextService:
         ).fetchone()
         if row is None:
             raise ScopeDeniedError(_DENIED)
-        return row["id"]
+        object_id: UUID = row["id"]
+        return object_id
 
     def read(self, context: WorkspaceContext, kind: str, name: str, role: str) -> dict[str, Any]:
         _identity(context)

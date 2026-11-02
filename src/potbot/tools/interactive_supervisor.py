@@ -22,7 +22,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from potbot.domain.errors import CapabilityUnavailableError, IndeterminateExecutionError
+from potbot.domain.errors import (
+    CapabilityUnavailableError,
+    IndeterminateExecutionError,
+    InvalidInputError,
+)
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.worker_telemetry import WorkerMonitorConfig, WorkerMonitorSession
 
@@ -255,6 +259,8 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
             if request.guest_uid is not None:
                 if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
                     raise CapabilityUnavailableError("agent UID needs qualified shared sandbox")
+                if request.guest_gid is None:
+                    raise InvalidInputError("guest group was not assigned")
                 launch_options = {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
             launch = self.backend.prepare(
                 argv=request.argv,
@@ -315,7 +321,6 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 env=environment,
                 start_new_session=True,
                 pass_fds=launch.pass_fds,
-                preexec_fn=telemetry.enter_cgroup if telemetry is not None else None,
                 limit=min(request.max_output_bytes + 2, 2 * 1024 * 1024 + 2),
             )
             if telemetry is not None:

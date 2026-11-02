@@ -76,7 +76,14 @@ async def browser(html):
         # No fixture resource may fetch anything from the network. This route
         # is only test hygiene, not evidence of the production egress boundary.
         await worker.context.route("**/*", lambda route: route.abort())
-        await worker.page.set_content(html)
+        # Commit a real document through the public navigation path. Replacing
+        # the initial about:blank document via document.write can leave a
+        # headful compositor without its first committed rendering lifecycle.
+        await worker.page.route(
+            "https://potbot.invalid/probe.html",
+            lambda route: route.fulfill(status=200, content_type="text/html", body=html),
+        )
+        await worker.execute({"op": "navigate", "url": "https://potbot.invalid/probe.html"})
         await worker.page.add_style_tag(
             content=(FIXTURES / "probe.css").read_text()
             + "\n/*# sourceURL=https://potbot.invalid/probe.css */"
@@ -84,6 +91,14 @@ async def browser(html):
         await worker.page.add_script_tag(
             content=(FIXTURES / "probe.js").read_text()
             + "\n//# sourceURL=https://potbot.invalid/probe.js"
+        )
+        print(
+            "initial_render_state",
+            await worker.page.evaluate(
+                "() => ({url: location.href, ready: document.readyState, "
+                "visibility: document.visibilityState, focused: document.hasFocus(), "
+                "width: innerWidth, height: innerHeight})"
+            ),
         )
         yield worker
     finally:
@@ -124,6 +139,43 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             record_property(
                 "browser_binary", json.dumps(binary_identity(executable, mode), sort_keys=True)
             )
+            capture_send = worker.cdp.send
+
+            async def trace_capture(method, params=None):
+                started = asyncio.get_running_loop().time()
+                try:
+                    result = await capture_send(method, params)
+                except BaseException as error:
+                    if method == "Page.captureScreenshot":
+                        print(
+                            "capture_attempt",
+                            json.dumps(
+                                {
+                                    "fromSurface": params["fromSurface"],
+                                    "outcome": type(error).__name__,
+                                    "elapsed_seconds": round(
+                                        asyncio.get_running_loop().time() - started, 3
+                                    ),
+                                }
+                            ),
+                        )
+                    raise
+                if method == "Page.captureScreenshot":
+                    print(
+                        "capture_attempt",
+                        json.dumps(
+                            {
+                                "fromSurface": params["fromSurface"],
+                                "outcome": "returned",
+                                "elapsed_seconds": round(
+                                    asyncio.get_running_loop().time() - started, 3
+                                ),
+                            }
+                        ),
+                    )
+                return result
+
+            worker.cdp.send = trace_capture
             before = await worker.execute({"op": "sample", "image": True})
             assert 'textbox "Username"' in before["aria"]
             assert 'button "Save"' in (await worker.execute({"op": "accessibility"}))["aria"]
@@ -143,6 +195,12 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
             assert "synthetic-probe" in after["aria"]
             without_pixels = await worker.execute({"op": "sample", "image": False})
             assert "base64" not in without_pixels["frame"]
+        # Repeat independent cold starts to expose first-frame display races.
+        for _ in range(2):
+            async with browser(probe_page) as fresh:
+                observation = await fresh.execute({"op": "sample", "image": True})
+                assert 'textbox "Username"' in observation["aria"]
+                decode_frame(observation)
 
     asyncio.run(scenario())
 

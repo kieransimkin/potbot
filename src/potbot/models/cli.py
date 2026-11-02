@@ -156,7 +156,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "gated model requires explicit acceptance of upstream terms"
                 )
             try:
-                from huggingface_hub import hf_hub_download
+                from importlib import import_module
+
+                hf_hub_download = import_module("huggingface_hub").hf_hub_download
             except ImportError:
                 raise InvalidInputError(
                     "install huggingface_hub to download model artifacts"

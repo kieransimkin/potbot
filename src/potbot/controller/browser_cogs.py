@@ -141,6 +141,7 @@ class BrowserControlService:
         """Bounded opt-in *model-visible* projection; no raw forms/JPEG/base64."""
         if group == "capture":
             return None
+        permitted: tuple[str, ...]
         if group == "observe":
             permitted = (
                 "aria",

@@ -21,7 +21,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from potbot.domain.errors import (
@@ -32,6 +32,10 @@ from potbot.domain.errors import (
 )
 from potbot.domain.serialization import content_hash
 from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
+
+if TYPE_CHECKING:
+    from potbot.tools.agent_xpra_displays import AgentXpraDisplayPool
+    from potbot.tools.xpra_browser_control import BrowserControlChannel
 
 _KIND = re.compile(r"[a-z][a-z0-9-]{1,31}\Z")
 _ID = re.compile(r"[0-9a-f]{32}\Z")
@@ -143,7 +147,7 @@ class XpraSandboxLaunchBackend:
             raise ScopeDeniedError("Xpra socket target was redirected")
         fd = os.open(target, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         os.close(fd)
-        kwargs = dict(
+        launch = self.backend.prepare(
             argv=argv,
             workspace_root=home,
             cwd=home,
@@ -156,7 +160,6 @@ class XpraSandboxLaunchBackend:
             max_file_bytes=128 * 1024**2,
             max_open_files=256,
         )
-        launch = self.backend.prepare(**kwargs)
         replacement = -1
         token_fd = -1
         try:
@@ -279,7 +282,7 @@ class _App:
         self.started_at = int(time.time())
         self.detached = False
         self.indeterminate = False
-        self.browser_control: Any = None
+        self.browser_control: BrowserControlChannel | None = None
         self.audit: Any = None
         self.audit_complete: bool | None = None
         self.agent_id: UUID | None = None
@@ -316,7 +319,7 @@ class XpraApplicationSupervisor:
         popen: Callable[..., subprocess.Popen[bytes]] = subprocess.Popen,
         ai_monitor: Any = None,
         browser_leases: Any = None,
-        agent_displays: Any = None,
+        agent_displays: AgentXpraDisplayPool | None = None,
         gui_audit_factory: Callable[..., Any] | None = None,
         max_apps: int = 4,
         max_age_seconds: int = 3600,
@@ -584,6 +587,7 @@ class XpraApplicationSupervisor:
             try:
                 controlled_browser = kind == "controlled-browser"
                 if agent_id is not None:
+                    assert self.agent_displays is not None
                     launch = self.agent_displays.prepare(
                         agent_id, argv=self.recipes[kind].argv, status_fd=write_fd
                     )
@@ -599,6 +603,7 @@ class XpraApplicationSupervisor:
                 argv = launch.argv
                 if self.gui_audit_factory is not None:
                     if agent_id is not None:
+                        assert self.agent_displays is not None
                         # S40 already verified this identity through AgentHomeRegistry.
                         audit = self.gui_audit_factory(
                             launch.identity,

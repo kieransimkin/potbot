@@ -20,7 +20,7 @@ from potbot.domain.errors import (
     StateMismatchError,
 )
 from potbot.domain.serialization import content_hash
-from potbot.tools.inventory import CORE_ANCHORS, PYTHON_ANCHORS, build_inventory
+from potbot.tools.inventory import CORE_ANCHORS, OWNERS, PYTHON_ANCHORS, build_inventory
 from potbot.tools.repository_snapshot import SnapshotProfile, _entry, _snapshot
 from tests.unit.test_debugger_cogs_live import FixtureArtifacts, FixtureEvents
 
@@ -133,7 +133,7 @@ def test_cog_invocation_and_all_lifecycle_stats():
         and out.value.type_ref == SIGNATURE.output_type_ref
     )
     assert events.values[0]["stage"] == "started" and events.values[-1]["stage"] == "completed"
-    assert len([e for e in events.values if e["stage"] == "updated"]) == 17
+    assert len([e for e in events.values if e["stage"] == "updated"]) == len(OWNERS) + 1
     terminal = events.values[-1]
     assert terminal["telemetry"]["metrics"]["elapsed_wall_ms"]["provenance"] == "measured"
     assert terminal["telemetry"]["metrics"]["target_cpu_ms"]["value"] is None
@@ -196,3 +196,23 @@ def test_frozen_typed_call_and_changed_catalog_are_rejected():
     host.load = lambda: loaded
     with pytest.raises(StateMismatchError):
         asyncio.run(registry.invoke(str(SIGNATURE.cog_ref), source, context, controller=host))
+
+
+def test_existing_context_and_persistent_service_have_explicit_owners():
+    progress = []
+    snapshot = fixture_snapshot(
+        extra={
+            "src/potbot/context/service.py": b"raise RuntimeError('never import')",
+            "src/potbot/service.py": b"raise RuntimeError('never import')",
+        }
+    )
+    report = build_inventory(snapshot, progress=progress.append)
+    owners = {item["id"]: item for item in report["components"]}
+    assert [row["path"] for row in owners["context"]["source_files"]] == [
+        "src/potbot/context/service.py"
+    ]
+    assert "src/potbot/service.py" in {row["path"] for row in owners["entrypoints"]["source_files"]}
+    assert len(progress) == len(owners) == len(OWNERS)
+    assert all(
+        item["qualification"] == "not_established_by_source_inventory" for item in owners.values()
+    )

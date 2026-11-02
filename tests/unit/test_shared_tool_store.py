@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 from pathlib import Path
 from uuid import uuid4
@@ -402,3 +403,39 @@ def test_normal_use_writing_to_shared_source_is_quarantined(store) -> None:
         ):
             (checkout / "generated.txt").write_text("should be agent local")
     assert ledger.active(ws)[0]["state"] == "indeterminate"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("cleanup_paths", "build"),
+        ("cleanup_paths", [None]),
+        ("lockfiles", "ab"),
+        ("lockfiles", [["package-lock.json"]]),
+        ("reusable_artifacts", ["ab"]),
+        ("model_downloads", 1),
+    ],
+)
+def test_manifest_rejects_malformed_arrays_and_classification(field, value):
+    definition = SharedToolDefinition(
+        "stemlab", "https://github.com/kieransimkin/stemlab", "c" * 40, ("build",)
+    )
+    document = definition.to_dict()
+    document[field] = value
+    with pytest.raises(InvalidInputError):
+        SharedToolDefinition.from_dict(document)
+
+
+def test_manifest_roundtrip_preserves_paths_hashes_and_boolean():
+    definition = SharedToolDefinition(
+        "stemlab",
+        "https://github.com/kieransimkin/stemlab",
+        "c" * 40,
+        ("build",),
+        (("package-lock.json", "d" * 64),),
+        True,
+        (("static/ffmpeg", "e" * 64),),
+    )
+    assert (
+        SharedToolDefinition.from_dict(json.loads(json.dumps(definition.to_dict()))) == definition
+    )

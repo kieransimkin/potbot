@@ -1,4 +1,4 @@
-"""Private non-surface capture regression; test doubles do not qualify Xpra."""
+"""Private direct-CDP capture regression; test doubles do not qualify Xpra."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ JPEG = b"\xff\xd8" + b"synthetic-evidence" * 20 + b"\xff\xd9"
 PARAMS = {
     "format": "jpeg",
     "quality": 48,
-    "fromSurface": False,
+    "fromSurface": True,
     "captureBeyondViewport": False,
 }
 
@@ -24,8 +24,9 @@ PARAMS = {
 def browser(packet=None, *, error=None):
     worker = BrowserWorker("playwright", False)
     worker.page = SimpleNamespace(
-        screenshot=AsyncMock(side_effect=AssertionError("surface screenshot must not run")),
+        screenshot=AsyncMock(side_effect=AssertionError("Page.screenshot helper must not run")),
         url="about:blank",
+        evaluate=AsyncMock(return_value=None),
     )
     worker.cdp = SimpleNamespace(send=AsyncMock(return_value=packet, side_effect=error))
     worker._aria = AsyncMock(return_value='- button "Sample"')
@@ -36,7 +37,7 @@ def sample(worker, *, image=True):
     return asyncio.run(worker.execute({"op": "sample", "image": image}))
 
 
-def test_private_capture_is_one_bounded_nonsurface_request_and_exact_bytes():
+def test_private_capture_is_one_bounded_surface_request_and_exact_bytes():
     worker = browser({"data": base64.b64encode(JPEG).decode("ascii")})
     value = sample(worker)
     frame = value["frame"]
@@ -86,7 +87,7 @@ def test_invalid_capture_fails_closed_without_retry(packet):
 
 @pytest.mark.parametrize(
     "failure",
-    [RuntimeError("browser disconnected"), PermissionError("fixture denial"), TimeoutError()],
+    [RuntimeError("browser disconnected"), PermissionError("fixture denial")],
 )
 def test_capture_errors_propagate_with_no_second_attempt(failure):
     worker = browser(error=failure)
@@ -94,3 +95,93 @@ def test_capture_errors_propagate_with_no_second_attempt(failure):
         sample(worker)
     worker.cdp.send.assert_awaited_once()
     worker.page.screenshot.assert_not_awaited()
+
+
+def test_capture_timeout_never_overlaps_a_still_pending_native_capture():
+    worker = browser()
+    worker.cdp.send.side_effect = [TimeoutError(), {"data": base64.b64encode(JPEG).decode()}]
+    with pytest.raises(TimeoutError):
+        sample(worker)
+    worker.cdp.send.assert_awaited_once_with("Page.captureScreenshot", PARAMS)
+    worker.page.screenshot.assert_not_awaited()
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_real_timeout_is_one_shared_budget_and_cancels_pending_capture(monkeypatch, fallback):
+    from potbot.tools import xpra_browser_worker as module
+
+    worker = browser()
+    cancelled = []
+    budgets = []
+    original_timeout = asyncio.timeout
+    native_error = type("Error", (Exception,), {"__module__": "playwright._impl._errors"})
+
+    async def stalled(method, params):
+        if fallback and params["fromSurface"]:
+            raise native_error(
+                "Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+            )
+        try:
+            await asyncio.Future()
+        finally:
+            cancelled.append(params["fromSurface"])
+
+    def short_timeout(delay):
+        budgets.append(delay)
+        return original_timeout(0.01)
+
+    worker.cdp.send.side_effect = stalled
+    monkeypatch.setattr(module.asyncio, "timeout", short_timeout)
+    with pytest.raises(TimeoutError):
+        sample(worker)
+    assert budgets == [6.0]
+    assert cancelled == [not fallback]
+    assert worker.cdp.send.await_count == 1 + int(fallback)
+
+
+def test_invalid_view_fallback_is_rejected_without_third_attempt():
+    worker = browser()
+    native_error = type("Error", (Exception,), {"__module__": "playwright._impl._errors"})
+    failure = native_error("Protocol error (Page.captureScreenshot): Unable to capture screenshot")
+    worker.cdp.send.side_effect = [failure, {"data": "$$$"}]
+    with pytest.raises(ValueError, match="render sample"):
+        sample(worker)
+    assert worker.cdp.send.await_count == 2
+
+
+@pytest.mark.parametrize("engine", ["playwright", "patchright"])
+def test_native_capture_unavailable_uses_the_other_private_capture_path(engine):
+    native_error = type("Error", (Exception,), {"__module__": engine + "._impl._errors"})
+    failure = native_error(
+        "CDPSession.send: Protocol error (Page.captureScreenshot): Unable to capture screenshot"
+    )
+    worker = browser()
+    worker.engine = engine
+    worker.cdp.send.side_effect = [failure, {"data": base64.b64encode(JPEG).decode()}]
+    assert sample(worker)["frame"]["sha256"] == hashlib.sha256(JPEG).hexdigest()
+    assert worker.cdp.send.await_count == 2
+    assert worker.cdp.send.await_args_list[1].args[1]["fromSurface"] is False
+
+
+def test_non_engine_error_with_similar_text_is_not_retried():
+    worker = browser(
+        error=RuntimeError("Protocol error (Page.captureScreenshot): Unable to capture screenshot")
+    )
+    with pytest.raises(RuntimeError):
+        sample(worker)
+    worker.cdp.send.assert_awaited_once()
+
+
+def test_cancellation_propagates_without_capture_fallback():
+    worker = browser(error=asyncio.CancelledError())
+    with pytest.raises(asyncio.CancelledError):
+        sample(worker)
+    worker.cdp.send.assert_awaited_once()
+
+
+def test_capture_does_not_depend_on_page_controlled_animation_or_scripts():
+    worker = browser({"data": base64.b64encode(JPEG).decode()})
+    worker.page.evaluate.side_effect = AssertionError("document scripts cannot gate capture")
+    assert sample(worker)["frame"]["sha256"] == hashlib.sha256(JPEG).hexdigest()
+    worker.page.evaluate.assert_not_awaited()
+    worker.cdp.send.assert_awaited_once_with("Page.captureScreenshot", PARAMS)

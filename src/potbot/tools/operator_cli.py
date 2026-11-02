@@ -235,7 +235,11 @@ def run_operator(
     )
     from potbot.context.object_projection import ObjectContextProjector
 
-    objects = ObjectContextProjector(shared_skills) if projector is not None else None
+    objects = (
+        ObjectContextProjector(shared_skills)
+        if projector is not None and shared_skills is not None
+        else None
+    )
     if objects is not None:
         assert context_manager is not None
         objects.sync(context_manager.service, context_manager.principal)

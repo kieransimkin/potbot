@@ -285,6 +285,7 @@ class ReasoningTree:
         if decision == "spawn_hypothesis":
             self.add(hypothesis or "", parent_id=branch_id, max_tokens=min(1024, self.token_budget))
         elif decision == "reopen_branch":
+            assert branch_id is not None
             old = self.nodes[branch_id]
             old.state = "pending"
             old.revision = self.revision

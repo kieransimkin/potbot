@@ -98,6 +98,7 @@ def test_rejects_missing_or_duplicate_runtime_identity_properties():
         b"<!DOCTYPE x><testsuites/>",
         b'<!ENTITY x "bad">',
     ],
+    ids=["empty", "malformed", "oversized", "doctype", "entity"],
 )
 def test_rejects_unbounded_malformed_or_entity_xml(raw):
     with pytest.raises(ValueError):

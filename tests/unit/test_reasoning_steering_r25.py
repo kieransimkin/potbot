@@ -327,3 +327,17 @@ def test_invalid_reopen_is_explained_without_mutating_tree(tmp_path: Path) -> No
     assert response["decision"] == "needs_clarification"
     assert "not a previously rejected investigation" in response["explanation"]
     assert ReasoningTree.load(result.tree_path).revision == 0
+
+
+@pytest.mark.parametrize("corrupt", [[], None, "decision", 7])
+def test_resolve_rejects_persisted_non_object_decisions(tmp_path, corrupt):
+    workspace, run = uuid4(), uuid4().hex
+    tree = ReasoningTree(tmp_path / str(workspace) / (run + ".json"))
+    tree.save()
+    mailbox = SteeringInbox(tmp_path)
+    request = mailbox.submit(workspace, run, request_id="corrupt", prompt="Test")
+    target = tmp_path / str(workspace) / (run + ".steering") / (request["id"] + ".decision.json")
+    target.write_text(json.dumps(corrupt), encoding="utf-8")
+    with pytest.raises(ScopeDeniedError, match="decision is unavailable"):
+        mailbox.resolve(workspace, run, request, {"decision": "no_change"})
+    assert json.loads(target.read_text(encoding="utf-8")) == corrupt
