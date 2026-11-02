@@ -50,7 +50,7 @@ def check(value: dict) -> dict:
     )
     assert receipt["output_hash"] == TypedCogValue(SIGNATURE.output_type_ref, inventory).fingerprint
     assert events[0]["stage"] == "started" and events[-1]["stage"] == "completed"
-    assert sum(e["stage"] == "updated" for e in events) == 17
+    assert sum(e["stage"] == "updated" for e in events) == len(OWNERS) + 1
     assert events[-1]["telemetry"]["finished_at"]
     return {
         "stage": "T01.1",

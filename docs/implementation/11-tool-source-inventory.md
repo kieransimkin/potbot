@@ -16,6 +16,17 @@ Existing MCP stdio/HTTP, CLI, HTTP/SDK, gRPC and OpenAPI adapter code is present
 
 `core` and `python_debugger` are inventory profiles with mandatory source inputs. Android, Apple, remote Python, hardware and profiling stay named unqualified routes. Their unavailable hosts do not block a core inventory; requesting an unsupported enabled inventory profile or omitting a required source fails. Source presence cannot mint dispatch authority or turn a raw adapter into an agent-callable Cog.
 
+## Current namespace reconciliation
+
+The 2 November U00 continuation adds the existing `context` package as an
+explicit integration owner and maps `service.py` to the existing entrypoint
+owner. The current owner set has 17 entries. The dev3 capture above remains a
+historical 16-owner example. Acceptance derives its expected progress-event
+count from the declared owners, while still rejecting unknown namespaces and
+requiring every current source module to have one owner. The context owner
+refers to the existing PostgreSQL context service and scoped worker RPC; it
+introduces no additional store or execution authority.
+
 ## Invoke through the installed Cog
 
 The host captures an explicit committed revision with the existing `RepositoryStateStore.capture(..., committed_ref=reviewed_commit)`, imports `BoundCogRegistry.tool_inventory().snapshot` with `SynService.import_snapshot`, then constructs `ToolInventoryRuntime.from_workspace` with authenticated storage, the exact state/content digest and mandatory admission callback. This is trusted host setup, not request-supplied authority.

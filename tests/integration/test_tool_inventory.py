@@ -19,6 +19,7 @@ from potbot.controller.tool_inventory import ToolInventoryRuntime
 from potbot.domain.errors import ScopeDeniedError
 from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
 from potbot.semantics.service import SynService
+from potbot.tools.inventory import OWNERS
 from potbot.tools.repository import RepositoryStateStore
 from tests.integration.test_repository_states import environment
 
@@ -85,7 +86,7 @@ def test_committed_inventory_cog_durable_stats_and_workspace_api(app_env, tmp_pa
         if not page["has_more"]:
             break
     assert records[0]["stage"] == "started" and records[-1]["stage"] == "completed"
-    assert len([e for e in records if e["stage"] == "updated"]) == 17
+    assert len([e for e in records if e["stage"] == "updated"]) == len(OWNERS) + 1
     assert len({e["id"] for e in records}) == len(records)
     for before, after in zip(records, records[1:], strict=False):
         assert after["parent_event_id"] == before["id"]

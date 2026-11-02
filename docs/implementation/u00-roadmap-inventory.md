@@ -190,6 +190,16 @@ Production socket permissions and admission checks remain unchanged. CLI fixture
 container and current service options; historical migration assertions select
 versions 24/25 explicitly so later context migrations remain intact.
 
+After the socket/fixture repair, the complete unit/Git lane passed 3,347 tests.
+The PostgreSQL lane passed 322 tests and exposed three remaining expectation or
+inventory gaps: default-model assertions retained the older five-model count,
+and the committed-source inventory did not map the existing context namespace
+or persistent service entrypoint. The assertions now check the declared model
+catalogue and retain unqualified/health boundaries; inventory ownership and its
+progress checks now include those existing sources explicitly. Capture-path
+diagnostics use test output, preserving the rendered gate's closed identity
+metadata schema.
+
 Run the existing complete application, PostgreSQL, sandbox and four-profile
 rendered acceptance lanes on the repaired revision before merging. Local Windows
 checks do not qualify Linux namespaces, cgroups, Xpra or production node modes.

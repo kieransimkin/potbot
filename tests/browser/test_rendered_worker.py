@@ -131,7 +131,7 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
                     result = await capture_send(method, params)
                 except BaseException as error:
                     if method == "Page.captureScreenshot":
-                        record_property(
+                        print(
                             "capture_attempt",
                             json.dumps(
                                 {
@@ -142,7 +142,7 @@ def test_accessibility_role_actions_and_verified_render_change(probe_page, recor
                         )
                     raise
                 if method == "Page.captureScreenshot":
-                    record_property(
+                    print(
                         "capture_attempt",
                         json.dumps({"fromSurface": params["fromSurface"], "outcome": "returned"}),
                     )

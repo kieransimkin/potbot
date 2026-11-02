@@ -77,10 +77,13 @@ def test_config_environment_reload_and_immutability(app_env) -> None:
         )
 
 
-def test_five_unqualified_models_and_health_never_confers_qualification(app_env) -> None:
+def test_default_unqualified_models_and_health_never_confers_qualification(app_env) -> None:
+    from potbot.models.registry import DEFAULT_MODELS
+
     registry = ModelRegistry(app_env.db)
     seeded = registry.seed_defaults(app_env.context)
-    assert len(seeded) == 5 and all(row["qualification"] == "unqualified" for row in seeded)
+    assert {(row["canonical_model"], row["role"]) for row in seeded} == set(DEFAULT_MODELS)
+    assert all(row["qualification"] == "unqualified" for row in seeded)
     assert registry.seed_defaults(app_env.context) == seeded
     spec = deployment()
     saved = registry.register(app_env.context, spec)

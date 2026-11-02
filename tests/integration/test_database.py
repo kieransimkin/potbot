@@ -160,9 +160,11 @@ def test_application_table_ownership_is_rejected_even_without_schema_create(app_
 
 
 def test_default_model_catalog_is_seeded_on_creation_and_schema_upgrade(app_env: Any) -> None:
+    from potbot.models.registry import DEFAULT_MODELS
+
     with app_env.db.transaction(app_env.context) as connection:
         catalog = connection.execute("SELECT * FROM model_catalog").fetchall()
-        assert len(catalog) == 5
+        assert {(row["canonical_model"], row["role"]) for row in catalog} == set(DEFAULT_MODELS)
         assert {row["qualification"] for row in catalog} == {"unqualified"}
         assert connection.execute("SELECT * FROM model_deployments").fetchall() == []
     assert migrate(app_env.admin_dsn, "upgrade", application_migrations()[:1]) == (1,)
@@ -171,12 +173,9 @@ def test_default_model_catalog_is_seeded_on_creation_and_schema_upgrade(app_env:
         item.version for item in application_migrations()
     )
     with admin_connection(app_env.admin_dsn, "upgrade") as connection:
-        assert (
-            connection.execute(
-                "SELECT count(*) AS total FROM model_catalog WHERE workspace_id=%s", (workspace,)
-            ).fetchone()["total"]
-            == 5
-        )
+        assert connection.execute(
+            "SELECT count(*) AS total FROM model_catalog WHERE workspace_id=%s", (workspace,)
+        ).fetchone()["total"] == len(DEFAULT_MODELS)
 
 
 def test_connection_loss_after_write_reports_indeterminate_without_driver_details(

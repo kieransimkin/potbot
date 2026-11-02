@@ -319,12 +319,12 @@
     },
     {
       "path": "docs/implementation/11-tool-source-inventory.md",
-      "sha256": "be8184a3c6fe711ec771df52d48383ee3b4c49553fb557f5f632e4a1379360e2",
-      "bytes": 5631,
+      "sha256": "9ea680286ff208965f9d66cf6f0d36ba0ba437556d6172b4cb7bb1d198fc80a5",
+      "bytes": 6256,
       "kind": "narrative_text",
-      "text_sha256": "be8184a3c6fe711ec771df52d48383ee3b4c49553fb557f5f632e4a1379360e2",
-      "characters": 5629,
-      "lines": 54,
+      "text_sha256": "9ea680286ff208965f9d66cf6f0d36ba0ba437556d6172b4cb7bb1d198fc80a5",
+      "characters": 6254,
+      "lines": 65,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1226,12 +1226,12 @@
     },
     {
       "path": "docs/implementation/u00-roadmap-inventory.md",
-      "sha256": "c1863fec773627be205716e7db619b0434b8062a648796764edebf36be7b3040",
-      "bytes": 12240,
+      "sha256": "32c518d5de80082f4381acb099f33e3f48f4cb8c928dc88b3d24715306c59ea2",
+      "bytes": 12884,
       "kind": "narrative_text",
-      "text_sha256": "c1863fec773627be205716e7db619b0434b8062a648796764edebf36be7b3040",
-      "characters": 12208,
-      "lines": 196,
+      "text_sha256": "32c518d5de80082f4381acb099f33e3f48f4cb8c928dc88b3d24715306c59ea2",
+      "characters": 12852,
+      "lines": 206,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
