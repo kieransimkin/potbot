@@ -35966,7 +35966,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "80db849268351fdd3000405540cdd8c2e868ac98c72c414948099b9d8f6f254a",
+  "review_sha256": "59496edc44dda40c307742f9604fe254c3d5dd7a3a54e42e445da283d0ca1d22",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -121505,13 +121505,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "d5d7de1f18c17cb05b6d6f6202f9717c740b9c9929b0fd2888102ab7b226d2e4",
+          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "d5d7de1f18c17cb05b6d6f6202f9717c740b9c9929b0fd2888102ab7b226d2e4",
+          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],

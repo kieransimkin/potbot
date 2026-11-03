@@ -363,13 +363,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "d5d7de1f18c17cb05b6d6f6202f9717c740b9c9929b0fd2888102ab7b226d2e4",
+          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "d5d7de1f18c17cb05b6d6f6202f9717c740b9c9929b0fd2888102ab7b226d2e4",
+          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],

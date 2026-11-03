@@ -10,7 +10,6 @@ import secrets
 import shutil
 import subprocess
 import sys
-import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -256,12 +255,14 @@ def main(upstream):
     from potbot.syn_release.contracts import Policy, canonical
     from potbot.syn_release.source import GitHubSource
     from potbot.syn_release.store import SynReleaseStore
+    from potbot.tools.temporary import TemporaryDirectory
 
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise SystemExit("Requires the dedicated disposable Linux workflow")
     seed = json.loads((upstream / "release/install-policies/v0.2.1-operator.json").read_bytes())
     source = GitHubSource(os.environ.pop("POTBOT_SYN_GITHUB_TOKEN"))
-    with tempfile.TemporaryDirectory(prefix="r06-", dir="/tmp") as temporary:
+    # Keep AF_UNIX paths short on the disposable Linux runner.
+    with TemporaryDirectory(prefix="r06-", dir=Path("/tmp")) as temporary:
         base = Path(temporary)
         store = SynReleaseStore(base / "packages")
         uv = base / "uv"
