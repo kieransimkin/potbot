@@ -54,6 +54,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends gnome-keyring dbus-user-session libgmp-dev
           uv sync --locked --extra security
       - name: Verify official upgrade, migration and rollback
+        env:
+          POTBOT_SYN_GITHUB_TOKEN: ${{ github.token }}
         run: uv run --locked --extra security python scripts/qualify_syn_operator_transition.py syn-fixture
       - name: Record routine qualification assessment
         if: always()

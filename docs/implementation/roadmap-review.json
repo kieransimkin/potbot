@@ -363,13 +363,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "6e1bc06ee47c1ab4f2198afbcab6b415fd859727ed39eceb126137102fe1c80c",
+          "sha256": "8ef53f1392425ae0e31163c652574e4e53120144593ca92938d9af210f8823c0",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "6e1bc06ee47c1ab4f2198afbcab6b415fd859727ed39eceb126137102fe1c80c",
+          "sha256": "8ef53f1392425ae0e31163c652574e4e53120144593ca92938d9af210f8823c0",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],
@@ -82740,7 +82740,7 @@
       },
       {
         "path": ".github/workflows/syn-operator-lifecycle.yml",
-        "sha256": "50db79bbf172a27125e6f359cc7cf9d3404e80d4a1a456173edc79f24b6b40c9",
+        "sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
         "scope": [
           "Install native Linux prerequisites",
           "Verify official upgrade, migration and rollback"

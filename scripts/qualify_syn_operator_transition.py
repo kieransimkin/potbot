@@ -161,13 +161,16 @@ else:
         # Native adoption is a separate anchored journal introduced in 0.3.x.
         syn(middle, "adoption-init")
         journal = (state / "adoptions.json").read_bytes()
+        receiver = syn(middle, "agent-pulse")["body"]["encryption_public_key"]
         upgraded = run_and_attach(middle)
         authority = state / "authority.json"
         stale = authority.read_bytes()
         assert switch(middle, latest)["restart_required"]
         active = run_and_attach(latest)
+        assert syn(latest, "agent-pulse")["body"]["encryption_public_key"] == receiver
         assert switch(latest, middle)["restart_required"]
         rolled_back = run_and_attach(middle)
+        assert syn(middle, "agent-pulse")["body"]["encryption_public_key"] == receiver
         assert (state / "adoptions.json").read_bytes() == journal
         assert (
             hashlib.sha256((state / "operator.json").read_bytes()).hexdigest()
@@ -239,11 +242,13 @@ engine.dispose()
 
 def main(upstream):
     from potbot.syn_release.contracts import Policy, canonical
+    from potbot.syn_release.source import GitHubSource
     from potbot.syn_release.store import SynReleaseStore
 
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise SystemExit("Requires the dedicated disposable Linux workflow")
     seed = json.loads((upstream / "release/install-policies/v0.2.1-operator.json").read_bytes())
+    source = GitHubSource(os.environ.pop("POTBOT_SYN_GITHUB_TOKEN"))
     with tempfile.TemporaryDirectory(prefix="r06-", dir="/tmp") as temporary:
         base = Path(temporary)
         store = SynReleaseStore(base / "packages")
@@ -254,6 +259,7 @@ def main(upstream):
         pythons = {}
         manifests = []
         for version in VERSIONS:
+            print(f"Verifying and installing official Syn {version}", flush=True)
             pin = json.loads((upstream / f"release/pins/v{version}.json").read_bytes())
             floor = "0.2.1" if version == "0.2.1" else "0.3.1"
             value = {**seed, **pin, "minimum_version": floor}
@@ -262,14 +268,18 @@ def main(upstream):
             path.write_bytes(canonical(value))
             path.chmod(0o600)
             installed = store.install(
-                policy, python=Path("/usr/bin/python3.12"), uv=uv, upgrade_from=previous
+                policy,
+                python=Path("/usr/bin/python3.12"),
+                uv=uv,
+                upgrade_from=previous,
+                source=source,
             )
             previous = policy
             manifests.append(installed["manifest_sha256"])
             pythons[version] = str(
                 store.root / "installs" / installed["directory"] / "venv/bin/python"
             )
-        result = command(
+        completed = subprocess.run(
             [
                 "/usr/bin/dbus-run-session",
                 "--",
@@ -284,7 +294,10 @@ def main(upstream):
                 json.dumps(pythons),
             ],
             timeout=440,
+            check=True,
+            stdout=subprocess.PIPE,
         )
+        result = json.loads(completed.stdout)
         result["migration"] = database(pythons)
         result["manifest_sha256"] = manifests
         evidence = Path("artifacts/syn-r06/official.json")
