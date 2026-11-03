@@ -39,6 +39,7 @@ from potbot.syn_release.contracts import (
     document,
     inspect_requirements,
     inspect_wheel,
+    require_forward_upgrade,
     verify_manifest,
     version,
 )
@@ -699,11 +700,27 @@ class SynReleaseStore:
         uv: Path,
         source: GitHubSource | None = None,
         offline: bool = False,
+        upgrade_from: Policy | None = None,
     ) -> dict[str, Any]:
         policy = Policy.parse(canonical(policy.value))
+        if upgrade_from is not None:
+            upgrade_from = Policy.parse(canonical(upgrade_from.value))
+            require_forward_upgrade(upgrade_from, policy)
+            if upgrade_from.manifest_sha256 in policy.value["revoked_manifests"]:
+                raise ScopeDeniedError("A revoked Syn baseline requires separate recovery")
         with self._locked():
-            release = self._bundle(policy, source, offline)
             history = self._registry()
+            baseline = None
+            if upgrade_from is not None:
+                baseline = self._verify_selected(upgrade_from, history)
+                installed_policy = Policy.parse(
+                    private_read(self.root / "installs" / baseline["directory"] / "policy.json")
+                )
+                require_forward_upgrade(installed_policy, policy)
+                if baseline["mode"] != upgrade_from.value["mode"]:
+                    raise StateMismatchError(
+                        "Syn upgrade baseline was admitted for a different mode"
+                    )
             selected = policy.value
             same_component = [r for r in history if r["component"] == selected["component"]]
             if any(version(r["version"]) > version(selected["version"]) for r in same_component):
@@ -717,8 +734,29 @@ class SynReleaseStore:
             name = selected["component"] + "-" + selected["version"] + "-" + policy.manifest_sha256
             candidate = self.root / "installs" / name
             known = [r for r in same_component if r["directory"] == name]
+            release = self._bundle(policy, source, offline)
+            stage: dict[str, Any] = {}
+            if baseline is not None:
+                if known and known[0]["mode"] != selected["mode"]:
+                    raise StateMismatchError(
+                        "Syn upgrade candidate was admitted for a different mode"
+                    )
+                baseline_revision = baseline["observed"]["runtime"]["database_revision"]
+                candidate_revision = release.runtime["database_revision"]
+                stage["upgrade"] = {
+                    "profile": "potbot.syn-staged-upgrade/1",
+                    "from_manifest_sha256": baseline["manifest_sha256"],
+                    "from_files_sha256": baseline["files_sha256"],
+                    "from_policy_sha256": baseline["checked_policy_sha256"],
+                    "candidate_policy_sha256": policy.fingerprint,
+                    "from_database_revision": baseline_revision,
+                    "candidate_database_revision": candidate_revision,
+                    "database_revision_changed": baseline_revision != candidate_revision,
+                    "activation_authorized": False,
+                    "rollback_authorized": False,
+                }
             if known:
-                return self._verify(candidate, known[0], release)
+                return {**self._verify(candidate, known[0], release), **stage}
             if candidate.exists() or candidate.is_symlink():
                 raise StateMismatchError(
                     "Incomplete Syn installation requires operator reconciliation; never execute it"
@@ -792,32 +830,27 @@ class SynReleaseStore:
             _sync_directory(candidate)
             os.replace(temporary, self.root / "registry.json")
             _sync_directory(self.root)
-            return {**record, "qualification": "verified_package_installation_only"}
+            return {**record, "qualification": "verified_package_installation_only", **stage}
 
     def verify(self, policy: Policy) -> dict[str, Any]:
         policy = Policy.parse(canonical(policy.value))
         with self._locked():
-            release = self._bundle(policy, None, True)
-            matches = [
-                r
-                for r in self._registry()
-                if r["manifest_sha256"] == policy.manifest_sha256
-                and r["component"] == policy.value["component"]
-            ]
-            if len(matches) != 1:
-                raise StateMismatchError(
-                    "No unique admitted installation for the selected Syn release"
-                )
-            record = matches[0]
-            expected = (
-                policy.value["component"]
-                + "-"
-                + policy.value["version"]
-                + "-"
-                + policy.manifest_sha256
-            )
-            if record["directory"] != expected:
-                raise StateMismatchError(
-                    "Syn installation directory differs from its independent pin"
-                )
-            return self._verify(self.root / "installs" / expected, record, release)
+            return self._verify_selected(policy, self._registry())
+
+    def _verify_selected(self, policy: Policy, history: list[dict[str, Any]]) -> dict[str, Any]:
+        matches = [
+            r
+            for r in history
+            if r["manifest_sha256"] == policy.manifest_sha256
+            and r["component"] == policy.value["component"]
+        ]
+        if len(matches) != 1:
+            raise StateMismatchError("No unique admitted installation for the selected Syn release")
+        record = matches[0]
+        expected = (
+            policy.value["component"] + "-" + policy.value["version"] + "-" + policy.manifest_sha256
+        )
+        if record["directory"] != expected:
+            raise StateMismatchError("Syn installation directory differs from its independent pin")
+        release = self._bundle(policy, None, True)
+        return self._verify(self.root / "installs" / expected, record, release)
