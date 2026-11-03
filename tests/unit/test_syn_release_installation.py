@@ -23,13 +23,14 @@ from potbot.syn_release.contracts import (
     canonical,
     document,
     inspect_wheel,
+    require_forward_upgrade,
     verify_manifest,
 )
 from potbot.syn_release.source import GitHubSource, Publication, RemoteAsset
 
 
-def make_bundle(v="0.1.0"):
-    key = Ed25519PrivateKey.generate()
+def make_bundle(v="0.1.0", *, key=None, mode=None, database_revision="20261024_0015"):
+    key = key or Ed25519PrivateKey.generate()
     public = key.public_key().public_bytes(
         serialization.Encoding.Raw, serialization.PublicFormat.Raw
     )
@@ -40,10 +41,10 @@ def make_bundle(v="0.1.0"):
         python_versions=["3.12", "3.13"],
         runtime_platforms=["linux-x86_64"],
         client_platforms=["linux-x86_64", "windows-x86_64"],
-        node_modes=["service"],
+        node_modes=[mode or "service"],
         api_profiles=["syn.communication/1", "syn.consensus-policy/1"],
         capabilities=["http-workspace-messages"],
-        database_revision="20261024_0015",
+        database_revision=database_revision,
     )
     names = {
         "client-sdist": f"syn_client-{v}.tar.gz",
@@ -84,8 +85,8 @@ def make_bundle(v="0.1.0"):
         minimum_version=v,
         revoked_keys=[],
         revoked_manifests=[],
-        component="client",
-        mode=None,
+        component="runtime" if mode else "client",
+        mode=mode,
         python_version="3.12",
         required_profiles=["syn.communication/1"],
         required_capabilities=[],
@@ -113,6 +114,41 @@ def make_bundle(v="0.1.0"):
 @pytest.fixture
 def bundle():
     return make_bundle()
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"mode": "agent"}, "same runtime node mode"),
+        ({"version": "0.2.0"}, "strictly newer"),
+        ({"minimum_version": "0.1.0"}, "downgrade or revocation"),
+        ({"revoked_keys": []}, "downgrade or revocation"),
+        ({"revoked_manifests": []}, "downgrade or revocation"),
+        ({"required_profiles": []}, "required protocols or capabilities"),
+        ({"required_capabilities": []}, "required protocols or capabilities"),
+    ],
+)
+def test_upgrade_policy_preserves_baseline_guards(changes, message):
+    old = make_bundle("0.2.0", mode="operator")
+    guards = {
+        "minimum_version": "0.2.0",
+        "revoked_keys": ["a" * 64],
+        "revoked_manifests": ["b" * 64],
+        "required_capabilities": ["http-workspace-messages"],
+    }
+    previous = Policy.parse(canonical({**old.value, **guards}))
+    new = make_bundle("0.3.0", key=old.key, mode="operator")
+    candidate = Policy.parse(canonical({**new.value, **guards, **changes}))
+    with pytest.raises(ScopeDeniedError, match=message):
+        require_forward_upgrade(previous, candidate)
+    require_forward_upgrade(previous, Policy.parse(canonical({**new.value, **guards})))
+
+
+def test_upgrade_requires_an_independent_authority_rotation():
+    old = make_bundle(mode="operator")
+    new = make_bundle("0.2.0", mode="operator")
+    with pytest.raises(ScopeDeniedError, match="authority rotation"):
+        require_forward_upgrade(old.policy, new.policy)
 
 
 def test_authentication_and_compatibility_are_required_before_code(bundle):
@@ -341,18 +377,113 @@ class TestLinuxStore:
 
         def build(candidate, release, *_args):
             (candidate / "synthetic-package").write_bytes(b"unit fixture; not a Syn runtime")
-            return {"client_version": release.policy.value["version"], "runtime": None}
+            return observe(candidate, release)
+
+        def observe(_candidate, release):
+            return {
+                "client_version": release.policy.value["version"],
+                "runtime": release.runtime
+                if release.policy.value["component"] == "runtime"
+                else None,
+            }
 
         monkeypatch.setattr(store, "_build", build)
-        monkeypatch.setattr(
-            store,
-            "_observe",
-            lambda _candidate, release: {
-                "client_version": release.policy.value["version"],
-                "runtime": None,
-            },
-        )
+        monkeypatch.setattr(store, "_observe", observe)
         return store
+
+    def test_stage_upgrade_cli_keeps_both_releases_and_reports_database_change(
+        self, store, monkeypatch, capsys
+    ):
+        from potbot.syn_release import cli
+
+        old = make_bundle(mode="operator")
+        new = make_bundle("0.2.0", key=old.key, mode="operator", database_revision="20261024_0016")
+        python, uv = Path("/fixture/python"), Path("/fixture/uv")
+        baseline = store.install(old.policy, python=python, uv=uv, source=FakeSource(old))
+        new.value["dependency_cache_sha256"] = baseline["dependency_cache_sha256"]
+        new.policy = Policy.parse(canonical(new.value))
+        store.fetch(new.policy, source=FakeSource(new))
+        old_path, new_path = store.root / "old.json", store.root / "new.json"
+        for path, bundle in ((old_path, old), (new_path, new)):
+            path.write_bytes(canonical(bundle.value))
+            path.chmod(0o600)
+        monkeypatch.setattr(cli, "SynReleaseStore", lambda _path: store)
+        args = [
+            "stage-upgrade",
+            "--offline",
+            "--store",
+            str(store.root),
+            "--policy",
+            str(new_path),
+            "--from-policy",
+            str(old_path),
+            "--python",
+            str(python),
+            "--uv",
+            str(uv),
+        ]
+        assert cli.main(args) == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["manifest_sha256"] == new.policy.manifest_sha256
+        assert result["upgrade"] == {
+            "profile": "potbot.syn-staged-upgrade/1",
+            "from_manifest_sha256": old.policy.manifest_sha256,
+            "from_files_sha256": baseline["files_sha256"],
+            "from_policy_sha256": old.policy.fingerprint,
+            "candidate_policy_sha256": new.policy.fingerprint,
+            "from_database_revision": "20261024_0015",
+            "candidate_database_revision": "20261024_0016",
+            "database_revision_changed": True,
+            "activation_authorized": False,
+            "rollback_authorized": False,
+        }
+        assert cli.main(args) == 0
+        assert json.loads(capsys.readouterr().out)["upgrade"] == result["upgrade"]
+        assert store.verify(old.policy)["files_sha256"] == baseline["files_sha256"]
+        assert len(store._registry()) == 2
+
+    def test_revoked_baseline_never_runs_and_candidate_is_not_fetched(self, store, monkeypatch):
+        old = make_bundle(mode="operator")
+        new = make_bundle("0.2.0", key=old.key, mode="operator")
+        tools = {"python": Path("/fixture/python"), "uv": Path("/fixture/uv")}
+        store.install(old.policy, source=FakeSource(old), **tools)
+        candidate = Policy.parse(
+            canonical({**new.value, "revoked_manifests": [old.policy.manifest_sha256]})
+        )
+        source = FakeSource(new)
+
+        def unexpected(*_args):
+            pytest.fail("revoked baseline executable was invoked")
+
+        monkeypatch.setattr(store, "_observe", unexpected)
+        with pytest.raises(ScopeDeniedError, match="revoked Syn baseline"):
+            store.install(candidate, source=source, upgrade_from=old.policy, **tools)
+        assert source.calls == 0
+        assert len(store._registry()) == 1
+
+    def test_interrupted_upgrade_keeps_baseline_and_never_admits_candidate(
+        self, store, monkeypatch
+    ):
+        from potbot.domain.errors import StateMismatchError
+
+        old = make_bundle(mode="operator")
+        new = make_bundle("0.2.0", key=old.key, mode="operator")
+        tools = {"python": Path("/fixture/python"), "uv": Path("/fixture/uv")}
+        baseline = store.install(old.policy, source=FakeSource(old), **tools)
+        journal = (store.root / "registry.json").read_bytes()
+
+        def fail(*_args):
+            raise StateMismatchError("simulated interrupted candidate build")
+
+        monkeypatch.setattr(store, "_build", fail)
+        with pytest.raises(StateMismatchError, match="interrupted"):
+            store.install(new.policy, source=FakeSource(new), upgrade_from=old.policy, **tools)
+        with pytest.raises(StateMismatchError, match="Incomplete Syn installation"):
+            store.install(new.policy, source=FakeSource(new), upgrade_from=old.policy, **tools)
+        with pytest.raises(StateMismatchError, match="No unique admitted installation"):
+            store.verify(new.policy)
+        assert (store.root / "registry.json").read_bytes() == journal
+        assert store.verify(old.policy)["files_sha256"] == baseline["files_sha256"]
 
     def test_offline_install_is_idempotent_and_records_exact_provenance(self, store, bundle):
         source = FakeSource(bundle)

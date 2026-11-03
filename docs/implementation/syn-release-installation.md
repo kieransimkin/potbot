@@ -108,6 +108,37 @@ Interrupted directories remain unadmitted and require explicit operator
 reconciliation. Installation does not rewrite a live process or select an active
 node. Existing identities, enrollment state and databases are outside this store.
 
+## Stage a runtime upgrade
+
+Use the existing installation policy as the baseline and independently approve
+the new release policy. Both must select the same runtime mode and authority.
+The candidate must be newer and preserve the baseline's version floor,
+revocations, required protocols and capabilities. Potbot verifies the admitted
+baseline from the private store before fetching or building the candidate.
+An authority change or a revoked baseline requires separate recovery.
+
+```bash
+potbot syn-release stage-upgrade --store /operator/syn-packages \
+  --from-policy /operator/policy/syn-current.json --policy /operator/policy/syn-candidate.json \
+  --python /trusted/python3.12 --uv /trusted/uv
+```
+
+The command returns a package receipt with both policy and database revision
+identities. Retain it privately with the operator's approval record. The
+candidate is admitted side by side in the existing package registry. The
+operator registration, running process, keystore and mutable Syn state are
+outside this operation. A database revision change flags a separate migration
+gate. An equal revision still requires an actual restart and state-compatibility
+check. Activation and rollback require separate operator operations.
+
+An interrupted build leaves its candidate unadmitted and the baseline package
+verifiable. Incomplete directories and dependency-cache drift require explicit
+reconciliation. Follow the offline rules below when staging without a network.
+The package-admission diagram above applies to the candidate, with the baseline
+still selected by the operator registration. The CLI command shows the interface
+directly. The focused boundary suite uses signed synthetic packages and covers
+both staging and interrupted builds.
+
 ## Offline use, concurrency and refusals
 
 `fetch` retains all five payloads plus the canonical manifest and signature.

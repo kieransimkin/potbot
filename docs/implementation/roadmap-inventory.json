@@ -1274,22 +1274,22 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "8a319032c2e8ac64a02165854f439ac18cb19f1c10d9ebe2113ea19d4f2e6f49",
-      "bytes": 9384,
+      "sha256": "9fcf912073a0b6b0bf1b2eb6babae9ba4445ddeb04de3a455a21acc854e35001",
+      "bytes": 9549,
       "kind": "narrative_text",
-      "text_sha256": "8a319032c2e8ac64a02165854f439ac18cb19f1c10d9ebe2113ea19d4f2e6f49",
-      "characters": 9378,
+      "text_sha256": "9fcf912073a0b6b0bf1b2eb6babae9ba4445ddeb04de3a455a21acc854e35001",
+      "characters": 9543,
       "lines": 47,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": "docs/implementation/syn-release-installation.md",
-      "sha256": "531dc0590dacab18c15688349b3ae238bc9192600c8cb8103d71d55db12f05a6",
-      "bytes": 10422,
+      "sha256": "06a868a379a2ff3df38d8d9589b6cc95f87507769ba4a100def3d06fd361bfa6",
+      "bytes": 12168,
       "kind": "narrative_text",
-      "text_sha256": "531dc0590dacab18c15688349b3ae238bc9192600c8cb8103d71d55db12f05a6",
-      "characters": 10422,
-      "lines": 165,
+      "text_sha256": "06a868a379a2ff3df38d8d9589b6cc95f87507769ba4a100def3d06fd361bfa6",
+      "characters": 12168,
+      "lines": 196,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -30133,7 +30133,7 @@
       "evidence_state": "reviewed_qualified_subset",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07."
       ],
       "next_action": "For SYN-R01 (Upstream inventory): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout.",
       "review_families": [
@@ -30179,7 +30179,7 @@
       "evidence_state": "reviewed_qualified_subset",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07."
       ],
       "next_action": "For SYN-R02 ([Operator release installer](syn-release-installation.md) implemented): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout.",
       "review_families": [
@@ -30225,7 +30225,7 @@
       "evidence_state": "reviewed_qualified_subset",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07."
       ],
       "next_action": "For SYN-R03 ([Native operator deployment candidate](syn-operator-deployment.md)): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout.",
       "review_families": [
@@ -30271,7 +30271,7 @@
       "evidence_state": "reviewed_qualified_subset",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07."
       ],
       "next_action": "For SYN-R04 ([Agent provisioning and official-package acceptance](syn-agent-deployment.md)): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout.",
       "review_families": [
@@ -30336,10 +30336,10 @@
       "legacy_id": "SYN-R06",
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R06",
-      "title": "Upgrade and recovery",
+      "title": "Upgrade and recovery, [package staging implemented](syn-release-installation.md#stage-a-runtime-upgrade)",
       "locator": "line:40",
       "source_claim": "requirements_only",
-      "requirement_sha256": "a21d7d182919f98ac704c4d380dd035f6111c3ed9d7a2572f4a99c2bdae3e963",
+      "requirement_sha256": "a4a7a496dc0786266ad698994c8525b5df180137613c29f29e51e9879d8ca654",
       "unified_owners": [
         "U02",
         "U03",
@@ -30366,7 +30366,7 @@
         "Preserve signed governance, protected signing/recovery and per-Type finality requirements without activating unqualified consensus",
         "Resolve open PR1 submodule/private-build assumptions against mandatory independent release consumption"
       ],
-      "next_action": "For SYN-R06 (Upgrade and recovery): Track SYN-R06/R07 and PR1 SBT packages under U06/U01/U16; qualify upstream first, then thin public Potbot adapters.",
+      "next_action": "Qualify supported-host activation, state compatibility and migration, interruption recovery and nonrollback of signing and enrollment state.",
       "review_families": [
         "syn-operations"
       ],
@@ -30375,7 +30375,7 @@
         "U06",
         "U16"
       ],
-      "assessment": "Requirement: Upgrade and recovery. Upgrade/recovery, journal-authority migration and removal of transitional syn-node are not complete. Open PR1 has additional governance/DAG/transaction proposals that are outside current main."
+      "assessment": "Package staging is source-implemented and independently rechecks both release policies. The candidate package is admitted alongside the baseline. No live state or service activation follows."
     },
     {
       "key": "syn-release:SYN-R07",
@@ -34176,9 +34176,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For G3 (Exact identity and compatibility (U06-I)): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -34227,7 +34227,7 @@
         "Do not automatically upgrade the retained 0.2.1 production operator",
         "Native heartbeat connectivity is neither consensus finality nor general distributed durability",
         "Positive production Cog launch still requires the independent U03/U16 audited host/image gate",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07."
       ],
       "next_action": "For G4 (Approved intake through adoption and activation (U06-E)): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Combine released Syn admission with qualified real worker accounting without introducing a fake host, registry or production fallback.",
       "review_families": [
@@ -34768,9 +34768,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW11 (SYN owns generation, derivation, signing, recovery and private custody; it remains an independently installed **Python** service. Potbot consumes public identities/receipts.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -34809,9 +34809,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW12 (Discover and pledge to an existing trusted local operator SYN; create a fresh operator only after establishing none exists. Every new agent has a separate agent-mode installation.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -34847,9 +34847,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW13 (Genuine OS CSPRNG entropy, BIP-39 recovery, CIP-3 Icarus / Ed25519-BIP32 V2, exact root/base and stable base-public-key hash.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -34885,9 +34885,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW14 (Each agent's temporary Ed25519 signing key is independently random and OS-protected. Hardware ID participates in the signed pledge, not entropy generation.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -34926,9 +34926,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW15 (Inheritance is the first three SHA-256 bytes of **raw signed hardware bytes plus one operator byte**, interpreted unsigned big-endian; reserve atomically.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -34964,9 +34964,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW16 (Operator offers eight signed root-derived choices; agent selects its independence index; full hashes remain authoritative.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -35002,9 +35002,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW17 (Authenticated operator pulses and encrypted signed servitude offers bind hardware, temporary verification key, time, target and challenge.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -35046,9 +35046,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW18 (Deliver only the selected leaf confidentially to the separate agent, install in its OS keystore, prove possession, record signed receipt, then authorize scoped execution separately.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -35087,9 +35087,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW19 (Retain hourly derived signing, stable verification identity, inherited/default/required Embers, locking-Cog permissions and scoped replay rejection.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -35128,9 +35128,9 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07.",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
-        "Retain owner-approved host-bound virtual-device IDs per Agent",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
       "next_action": "For MW20 (Protect keys at rest and during use, preserve AES-256 protection requirements and recovery; plan TPM/HSM integration.): Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption.",
       "review_families": [
@@ -35956,7 +35956,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "abc51cd5fb935f38663b674b73aecf67e17ec5e870db6077620d6120ae546f63",
+  "review_sha256": "4a2a3fab303f38c9ac4d46f79e5e331fdc9b11ad076ce1a62b5f2c2d7fba6e5d",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115863,12 +115863,11 @@
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "locator": "line:31-44",
-      "sha256": "9b1790211f0677add50ae72c19ac672b03dd28c1dcb9a73adeb7047d6e4ce167",
+      "sha256": "edc502f68d169519ccbc7255cdcb99fd08425d3898a40f396506761d60d15985",
       "excerpt": "## Delivery milestones and acceptance gates\n\n| Gate | Deliverable | Proof required |\n| --- | --- | --- |\n| SYN-R01 | Upstream inventory | Canonical repository/r",
       "review_families": [
-        "syn-mesh",
-        "syn-operations",
-        "syn-release"
+        "syn-release",
+        "syn-operations"
       ]
     },
     {
@@ -115910,7 +115909,16 @@
     },
     {
       "source": "docs/implementation/syn-release-installation.md",
-      "locator": "line:111-139",
+      "locator": "line:111-141",
+      "sha256": "6790526b211ab72b2d1c0250f917b20bad92a71527ef350866f85f0880d3f7f6",
+      "excerpt": "## Stage a runtime upgrade\n\nUse the existing installation policy as the baseline and independently approve\nthe new release policy. Both must select the same run",
+      "review_families": [
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/syn-release-installation.md",
+      "locator": "line:142-170",
       "sha256": "3b78c983df066e74aaf194a9bc386993e9860f40ceb90b32c28d96063443f284",
       "excerpt": "## Offline use, concurrency and refusals\n\n`fetch` retains all five payloads plus the canonical manifest and signature.\n`install --offline` rechecks them. A fres",
       "review_families": [
@@ -115919,7 +115927,7 @@
     },
     {
       "source": "docs/implementation/syn-release-installation.md",
-      "locator": "line:140-165",
+      "locator": "line:171-196",
       "sha256": "8173fde0e0c03afdd46264ea7fe34009ac8e67f88bf1bdd002437712a04ef7fa",
       "excerpt": "## Evidence boundary\n\n![Actual GitHub Actions result for the Linux Syn installation boundary suite](media/syn-release-boundary-tests.jpg)\n\n*Actual public CI at ",
       "review_families": [
@@ -121428,8 +121436,8 @@
         {
           "path": "src/potbot/syn_release/store.py",
           "symbol": "SynReleaseStore",
-          "sha256": "87c7a696231f6420d9fe05e7289d98acf40bff3a1074f791a8f144cbc6326c4a",
-          "basis": "inspected integration owner; not whole-requirement implementation proof"
+          "sha256": "80dea1e843d44b497eceef384a24cd859d43d23a72b7935cf5b1b7df682723b6",
+          "basis": "Reviewed SYN-R06 source and test definitions. Live qualification requires separate execution evidence."
         },
         {
           "path": "src/potbot/syn_release/operator.py",
@@ -121442,29 +121450,41 @@
           "symbol": "AgentSession",
           "sha256": "89c1b42555843a95c039a8c955c938503b581eb23eb21f9d2f051d107fa3d210",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/syn_release/contracts.py",
+          "symbol": "require_forward_upgrade",
+          "sha256": "3cc4a651598e18a9b80e4051f7439596f0e7a2a309b0329a9b4c021dff2eae28",
+          "basis": "Operator-staged update guards preserve the previous requirements and revocations."
         }
       ],
       "tests": [
         {
           "path": "tests/unit/test_syn_release_installation.py",
           "symbol": "test_authentication_and_compatibility_are_required_before_code",
-          "sha256": "51f5096576d5f1ba1ae3dfc626d24eee92b076f5fe2b5c0f57202dfdcdb2c699",
-          "basis": "source inspection; test definition is not an individual executed result"
+          "sha256": "032d04200dae91cf89436e8a3e9327bb3da1be66ce144febc2b041f195f1b086",
+          "basis": "Reviewed SYN-R06 source and test definitions. Live qualification requires separate execution evidence."
         },
         {
           "path": "tests/unit/test_syn_agent_deployment.py",
           "symbol": "test_installing_a_service_package_cannot_provision_an_agent",
           "sha256": "1ee50630a8e49ee3dd2f6efe794815e12c39ec4c542d6038530f399aef5959e1",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/unit/test_syn_release_installation.py",
+          "symbol": "test_interrupted_upgrade_keeps_baseline_and_never_admits_candidate",
+          "sha256": "032d04200dae91cf89436e8a3e9327bb3da1be66ce144febc2b041f195f1b086",
+          "basis": "POSIX store test with signed synthetic package fixtures."
         }
       ],
-      "assessment": "SYN-R01-R04 now have actual signed release acquisition and native operator/Agent deployment paths. Official Syn 0.4.0 consumer acceptance passed at its recorded source; successful package installation alone supplies no Cog execution authority.",
+      "assessment": "SYN-R01-R04 now have actual signed release acquisition and native operator/Agent deployment paths. Official Syn 0.4.0 consumer acceptance passed at its recorded source; successful package installation alone supplies no Cog execution authority. SYN-R06 adds side-by-side package staging without selecting an active runtime.",
       "support_scope": "Independently pinned Ed25519 authority, immutable manifest/assets, compatible official packages, distinct native Agent custody and retained identity.",
       "remaining": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
-        "SYN-R06 staged upgrade/recovery and R07 transitional-runtime removal remain open"
+        "Qualify live activation, migration, backup/recovery and nonrollback of protected state before R07."
       ],
-      "next_action": "Consume signed official artifacts only; qualify upgrades, nonrollback identity state and supported-host lifecycle before general rollout."
+      "next_action": "Qualify activation and restart against official packages and preserved identity state before any general rollout."
     },
     {
       "id": "syn-mesh",

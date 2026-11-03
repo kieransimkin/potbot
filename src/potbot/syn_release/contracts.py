@@ -179,6 +179,27 @@ class Policy:
         return "v" + str(self.value["version"])
 
 
+def require_forward_upgrade(previous: Policy, candidate: Policy) -> None:
+    old, new = previous.value, candidate.value
+    if old["component"] != "runtime" or new["component"] != "runtime" or old["mode"] != new["mode"]:
+        raise ScopeDeniedError("Syn upgrade requires the same runtime node mode")
+    if version(new["version"]) <= version(old["version"]):
+        raise ScopeDeniedError("Syn upgrade requires a strictly newer pinned release")
+    if new["release_key_sha256"] != old["release_key_sha256"]:
+        raise ScopeDeniedError("Syn authority rotation requires separate reconciliation")
+    if version(new["minimum_version"]) < version(old["minimum_version"]) or any(
+        not set(old[field]) <= set(new[field]) for field in ("revoked_keys", "revoked_manifests")
+    ):
+        raise ScopeDeniedError(
+            "Syn upgrade cannot weaken the retained downgrade or revocation policy"
+        )
+    if any(
+        not set(old[field]) <= set(new[field])
+        for field in ("required_profiles", "required_capabilities")
+    ):
+        raise ScopeDeniedError("Syn upgrade cannot drop required protocols or capabilities")
+
+
 @dataclass(frozen=True)
 class Asset:
     role: str

@@ -41,7 +41,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Verify and install an independently pinned official Syn release on Linux/macOS"
     )
-    parser.add_argument("operation", choices=("fetch", "install", "verify"))
+    parser.add_argument("operation", choices=("fetch", "install", "verify", "stage-upgrade"))
     parser.add_argument(
         "--store",
         required=True,
@@ -60,14 +60,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Require retained authenticated payloads and dependency cache; no network fallback",
     )
     parser.add_argument(
+        "--from-policy",
+        type=Path,
+        help="Private policy of the admitted baseline runtime for stage-upgrade",
+    )
+    parser.add_argument(
         "--python", type=Path, help="Exact trusted host Python executable for a new installation"
     )
     parser.add_argument(
         "--uv", type=Path, help="Exact trusted uv 0.12.23 executable for a new installation"
     )
     options = parser.parse_args(arguments)
-    if options.operation == "install" and (options.python is None or options.uv is None):
-        parser.error("install requires explicit --python and --uv executable paths")
+    if options.operation in {"install", "stage-upgrade"} and (
+        options.python is None or options.uv is None
+    ):
+        parser.error(f"{options.operation} requires explicit --python and --uv executable paths")
+    if (options.operation == "stage-upgrade") != (options.from_policy is not None):
+        parser.error("stage-upgrade requires --from-policy, which applies only to that operation")
     try:
         store = SynReleaseStore(options.store)
         policy = Policy.parse(private_read(options.policy))
@@ -83,9 +92,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "node_qualified": False,
                 "offline": options.offline,
             }
-        elif options.operation == "install":
+        elif options.operation in {"install", "stage-upgrade"}:
             result = store.install(
-                policy, python=options.python, uv=options.uv, source=source, offline=options.offline
+                policy,
+                python=options.python,
+                uv=options.uv,
+                source=source,
+                offline=options.offline,
+                upgrade_from=(
+                    Policy.parse(private_read(options.from_policy)) if options.from_policy else None
+                ),
             )
         else:
             result = store.verify(policy)
