@@ -1314,22 +1314,22 @@
     },
     {
       "path": "docs/implementation/u01-a-sandbox-transport-recovery.md",
-      "sha256": "9dc0abbbf94c7620587766b6df7767c7949de9e004ffbd69a87bad86338fb3eb",
-      "bytes": 3434,
+      "sha256": "f1dd8e1d2d469f01fe0a65bcdd68f077eed4a12a16e2e7c231183cc755fe28b1",
+      "bytes": 3928,
       "kind": "narrative_text",
-      "text_sha256": "9dc0abbbf94c7620587766b6df7767c7949de9e004ffbd69a87bad86338fb3eb",
-      "characters": 3434,
-      "lines": 62,
+      "text_sha256": "f1dd8e1d2d469f01fe0a65bcdd68f077eed4a12a16e2e7c231183cc755fe28b1",
+      "characters": 3928,
+      "lines": 73,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": "docs/implementation/unified-development-roadmap.md",
-      "sha256": "6a87935f8ebc0447f8bbd3633e2c015f269bb1a17379ba5fc5ad05c776eb9ef3",
-      "bytes": 30335,
+      "sha256": "f503acfc71cf0e1fabd11a64dce04c53000d68bd90b775d52cb13b9fdc9a276a",
+      "bytes": 30070,
       "kind": "narrative_text",
-      "text_sha256": "6a87935f8ebc0447f8bbd3633e2c015f269bb1a17379ba5fc5ad05c776eb9ef3",
-      "characters": 30179,
-      "lines": 215,
+      "text_sha256": "f503acfc71cf0e1fabd11a64dce04c53000d68bd90b775d52cb13b9fdc9a276a",
+      "characters": 29914,
+      "lines": 212,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -2898,13 +2898,12 @@
       ],
       "evidence_state": "reviewed_partial",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
-      "next_action": "For G20 (Mutation acknowledgment is lost): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For G20 (Mutation acknowledgment is lost): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "durable",
         "transport-recovery"
@@ -2916,7 +2915,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Mutation acknowledgment is lost. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Mutation acknowledgment is lost. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "architecture-1.1:G21",
@@ -3469,15 +3468,14 @@
       ],
       "evidence_state": "reviewed_partial",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
         "Qualify enforcing DNS/IP egress, disclosure, credentials, durable intents and actual outcome reconciliation",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
-      "next_action": "For G31 (Indeterminate external mutations and layered retry): Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes. U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For G31 (Indeterminate external mutations and layered retry): Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes. U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "api",
         "durable",
@@ -3491,7 +3489,7 @@
         "U11",
         "U16"
       ],
-      "assessment": "Requirement: Indeterminate external mutations and layered retry. Bounded REST/GraphQL and approved unary gRPC adapter contracts exist with no blind write retries. A supplied egress callback/channel is an integration boundary, not proof of enforcing production networking. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Indeterminate external mutations and layered retry. Bounded REST/GraphQL and approved unary gRPC adapter contracts exist with no blind write retries. A supplied egress callback/channel is an integration boundary, not proof of enforcing production networking. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "architecture-1.1:G32",
@@ -5738,13 +5736,12 @@
       ],
       "evidence_state": "reviewed_partial",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
-      "next_action": "For M1 (Durable run and tool-effect hardening): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For M1 (Durable run and tool-effect hardening): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "durable",
         "transport-recovery"
@@ -5756,7 +5753,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Durable run and tool-effect hardening. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Durable run and tool-effect hardening. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "modernization:M2",
@@ -20410,15 +20407,14 @@
       ],
       "evidence_state": "reviewed_implemented_unqualified",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
         "Native Windows/macOS work-process isolation remains unsupported until its own backend is qualified",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
         "Qualify delegated cgroup v2, seccomp/userns, DAC, cleanup and concurrent hostile agents on the chosen host",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
-      "next_action": "For P034 (Reconcile mutations after a lost acknowledgment): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Use the existing registered workspace/image/agent path and fail before dispatch if the host or audit is unqualified. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For P034 (Reconcile mutations after a lost acknowledgment): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Use the existing registered workspace/image/agent path and fail before dispatch if the host or audit is unqualified. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "durable",
         "sandbox",
@@ -20433,7 +20429,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Reconcile mutations after a lost acknowledgment. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Reconcile mutations after a lost acknowledgment. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "plan-1.1:P035",
@@ -31283,13 +31279,12 @@
       ],
       "evidence_state": "reviewed_partial",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
-      "next_action": "For G15 (Recovery, quotas and operator stop authority): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For G15 (Recovery, quotas and operator stop authority): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "durable",
         "transport-recovery"
@@ -31301,7 +31296,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Recovery, quotas and operator stop authority. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Recovery, quotas and operator stop authority. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "tool-gaps:G16",
@@ -31949,17 +31944,16 @@
       ],
       "evidence_state": "reviewed_partial",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
         "Native Windows/macOS work-process isolation remains unsupported until its own backend is qualified",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
         "Qualify delegated cgroup v2, seccomp/userns, DAC, cleanup and concurrent hostile agents on the chosen host",
         "Qualify recovery, revocation, memory custody and every enabled platform; TPM/HSM remains future scope",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly",
         "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
-      "next_action": "For T03.4 (Durable tool gateway and approvals): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Use the existing registered workspace/image/agent path and fail before dispatch if the host or audit is unqualified. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For T03.4 (Durable tool gateway and approvals): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Use the existing registered workspace/image/agent path and fail before dispatch if the host or audit is unqualified. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "durable",
         "sandbox",
@@ -31976,7 +31970,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Durable tool gateway and approvals. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Durable tool gateway and approvals. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "tools:T04.1",
@@ -33506,13 +33500,12 @@
       ],
       "evidence_state": "reviewed_partial",
       "blockers": [
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
-      "next_action": "For U01 (Durable execution and provenance): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold.",
+      "next_action": "For U01 (Durable execution and provenance): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence.",
       "review_families": [
         "durable",
         "transport-recovery"
@@ -33524,7 +33517,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Durable execution and provenance. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted."
+      "assessment": "Requirement: Durable execution and provenance. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation."
     },
     {
       "key": "unified:U02",
@@ -34025,7 +34018,7 @@
       "title": "CI, release and deployment qualification",
       "locator": "line:79",
       "source_claim": "requirements_only",
-      "requirement_sha256": "5b79798ee9e3021384466cda8c086796bdd07156a9999688de8b504a57730bb2",
+      "requirement_sha256": "93b499f7230e9de65954713f5091a08d07c53316723a1cf1422aecb555ae38e2",
       "unified_owners": [
         "U16"
       ],
@@ -35963,7 +35956,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "7981f22ff657fc4a6e99b8f3d1f97d2a2cf4f93e594824ec5973a1170f5a104a",
+  "review_sha256": "abc51cd5fb935f38663b674b73aecf67e17ec5e870db6077620d6120ae546f63",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -116068,9 +116061,9 @@
     },
     {
       "source": "docs/implementation/u01-a-sandbox-transport-recovery.md",
-      "locator": "line:1-62",
-      "sha256": "c91efe51609b5ed8750856d134df40773a5c4aac5f9be1639e39369912e8b504",
-      "excerpt": "# U01-A: durable dispatch for sandbox transport effects\n\nThis first increment uses the existing PostgreSQL execution journal to record\nmutating API, MCP and scr",
+      "locator": "line:1-73",
+      "sha256": "7db9da0991ff24ad2cdb59d5011e305ba17350fad800826108f007f452581c95",
+      "excerpt": "# U01-A sandbox transport recovery\n\nThe local queue uses JSON-RPC over subprocess pipes. The existing sandbox worker\nstarts the target process inside its sandbo",
       "review_families": [
         "transport-recovery"
       ]
@@ -116298,8 +116291,8 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:125-151",
-      "sha256": "55e5e0bd2064c7caa95879e8b50507d51f7b8cd6a64523c319f2ff387c361c8a",
+      "locator": "line:125-148",
+      "sha256": "32b7eab97e7389ba15ce03552db8085933b764e7be0e88f1509f38049e1895a6",
       "excerpt": "## First next milestone\n\n**U01-A: durable side-effect and crash recovery gap closure.** U00-A's\n[reviewed closeout](u00-a-closeout.md) is complete. Preserve the",
       "review_families": [
         "durable",
@@ -116309,7 +116302,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:152-165",
+      "locator": "line:149-162",
       "sha256": "fad8ad3bc0f5c2f2834281f8aaa52d60a6cf39c7bbfccd4fae9aee0a7b60f130",
       "excerpt": "## Required follow-through from the monitoring chat\n\n| Work item | Existing U owner | Deliverable and gate |\n|---|---|---|\n| U03-Q | U03, U02, U16 | Qualify eve",
       "review_families": [
@@ -116324,7 +116317,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:166-184",
+      "locator": "line:163-181",
       "sha256": "e8813cbdbc07b73b8e614df41c1dea7330abebc0152b5bcefd0603bf0353e4e7",
       "excerpt": "## Required follow-through from the other recent development conversations\n\n| Work item | Existing U owner | Deliverable and gate in the recent-development reco",
       "review_families": [
@@ -116339,7 +116332,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:185-196",
+      "locator": "line:182-193",
       "sha256": "8fd9aa45ac7a56661637b71fa0a5607b1b2b45780bdea5c35f0434b61d7925a3",
       "excerpt": "## References\n\n- `docs/implementation/agent-runtime-modernization.md`\n- `docs/implementation/09-tool-plan-gap-audit.md`\n- `docs/implementation/plugin-discovery-",
       "review_families": [
@@ -116348,7 +116341,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:197-201",
+      "locator": "line:194-198",
       "sha256": "c6f1c77f80e48b91c4a197f815afa2760f516f5eff7fc07b87bbbe7ffc5b2197",
       "excerpt": "## Cross-agent ecosystem compatibility (C00\u2013C09)\n\nAdd the companion [cross-agent compatibility plan](cross-agent-compatibility.md) as a required cross-cutting w",
       "review_families": [
@@ -116357,7 +116350,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:202-210",
+      "locator": "line:199-207",
       "sha256": "a3a63964c24da210b3a841a4fa93e2529b30a3e255e67e78853aea0f4d0192ad",
       "excerpt": "## External skill ecosystem discovery and native execution (S00\u2013S10)\n\nThe cross-agent C00\u2013C09 programme is extended by [external skill ecosystem integration](po",
       "review_families": [
@@ -116367,7 +116360,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:211-215",
+      "locator": "line:208-212",
       "sha256": "28dfd2784d97841df10d40c27bf4c7f21bc278c11ace17b0339a9ee74ece1daa",
       "excerpt": "## Agent benchmarking and testing (B00\u2013B10)\n\nAdd [Potbot agent benchmarking and testing](potbot-agent-benchmarking-plan.md) as the qualification specification f",
       "review_families": [
@@ -121176,8 +121169,8 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "4884290fd1d4ebd57b2f0fe5c7817804479d95e28e7c8156914b10de4c68303e",
-          "basis": "inspected integration owner; not whole-requirement implementation proof"
+          "sha256": "8efbfb8c009423f7064c9c0d2839d2281eeb415651093726c8ae66d11149c21c",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
       "tests": [
@@ -121259,8 +121252,8 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "PinnedExecutionJournal",
-          "sha256": "e8505b6848059b3f8be0b91e411a24544045c4d387f44747e56066924abc3545",
-          "basis": "U01-A follow-on source delta; the pinned U00 baseline CI does not qualify these edits"
+          "sha256": "58d253be791b3a5fe890d1e3f1636a2f52a2bd3a7ac02c2419ef0527af5d1e91",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_events.py",
@@ -121309,8 +121302,8 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "b80003b64f5ec985e4acfef9bc50b046edab4d84b958a8a924dda578eb70ccd8",
-          "basis": "inspected integration owner; not whole-requirement implementation proof"
+          "sha256": "fb7567ec083bb117fad171f1553dd845cd7233e00bc105bc39f0f230ecc1189f",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
       "tests": [
@@ -121585,14 +121578,14 @@
         {
           "path": "src/potbot/cogs/execution.py",
           "symbol": "execute",
-          "sha256": "a86d227547f31519351976cd6d965afaa41ef7c040b9a0001f037a335cfd23d1",
-          "basis": "inspected integration owner; not whole-requirement implementation proof"
+          "sha256": "a33ea31d28329d84765af45883038990639e57c4298349d1583afc6a369296bc",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "c6d9a0598c4cea08952b9c858695826f44000a58e328ec863bab861698077ca3",
-          "basis": "U01-A follow-on source delta; the pinned U00 baseline CI does not qualify these edits"
+          "sha256": "22ff6dac13a51d6a0317ae61ba0f0347ac3aad33c1af165aa9142ef7548948a9",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
       "tests": [
@@ -122582,8 +122575,8 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "4884290fd1d4ebd57b2f0fe5c7817804479d95e28e7c8156914b10de4c68303e",
-          "basis": "inspected integration owner; not whole-requirement implementation proof"
+          "sha256": "8efbfb8c009423f7064c9c0d2839d2281eeb415651093726c8ae66d11149c21c",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/service.py",
@@ -122638,32 +122631,55 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "inspect_sandbox_transport_effect",
-          "sha256": "e8505b6848059b3f8be0b91e411a24544045c4d387f44747e56066924abc3545",
-          "basis": "U01-A follow-on source; worker execution remains existing SandboxedCogExecutor"
+          "sha256": "58d253be791b3a5fe890d1e3f1636a2f52a2bd3a7ac02c2419ef0527af5d1e91",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "c6d9a0598c4cea08952b9c858695826f44000a58e328ec863bab861698077ca3",
-          "basis": "U01-A follow-on source; worker execution remains existing SandboxedCogExecutor"
+          "sha256": "22ff6dac13a51d6a0317ae61ba0f0347ac3aad33c1af165aa9142ef7548948a9",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
+        },
+        {
+          "path": "src/potbot/controller/sandbox_transport.py",
+          "symbol": "reconcile_queue_effect",
+          "sha256": "d23794de82f4b64352ed2aff99e81450db0e60ca7d550d7f4eef523d42293a6a",
+          "basis": "U01-A queue and settlement source."
+        },
+        {
+          "path": "src/potbot/controller/budgets.py",
+          "symbol": "BudgetLedger",
+          "sha256": "a78431f2bc4ed8c2c91212be11f0f626bd09a3328749c2a2118bc4a14aa88ae1",
+          "basis": "U01-A queue and settlement source."
+        },
+        {
+          "path": "src/potbot/tools/queue_transport_worker.py",
+          "symbol": "target_result",
+          "sha256": "6e6690c82cfbfb4dc5ed96eba7d7480ff85bd95a4c87fcc3987be2cb946570ca",
+          "basis": "U01-A queue and settlement source."
         }
       ],
       "tests": [
         {
           "path": "tests/integration/test_sandbox_transport_recovery.py",
           "symbol": "test_transport_effect_recovery_across_worker_and_journal_faults",
-          "sha256": "9a281ec7b74a4fa96fedef29ae156ecdc0a59e48d4621a43b58ee8faf7b80381",
-          "basis": "Real PostgreSQL test definition with explicitly simulated worker RPC; exact follow-on CI retained separately"
+          "sha256": "f65bc53b0e5768e3467866d7499ce1f1cbd106a9520aa3b4efe659fe86db5744",
+          "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
+        },
+        {
+          "path": "tests/integration/test_sandbox_transport_recovery.py",
+          "symbol": "test_real_stdio_queue_reconciles_receipts_and_settles_once",
+          "sha256": "f65bc53b0e5768e3467866d7499ce1f1cbd106a9520aa3b4efe659fe86db5744",
+          "basis": "PostgreSQL and standard Bubblewrap fault test with a real stdio queue target and development Syn."
         }
       ],
-      "assessment": "U01-A starts with a committed dispatch marker, durable unresolved-write lane and owner-scoped receipt inspection over the existing PostgreSQL execution journal. The worker is entered only after the durable marker; no host transport factory is admitted.",
-      "support_scope": "Mutating API/MCP/script work, stable workspace/kind/operation reference, no replay or settlement on inspection; first increment only.",
+      "assessment": "U01-A connects a durable local queue over stdio inside the admitted sandbox worker. The target proves application or cancellation by effect ID, and the journal commits that outcome with one settlement of its existing budget reservation.",
+      "support_scope": "One operator-provisioned local SQLite queue per registered agent. Explicit recovery with fresh authorization, target-bound receipts, atomic cancellation and conservative settlement. The integration fixture uses real PostgreSQL and a standard Bubblewrap worker.",
       "remaining": [
-        "Bind a controlled service inside the existing admitted worker and verify target outcome evidence",
-        "Add stable logical effect identity, operator reconciliation and exactly-once budget settlement",
-        "Qualify concurrent admission and representative journal lookup cost; retain live Syn/host gates"
+        "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
+        "Give any additional transport provider an equivalent receipt or cancellation contract before admission."
       ],
-      "next_action": "Run the exact-source PostgreSQL fault test, then extend the admitted worker and existing budget/receipt owners; preserve the unresolved-write hold."
+      "next_action": "Qualify the supported native host configuration before live deployment and keep additional transport producers gated on provider evidence."
     }
   ]
 }

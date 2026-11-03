@@ -9,7 +9,9 @@ from typing import Any
 from uuid import UUID
 
 from potbot.cogs.contracts import CogRunContext, CogSignature, TypedCogValue
+from potbot.controller.budgets import BudgetLedger
 from potbot.controller.execution_events import ExecutionEventService
+from potbot.controller.sandbox_transport import QueueEffect, attempt, effect_episode
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.execution_events import ExecutionEventInput
 from potbot.domain.serialization import canonical_json, content_hash
@@ -44,6 +46,7 @@ def inspect_sandbox_transport_effect(
             "WHERE c.workspace_id=%s AND c.run_id=%s AND c.owner_principal_id=%s",
             (TRANSPORT_DISPATCH_PHASE, actor.workspace_id, run_id, actor.principal_id),
         ).fetchone()
+        managed = attempt(connection, actor, run_id) if row else None
     if row is None or row["scope"].get("transport_effect_profile") != TRANSPORT_EFFECT_PROFILE:
         raise ScopeDeniedError("Transport effect record is unavailable in this scope")
     if content_hash(row["scope"]) != row["scope_hash"]:
@@ -64,7 +67,7 @@ def inspect_sandbox_transport_effect(
         state = "stopped_before_dispatch"
     else:
         state = "intent_recorded"
-    return {
+    result = {
         "run_id": str(run_id),
         "state": state,
         "dispatch_marker_recorded": dispatched,
@@ -73,6 +76,14 @@ def inspect_sandbox_transport_effect(
         "external_effect_verified": False,
         "automatic_retry_permitted": False,
     }
+    if managed is not None:
+        result["queue_state"] = managed["state"]
+        result["target_receipt"] = managed["receipt"]
+        result["budget_reservation_id"] = str(managed["reservation_id"])
+        result["external_effect_verified"] = managed["state"] == "applied"
+        if managed["state"] in {"applied", "cancelled"}:
+            result["state"] = "queue_" + managed["state"]
+    return result
 
 
 class PinnedExecutionJournal:
@@ -91,6 +102,7 @@ class PinnedExecutionJournal:
         binding: WorkBinding,
         emitter: UUID,
         isolated_transport_effect: bool = False,
+        queue_effect: QueueEffect | None = None,
     ) -> None:
         from potbot.cogs.artifact_ranges import RANGE_COGS, artifact_range_snapshot
         from potbot.cogs.artifact_uploads import UPLOAD_COGS, artifact_upload_snapshot
@@ -99,6 +111,8 @@ class PinnedExecutionJournal:
 
         allowed: tuple[CogSignature, ...] = EXECUTION_COGS
         expected_catalog = execution_cog_snapshot().fingerprint
+        if context.cog_snapshot_hash == execution_cog_snapshot(queue_transport=True).fingerprint:
+            expected_catalog = context.cog_snapshot_hash
         if context.cog_snapshot_hash != expected_catalog:
             expected_catalog = artifact_range_snapshot().fingerprint
             allowed = (*EXECUTION_COGS, *RANGE_COGS)
@@ -136,6 +150,17 @@ class PinnedExecutionJournal:
                 raise ScopeDeniedError("Transport intent requires an installed mutating work route")
             self.scope["transport_effect_profile"] = TRANSPORT_EFFECT_PROFILE
         self.isolated_transport_effect = isolated_transport_effect
+        self.queue_effect = queue_effect
+        if queue_effect is not None:
+            if not isolated_transport_effect:
+                raise ScopeDeniedError("Queue effect requires isolated transport admission")
+            self.scope["queue_effect"] = {
+                "target_id": queue_effect.target,
+                "effect_id": queue_effect.effect,
+                "request_sha256": queue_effect.digest,
+                "installation_sha256": queue_effect.installation,
+                "agent_id": str(queue_effect.agent_id),
+            }
         self.scope_hash = content_hash(self.scope)
 
     def _require_clear_transport_lane(self, connection: Any, run_id: UUID) -> None:
@@ -148,7 +173,10 @@ class PinnedExecutionJournal:
             "AND run_id=c.run_id ORDER BY sequence DESC LIMIT 1) e ON true "
             "WHERE c.workspace_id=%s AND c.run_id<>%s AND c.scope->>'kind'=%s "
             "AND c.scope->>'operation_ref'=%s AND c.scope->>'effect_class'<>'read_only' "
-            "AND e.stage IN ('started','updated','indeterminate') LIMIT 1",
+            "AND e.stage IN ('started','updated','indeterminate') "
+            "AND NOT EXISTS (SELECT 1 FROM sandbox_transport_attempts a "
+            "WHERE a.workspace_id=c.workspace_id AND a.run_id=c.run_id "
+            "AND a.state IN ('applied','cancelled')) LIMIT 1",
             (self.actor.workspace_id, run_id, self.binding.kind, self.binding.operation_ref),
         ).fetchone()
         if pending:
@@ -177,10 +205,13 @@ class PinnedExecutionJournal:
             or self.artifacts.read(actor, input_id) != expected
         ):
             raise StateMismatchError("Private input bytes differ from the admitted invocation")
+        output: Any = None
         if event.output_artifact_ref:
             raw = self.artifacts.read(actor, self._artifact(event.output_artifact_ref))
             if hashlib.sha256(raw).hexdigest() != event.output_sha256:
                 raise StateMismatchError("Output artifact bytes differ from the completion digest")
+            if self.queue_effect is not None:
+                output = json.loads(raw)
         telemetry = json.loads(event.telemetry_json)
         if any(
             telemetry.get(k) != v
@@ -201,6 +232,17 @@ class PinnedExecutionJournal:
         telemetry["clock_uncertainty_ms"] = self.binding.policy.host_clock_uncertainty_ms
         transport_marker = telemetry.get("phase") == TRANSPORT_DISPATCH_PHASE
         with self.db.transaction(actor) as connection:
+            episode = None
+            if self.queue_effect is not None and (
+                event.stage in {"started", "completed", "failed", "cancelled"} or transport_marker
+            ):
+                episode = effect_episode(
+                    connection,
+                    actor,
+                    self.context.task_revision_id,
+                    self.context.repository_state_id,
+                    active=event.stage == "started" or transport_marker,
+                )
             self.service._lock_cursor(connection, actor)
             previous = connection.execute(
                 "SELECT * FROM syn_execution_events WHERE workspace_id=%s AND run_id=%s "
@@ -348,6 +390,30 @@ class PinnedExecutionJournal:
                 ).fetchone()
                 if active_child:
                     raise ScopeDeniedError("Parent cannot finish while a child is active")
+            if self.queue_effect is not None and episode is not None:
+                ledger = BudgetLedger(self.db)
+                if event.stage == "started":
+                    self.queue_effect.reserve(connection, ledger, actor, event.run_id, episode)
+                else:
+                    held = attempt(connection, actor, event.run_id)
+                    if transport_marker:
+                        if held is None or held["state"] != "prepared":
+                            raise StateMismatchError(
+                                "Queue intent no longer holds dispatch authority"
+                            )
+                        connection.execute(
+                            "UPDATE sandbox_transport_attempts SET state='dispatched' "
+                            "WHERE workspace_id=%s AND run_id=%s",
+                            (actor.workspace_id, event.run_id),
+                        )
+                    elif event.stage == "completed":
+                        if held is None or output is None:
+                            raise StateMismatchError("Queue completion requires its target receipt")
+                        self.queue_effect.finish(
+                            connection, ledger, actor, held, output["value"]["result"]["value"]
+                        )
+                    elif held is not None:
+                        self.queue_effect.finish(connection, ledger, actor, held, None)
             return self.service._append(
                 connection,
                 actor,
