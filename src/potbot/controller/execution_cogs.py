@@ -17,7 +17,11 @@ from potbot.controller.child_plans import (
     execute_child_plan,
 )
 from potbot.controller.cog_work import CogWorkMonitor, CogWorkRun
-from potbot.controller.execution_journal import PinnedExecutionJournal
+from potbot.controller.execution_journal import (
+    TRANSPORT_DISPATCH_PHASE,
+    TRANSPORT_EFFECT_KINDS,
+    PinnedExecutionJournal,
+)
 from potbot.domain.errors import (
     IndeterminateExecutionError,
     InvalidInputError,
@@ -377,6 +381,11 @@ class ExecutionCogRuntime:
                 "read_only",
                 self.policy,
             )
+        transport_effect = (
+            isinstance(op, SandboxedCogOperation)
+            and kind in TRANSPORT_EFFECT_KINDS
+            and binding.effect_class != "read_only"
+        )
         journal = PinnedExecutionJournal(
             self.db,
             self.artifacts,
@@ -387,6 +396,7 @@ class ExecutionCogRuntime:
             context=context,
             binding=binding,
             emitter=self.emitter,
+            isolated_transport_effect=transport_effect,
         )
         monitor = CogWorkMonitor(
             journal, self.artifacts, self.actor, emitter_run_id=self.emitter, event_type_ref=EVENT
@@ -422,21 +432,29 @@ class ExecutionCogRuntime:
             self._admission(signature, source, context)
             if source.fingerprint != original_hash:
                 raise StateMismatchError("Work input changed before dispatch")
-            dispatched = True
+            dispatched = not transport_effect
             call = ExecutionCall(self, work, depth)
             if op:
                 # The timeout task owns callbacks; no detached task inherits its grant.
                 async def run() -> TypedCogValue:
+                    nonlocal dispatched
                     call.owner = asyncio.current_task()
                     self._live[context.invocation_id] = call
                     try:
                         if isinstance(op, SandboxedCogOperation):
                             if self.sandbox_executor is None or self.sandbox_agent_id is None:
                                 raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
-                            call.progress("sandbox_worker_dispatched")
+                            if not transport_effect:
+                                call.progress("sandbox_worker_dispatched")
                             syn_grant = self.sandbox_executor.authorize_syn(
                                 op, typed, context, self.actor, self.sandbox_agent_id
                             )
+                            if transport_effect:
+                                # Write-ahead evidence must commit before calling
+                                # the only authorized worker executor. A storage
+                                # failure never falls back to a host transport.
+                                dispatched = True
+                                call.progress(TRANSPORT_DISPATCH_PHASE)
                             response = await self.sandbox_executor.execute(
                                 op,
                                 typed,
