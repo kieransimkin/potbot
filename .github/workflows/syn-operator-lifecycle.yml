@@ -1,0 +1,82 @@
+name: Official Syn operator lifecycle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/potbot/syn_release/**'
+      - 'scripts/qualify_syn_operator_transition.py'
+      - '.github/workflows/syn-operator-lifecycle.yml'
+  pull_request:
+    paths:
+      - 'src/potbot/syn_release/**'
+      - 'scripts/qualify_syn_operator_transition.py'
+      - '.github/workflows/syn-operator-lifecycle.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  official-operator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.11-bookworm
+        env:
+          POSTGRES_USER: syn_ci
+          POSTGRES_PASSWORD: syn_ci_disposable_only
+          POSTGRES_DB: syn_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U syn_ci -d syn_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Synsphere/syn
+          # Reviewed public pins and native keystore fixture only.
+          ref: 9cd898692aeea5ea336930057647d4393bf9af9d
+          path: syn-fixture
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.23"
+          python-version: "3.12"
+          enable-cache: false
+      - name: Install native Linux prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus-user-session libgmp-dev
+          uv sync --locked --extra security
+      - name: Verify official upgrade, migration and rollback
+        env:
+          POTBOT_SYN_GITHUB_TOKEN: ${{ github.token }}
+        run: uv run --locked --extra security python scripts/qualify_syn_operator_transition.py syn-fixture
+      - name: Record routine qualification assessment
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          mkdir -p artifacts/syn-r06
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path("artifacts/syn-r06/assessment.json").write_text(json.dumps({
+              "Blogworthiness": "FAIL",
+              "reason": "Routine repeat of the disposable operator lifecycle gate. The owning delivery assesses the original result.",
+              "result": os.environ["RESULT"],
+              "source_evidence": [os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"]],
+          }) + "\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: syn-operator-lifecycle
+          path: artifacts/syn-r06/
+          if-no-files-found: error
+          retention-days: 30

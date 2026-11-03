@@ -30,6 +30,49 @@ flowchart TD
 development. Production identity and official-release node acceptance are
 recorded separately and are not implied by this diagram.*
 
+## Switch the release for an existing operator
+
+Stage the target with the [release installer](syn-release-installation.md#stage-a-runtime-upgrade).
+Stop the supervised operator and quiesce enrollment maintenance. Supply the
+current and target private policies on the native host.
+
+```bash
+potbot syn-operator switch-release --store /operator/syn-packages \
+  --operator-root /operator/deployment --policy /operator/policy/current.json \
+  --target-policy /operator/policy/target.json
+```
+
+The switch supports the exact official 0.2.1 → 0.3.1 and 0.3.1 → 0.4.0
+operator packages. 0.4.0 → 0.3.1 is the supported package rollback when the
+current policy allows the older target. 0.2.1 predates the anchored adoption
+journal. A return to that package requires separate state qualification.
+
+```mermaid
+flowchart LR
+    A[Stop operator and stage verified target] --> B[Both packages validate the same native state]
+    B --> C[Atomically switch the package registration]
+    C --> D[Restart with target policy and authenticate the retained identity]
+    D --> E[Verify enrollment continuity]
+```
+
+The command holds the existing supervisor lock and refuses a remaining socket,
+incompatible policies, or disagreement between the official preflight reports.
+The registered installation changes atomically. The native keystore, operator
+configuration and authority files stay at their current paths. Start the
+supervisor with the target policy and check authenticated attachment. A service
+configured with a fixed old policy path requires explicit service reconciliation
+before its next start. The switch returns a receipt and does not start a process.
+
+The disposable [official lifecycle workflow](../../.github/workflows/syn-operator-lifecycle.yml)
+uses signed releases, real Linux Secret Service and PostgreSQL. It exercises the
+operator upgrade and rollback with a retained reservation, verifies refusal of
+rewound authority bytes, and runs the packaged PostgreSQL migration from
+`20261023_0014` to `20261024_0015` separately. The selected operator releases
+advertise the same Alembic head. The PostgreSQL test also reopens the migrated
+database with 0.3.1 and verifies that the schema and data stay at the new head.
+The diagram describes the headless command sequence. The workflow receipt
+records the actual observations without exposing terminal or custody data.
+
 ## Host preparation
 
 `potbot syn-operator host-setup` installs a dedicated

@@ -44,11 +44,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     setup.add_argument("--controller-wheel", type=Path)
     setup.add_argument("--controller-sha256")
-    for name in ("unlock", "bootstrap", "attach", "serve", "install-service"):
+    for name in ("unlock", "bootstrap", "attach", "serve", "install-service", "switch-release"):
         sub = commands.add_parser(name)
         sub.add_argument("--store", type=Path, required=True)
         sub.add_argument("--policy", type=Path, required=True)
         sub.add_argument("--operator-root", type=Path, required=True)
+        if name == "switch-release":
+            sub.add_argument("--target-policy", type=Path, required=True)
         if name == "bootstrap":
             sub.add_argument("--new-identity", action="store_true", required=True)
             sub.add_argument("--keyring-service", required=True)
@@ -103,6 +105,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             elif args.operation == "attach":
                 value = deployment.attach()
+            elif args.operation == "switch-release":
+                from .operator_transition import switch_release
+
+                value = switch_release(deployment, Policy.parse(private_read(args.target_policy)))
             else:
                 stopped = threading.Event()
                 for sig in (signal.SIGINT, signal.SIGTERM):
