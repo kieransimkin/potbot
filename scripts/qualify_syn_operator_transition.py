@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 
 OLDER_SCHEMA = "20261023_0014"
@@ -55,7 +56,7 @@ def native(upstream, base, consumer, pythons):
     def syn(version, operation):
         return command([pythons[version], "-I", "-B", "-m", "syn.operator", operation, *config])
 
-    def run_and_attach(version):
+    def run_and_attach(version, *, busy_target=None):
         import signal
         import time
 
@@ -75,6 +76,14 @@ def native(upstream, base, consumer, pythons):
                         proof = operator(version, "attach")["attestation"]["status"]
                         assert proof["pid"] == receipt["pid"]
                         assert proof["runtime"]["runtime_version"] == version
+                        if busy_target is not None:
+                            rejected = subprocess.run(
+                                switch_command(version, busy_target),
+                                capture_output=True,
+                                timeout=30,
+                            )
+                            assert rejected.returncode == 2
+                            assert "Another supervisor" in json.loads(rejected.stdout)["message"]
                         return proof
                 time.sleep(0.2)
             raise AssertionError("Official operator did not reach authenticated readiness")
@@ -90,8 +99,11 @@ def native(upstream, base, consumer, pythons):
             assert child.returncode == 0
             assert json.loads((root / "lifecycle.json").read_bytes())["state"] == "stopped"
 
+    def switch_command(old, new):
+        return [*potbot, "switch-release", *args(old), "--target-policy", str(policies[new])]
+
     def switch(old, new):
-        return operator(old, "switch-release", "--target-policy", str(policies[new]))
+        return command(switch_command(old, new))
 
     # This script runs under the candidate's official interpreter. A separate
     # installed baseline subprocess owns the actual reservation and replay check.
@@ -162,7 +174,7 @@ else:
         syn(middle, "adoption-init")
         journal = (state / "adoptions.json").read_bytes()
         receiver = syn(middle, "agent-pulse")["body"]["encryption_public_key"]
-        upgraded = run_and_attach(middle)
+        upgraded = run_and_attach(middle, busy_target=latest)
         authority = state / "authority.json"
         stale = authority.read_bytes()
         assert switch(middle, latest)["restart_required"]
@@ -185,30 +197,30 @@ else:
         reserve[0] = pythons[middle]
         assert command(reserve)["reserved"] is False
         current = authority.read_bytes()
+        registration = root / "operator-registration.json"
+        retained = registration.read_bytes()
         try:
             authority.write_bytes(stale)
             refused = subprocess.run(
-                [pythons[middle], "-I", "-B", "-m", "syn.operator", "preflight", *config],
+                switch_command(middle, latest),
                 capture_output=True,
-                timeout=30,
+                timeout=60,
             )
             assert refused.returncode == 2
+            assert registration.read_bytes() == retained
         finally:
             authority.write_bytes(current)
         syn(middle, "preflight")
-        print(
-            json.dumps(
-                {
-                    "versions": [item["runtime"]["runtime_version"] for item in observations],
-                    "boot_counters": [item["boot"] for item in observations],
-                    "same_operator_identity": True,
-                    "enrollment_count": 1,
-                    "duplicate_reservation_refused": True,
-                    "adoption_journal_preserved": True,
-                    "stale_authority_state_refused": True,
-                }
-            )
-        )
+        return {
+            "versions": [item["runtime"]["runtime_version"] for item in observations],
+            "boot_counters": [item["boot"] for item in observations],
+            "same_operator_identity": True,
+            "enrollment_count": 1,
+            "duplicate_reservation_refused": True,
+            "adoption_journal_preserved": True,
+            "stale_authority_state_refused": True,
+            "running_supervisor_fenced_switch": True,
+        }
 
 
 def database(pythons):
@@ -308,6 +320,12 @@ def main(upstream):
 
 if __name__ == "__main__":
     if sys.argv[1] == "--native":
-        native(Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4], json.loads(sys.argv[5]))
+        # The reused native fixture prints progress before the final receipt.
+        # Keep the process output readable without mixing progress into JSON.
+        with redirect_stdout(sys.stderr):
+            result = native(
+                Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4], json.loads(sys.argv[5])
+            )
+        print(json.dumps(result))
     else:
         main(Path(sys.argv[1]))
