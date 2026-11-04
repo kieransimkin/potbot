@@ -128,15 +128,16 @@ After a result, the session refuses further context reads.
 
 PostgreSQL retains the result and revokes the session for both exits. A clean
 exit with a complete audit lets the controller accept the output and release
-the workspace lease. A nonzero exit leaves the lease indeterminate even when
-the result reached PostgreSQL and the worker cgroup was cleaned up.
+the workspace lease. After a nonzero exit, the controller stops renewing the
+lease. It blocks conflicting work immediately and becomes indeterminate at
+expiry, even when the result reached PostgreSQL and the cgroup was cleaned up.
 
 ```mermaid
 flowchart LR
     R[Guest submits a framed work result] --> D[PostgreSQL stores it and fences the session]
     D --> A[Linux audit confirms cleanup]
     A -->|Clean exit| C[Accept output and release workspace lease]
-    A -->|Nonzero exit| F[Keep workspace lease indeterminate]
+    A -->|Nonzero exit| F[Keep workspace fenced through lease expiry]
 ```
 
 The test uses the development Syn relay. The deployed image, released Syn

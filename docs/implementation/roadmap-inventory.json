@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "dd6c6bcc34b2518d03f4798f573a168c66412d6d20c3afe0e706ad410588a321",
-      "bytes": 7317,
+      "sha256": "365a458055d2254f821d90899b4bb26e9e843d708aa2a2efd8d43ad68880da22",
+      "bytes": 7411,
       "kind": "narrative_text",
-      "text_sha256": "dd6c6bcc34b2518d03f4798f573a168c66412d6d20c3afe0e706ad410588a321",
-      "characters": 7314,
-      "lines": 148,
+      "text_sha256": "365a458055d2254f821d90899b4bb26e9e843d708aa2a2efd8d43ad68880da22",
+      "characters": 7408,
+      "lines": 149,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "868ba82a297e546dbe8f1109628fa3adfa5d000b0e30e41f7163388a7cb4b4cd",
+  "review_sha256": "3b92484846a4c16d1a53dc7ae9968fb7ac89e7fec059be85072fc85d623699ee",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112537,8 +112537,8 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:121-148",
-      "sha256": "522f54a916819bcdba852a79beff12df8e249e4eebc9b877a00318a1691fe383",
+      "locator": "line:121-149",
+      "sha256": "f43bd66e8b77aa1d838904173dc6458f469a5b0d5117feb62cbab6441e502c65",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
         "accounting"
@@ -121557,7 +121557,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "8dbc02556b84814c86a2cb981205219b1dea556fc1a7800b054c54502c7ae49f",
+          "sha256": "dc2ba89a4fb35e3e6702ce18a91e70e6710d26bff4ddb8136c81120d614d1d1f",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
@@ -122632,7 +122632,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "8dbc02556b84814c86a2cb981205219b1dea556fc1a7800b054c54502c7ae49f",
+          "sha256": "dc2ba89a4fb35e3e6702ce18a91e70e6710d26bff4ddb8136c81120d614d1d1f",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],

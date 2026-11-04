@@ -11,6 +11,7 @@ import subprocess
 import sys
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -18,6 +19,7 @@ import pytest
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
 from potbot.context.service import WorkspaceContextService
 from potbot.domain.errors import StateMismatchError
+from potbot.tools import workspace_concurrency
 from potbot.tools.agent_homes import AgentHomeRegistry
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
@@ -30,6 +32,7 @@ from potbot.tools.shared_workspace_isolation import (
 from potbot.tools.supervisor import ProcessSupervisor
 from potbot.tools.syn_worker_nodes import SynWorkerNodeMesh
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
+from potbot.tools.workspace_supervision import WorkspaceExecutorIdentity, WorkspaceLeaseGuard
 from tests.integration.conftest import AppEnvironment
 from tests.integration.test_worker_audit_linux import monitored_cog_cgroup, prepare_busybox_rootfs
 
@@ -37,6 +40,7 @@ _PROBE = """\
 import errno
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 sys.path.insert(0, "/opt/potbot")
@@ -133,7 +137,7 @@ for path in sorted({getattr(module, "__file__", "") or "" for module in sys.modu
     reason="requires disposable Linux cgroup, TASKSTATS and PostgreSQL",
 )
 def test_registered_context_rpc_result_requires_audited_worker_exit(
-    tmp_path: Path, app_env: AppEnvironment
+    tmp_path: Path, app_env: AppEnvironment, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     rootfs = tmp_path / "image"
     prepare_busybox_rootfs(rootfs)
@@ -233,7 +237,28 @@ def test_registered_context_rpc_result_requires_audited_worker_exit(
                 ):
                     asyncio.run(executor.execute(failing, value, context, actor, agent))
                 (retained,) = ledger.active(workspace)
-                assert retained["state"] == "indeterminate"
+                assert retained["state"] == "active"
+                next_work = WorkspaceLeaseGuard.exclusive_home(
+                    ledger,
+                    WorkspaceExecutorIdentity(workspace, agent, runtime.image_digest),
+                    operation="cog.sandbox.execute",
+                    idempotency_key="cog-" + uuid4().hex,
+                )
+                with pytest.raises(StateMismatchError, match="conflicting or indeterminate"):
+                    ledger.claim(next_work.request)
+                expires = retained["expires_ns"]
+                assert type(expires) is int
+                # Advance only the ledger clock after the real worker has stopped.
+                with monkeypatch.context() as clock:
+                    clock.setattr(
+                        workspace_concurrency,
+                        "time",
+                        SimpleNamespace(time_ns=lambda now=expires + 1: now),
+                    )
+                    (expired,) = ledger.active(workspace)
+                    assert expired["state"] == "indeterminate"
+                    with pytest.raises(StateMismatchError, match="conflicting or indeterminate"):
+                        ledger.claim(next_work.request)
 
             receipt = verify_gui_run(audit, workspace, run, identity_kind="agent", subject_id=agent)
             assert receipt["qualified"] is True and receipt["tracedProcesses"] >= 2
