@@ -35680,11 +35680,11 @@
     },
     {
       "path": ".github/workflows/context-agent-rpc.yml",
-      "sha256": "dfb6ae758433cbeda6f6957744ba15cf4c1c1eef038f69b2a9c5446f37e5c718",
-      "bytes": 6582,
+      "sha256": "187bcba9d4858c5606bd125209485652649d5e7240a4694247c9e7537cffdf9b",
+      "bytes": 6604,
       "kind": "narrative_text",
-      "text_sha256": "dfb6ae758433cbeda6f6957744ba15cf4c1c1eef038f69b2a9c5446f37e5c718",
-      "characters": 6582,
+      "text_sha256": "187bcba9d4858c5606bd125209485652649d5e7240a4694247c9e7537cffdf9b",
+      "characters": 6604,
       "lines": 131,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "30079d6394a9ed28c34a2df116432d750052cf3eb54dc92b6362f6b7aeac7688",
+  "review_sha256": "224ff13408dcc4566ca75e89543af5e3aa416073613415e0672022db354e8f18",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -121557,7 +121557,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "8877cf7cce93ea3fe697c1c590677652e9f50ebddaaaa8d4d75de60a3106be30",
+          "sha256": "0a5f2384d6555bbfea501dec3f9588efe376f0b05d2be28c506b511d04ee1c54",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
@@ -122632,7 +122632,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "8877cf7cce93ea3fe697c1c590677652e9f50ebddaaaa8d4d75de60a3106be30",
+          "sha256": "0a5f2384d6555bbfea501dec3f9588efe376f0b05d2be28c506b511d04ee1c54",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],

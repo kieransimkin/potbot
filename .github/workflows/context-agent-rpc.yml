@@ -80,7 +80,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends strace bubblewrap busybox-static
           strace --pidns-translation -o /dev/null -- /usr/bin/true
-          sudo env POTBOT_TEST_WORKER_CGROUP=1 POTBOT_REQUIRE_WORKER_TASKSTATS=1 POTBOT_TEST_DSN="$POTBOT_TEST_DSN" \
+          sudo env POTBOT_TEMP_ROOT=/tmp POTBOT_TEST_WORKER_CGROUP=1 POTBOT_REQUIRE_WORKER_TASKSTATS=1 POTBOT_TEST_DSN="$POTBOT_TEST_DSN" \
             .venv/bin/python -m pytest -p no:cacheprovider -q tests/integration/test_monitored_context_rpc.py \
             --junitxml=artifacts/context-integration/monitored-worker.xml
       - name: Require executed lifecycle and monitored worker acceptance

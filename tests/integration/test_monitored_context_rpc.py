@@ -121,7 +121,7 @@ for path in sorted({getattr(module, "__file__", "") or "" for module in sys.modu
     (rootfs / "opt/potbot/context-probe.py").write_text(_PROBE, encoding="utf-8")
     entrypoint = rootfs / "bin/context-probe"
     entrypoint.write_text(
-        f'#!/bin/sh\\nexec {interpreter} -I -S -B /opt/potbot/context-probe.py "$@"\\n',
+        f'#!/bin/sh\nexec {interpreter} -I -S -B /opt/potbot/context-probe.py "$@"\n',
         encoding="utf-8",
     )
     entrypoint.chmod(0o555)
