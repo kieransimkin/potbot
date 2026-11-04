@@ -1274,12 +1274,12 @@
     },
     {
       "path": "docs/implementation/syn-r07-release-parity.md",
-      "sha256": "c58820d4a9c5943e078dbce1764cef90ba2057ebf8ef756188b1693f8e514712",
-      "bytes": 6223,
+      "sha256": "80336f5cb5695fb3e73c0b05bbbf1d32c0d33cd0b75d3c2d80b11f31395d4540",
+      "bytes": 7558,
       "kind": "narrative_text",
-      "text_sha256": "c58820d4a9c5943e078dbce1764cef90ba2057ebf8ef756188b1693f8e514712",
-      "characters": 6221,
-      "lines": 72,
+      "text_sha256": "80336f5cb5695fb3e73c0b05bbbf1d32c0d33cd0b75d3c2d80b11f31395d4540",
+      "characters": 7556,
+      "lines": 90,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -30428,7 +30428,7 @@
         "Resolve open PR1 submodule/private-build assumptions against mandatory independent release consumption",
         "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
-      "next_action": "Qualify the missing official capabilities and reconcile retained signed records before deleting the transitional package and legacy-only jobs.",
+      "next_action": "Land the qualified Potbot controller, account for each retained legacy record and caller with its owner, then test a coordinated removal candidate against the pinned official release.",
       "review_families": [
         "identity",
         "syn-mesh",
@@ -30443,7 +30443,7 @@
         "U06",
         "U16"
       ],
-      "assessment": "The released local multi-Agent acceptance is separated from LAN enrollment, empty-keystore recovery, legacy public receipt and retained-state handling, and membership revocation. The latter coverage holds transitional-runtime removal."
+      "assessment": "Disposable Syn 0.8.0 qualification covers LAN enrollment, native recovery, archival readback and membership revocation. Potbot excludes the transitional runtime from build artifacts while the checkout retains its historical tests."
     },
     {
       "key": "tool-cog-contract:C01",
@@ -35988,7 +35988,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "65529d573a3d5dc040a18da94834bd55af94aca72425d69d1e0aea87e1ffc2f0",
+  "review_sha256": "8c10cf987ec66c18dc91a52434ee5d09a50e125e2e13c463973e9f2891b70392",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115853,9 +115853,9 @@
     },
     {
       "source": "docs/implementation/syn-r07-release-parity.md",
-      "locator": "line:1-7",
-      "sha256": "aaab9bc48bf8943efb759d1bf9f74a72398f102a10c0d8c11faa6f737b670471",
-      "excerpt": "# SYN-R07 official-release parity\n\n**Removal gate: held.** The official release supports the current local native\nAgent flow. Some capabilities in the standalon",
+      "locator": "line:1-8",
+      "sha256": "6a8de338dbccd7f799cb7683fc7493867fa7fd5c5340396c0effa6d8443060ba",
+      "excerpt": "# SYN-R07 official-release parity\n\n**Removal gate held.** Syn 0.8.0 and the exact Potbot controller below are\nqualified for disposable Agent enrollment, private",
       "review_families": [
         "identity",
         "syn-mesh",
@@ -115865,9 +115865,9 @@
     },
     {
       "source": "docs/implementation/syn-r07-release-parity.md",
-      "locator": "line:8-23",
-      "sha256": "1a31b38f2fed0d7415774d59196dc9f55f34db1bd41b64f70369ffcc2674578c",
-      "excerpt": "## Tested identities\n\n- Potbot consumer `489203fd21e6891738b4f3cf2abd120b552597f2`.\n- Transitional `syn-node/` tree `ac34b663b65999744a74ac872931198dc3734e85`.\n",
+      "locator": "line:9-24",
+      "sha256": "41cc0528329109af194d7189f3d483565ceb6de94240ea8fa361365353235c08",
+      "excerpt": "## Qualification pins\n\n| Item | Exact pin |\n| --- | --- |\n| Official Syn | `0.8.0`, source `74f6ef75d77ab6aa00fb49d30ec446e3a6d4ebcd` |\n| Signed manifest SHA-25",
       "review_families": [
         "identity",
         "syn-mesh",
@@ -115877,9 +115877,9 @@
     },
     {
       "source": "docs/implementation/syn-r07-release-parity.md",
-      "locator": "line:24-47",
-      "sha256": "80a9f505fb0d24f0984e6c643f67981c5d232dd6070a1d778fed46ed9334bb47",
-      "excerpt": "## Parity evidence\n\n| Behavior | Evidence and result |\n| --- | --- |\n| Operator identity, selected-leaf adoption, native group custody and local IPC | **Pass on",
+      "locator": "line:25-40",
+      "sha256": "7bc90ea3e2e5150703d6a316aff9ee70c2555865b32dfb5d63d1556359d92222",
+      "excerpt": "## Parity evidence\n\n| Behavior | Result and scope |\n| --- | --- |\n| Signed LAN discovery, protected pledge intake and explicit reservation | **Pass on 0.8.0.** ",
       "review_families": [
         "identity",
         "syn-mesh",
@@ -115889,9 +115889,21 @@
     },
     {
       "source": "docs/implementation/syn-r07-release-parity.md",
-      "locator": "line:48-72",
-      "sha256": "123921817caf30f7d56a8703be4b5242ce5f7dfef8dba37073b42eb5e614e30a",
-      "excerpt": "## Required before removal\n\nPotbot\u2019s normal package and sandbox use the released Syn path. The transitional\ndistribution is separately installable. Its runtime ",
+      "locator": "line:41-53",
+      "sha256": "97fb2be8415cc5d5c5e57fe7984418a0047135054e4e81f0cffcad6e9760c43f",
+      "excerpt": "## Disposition of the Phase 42 interfaces\n\n| Historical surface | Replacement and disposition |\n| --- | --- |\n| `scripts/syn_phase42_preflight.py` and `SynStart",
+      "review_families": [
+        "identity",
+        "syn-mesh",
+        "syn-operations",
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/syn-r07-release-parity.md",
+      "locator": "line:54-90",
+      "sha256": "d702801da8448e887c39096d213f2475fddfb1cf87d03a04cafcc3a0cc90424f",
+      "excerpt": "## Cutover and removal\n\n```mermaid\nflowchart LR\n    A[Verify one official release and controller] --> C[Review the removal candidate]\n    B[Inventory and archiv",
       "review_families": [
         "identity",
         "syn-mesh",

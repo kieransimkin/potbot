@@ -68253,7 +68253,7 @@
     },
     {
       "path": "docs/implementation/syn-r07-release-parity.md",
-      "sha256": "c58820d4a9c5943e078dbce1764cef90ba2057ebf8ef756188b1693f8e514712",
+      "sha256": "80336f5cb5695fb3e73c0b05bbbf1d32c0d33cd0b75d3c2d80b11f31395d4540",
       "families": [
         "identity",
         "syn-mesh",
@@ -68261,11 +68261,11 @@
         "syn-release"
       ],
       "disposition": "reviewed_follow_on_implementation_narrative",
-      "assessment": "Exact official-release and legacy-source comparison records coverage and holds transitional-runtime removal.",
+      "assessment": "Pinned Syn 0.8.0 and the reviewed controller have disposable Agent, operator recovery and legacy archive evidence. The retirement checklist accounts for historical interfaces and holds removal pending owner disposition and final acceptance.",
       "narrative": [
         {
-          "locator": "line:1-7",
-          "sha256": "aaab9bc48bf8943efb759d1bf9f74a72398f102a10c0d8c11faa6f737b670471",
+          "locator": "line:1-8",
+          "sha256": "6a8de338dbccd7f799cb7683fc7493867fa7fd5c5340396c0effa6d8443060ba",
           "families": [
             "identity",
             "syn-mesh",
@@ -68274,8 +68274,8 @@
           ]
         },
         {
-          "locator": "line:8-23",
-          "sha256": "1a31b38f2fed0d7415774d59196dc9f55f34db1bd41b64f70369ffcc2674578c",
+          "locator": "line:9-24",
+          "sha256": "41cc0528329109af194d7189f3d483565ceb6de94240ea8fa361365353235c08",
           "families": [
             "identity",
             "syn-mesh",
@@ -68284,8 +68284,8 @@
           ]
         },
         {
-          "locator": "line:24-47",
-          "sha256": "80a9f505fb0d24f0984e6c643f67981c5d232dd6070a1d778fed46ed9334bb47",
+          "locator": "line:25-40",
+          "sha256": "7bc90ea3e2e5150703d6a316aff9ee70c2555865b32dfb5d63d1556359d92222",
           "families": [
             "identity",
             "syn-mesh",
@@ -68294,8 +68294,18 @@
           ]
         },
         {
-          "locator": "line:48-72",
-          "sha256": "123921817caf30f7d56a8703be4b5242ce5f7dfef8dba37073b42eb5e614e30a",
+          "locator": "line:41-53",
+          "sha256": "97fb2be8415cc5d5c5e57fe7984418a0047135054e4e81f0cffcad6e9760c43f",
+          "families": [
+            "identity",
+            "syn-mesh",
+            "syn-operations",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:54-90",
+          "sha256": "d702801da8448e887c39096d213f2475fddfb1cf87d03a04cafcc3a0cc90424f",
           "families": [
             "identity",
             "syn-mesh",
@@ -79811,8 +79821,8 @@
         "syn-release"
       ],
       "status": "partial",
-      "assessment": "The released local multi-Agent acceptance is separated from LAN enrollment, empty-keystore recovery, legacy public receipt and retained-state handling, and membership revocation. The latter coverage holds transitional-runtime removal.",
-      "next_action": "Qualify the missing official capabilities and reconcile retained signed records before deleting the transitional package and legacy-only jobs."
+      "assessment": "Disposable Syn 0.8.0 qualification covers LAN enrollment, native recovery, archival readback and membership revocation. Potbot excludes the transitional runtime from build artifacts while the checkout retains its historical tests.",
+      "next_action": "Land the qualified Potbot controller, account for each retained legacy record and caller with its owner, then test a coordinated removal candidate against the pinned official release."
     },
     {
       "key": "tool-cog-contract:C01",

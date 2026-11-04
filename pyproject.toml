@@ -55,7 +55,7 @@ dev = [
 exclude = [
   "/.potbot/**", "/.codex/**", "/.git", "/.git/**", "/.test-runs/**", "/.test-tmp/**",
   "/.venv/**", "/.uv-cache/**", "/.env", "/.env.*", "/models/**",
-  "/artifacts/**", "/build/**", "/dist/**",
+  "/artifacts/**", "/build/**", "/dist/**", "/syn-node/**",
   "**/__pycache__/**", "**/.pytest_cache/**", "**/.mypy_cache/**",
   "**/.ruff_cache/**", "**/node_modules/**", "**/.next/**", "**/target/**",
 ]
