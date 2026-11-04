@@ -35820,12 +35820,12 @@
     },
     {
       "path": ".github/workflows/signed-worker-image.yml",
-      "sha256": "d694590458fa31d25a040d8cff8dfb5e356ea658312da0c575cb06142c15395f",
-      "bytes": 4699,
+      "sha256": "d0d07c8f40e76373bed37cd5e6fd05816f71554175cdab8f5a6e143a95ad8903",
+      "bytes": 4938,
       "kind": "narrative_text",
-      "text_sha256": "d694590458fa31d25a040d8cff8dfb5e356ea658312da0c575cb06142c15395f",
-      "characters": 4699,
-      "lines": 96,
+      "text_sha256": "d0d07c8f40e76373bed37cd5e6fd05816f71554175cdab8f5a6e143a95ad8903",
+      "characters": 4938,
+      "lines": 99,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36009,7 +36009,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "3fe11afc2d86a5a241bd98fd8b03b11d0d6a6b91133d9f8f101c3a215a769a75",
+  "review_sha256": "83883e6375f5fede684d68e24faa34d63b8a0a08de6880ca1947f7b4c554dfd7",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
