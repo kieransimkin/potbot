@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "4a4f91e89425817567574661961f5ae28585abfee58d6ce333f82e9c611391ea",
-      "bytes": 5510,
+      "sha256": "8e2177c739be8f3bf5c766da13e46da9026d2032e13ca15c6861d94ce642f4d8",
+      "bytes": 6291,
       "kind": "narrative_text",
-      "text_sha256": "4a4f91e89425817567574661961f5ae28585abfee58d6ce333f82e9c611391ea",
-      "characters": 5507,
-      "lines": 109,
+      "text_sha256": "8e2177c739be8f3bf5c766da13e46da9026d2032e13ca15c6861d94ce642f4d8",
+      "characters": 6288,
+      "lines": 127,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -34480,7 +34480,7 @@
         "U13",
         "U16"
       ],
-      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture also checks detached Cog cleanup and retry fencing after cancellation. Qualification of the deployed worker routes remains open."
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture checks cancellation fencing and cleanup of a timed-out worker alongside a separately audited live peer. Qualification of the deployed worker routes remains open."
     },
     {
       "key": "worker-reconciliation:MW03",
@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "33edeac5cb968e58cc9cc340e77bd9a2d5d15526711e622501f5d452efb12309",
+  "review_sha256": "455af85b74e4800a4986b1d9263d43a6b268b556bafeda440fde64f282f55da3",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112519,9 +112519,18 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:62-109",
-      "sha256": "e2a0683a2c0341b7d9906f1b352086171c6cc74dfb98c85bf35a021413cc278f",
+      "locator": "line:62-102",
+      "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
+      "review_families": [
+        "accounting"
+      ]
+    },
+    {
+      "source": "docs/implementation/38-operator-worker-qualification.md",
+      "locator": "line:103-127",
+      "sha256": "58667f725c0402c3f829e08edc1b815904d98197a604d90a07c497036f049b8d",
+      "excerpt": "### Timeout while a second workspace is active\n\nThe concurrent Linux case starts two registered Cogs in separate disposable\nworkspaces. Both reach a live detach",
       "review_families": [
         "accounting"
       ]
@@ -121515,29 +121524,29 @@
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_trace_records_thread_exec_and_signalled_child",
-          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
+          "sha256": "d7f91e7bcadc84a655f9cca4b7141a4e75509ac47ba0b5bb058781e3f262a61b",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_nested_cgroup_requires_recursive_shutdown",
-          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
+          "sha256": "d7f91e7bcadc84a655f9cca4b7141a4e75509ac47ba0b5bb058781e3f262a61b",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_pid_namespace_joins_forks_to_tracer_ids",
-          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
+          "sha256": "d7f91e7bcadc84a655f9cca4b7141a4e75509ac47ba0b5bb058781e3f262a61b",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_registered_cogs_join_bubblewrap_traces_and_taskstats",
-          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
+          "sha256": "d7f91e7bcadc84a655f9cca4b7141a4e75509ac47ba0b5bb058781e3f262a61b",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         }
       ],
-      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture also checks detached Cog cleanup and retry fencing after cancellation. Qualification of the deployed worker routes remains open.",
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture checks cancellation fencing and cleanup of a timed-out worker alongside a separately audited live peer. Qualification of the deployed worker routes remains open.",
       "support_scope": "Process-start identity, attribution and measured-versus-unavailable metric contracts; no blanket every-route production result.",
       "remaining": [
         "Complete real loss-aware syscall/task-exit accounting for every executable Cog route",

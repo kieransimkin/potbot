@@ -100,7 +100,25 @@ flowchart LR
     R --> P[Allow new work while refusing replay]
 ```
 
-The deployed image, released Syn authorization, context RPC, timeout and
+### Timeout while a second workspace is active
+
+The concurrent Linux case starts two registered Cogs in separate disposable
+workspaces. Both reach a live detached child. The first Cog exceeds its wall
+deadline, its cgroup and live entry are removed, and its workspace keeps an
+indeterminate lease. The second Cog stays alive in its own cgroup, completes
+after the test releases it, and passes independent trace and TASKSTATS
+verification. Its trace must include its own child PID and exclude the timed
+out child's PID.
+
+```mermaid
+flowchart LR
+    A[Two Cogs active in separate workspaces] --> T[First Cog reaches its deadline]
+    A --> L[Second Cog remains live]
+    T --> F[First cgroup removed and lease fenced]
+    L --> V[Second Cog completes with verified accounting]
+```
+
+The deployed image, released Syn authorization, context RPC and sustained
 concurrent load still have their own qualification gates.
 
 Do not publish raw trace output or private filesystem paths with the JSON
