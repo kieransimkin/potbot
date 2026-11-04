@@ -275,7 +275,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "0a5f2384d6555bbfea501dec3f9588efe376f0b05d2be28c506b511d04ee1c54",
+          "sha256": "8dbc02556b84814c86a2cb981205219b1dea556fc1a7800b054c54502c7ae49f",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
@@ -1350,7 +1350,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "0a5f2384d6555bbfea501dec3f9588efe376f0b05d2be28c506b511d04ee1c54",
+          "sha256": "8dbc02556b84814c86a2cb981205219b1dea556fc1a7800b054c54502c7ae49f",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],

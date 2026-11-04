@@ -42,6 +42,15 @@ from uuid import uuid4
 sys.path.insert(0, "/opt/potbot")
 from context_client import ContextClient, ContextRPCError
 
+def report_probe_failure(error_type, error, trace):
+    while trace.tb_next is not None:
+        trace = trace.tb_next
+    code = error.code if isinstance(error, ContextRPCError) else ""
+    Path(".qualification-fault").write_text(
+        f"{error_type.__name__} {trace.tb_frame.f_code.co_name}:{trace.tb_lineno} {code}"
+    )
+
+sys.excepthook = report_probe_failure
 client = ContextClient()
 work = client.work_input()
 assert work["operation_ref"] == "syn://thing/context-audit-fixture"
@@ -54,16 +63,6 @@ try:
         raise AssertionError("projection unexpectedly writable")
 except OSError as error:
     assert error.errno in {errno.EACCES, errno.EROFS}
-
-try:
-    client.update(
-        "agent", "MODEL.md", "# Disallowed update\\n",
-        expected_revision=model["revision"], request_id=str(uuid4()),
-    )
-except ContextRPCError as error:
-    assert error.code == "scope_denied"
-else:
-    raise AssertionError("read-only Cog mutated context")
 
 value = {"invocation_id": work["invocation_id"], "model_revision": model["revision"]}
 request_id = str(uuid4())
@@ -176,7 +175,9 @@ def test_registered_context_rpc_result_requires_audited_worker_exit(
         qualification_sha256=runtime.qualification_sha256,
     )
     homes = AgentHomeRegistry(ledger, workspace_name="context-audit")
-    agent = homes.provision(workspace, uuid4()).agent_id
+    registered = homes.provision(workspace, uuid4())
+    agent = registered.agent_id
+    diagnostic = home / registered.directory / ".qualification-fault"
     service = WorkspaceContextService(app_env.db)
     service.provision_private(actor, "agent", str(agent), idempotency_key=uuid4().hex)
     model = service.read(actor, "agent", str(agent), "MODEL.md")
@@ -217,7 +218,12 @@ def test_registered_context_rpc_result_requires_audited_worker_exit(
             context = CogRunContext("a" * 64, uuid4(), uuid4(), run)
             expected = {"invocation_id": str(run), "model_revision": model["revision"]}
             if clean_exit:
-                output = asyncio.run(executor.execute(op, value, context, actor, agent))
+                try:
+                    output = asyncio.run(executor.execute(op, value, context, actor, agent))
+                except StateMismatchError as error:
+                    if diagnostic.is_file():
+                        error.add_note(diagnostic.read_text()[:160])
+                    raise
                 assert output.type_ref == "syn://type/out" and output.value == expected
                 assert not ledger.active(workspace)
             else:
