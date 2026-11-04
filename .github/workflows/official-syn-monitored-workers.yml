@@ -4,6 +4,11 @@ on:
     paths:
       - '.github/workflows/official-syn-monitored-workers.yml'
       - 'scripts/qualify_released_syn_workers.py'
+      - 'scripts/qualify_released_syn_context.py'
+      - 'scripts/context_rpc_qualification_fixture.py'
+      - 'scripts/postgres_qualification_fixture.py'
+      - 'sandbox/clients/context_client.py'
+      - 'src/potbot/context/**'
       - 'scripts/worker_audit_fixture.py'
       - 'src/potbot/syn_release/**'
       - 'src/potbot/tools/released_syn_nodes.py'
@@ -37,6 +42,7 @@ jobs:
       R04_RELEASE_AUTHORITY: 'a47f15e010613c0a839a48f2035b8f71d6f9e46ee3df07ed58487079d56ae216'
       R04_PYTHON: '3.12'
       UV_MANAGED_PYTHON: 'true'
+      POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -66,6 +72,9 @@ jobs:
           echo "R04_POTBOT_SHA=$(git -C consumer-agent rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "R04_HOST_PYTHON=$(uv python find --managed-python "$R04_PYTHON")" >> "$GITHUB_ENV"
           echo "R04_UV=$(command -v uv)" >> "$GITHUB_ENV"
+      - name: Start disposable PostgreSQL for the context route
+        working-directory: consumer-agent
+        run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify the signed release and execute the monitored authorization probe
         env:
           POTBOT_SYN_GITHUB_TOKEN: ${{ github.token }}
@@ -87,6 +96,17 @@ jobs:
           assert evidence["native_peer_heartbeat_while_worker_live"] is True
           assert evidence["missing_changed_task_cross_agent_and_replayed_grants_refused"] is True
           assert evidence["workspace_leases_and_worker_cgroups_released"] is True
+          context = evidence["context_rpc"]
+          assert context["route"] == "context-rpc/v1"
+          assert context["audited_exit_codes"] == [0, 9]
+          for key in (
+              "native_peer_heartbeat_while_worker_live",
+              "typed_json_grant_refused_before_dispatch",
+              "postgresql_results_persisted_and_sessions_revoked",
+              "clean_exit_released_lease",
+              "failed_exit_kept_workspace_fenced",
+          ):
+              assert context[key] is True
           assert evidence["consumer_sha"] == os.environ["R04_POTBOT_SHA"]
           assert evidence["release"] == {
               "version": os.environ["R04_VERSION"],
@@ -105,6 +125,10 @@ jobs:
           path: artifacts/official-syn-worker/summary.json
           if-no-files-found: error
           retention-days: 30
+      - name: Remove disposable PostgreSQL
+        if: always()
+        working-directory: consumer-agent
+        run: docker compose down --volumes --remove-orphans --timeout 10
       - name: Record the routine CI completion assessment
         if: always()
         run: |

@@ -183,10 +183,33 @@ flowchart LR
     G -->|Invalid grant| F[Refuse before dispatch]
 ```
 
-The job retains a bounded receipt for each version. The released Syn check
-covers the typed JSON route in a disposable image. Context RPC with released
-Syn, the deployed image and host, sustained production load and the remaining
-cutover gates need their own evidence.
+The job retains a bounded receipt for each version.
+
+### Context RPC with official Syn authorization
+
+The same two release lanes exercise the shipped context client and the real
+PostgreSQL session store. A grant for typed JSON cannot open context RPC. The
+test verifies that this refusal creates neither a context session nor a
+worker audit. A valid context grant starts the monitored worker and a native
+peer sees a new heartbeat after the worker is live.
+
+The clean exit releases the workspace lease. The other worker returns exit
+code 9 after saving its result. PostgreSQL retains both results and both
+sessions are revoked, while the failed exit continues to block conflicting
+work. The recorded exit codes come from the independently verified Linux
+audits.
+
+```mermaid
+flowchart LR
+    G[Syn grant binds the context RPC route] --> C[Live monitored context worker]
+    C --> D[PostgreSQL stores the result and revokes the session]
+    D -->|Audited exit 0| L[Release the workspace lease]
+    D -->|Audited exit 9| F[Keep the workspace fenced]
+```
+
+The released Syn check uses disposable Ubuntu images. The deployed image and
+host, sustained production load and the remaining cutover gates still need
+their own evidence.
 
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain
