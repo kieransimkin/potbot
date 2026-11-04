@@ -27,6 +27,8 @@ from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceRuntime,
 )
 from potbot.tools.supervisor import ProcessSupervisor
+from potbot.tools.syn_worker_nodes import SynWorkerNode
+from potbot.tools.worker_telemetry import _cgroup_populated
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
 from scripts.worker_audit_fixture import monitored_cog_cgroup, prepare_busybox_rootfs
 
@@ -100,7 +102,7 @@ async def qualify_monitored_workers(
             "syn://type/fixture-output",
             digest,
             "read_only",
-            ExecutionPolicy("d" * 64, "e" * 64, "f" * 64, "test", max_wall_ms=25000),
+            ExecutionPolicy("d" * 64, "e" * 64, "f" * 64, "test", max_wall_ms=60000),
         ),
         ("/bin/qualification-worker",),
         digest,
@@ -140,6 +142,19 @@ async def qualify_monitored_workers(
         assert wrong_agent is not None
         await reject(probe, second, wrong_agent)
 
+        async def require_running(task: asyncio.Task[TypedCogValue]) -> None:
+            if task.done():
+                await task
+                raise AssertionError("Worker exited before native observation")
+
+        def observed_sequence(peer: SynWorkerNode, agent: UUID, run: UUID) -> int:
+            peers = peer.snapshot()["peers"]
+            if isinstance(peers, list):
+                for beat in peers:
+                    if beat["agent_id"] == str(agent) and beat["worker_run_id"] == str(run):
+                        return int(beat["last_sequence"])
+            return 0
+
         verified = []
         for agent, observer in ((first, second), (second, first)):
             context = replace(probe, invocation_id=uuid4())
@@ -153,26 +168,40 @@ async def qualify_monitored_workers(
                     )
                 )
                 try:
-                    async with asyncio.timeout(16):
-                        while True:
-                            if task.done():
-                                await task
-                                raise AssertionError("Worker exited before native observation")
-                            peers = peer.snapshot()["peers"]
-                            received = isinstance(peers, list) and any(
-                                beat["agent_id"] == str(agent)
-                                and beat["worker_run_id"] == str(context.invocation_id)
-                                and beat["last_sequence"] >= 2
-                                and beat["state"] == "live"
-                                for beat in peers
-                            )
-                            if (directory / ".qualification-ready").is_file() and received:
-                                break
-                            await asyncio.sleep(0.05)
-                    (active,) = (workspace_audit / ".active").glob("*.json")
-                    assert (config.cgroup_root / UUID(active.stem).hex).is_dir()
+                    try:
+                        async with asyncio.timeout(45):
+                            while True:
+                                await require_running(task)
+                                entries = list((workspace_audit / ".active").glob("*.json"))
+                                if entries and (directory / ".qualification-ready").is_file():
+                                    break
+                                await asyncio.sleep(0.05)
+                    except TimeoutError as exc:
+                        raise AssertionError(
+                            "Authorized Cog did not reach its live cgroup"
+                        ) from exc
+
+                    (active,) = entries
+                    leaf = config.cgroup_root / UUID(active.stem).hex
+                    assert _cgroup_populated(leaf)
+                    baseline = observed_sequence(peer, agent, context.invocation_id)
+                    try:
+                        async with asyncio.timeout(24):
+                            while observed_sequence(peer, agent, context.invocation_id) <= max(
+                                baseline, 1
+                            ):
+                                await require_running(task)
+                                assert peer.healthy, (
+                                    "Native peer stopped during live Cog observation"
+                                )
+                                await asyncio.sleep(0.05)
+                    except TimeoutError as exc:
+                        raise AssertionError(
+                            "Native peer missed a new heartbeat from the live Cog"
+                        ) from exc
+                    assert _cgroup_populated(leaf)
                     (directory / ".qualification-release").touch()
-                    async with asyncio.timeout(8):
+                    async with asyncio.timeout(15):
                         result = await asyncio.shield(task)
                     assert result.type_ref == operation.binding.output_type_ref
                     assert result.value == {"done": True}

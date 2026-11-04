@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   official-monitored-worker:
+    name: Official worker (Syn ${{ matrix.version }})
     if: ${{ github.repository == 'kieransimkin/potbot' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
