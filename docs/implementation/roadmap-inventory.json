@@ -509,12 +509,12 @@
     },
     {
       "path": "docs/implementation/31-ai-configuration-reverse-history.md",
-      "sha256": "9fb882dacc925633a3ddacc617a5322d5cd3cf43b5cbbb055cfef377d6759aaa",
-      "bytes": 6285,
+      "sha256": "a121f3c9afa3ec4c8ba2824884e3391b39397af32ea56d1a35536e6bff51b542",
+      "bytes": 7028,
       "kind": "narrative_text",
-      "text_sha256": "9fb882dacc925633a3ddacc617a5322d5cd3cf43b5cbbb055cfef377d6759aaa",
-      "characters": 6283,
-      "lines": 70,
+      "text_sha256": "a121f3c9afa3ec4c8ba2824884e3391b39397af32ea56d1a35536e6bff51b542",
+      "characters": 7026,
+      "lines": 87,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35988,7 +35988,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "d08dfe9ecccce7d61d265b2837b4b3075d14b85207bc756e09e05dea5bd1a9c5",
+  "review_sha256": "513c58aaca34180d8c72486eecc2ade3a604e7f86c096b016e0cdd6dad417bbc",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -111906,8 +111906,8 @@
     },
     {
       "source": "docs/implementation/31-ai-configuration-reverse-history.md",
-      "locator": "line:10-48",
-      "sha256": "579a2d992358ecf2b0999a5c44c71d5c70595673cb5c592e7e33e6619c53147e",
+      "locator": "line:10-65",
+      "sha256": "c87a903da699508c735cc4c8e4452c885f012027e29523267b0edd51a368601a",
       "excerpt": "## Change monitoring and inverse records\n\n**Canonical policy decision, 1 November 2026:** configuration change detection uses\nthe operating system's native file",
       "review_families": [
         "configuration"
@@ -111915,7 +111915,7 @@
     },
     {
       "source": "docs/implementation/31-ai-configuration-reverse-history.md",
-      "locator": "line:49-70",
+      "locator": "line:66-87",
       "sha256": "05f5b46dc74d77816fc3b4ee20f3a282fea7df4a4bed91701ed2adf3f2d39257",
       "excerpt": "## Operator wiring\n\nThe operator provisions both source directories, pre-creates the guest mount targets during the image build, and invokes:\n\n```python\nwith Ai",
       "review_families": [
@@ -122018,7 +122018,7 @@
         {
           "path": "src/potbot/tools/ai_config_history.py",
           "symbol": "AiReverseRevision",
-          "sha256": "a5a5c8a617c1349f2d4af4d02c0f02c3ff6ac86bd57d729b9a0d16c6e7ea6897",
+          "sha256": "16a54fa29d547deab09d0bc20fa64d90f7b79572f23935e6f9d205a56fb19668",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122032,12 +122032,12 @@
         {
           "path": "tests/unit/test_ai_config_history_s6.py",
           "symbol": "test_revisions_capture_reverse_text_binary_delete_rename_and_modes",
-          "sha256": "1ce7c6e4512a8b700f175a5092d6040931c1da63ae8f65e71a55f719158f039e",
+          "sha256": "273244a9c72af785ec5a6505ff3c07b77e9a1049338bc90fb181beb90ef07676",
           "basis": "source inspection; test definition is not an individual executed result"
         }
       ],
-      "assessment": "Writable /etc/ai and protected reverse history have operator monitoring/lifetime contracts. Complete every-write coverage depends on the qualified native watcher, overflow/loss handling and recovery.",
-      "support_scope": "Current inverse-record and operator fencing subset; polling or a status read cannot certify complete history.",
+      "assessment": "The operator records observed configuration states and protects the reverse history. A watched directory move or unmount fences new launches and preserves the previous head.",
+      "support_scope": "Linux inotify regression coverage for root and nested path replacement and existing inverse-record and operator lifetime tests. Qualified sandbox and rollback evidence remains separate.",
       "remaining": [
         "Qualify watcher loss/overflow, rollback, restart ownership, protected /etc/ai-past and indeterminate lease retention"
       ],

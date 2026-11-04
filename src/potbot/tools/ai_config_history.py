@@ -43,6 +43,7 @@ _IN_CREATE = 0x00000100
 _IN_DELETE = 0x00000200
 _IN_DELETE_SELF = 0x00000400
 _IN_MOVE_SELF = 0x00000800
+_IN_UNMOUNT = 0x00002000
 _IN_Q_OVERFLOW = 0x00004000
 _IN_IGNORED = 0x00008000
 _IN_ISDIR = 0x40000000
@@ -546,6 +547,10 @@ class AiConfigHistoryMonitor:
                 offset += length
                 if mask & _IN_Q_OVERFLOW:
                     raise StateMismatchError("AI config watcher overflowed")
+                if mask & (_IN_MOVE_SELF | _IN_UNMOUNT):
+                    # The watch follows its inode. The configured path may now
+                    # resolve to a different directory with identical contents.
+                    raise StateMismatchError("AI config watched directory moved or unmounted")
                 parent = self._watch_dirs.get(wd)
                 if parent is None:
                     raise StateMismatchError("inotify event for an unregistered watcher")

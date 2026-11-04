@@ -157,6 +157,27 @@ def test_directory_deletion_and_discarded_watch_are_reconciled(tmp_path: Path) -
         assert changes["dir/a.txt"]["after"] is None
 
 
+@pytest.mark.parametrize("relative", [".", "nested"])
+def test_replacing_watched_directory_fences_launches(tmp_path: Path, relative: str) -> None:
+    config, past = tmp_path / "config", tmp_path / "past"
+    config.mkdir()
+    past.mkdir()
+    watched = config / relative
+    watched.mkdir(exist_ok=True)
+    (watched / "settings").write_text("same contents")
+    with AiConfigHistoryMonitor(config_dir=config, past_dir=past, interval_seconds=5) as watcher:
+        head = (past / "head.json").read_bytes()
+        watched.rename(tmp_path / "detached")
+        watched.mkdir()
+        (watched / "settings").write_text("same contents")
+        with pytest.raises(StateMismatchError, match="watched directory moved or unmounted"):
+            watcher.poll_once()
+        with pytest.raises(CapabilityUnavailableError):
+            watcher.require_active(config_dir=config, past_dir=past)
+        assert (past / "head.json").read_bytes() == head
+        assert not list(past.glob("*.reverse.json"))
+
+
 def test_history_store_must_not_be_group_writable(tmp_path: Path) -> None:
     config, past = tmp_path / "config", tmp_path / "past"
     config.mkdir()
