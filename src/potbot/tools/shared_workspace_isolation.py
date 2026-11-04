@@ -15,6 +15,7 @@ import shutil
 import stat
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import UUID
 
 from potbot.context.model import ROLES
 from potbot.context.projection import AgentContextProjection, ContextProjection
@@ -25,6 +26,61 @@ from potbot.tools.isolation import BubblewrapBackend, IsolationLaunch, _seccomp_
 from potbot.tools.model_cache_routes import model_environment
 from potbot.tools.operator_attachment_s13 import runtime_attachment
 from potbot.tools.shared_tool_mounts import ToolWriteGrant
+
+_COG_LOG_MOUNT = "/var/logs/ai"
+
+
+def _prepare_cog_logs(
+    rootfs: Path,
+    scope: tuple[Path, UUID, UUID],
+    guest_sources: tuple[Path, ...],
+) -> Path | None:
+    target = rootfs / _COG_LOG_MOUNT.lstrip("/")
+    if target.resolve() != target:
+        raise ScopeDeniedError("Cog log mount destination is redirected")
+    if not target.exists():
+        return None  # Older pinned images lack the log mount capability.
+    if not target.is_dir() or any(target.iterdir()):
+        raise ScopeDeniedError("Cog log mount requires an empty image directory")
+
+    parent, workspace_id, agent_id = scope
+    if (
+        not parent.is_absolute()
+        or parent.resolve(strict=True) != parent
+        or not isinstance(workspace_id, UUID)
+        or not isinstance(agent_id, UUID)
+    ):
+        raise ScopeDeniedError("Cog log storage requires a canonical controller directory and IDs")
+    uid = os.geteuid()
+    for ancestor in (parent, *parent.parents):
+        info = ancestor.stat()
+        sticky_root = ancestor != parent and info.st_uid == 0 and info.st_mode & stat.S_ISVTX
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or info.st_uid not in {0, uid}
+            or (info.st_mode & 0o022 and not sticky_root)
+        ):
+            raise ScopeDeniedError("Cog log storage has an untrusted ancestor")
+    log_root = parent / "cog-logs"
+    if any(
+        log_root.is_relative_to(path) or path.is_relative_to(log_root) for path in guest_sources
+    ):
+        raise ScopeDeniedError("Cog log storage overlaps a guest mount")
+    workspace = log_root / workspace_id.hex
+    partition = workspace / agent_id.hex
+    for directory in (log_root, workspace, partition):
+        try:
+            directory.mkdir(mode=0o700, exist_ok=True)
+            info = directory.lstat()
+        except OSError as exc:
+            raise ScopeDeniedError("Cog log storage is unavailable") from exc
+        if (
+            not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != uid
+            or stat.S_IMODE(info.st_mode) != 0o700
+        ):
+            raise ScopeDeniedError("Cog log storage must remain private and controller-owned")
+    return partition
 
 
 def is_wsl2(kernel_release: str) -> bool:
@@ -149,12 +205,15 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         ipc_profile: str = "none",
         guest_uid: int | None = None,
         guest_gid: int | None = None,
+        cog_log_scope: tuple[Path, UUID, UUID] | None = None,
     ) -> IsolationLaunch:
         if (guest_uid is None) != (guest_gid is None) or (
             guest_uid is not None
             and (type(guest_uid) is not int or not 420 <= guest_uid <= 65533 or guest_gid != 69)
         ):
             raise InvalidInputError("sandbox guest identity must use allocated UID and GID 69")
+        if cog_log_scope is not None and guest_uid is None:
+            raise ScopeDeniedError("Cog log mounts require a registered Agent")
         if ipc_profile != "none" or read_only_roots or writable_roots:
             raise ScopeDeniedError(
                 "shared workspace forbids extra writable/readable host mounts or IPC"
@@ -462,6 +521,22 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             from potbot.tools.shared_tool_store import tool_process_environment
 
             guest_env = tool_process_environment(pieces[0], guest_home.split("/")[-1])
+        cog_logs = None
+        if cog_log_scope is not None:
+            cog_logs = _prepare_cog_logs(
+                rootfs,
+                cog_log_scope,
+                (
+                    *sources,
+                    *context_files,
+                    *agent_files,
+                    *(
+                        x
+                        for x in (config_ai, history_ai, skills, tool_write_source)
+                        if x is not None
+                    ),
+                ),
+            )
         seccomp = _seccomp_fd()
         try:
             args = [
@@ -516,6 +591,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                 *(("--ro-bind", str(skills), "/usr/local/skills") if skills else ()),
                 *context_mounts,
                 *agent_mounts,
+                *(("--bind", str(cog_logs), _COG_LOG_MOUNT) if cog_logs is not None else ()),
                 *(
                     (
                         "--bind",
@@ -563,6 +639,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     if ai_enabled
                     else ()
                 ),
+                *(("--setenv", "POTBOT_AGENT_LOG_DIR", _COG_LOG_MOUNT) if cog_logs else ()),
                 *[arg for key, value in guest_env.items() for arg in ("--setenv", key, value)],
                 "--chdir",
                 guest_cwd,
@@ -608,6 +685,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
                     "guest_uid": guest_uid,
                     "guest_gid": guest_gid,
                     "kernel_agent_dac_qualified": False,
+                    **({"cog_log_mount": str(cog_logs)} if cog_logs else {}),
                     "bwrap": hashlib.sha256(self.executable.read_bytes()).hexdigest(),
                     "prlimit": hashlib.sha256(self.prlimit.read_bytes()).hexdigest(),
                 }

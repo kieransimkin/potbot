@@ -62,7 +62,7 @@ def rig(tmp_path, monkeypatch):
         _context_binding=Binding(),
         homes=registry,
         runtime=SimpleNamespace(home=home, image_digest="a" * 64),
-        ledger=object(),
+        ledger=SimpleNamespace(path=tmp_path / "operator" / "leases.sqlite"),
         supervisor=SimpleNamespace(monitor_config=object()),
         _executable=lambda op: events.append("binary"),
     )
@@ -120,6 +120,7 @@ def rig(tmp_path, monkeypatch):
 
         async def open(self, request, *, cancelled):
             assert request.stdin == b"" and request.telemetry_run_id == run
+            assert request.cog_log_parent == executor.ledger.path.parent
             assert not cancelled()
             events.append("spawn")
             return process

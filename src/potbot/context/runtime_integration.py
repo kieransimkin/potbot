@@ -291,6 +291,7 @@ async def execute_context_operation(
             telemetry_agent_id=agent_id,
             telemetry_identity_kind="agent",
             telemetry_run_id=cog.invocation_id,
+            cog_log_parent=executor.ledger.path.parent,
         )
         supervisor = InteractiveProcessSupervisor(projections.backend)
         supervisor.monitor_config = executor.supervisor.monitor_config

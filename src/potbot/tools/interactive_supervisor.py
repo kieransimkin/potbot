@@ -25,7 +25,6 @@ from typing import Any
 from potbot.domain.errors import (
     CapabilityUnavailableError,
     IndeterminateExecutionError,
-    InvalidInputError,
 )
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.worker_telemetry import WorkerMonitorConfig, WorkerMonitorSession
@@ -253,15 +252,6 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
         process: asyncio.subprocess.Process | None = None
         telemetry: WorkerMonitorSession | None = None
         try:
-            from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
-
-            launch_options: dict[str, int] = {}
-            if request.guest_uid is not None:
-                if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
-                    raise CapabilityUnavailableError("agent UID needs qualified shared sandbox")
-                if request.guest_gid is None:
-                    raise InvalidInputError("guest group was not assigned")
-                launch_options = {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -275,7 +265,7 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
                 ipc_profile=request.ipc_profile,
-                **launch_options,
+                **request.shared_launch_options(self.backend),
             )
             # Do not inherit environment or CWD from the model/controller host.
             environment = {

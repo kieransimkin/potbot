@@ -172,6 +172,7 @@ def test_sandbox_cog_controller_passes_registered_uid_and_does_not_execute_callb
     assert request.telemetry_agent_id == fixture.agent
     assert request.telemetry_identity_kind == "agent"
     assert request.telemetry_run_id == context.invocation_id
+    assert request.cog_log_parent == fixture.executor.ledger.path.parent
     assert json.loads(request.stdin)["input"]["value"] == {"args": "untrusted"}
     assert request.argv == ("/usr/bin/potbot-worker",)
     # A different invocation can claim the home only after successful release.

@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
@@ -52,6 +52,7 @@ class ProcessRequest:
     telemetry_agent_id: UUID | None = None
     telemetry_identity_kind: Literal["agent", "principal"] = "principal"
     telemetry_run_id: UUID | None = None
+    cog_log_parent: Path | None = None
 
     def __post_init__(self) -> None:
         if (self.telemetry_workspace_id is None) != (self.telemetry_agent_id is None) or (
@@ -82,6 +83,13 @@ class ProcessRequest:
             or self.guest_gid != 69
         ):
             raise InvalidInputError("guest identities must use agent UID >=420 and group 69")
+        if self.cog_log_parent is not None and (
+            not isinstance(self.cog_log_parent, Path)
+            or not self.cog_log_parent.is_absolute()
+            or self.guest_uid is None
+            or self.telemetry_identity_kind != "agent"
+        ):
+            raise InvalidInputError("Cog logging requires a registered Agent launch")
         if self.ipc_profile not in {"none", "private-loopback-v1"}:
             raise InvalidInputError("Process IPC profile is not supported")
         if (
@@ -135,6 +143,22 @@ class ProcessRequest:
             for name, value in self.environment.items()
         ):
             raise InvalidInputError("process environment is not an allowed explicit mapping")
+
+    def shared_launch_options(self, backend: BubblewrapBackend) -> dict[str, Any]:
+        if self.guest_uid is None:
+            return {}
+        from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
+        if not isinstance(backend, SharedWorkspaceBubblewrapBackend):
+            raise CapabilityUnavailableError("agent UID requires the qualified shared sandbox")
+        options: dict[str, Any] = {"guest_uid": self.guest_uid, "guest_gid": self.guest_gid}
+        if self.cog_log_parent is not None:
+            options["cog_log_scope"] = (
+                self.cog_log_parent,
+                self.telemetry_workspace_id,
+                self.telemetry_agent_id,
+            )
+        return options
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,15 +242,6 @@ class ProcessSupervisor:
         try:
             from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
 
-            launch_options: dict[str, int] = {}
-            if request.guest_uid is not None:
-                if not isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
-                    raise CapabilityUnavailableError(
-                        "agent UID requires the qualified shared sandbox"
-                    )
-                if request.guest_gid is None:
-                    raise InvalidInputError("guest group was not assigned")
-                launch_options = {"guest_uid": request.guest_uid, "guest_gid": request.guest_gid}
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -240,7 +255,7 @@ class ProcessSupervisor:
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
                 ipc_profile=request.ipc_profile,
-                **launch_options,
+                **request.shared_launch_options(self.backend),
             )
             environment = {
                 "PATH": "/usr/bin:/bin",

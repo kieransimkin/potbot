@@ -230,12 +230,12 @@ class AgentHomeRegistry:
                     raise StateMismatchError("workspace agent UID capacity exhausted")
                 os.mkdir(name, 0o775, dir_fd=fd)
                 uncertain = True
-                # umask often clears group write; set exactly the requested mode.
-                os.chmod(name, 0o775, dir_fd=fd, follow_symlinks=False)
                 agent_fd = os.open(
                     name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd
                 )
                 try:
+                    # umask can clear group write. Set the mode on the opened directory.
+                    os.fchmod(agent_fd, 0o775)
                     install_agent_skeleton(agent_fd, workspace_name=self.workspace_name)
                 finally:
                     os.close(agent_fd)

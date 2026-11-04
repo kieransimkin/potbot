@@ -181,13 +181,13 @@
         {
           "path": "src/potbot/tools/shared_workspace_isolation.py",
           "symbol": "SharedWorkspaceRuntime",
-          "sha256": "8076f9d8fa5db16c30d5b4e184593ff5b63bc68040369451357fc510efc26db0",
+          "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "fb7567ec083bb117fad171f1553dd845cd7233e00bc105bc39f0f230ecc1189f",
+          "sha256": "887401e00f60e48086e895ad3d7db33d688b63f62e8f75651ed944d697f422aa",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -201,7 +201,7 @@
         {
           "path": "tests/unit/test_sandbox_cog_worker.py",
           "symbol": "test_in_process_host_callback_cannot_be_installed_as_a_worker",
-          "sha256": "143aa4840cc12da496041d20449ffc4ab36803a6f81d63cf3659e16e5b9f46ba",
+          "sha256": "5345ddc74e55799bd9041bcfa85ccd5602deb4c76b11b87142bcbf85502094ba",
           "basis": "source inspection; test definition is not an individual executed result"
         }
       ],
@@ -783,6 +783,24 @@
           "symbol": "prepared_launch",
           "sha256": "622c413b4d9934878f2e74c32bd9af16dbb641cd613cd4a30e07cb7570ecf20c",
           "basis": "Reviewed U02 implementation and test source; executed results are separate."
+        },
+        {
+          "path": "src/potbot/tools/shared_workspace_isolation.py",
+          "symbol": "_prepare_cog_logs",
+          "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
+          "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
+        },
+        {
+          "path": "src/potbot/tools/sandbox_cog_worker.py",
+          "symbol": "SandboxedCogExecutor",
+          "sha256": "887401e00f60e48086e895ad3d7db33d688b63f62e8f75651ed944d697f422aa",
+          "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
+        },
+        {
+          "path": "src/potbot/context/runtime_integration.py",
+          "symbol": "execute_context_operation",
+          "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
+          "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
       "tests": [
@@ -797,15 +815,27 @@
           "symbol": "test_native_agent_log_mount_survives_sandbox_restart",
           "sha256": "a97eaa22603ff47ff5f6e82d90aaa9c43a03a41e6c12e77229701ead79787ad1",
           "basis": "Reviewed U02 implementation and test source; executed results are separate."
+        },
+        {
+          "path": "tests/unit/test_cog_worker_logs.py",
+          "symbol": "test_shared_cog_worker_logs_survive_restart_and_deny_peer_writes",
+          "sha256": "8cbe296d69ea93fafd075f850cd3f8d58c6439e0dccd32110b1bd796431fb75f",
+          "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
+        },
+        {
+          "path": "tests/unit/test_cog_worker_logs.py",
+          "symbol": "test_shared_cog_log_scope_rejects_mount_overlap_and_symlinks",
+          "sha256": "8cbe296d69ea93fafd075f850cd3f8d58c6439e0dccd32110b1bd796431fb75f",
+          "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
-      "assessment": "Native Syn Agent sessions receive a private persistent log mount. S17 host Xpra log custody remains separate.",
-      "support_scope": "Native Linux UID provisioning and launcher; the shared Cog launcher and production host are outside this increment.",
+      "assessment": "Native Agent sessions use Linux UID protection. Shared Cog workers use a distinct mount namespace and a private log bind on compatible images.",
+      "support_scope": "Native UID and shared Cog sandbox launch source. Signed image deployment, production hosts and other worker routes require separate qualification.",
       "remaining": [
-        "Qualify host identities and guest log mounts for shared Cog workers.",
+        "Qualify the signed sandbox image and pin it on deployment hosts.",
         "Verify supported tool aliases and operator collection, archival, quotas and retention."
       ],
-      "next_action": "Qualify shared Cog worker host IDs and route their supported tool logs to a separately protected mount."
+      "next_action": "Qualify the signed image on deployment hosts and verify tool log destinations."
     },
     {
       "id": "configuration",
@@ -1264,7 +1294,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "006a4205d274e7454611e262dcd9b6cc95a3047a318e3ac6b52e3a8c2834c318",
+          "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -1605,13 +1635,13 @@
         {
           "path": "tests/integration/test_sandbox_transport_recovery.py",
           "symbol": "test_transport_effect_recovery_across_worker_and_journal_faults",
-          "sha256": "f65bc53b0e5768e3467866d7499ce1f1cbd106a9520aa3b4efe659fe86db5744",
+          "sha256": "5b7b695298477602f5fe568a197ee36321144a6d895f8ed92eefa696dec7534f",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "tests/integration/test_sandbox_transport_recovery.py",
           "symbol": "test_real_stdio_queue_reconciles_receipts_and_settles_once",
-          "sha256": "f65bc53b0e5768e3467866d7499ce1f1cbd106a9520aa3b4efe659fe86db5744",
+          "sha256": "5b7b695298477602f5fe568a197ee36321144a6d895f8ed92eefa696dec7534f",
           "basis": "PostgreSQL and standard Bubblewrap fault test with a real stdio queue target and development Syn."
         }
       ],
@@ -63842,7 +63872,7 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "adca27be25566adf8978ea8c4ac1d3459a8e448300296a9bf23ba97936e8da19",
+      "sha256": "eea8b6417f9e28ea000297b4c4d0c0875d17a716cbb2136356ab4f6c4ff56577",
       "families": [
         "sandbox"
       ],
@@ -63858,7 +63888,7 @@
         },
         {
           "locator": "line:5-16",
-          "sha256": "4dd8d7d2f99aa9cd472c49aa749c77133a1fd09c6081b9977bf95a65a0e6a231",
+          "sha256": "05e3d9be9473e9f147997332e2fe567d8696f1869e08d5eeb50e65ff89da4cd6",
           "families": [
             "sandbox"
           ]
@@ -63885,14 +63915,21 @@
           ]
         },
         {
-          "locator": "line:47-56",
+          "locator": "line:47-75",
+          "sha256": "f229a219f871775b778d8c493015fe38f3accf8c4a9aa5b7d61a1067a5a1f4a4",
+          "families": [
+            "sandbox"
+          ]
+        },
+        {
+          "locator": "line:76-85",
           "sha256": "5849fa445f2cf9c6f3065291c79f672a3ac20fc2621afc60a3f50f12a744bc15",
           "families": [
             "sandbox"
           ]
         },
         {
-          "locator": "line:57-63",
+          "locator": "line:86-92",
           "sha256": "2a1368563464c2309722c2d7576b967c03915d19a4272d7f4bd263becdc2f393",
           "families": [
             "sandbox"
@@ -67736,7 +67773,7 @@
     },
     {
       "path": "docs/implementation/recent-potbot-development-reconciliation.md",
-      "sha256": "ba3305a24741f5821323a56ebdcb73a4fc29f1c99780a30629f652e0a184f847",
+      "sha256": "7cbec6c43ccb253ca428f91d9db3a49e321f34c2f8afe516c85928ec981e13d0",
       "families": [
         "audit",
         "durable",
@@ -67843,7 +67880,7 @@
         },
         {
           "locator": "line:61-76",
-          "sha256": "1f666e1689f03481691915deba815b35fcb7303cd974019121cee2606451d9e6",
+          "sha256": "06ab203adf040bba7db23031b2d1ca37448b4588bbee8a8056113a5e2ff8f0ce",
           "families": [
             "artifacts",
             "browser",
@@ -68135,7 +68172,7 @@
     },
     {
       "path": "docs/implementation/syn-agent-deployment.md",
-      "sha256": "5a75eac76933cf56bd13f3304192e53503adbce5950f7d33bdcee3c8d3809e71",
+      "sha256": "1226b3e7d3eb8edc8ccbdb508a2fd4be867a6c2ee55c73644436091991e13ab8",
       "families": [
         "syn-release"
       ],
@@ -68178,21 +68215,21 @@
           ]
         },
         {
-          "locator": "line:129-153",
-          "sha256": "371e79ddd72bfc21a4035b2f0b7c79633bf4f6025fa4302f6e0927244114a347",
+          "locator": "line:129-154",
+          "sha256": "cb3991343260c416fd4f5fdbd81c2a3a0da324d514c1fb14ce028ba4e3cdabbc",
           "families": [
             "syn-release"
           ]
         },
         {
-          "locator": "line:154-169",
+          "locator": "line:155-170",
           "sha256": "82c9b40bfbd10f7d34b66af63c1b2bc0d1aaf84807485b71352427e2e82ecd1a",
           "families": [
             "syn-release"
           ]
         },
         {
-          "locator": "line:170-202",
+          "locator": "line:171-203",
           "sha256": "0570b194e829f7a314d5b7275f896efac97721c71607e2f42b6cfd895a347aa6",
           "families": [
             "syn-release"
@@ -79405,13 +79442,13 @@
     },
     {
       "key": "recent-development:RD16",
-      "requirement_sha256": "aa0f8311a865885253b976a93822ee3ef0717b30b503b5698461de8654e2a2bd",
+      "requirement_sha256": "e4fdf8aaa3d4f46083df1a584cd1ffa58277e6fadea9f2df53c9ba49c997774e",
       "families": [
         "guest-logs"
       ],
       "status": "partial",
-      "assessment": "Native Syn Agent sessions receive a private persistent log mount. S17 host Xpra log custody remains separate.",
-      "next_action": "Qualify shared Cog worker host IDs and route their supported tool logs to a separately protected mount."
+      "assessment": "Native Agent sessions use Linux UID protection. Shared Cog workers use a distinct mount namespace and a private log bind on compatible images.",
+      "next_action": "Qualify the signed image on deployment hosts and verify tool log destinations."
     },
     {
       "key": "recent-development:RD17",
@@ -82894,14 +82931,15 @@
       },
       {
         "path": ".github/workflows/syn-release-installation.yml",
-        "sha256": "3d0811c4f099564fb16d6107ae0dc3a6e9a21d77d693766c742577dbb33509b5",
+        "sha256": "87fb36d4f98e6e8ba0007e6e09ad1cb2b7e8f8756c16ea9df94225b66b2345e1",
         "name": "Syn release installation boundaries",
         "state": "active",
         "scope": [
           "Check trust, redirects, cache, atomic admission and concurrent offline installation",
           "Record the real portable operator interface",
           "Record the routine CI completion assessment",
-          "Verify persistent Agent logs with two real Linux UIDs and sandbox restarts"
+          "Verify persistent Agent logs with two real Linux UIDs and sandbox restarts",
+          "Verify shared Cog log persistence and peer write denial"
         ],
         "latest_inspected_run": {
           "id": 41532663812,
@@ -82912,7 +82950,7 @@
           "event": "push"
         },
         "at_reviewed_base": true,
-        "qualification_limit": "The recorded baseline predates the log test. Current execution uses a disposable Linux runner and does not establish shared Cog worker or production host qualification."
+        "qualification_limit": "The recorded baseline predates the log tests. Disposable Linux execution checks the native UID and shared mount boundaries with test payloads. Deployed image and production host qualification are separate."
       },
       {
         "path": ".github/workflows/xpra-native-window-acceptance.yml",
