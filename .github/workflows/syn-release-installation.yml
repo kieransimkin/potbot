@@ -21,10 +21,21 @@ jobs:
       - name: Install native Agent sandbox prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends bubblewrap uidmap dbus-user-session libseccomp2
+          sudo apt-get install -y --no-install-recommends bubblewrap uidmap dbus-user-session libseccomp2 busybox-static apparmor-profiles
       - name: Verify persistent Agent logs with two real Linux UIDs and sandbox restarts
         run: |
           sudo env POTBOT_TEST_NATIVE_AGENT_LOGS=1 .venv/bin/python -m pytest --noconftest -p no:cacheprovider -q tests/unit/test_syn_agent_logs.py --junitxml=artifacts/syn-release-agent-logs.xml
+      - name: Load Ubuntu's Bubblewrap user-namespace profile
+        run: |
+          restriction=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          if [[ -r "$restriction" ]] && [[ "$(cat "$restriction")" == 1 ]]; then
+            sudo apparmor_parser --replace /usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+          fi
+      - name: Verify shared Cog log persistence and peer write denial
+        env:
+          POTBOT_TEST_COG_LOGS: "1"
+        run: |
+          .venv/bin/python -m pytest --noconftest -p no:cacheprovider -q tests/unit/test_cog_worker_logs.py --junitxml=artifacts/syn-release-cog-worker-logs.xml
       - name: Record the real portable operator interface
         run: uv run --locked python -m potbot syn-release --help > artifacts/syn-release-help.txt
       - name: Record the routine CI completion assessment
@@ -37,7 +48,7 @@ jobs:
           from pathlib import Path
           p = Path("artifacts/syn-release-assessment.json")
           p.parent.mkdir(parents=True, exist_ok=True)
-          p.write_text(json.dumps({"Blogworthiness": "FAIL", "reason": "Routine repeated boundary verification; the feature story is assessed in the owning delivery task.", "result": os.environ["RESULT"], "source_evidence": [os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"], "artifacts/syn-release-boundaries.xml", "artifacts/syn-release-agent-logs.xml"]}) + "\n")
+          p.write_text(json.dumps({"Blogworthiness": "FAIL", "reason": "Routine repeated boundary verification; the feature story is assessed in the owning delivery task.", "result": os.environ["RESULT"], "source_evidence": [os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"], "artifacts/syn-release-boundaries.xml", "artifacts/syn-release-agent-logs.xml", "artifacts/syn-release-cog-worker-logs.xml"]}) + "\n")
           PY
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

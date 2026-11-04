@@ -305,6 +305,7 @@ class SandboxedCogExecutor:
                 telemetry_agent_id=agent_id,
                 telemetry_identity_kind="agent",
                 telemetry_run_id=cog_context.invocation_id,
+                cog_log_parent=self.ledger.path.parent,
             )
             dispatched = True
             result = selected_supervisor.run(

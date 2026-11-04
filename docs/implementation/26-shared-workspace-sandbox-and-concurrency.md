@@ -6,7 +6,7 @@
 
 Each workspace has **one** persistent `/home` tree. Every chat, agent, Cog and tool in that workspace receives a stable workspace identity, but a separate agent identity and an admitted capability. Tools access that shared home under a host-side concurrency lease. Other workspaces get other home trees and sandbox processes. The guest shell is `/bin/bash`; its initial CWD and `$HOME` are `/home`.
 
-Everything except `/home` is recreated from a versioned, signed system image. The Linux image is mounted read-only, with `/home` as the only persistent read-write host mount. `/tmp` and `/var/tmp` are links to `/home/.tmp`. `/proc` and `/dev` are kernel-provided pseudo-filesystems, **not persistent writable application volumes**. No Windows drive, host secrets, Docker socket, SSH agent, host home, network namespace, or ambient executable root is bound into the guest. Outbound GitHub/network interactions must use separately authorized host-side brokers.
+The Linux root filesystem comes from a versioned, signed image mounted read-only. The shared `/home` persists, along with the narrowly scoped mounts described in later stages. `/tmp` and `/var/tmp` are links to `/home/.tmp`. `/proc` and `/dev` are kernel-provided pseudo-filesystems, **not persistent writable application volumes**. No Windows drive, host secrets, Docker socket, SSH agent, host home, network namespace, or ambient executable root is bound into the guest. Outbound GitHub/network interactions must use separately authorized host-side brokers.
 
 - Linux: namespace/seccomp/prlimit through the existing Bubblewrap policy.
 - Windows: the controller's **WSL2 guest** uses that same Linux Bubblewrap/seccomp policy. No dedicated Hyper-V VM managed by Potbot.
@@ -44,6 +44,35 @@ Keep a **per-agent Git worktree/branch** under `/home` for speculative changes; 
 
 **Do not confuse an OCI digest with a rootfs directory checksum.** The digest identifies the signed OCI artifact; unpacked runtime content must be separately validated/qualified. The CI build uses package repository snapshots resolved at build time: image digests pin a shipped result but do not yet guarantee byte-for-byte reproducible rebuilds. Fully reproducible builds require a pinned apt repository snapshot and package version lock.
 
+## Persistent shared Cog worker logs
+
+The shared Cog launcher binds one writable directory at `/var/logs/ai` and
+sets `POTBOT_AGENT_LOG_DIR` when the pinned image contains the empty mount
+destination. This applies to both typed JSON and context RPC workers. Images
+built before the destination was introduced keep their existing launch
+behavior. Qualify and pin a new image to enable the mount on those workspaces.
+
+The backing path is `cog-logs/<workspace UUID>/<Agent UUID>` beside the
+controller's lease ledger. The UUIDs come from the registered Agent, and the
+controller rejects storage overlapping any of the launch's guest mounts.
+The same partition is used after worker restart or Agent home rename.
+
+```mermaid
+flowchart LR
+    A[Agent A Cog sandbox] -->|/var/logs/ai| LA[Agent A log partition]
+    B[Agent B Cog sandbox] -->|/var/logs/ai| LB[Agent B log partition]
+    A --> H[Shared workspace home]
+    B --> H
+```
+
+Each mount namespace exposes only its selected log partition. Shared Cog
+workers can use a common host UID, so this guarantee depends on the sandbox
+mount and PID boundaries and seccomp policy. Host services with that
+credential remain trusted. The Linux test restarts both workers and checks
+that writes through direct peer paths and shared-home symlinks fail. It also
+checks that a worker cannot hard link its log into the shared home. Operator
+collection, retention and default tool log configuration remain separate.
+
 ## Tests and acceptance before production
 
 Run offline deterministic tests:
@@ -52,7 +81,7 @@ Run offline deterministic tests:
 uv run --locked python -m pytest -q tests/unit/test_workspace_concurrency.py tests/unit/test_shared_workspace_isolation.py
 ```
 
-On a real Linux/WSL2 worker, **also** test actual bwrap rootfs execution, source commit, seccomp enforcement, prevention of writes outside `/home`, symlink/rename races, fork-bombs, network denial, WSL Windows executable interoperability, DrvFs visibility, failure/termination and resource caps. On Windows, launch under the nonprivileged Potbot WSL distribution (not bare Windows Python). An unsupported kernel or tool fails closed. The shared filesystem/multihost/PR integration tests must run on a real PostgreSQL test system and against a controlled GitHub fixture repository with protected-branch policies. The unit tests do not establish those qualifications.
+On a real Linux/WSL2 worker, **also** test actual bwrap rootfs execution, source commit, seccomp enforcement, prevention of writes outside admitted mounts, symlink/rename races, fork-bombs, network denial, WSL Windows executable interoperability, DrvFs visibility, failure/termination and resource caps. On Windows, launch under the nonprivileged Potbot WSL distribution (not bare Windows Python). An unsupported kernel or tool fails closed. The shared filesystem/multihost/PR integration tests must run on a real PostgreSQL test system and against a controlled GitHub fixture repository with protected-branch policies. The unit tests do not establish those qualifications.
 
 ## References
 

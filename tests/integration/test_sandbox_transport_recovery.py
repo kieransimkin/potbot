@@ -120,6 +120,7 @@ def test_real_stdio_queue_reconciles_receipts_and_settles_once(app_env, tmp_path
             argv=(sys.executable, "-I", str(binary), *request.argv[1:]),
             guest_uid=None,
             guest_gid=None,
+            cog_log_parent=None,
             read_only_roots=(binary.parent,),
         )
         observed = native_sandbox.run(actual, cancelled=cancelled)

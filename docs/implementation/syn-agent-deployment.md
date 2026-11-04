@@ -147,9 +147,10 @@ directory. The Linux test checks separate native UIDs, fresh sandbox launches,
 and the kernel's refusal of a peer write. This headless filesystem boundary is
 illustrated by the diagram and qualified by the test results.
 
-This U02 increment applies to the native Agent launch path. Shared Cog workers
-need a qualified per-Agent filesystem boundary before using this mount.
-Operator collection, rotation and retention remain separate U02 work.
+The native Agent launch path uses distinct Linux UIDs. The
+[shared Cog worker log mount](26-shared-workspace-sandbox-and-concurrency.md#persistent-shared-cog-worker-logs)
+uses the same guest path with its own sandbox mount boundary. Operator
+collection, rotation and retention remain separate U02 work.
 
 ## Controller entry point
 
