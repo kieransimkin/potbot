@@ -44,6 +44,7 @@ _UNFINISHED = "<unfinished ...>"
 _STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 _FD_PATH = re.compile(r"\b\d+<(/[^>]{1,8192})>")
 _PID = re.compile(r"[1-9][0-9]{0,9}\Z")
+_STRACE_FLAGS = ("-f", "-ff", "-q", "-ttt", "-T", "-yy", "-s", "4096")
 _MAX_TRACE = 256 * 1024 * 1024  # Per worker; never silently drop audit events.
 _MAX_JSON = 96 * 1024
 
@@ -454,6 +455,19 @@ class WorkerMonitorConfig:
         return cls(Path(root), Path(cgroup), Path(tracer), Path(helper), tracer_sha, helper_sha)
 
 
+def _cgroup_populated(cgroup: Path) -> bool:
+    # The kernel's population flag includes all descendant cgroups.
+    fd = os.open(cgroup / "cgroup.events", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        raw = os.read(fd, 4097)
+    finally:
+        os.close(fd)
+    rows = [line for line in raw.splitlines() if line.split(maxsplit=1)[:1] == [b"populated"]]
+    if len(raw) > 4096 or rows not in ([b"populated 0"], [b"populated 1"]):
+        raise CapabilityUnavailableError("recursive cgroup population is unavailable")
+    return rows == [b"populated 1"]
+
+
 def _terminate_cgroup(cgroup: Path, *, attempts: int = 40, interval: float = 0.025) -> bool:
     """Kill descendants even when the supervising parent has NOT been reaped.
 
@@ -462,15 +476,7 @@ def _terminate_cgroup(cgroup: Path, *, attempts: int = 40, interval: float = 0.0
     """
     if not 1 <= attempts <= 100 or not 0 <= interval <= 1:
         raise ValueError("invalid cgroup shutdown bounds")
-    procs = cgroup / "cgroup.procs"
-    fd = os.open(procs, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-    try:
-        live = os.read(fd, 65536)
-        if os.read(fd, 1):
-            raise CapabilityUnavailableError("cgroup process list exceeds observation bound")
-    finally:
-        os.close(fd)
-    if not live.strip():
+    if not _cgroup_populated(cgroup):
         return True
     kill = os.open(cgroup / "cgroup.kill", os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
     try:
@@ -478,7 +484,7 @@ def _terminate_cgroup(cgroup: Path, *, attempts: int = 40, interval: float = 0.0
     finally:
         os.close(kill)
     for _ in range(attempts):
-        if not procs.read_text(encoding="ascii").strip():
+        if not _cgroup_populated(cgroup):
             return True
         time.sleep(interval)
     return False
@@ -566,6 +572,11 @@ class WorkerMonitorSession:
                     )
         if self._kernel is not None:
             raise CapabilityUnavailableError("worker taskstats registration already dispatched")
+        try:
+            if _cgroup_populated(self.cgroup):
+                raise CapabilityUnavailableError("worker cgroup already contains tasks")
+        except OSError as exc:
+            raise CapabilityUnavailableError("worker cgroup population cannot be verified") from exc
         collector = TaskstatsExitStream()
         collector.open()  # Must succeed before we return an executable command.
         if not collector.healthy:
@@ -577,14 +588,7 @@ class WorkerMonitorSession:
             str(self.cgroup),
             "--",
             str(self.config.strace),
-            "-f",
-            "-ff",
-            "-qq",
-            "-ttt",
-            "-T",
-            "-yy",
-            "-s",
-            "4096",
+            *_STRACE_FLAGS,
             "-o",
             str(self.path / "trace"),
             "--",
@@ -661,6 +665,7 @@ class WorkerMonitorSession:
             self._fault = type(exc).__name__  # Do not publish privileged paths.
 
     def finish(self, *, confirmed_stopped: bool) -> bool:
+        lifetime: dict[str, Any] | None = None
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=3)
@@ -737,87 +742,80 @@ class WorkerMonitorSession:
                     while block := stream.read(1048576):
                         sha.update(block)
             self._last_usage = _cgroup_usage(self.cgroup)
-            complete = confirmed_stopped and self._fault is None and not any(integrity.values())
-            _safe_write(
-                self.path / "lifetime.json",
-                {
-                    "schema": 1,
-                    "workspace_id": str(self.workspace_id),
-                    "agent_id": str(self.agent_id),
-                    "worker_id": str(self.worker_id),
-                    "started_at": self._started_at,
-                    "identity_kind": self.identity_kind,
-                    "run_id": str(self.run_id) if self.run_id else None,
-                    "process_tree": tree_index,
-                    "file_index": file_index,
-                    "finished_at": time.time(),
-                    "audit_complete": complete,
-                    "audit_failure": self._fault,
-                    "syscall_counts": dict(counts),
-                    "file_event_count": event_count,
-                    "trace_sha256": sha.hexdigest(),
-                    "trace_integrity": integrity,
-                    "per_pid_syscall_lifetime_in_process_tree": True,
-                    "per_pid_syscall_wall_time_is_not_cpu_time": True,
-                    "traced_pid_count": len(traces),
-                    "sampled_process_count": len(self._processes),
-                    "per_pid_kernel_exit_accounting": True,
-                    "per_pid_kernel_exit_count": len(kernel_lifetime),
-                    "taskstats_missing_exit_events": 0,
-                    "sampled_pid_resources_are_lower_bounds": False,
-                    "cgroup_lifetime_usage_includes_tracer": True,
-                    "cgroup_usage": self._last_usage,
-                },
-            )
-            _safe_write(
-                self._live,
-                {
-                    "schema": 1,
-                    "state": "finished",
-                    "workspace_id": str(self.workspace_id),
-                    "agent_id": str(self.agent_id),
-                    "worker_id": str(self.worker_id),
-                    "identity_kind": self.identity_kind,
-                    "sampled_at": time.time(),
-                    "usage": self._last_usage,
-                },
-            )
+            if any(integrity.values()):
+                self._fault = self._fault or "trace_integrity_failed"
+            lifetime = {
+                "schema": 1,
+                "workspace_id": str(self.workspace_id),
+                "agent_id": str(self.agent_id),
+                "worker_id": str(self.worker_id),
+                "started_at": self._started_at,
+                "identity_kind": self.identity_kind,
+                "run_id": str(self.run_id) if self.run_id else None,
+                "process_tree": tree_index,
+                "file_index": file_index,
+                "finished_at": time.time(),
+                "syscall_counts": dict(counts),
+                "file_event_count": event_count,
+                "trace_sha256": sha.hexdigest(),
+                "trace_integrity": integrity,
+                "per_pid_syscall_lifetime_in_process_tree": True,
+                "per_pid_syscall_wall_time_is_not_cpu_time": True,
+                "traced_pid_count": len(traces),
+                "sampled_process_count": len(self._processes),
+                "per_pid_kernel_exit_accounting": True,
+                "per_pid_kernel_exit_count": len(kernel_lifetime),
+                "taskstats_missing_exit_events": 0,
+                "sampled_pid_resources_are_lower_bounds": False,
+                "cgroup_lifetime_usage_includes_tracer": True,
+                "cgroup_usage": self._last_usage,
+            }
         except BaseException as exc:
             self._fault = self._fault or type(exc).__name__
-            complete = False
-            # Persist a fail-closed marker, but never fabricate complete audit.
-            try:
-                fault = {
-                    "schema": 1,
-                    "state": "fault",
-                    "workspace_id": str(self.workspace_id),
-                    "agent_id": str(self.agent_id),
-                    "worker_id": str(self.worker_id),
-                    "identity_kind": self.identity_kind,
-                    "sampled_at": time.time(),
-                    "usage": self._last_usage,
-                    "fault": self._fault,
-                }
-                _safe_write(self._live, fault)
-                _safe_write(self._active_live, fault)
-            except OSError:
-                pass
         # Always deregister the global exit listener, even after a fault.
         if self._kernel is not None:
             try:
                 self._kernel.close()
             except BaseException:
-                complete = False
                 self._fault = self._fault or "taskstats_close_failed"
-        # A populated cgroup is never silently released or reused.
-        try:
-            if confirmed_stopped and not (self.cgroup / "cgroup.procs").read_text().strip():
+
+        released = False
+        if confirmed_stopped:
+            try:
+                if _cgroup_populated(self.cgroup):
+                    raise CapabilityUnavailableError("worker cgroup is still populated")
                 self.cgroup.rmdir()
                 self._active_live.unlink(missing_ok=True)
-            else:
-                complete = False
-        except OSError:
-            complete = False
+                released = True
+            except (OSError, CapabilityUnavailableError):
+                self._fault = self._fault or "cgroup_release_unconfirmed"
+        else:
+            self._fault = self._fault or "supervisor_shutdown_unconfirmed"
+
+        complete = lifetime is not None and released and self._fault is None
+        state = {
+            "schema": 1,
+            "state": "finished" if complete else "fault",
+            "workspace_id": str(self.workspace_id),
+            "agent_id": str(self.agent_id),
+            "worker_id": str(self.worker_id),
+            "identity_kind": self.identity_kind,
+            "sampled_at": time.time(),
+            "usage": self._last_usage,
+        }
+        if self._fault is not None:
+            state["fault"] = self._fault
+        try:
+            _safe_write(self._live, state)
+            if not released:
+                _safe_write(self._active_live, state)
+            # Commit a positive receipt only after recursive cgroup release.
+            if lifetime is not None:
+                lifetime.update(audit_complete=complete, audit_failure=self._fault)
+                _safe_write(self.path / "lifetime.json", lifetime)
+        except (OSError, ScopeDeniedError, CapabilityUnavailableError):
+            self._fault = self._fault or "audit_receipt_write_failed"
+            return False
         return complete
 
 

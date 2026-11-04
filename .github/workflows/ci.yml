@@ -53,6 +53,38 @@ jobs:
       - name: Verify Windows temporary files, child readback and cleanup
         run: uv run --locked --extra security --extra semantics python -m pytest -q tests/unit/test_temporary.py tests/unit/test_pytest_temp_isolation.py tests/unit/test_check_runner.py tests/unit/test_syn_export.py tests/unit/test_identity_cli.py tests/unit/test_artifact_ranges.py tests/unit/test_artifact_uploads.py tests/unit/test_syn_operator_deployment.py
 
+  worker-audit-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.23"
+          python-version: "3.12"
+          enable-cache: false
+      - run: uv sync --locked --dev
+      - name: Install the Linux tracer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends strace
+      - name: Verify task trace endings and recursive cgroup shutdown
+        run: |
+          command -v strace
+          sudo env POTBOT_TEST_WORKER_CGROUP=1 .venv/bin/python -m pytest --noconftest -p no:cacheprovider -q tests/integration/test_worker_audit_linux.py --junitxml=artifacts/worker-audit-linux.xml
+      - name: Record the routine CI completion assessment
+        if: always()
+        run: |
+          printf '%s\n' 'Blogworthiness: FAIL. Routine replay of the worker-audit fixture. Source evidence is this job and its JUnit report.' >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: worker-audit-linux
+          path: artifacts/worker-audit-linux.xml
+          retention-days: 14
+
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

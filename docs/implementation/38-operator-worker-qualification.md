@@ -29,6 +29,36 @@ exit is a prerequisite, **not** proof of comprehensive forensic completeness:
 a separate release assessment must still verify syscall loss detection,
 namespace escape tests, full Cog-route enumeration, and operation under stress.
 
+## U03-Q completion evidence
+
+The worker tracer keeps the terminal line for each task. A process tree is
+complete only when each task has one unambiguous terminal line, each observed
+child has a trace, and the fork graph is consistent. The operator still
+requires a TASKSTATS exit record for each traced task. A missing, repeated or
+ambiguous terminal line leaves the audit incomplete.
+
+The monitor reads the kernel's recursive `cgroup.events` population flag. A
+worker cgroup may have an empty direct process list while a nested cgroup is
+still running. The monitor checks that the new cgroup is empty before dispatch. It confirms
+recursive shutdown and releases the cgroup before writing a positive lifetime
+receipt.
+
+```mermaid
+flowchart LR
+    S[Supervisor reaps worker] --> A[Check task traces and TASKSTATS]
+    A --> C[Confirm recursive cgroup shutdown and release]
+    C --> R[Write complete lifetime receipt]
+    A -->|Evidence missing| F[Inconclusive result]
+    C -->|Release unconfirmed| F
+```
+
+The Linux CI fixture records real fork, thread, exec and signal exits, then
+removes a terminal line to check refusal. It also creates a disposable nested
+cgroup and verifies that an empty direct list does not let a live child escape
+shutdown. These tests qualify the two completion checks. Deployment host
+qualification still covers the full Bubblewrap, TASKSTATS and Cog route
+combination, including concurrent load and cancellation.
+
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain
 qualified test evidence for each deployment. Re-run after any kernel, cgroup,
