@@ -27,12 +27,15 @@ from .commands import SynPublicCommands
 from .contracts import Policy, canonical, digest, document
 from .store import SynReleaseStore, _directory, _write_new, native_platform, private_read
 
+GROUP_ROLLOVER_OPERATIONS = {"prepare-group-rollover", "apply-group-rollover"}
+
 
 class AgentSession:
     """One owned namespace/session; the controlling TTY belongs to Syn only."""
 
-    def __init__(self, process: subprocess.Popen[bytes]):
+    def __init__(self, process: subprocess.Popen[bytes], *, group_rollover: bool = False):
         self.process = process
+        self.group_rollover = group_rollover
         self.buffer = bytearray()
         self.initial: dict[str, Any] | None = None
 
@@ -70,7 +73,7 @@ class AgentSession:
             "serve",
             "restart",
             "lock",
-        }:
+        } and not (self.group_rollover and operation in GROUP_ROLLOVER_OPERATIONS):
             raise ScopeDeniedError("Unknown explicit Syn Agent maintenance operation")
         raw = canonical({"operation": operation, "payload": payload})
         if len(raw) > 65536 or self.process.stdin is None:
@@ -223,9 +226,21 @@ class SynAgentDeployment(SynPublicCommands):
                 "Agent deployment requires an explicit group UUID and current epoch"
             )
         self.group_id, self.group_epoch = group_id, group_epoch
+        self.group_rollover = (
+            "syn.agent-group-rollover/1" in selected["required_profiles"]
+            and "group-member-revocation" in selected["required_capabilities"]
+        )
         if device_profile != "syn.host-bound-virtual-device/1":
             raise ScopeDeniedError("Select an explicit owner-approved Syn device profile")
         self.device_profile = device_profile
+
+    def _accepts_registration_epoch(self, initial_epoch: object) -> bool:
+        # Syn keeps the enrollment config immutable and owns the current epoch.
+        # Live status must still prove the exact epoch selected by this controller.
+        return type(initial_epoch) is int and (
+            initial_epoch == self.group_epoch
+            or (self.group_rollover and 1 <= initial_epoch < self.group_epoch)
+        )
 
     def _installation(self) -> tuple[dict[str, Any], Path]:
         if (
@@ -291,7 +306,7 @@ class SynAgentDeployment(SynPublicCommands):
                 stderr=subprocess.DEVNULL,
                 env=self._environment(),
             )
-            session = AgentSession(process)
+            session = AgentSession(process, group_rollover=self.group_rollover)
             try:
                 initial = session.read()
                 session.initial = initial
@@ -330,10 +345,16 @@ class SynAgentDeployment(SynPublicCommands):
                 path = directory.parent.parent / "deployment.json"
                 if new_identity:
                     _write_new(path, canonical(registration))
-                elif document(private_read(path), canonical_only=True) != registration:
-                    raise StateMismatchError(
-                        "Agent deployment differs from independently retained registration"
-                    )
+                else:
+                    retained = document(private_read(path), canonical_only=True)
+                    initial_epoch = retained.get("group_epoch")
+                    if not self._accepts_registration_epoch(initial_epoch) or retained != {
+                        **registration,
+                        "group_epoch": initial_epoch,
+                    }:
+                        raise StateMismatchError(
+                            "Agent deployment differs from independently retained registration"
+                        )
                 yield session
             finally:
                 session.stop()
@@ -396,7 +417,7 @@ class SynAgentDeployment(SynPublicCommands):
             or registration["manifest_sha256"] != self.policy.manifest_sha256
             or registration["network_id"] != self.network_id
             or registration["group_id"] != str(self.group_id)
-            or registration["group_epoch"] != self.group_epoch
+            or not self._accepts_registration_epoch(registration["group_epoch"])
             or registration["state_dir"] != str(self.root / self.agent_id.hex / "home/syn")
         ):
             raise StateMismatchError(
