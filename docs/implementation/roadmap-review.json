@@ -68252,8 +68252,62 @@
       ]
     },
     {
+      "path": "docs/implementation/syn-r07-release-parity.md",
+      "sha256": "c58820d4a9c5943e078dbce1764cef90ba2057ebf8ef756188b1693f8e514712",
+      "families": [
+        "identity",
+        "syn-mesh",
+        "syn-operations",
+        "syn-release"
+      ],
+      "disposition": "reviewed_follow_on_implementation_narrative",
+      "assessment": "Exact official-release and legacy-source comparison records coverage and holds transitional-runtime removal.",
+      "narrative": [
+        {
+          "locator": "line:1-7",
+          "sha256": "aaab9bc48bf8943efb759d1bf9f74a72398f102a10c0d8c11faa6f737b670471",
+          "families": [
+            "identity",
+            "syn-mesh",
+            "syn-operations",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:8-23",
+          "sha256": "1a31b38f2fed0d7415774d59196dc9f55f34db1bd41b64f70369ffcc2674578c",
+          "families": [
+            "identity",
+            "syn-mesh",
+            "syn-operations",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:24-47",
+          "sha256": "80a9f505fb0d24f0984e6c643f67981c5d232dd6070a1d778fed46ed9334bb47",
+          "families": [
+            "identity",
+            "syn-mesh",
+            "syn-operations",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:48-72",
+          "sha256": "123921817caf30f7d56a8703be4b5242ce5f7dfef8dba37073b42eb5e614e30a",
+          "families": [
+            "identity",
+            "syn-mesh",
+            "syn-operations",
+            "syn-release"
+          ]
+        }
+      ]
+    },
+    {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "14b202336ca0b058ffe10f993d786f9f07a3bfcfc3d01afbd42ed5bbc0e1b9cb",
+      "sha256": "c204f98903d90d82e577b47db3c026066e59ad202109be489bd69cc603a38334",
       "families": [
         "syn-release",
         "syn-operations"
@@ -68303,10 +68357,12 @@
         },
         {
           "locator": "line:31-44",
-          "sha256": "afbbeab2cf2dce9f773c6ad37dbfea935f27a0af2e067667ccfbae24a01e9446",
+          "sha256": "a7b621ca38fe3eb54137753bb9a564420b7ade5727db7137805259a5944f4792",
           "families": [
-            "syn-release",
-            "syn-operations"
+            "identity",
+            "syn-mesh",
+            "syn-operations",
+            "syn-release"
           ]
         },
         {
@@ -79747,13 +79803,16 @@
     },
     {
       "key": "syn-release:SYN-R07",
-      "requirement_sha256": "bd71d0030f1fc61f49efff0d590875d5a74ec8ab105ee9211aaaffd21213cd9a",
+      "requirement_sha256": "b6e9570b746eebce1f108b16316f3eb16c445040db4742654673b2a2abbb6544",
       "families": [
-        "syn-operations"
+        "identity",
+        "syn-mesh",
+        "syn-operations",
+        "syn-release"
       ],
-      "status": "planned",
-      "assessment": "Requirement: Removal and CI. Upgrade/recovery, journal-authority migration and removal of transitional syn-node are not complete. Open PR1 has additional governance/DAG/transaction proposals that are outside current main.",
-      "next_action": "For SYN-R07 (Removal and CI): Track SYN-R06/R07 and PR1 SBT packages under U06/U01/U16; qualify upstream first, then thin public Potbot adapters."
+      "status": "partial",
+      "assessment": "The released local multi-Agent acceptance is separated from LAN enrollment, empty-keystore recovery, legacy public receipt and retained-state handling, and membership revocation. The latter coverage holds transitional-runtime removal.",
+      "next_action": "Qualify the missing official capabilities and reconcile retained signed records before deleting the transitional package and legacy-only jobs."
     },
     {
       "key": "tool-cog-contract:C01",
