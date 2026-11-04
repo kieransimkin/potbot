@@ -248,8 +248,11 @@ def test_cgroup_cleanup_is_idempotent_and_fail_closed(tmp_path: Path):
     from potbot.tools.worker_telemetry import _terminate_cgroup
 
     (tmp_path / "cgroup.procs").write_text("")
+    events = tmp_path / "cgroup.events"
+    events.write_text("populated 0\nfrozen 0\n")
     assert _terminate_cgroup(tmp_path, attempts=1, interval=0)
-    (tmp_path / "cgroup.procs").write_text("12345\n")
+    # An empty direct member list can still have live descendant cgroups.
+    events.write_text("populated 1\nfrozen 0\n")
     (tmp_path / "cgroup.kill").write_text("")
     assert not _terminate_cgroup(tmp_path, attempts=2, interval=0)
     assert (tmp_path / "cgroup.kill").read_text() == "1\n"
@@ -260,3 +263,53 @@ def test_cgroup_cleanup_is_idempotent_and_fail_closed(tmp_path: Path):
     with pytest.raises(OSError):
         _terminate_cgroup(tmp_path, attempts=1, interval=0)
     assert not (tmp_path / "untrusted").exists()
+
+
+@pytest.mark.parametrize("released,terminal", [(True, True), (False, True), (True, False)])
+def test_final_audit_receipt_requires_cgroup_release_and_trace_end(
+    tmp_path: Path, monkeypatch, released: bool, terminal: bool
+):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from potbot.tools import worker_telemetry as module
+
+    audit, cgroup_root = tmp_path / "audit", tmp_path / "cgroups"
+    audit.mkdir(mode=0o700)
+    cgroup_root.mkdir()
+    monkeypatch.setattr(module, "_cgroup_usage", lambda _: {})
+    monkeypatch.setattr(module.WorkerMonitorSession, "_sample", lambda _: None)
+    monitor = module.WorkerMonitorSession(
+        SimpleNamespace(audit_root=audit, cgroup_root=cgroup_root, max_trace_bytes=1 << 20),
+        uuid4(),
+        uuid4(),
+        "a" * 64,
+    )
+    events = monitor.cgroup / "cgroup.events"
+    events.write_text("populated 0\n")
+    if released:
+        rmdir = Path.rmdir
+
+        def remove_cgroup(path: Path) -> None:
+            if path == monitor.cgroup:
+                events.unlink()
+            rmdir(path)
+
+        monkeypatch.setattr(Path, "rmdir", remove_cgroup)
+    monitor._kernel = SimpleNamespace(
+        coverage=lambda pids: {
+            pid: SimpleNamespace(pid=pid, public_private_record=lambda: {}) for pid in pids
+        },
+        close=lambda: None,
+    )
+    trace = "1793000000.0001 getpid() = 121 <0.0001>\n"
+    if terminal:
+        trace += "1793000000.0002 +++ exited with 0 +++\n"
+    (monitor.path / "trace.121").write_text(trace)
+    assert monitor.finish(confirmed_stopped=True) is (released and terminal)
+    receipt = json.loads((monitor.path / "lifetime.json").read_text())
+    assert receipt["audit_complete"] is (released and terminal)
+    assert receipt["process_tree"]["missing_exit_count"] == (0 if terminal else 1)
+    if not released:
+        assert receipt["audit_failure"] == "cgroup_release_unconfirmed"
+        assert monitor.cgroup.exists()

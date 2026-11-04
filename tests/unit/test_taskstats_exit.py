@@ -120,8 +120,11 @@ def test_every_traced_pid_has_exact_one_kernel_exit_record():
 
 def test_kernel_exit_attached_to_fork_tree_and_missing_data_denied(tmp_path: Path):
     t1, t2 = tmp_path / "trace.113", tmp_path / "trace.114"
-    t1.write_text("1793000000.001 fork() = 114 <0.0001>\n")
-    t2.write_text('1793000000.002 execve("/usr/bin/true", ["true"], NULL) = 0 <0.0001>\n')
+    t1.write_text("1793000000.001 fork() = 114 <0.0001>\n1793000000.004 +++ exited with 0 +++\n")
+    t2.write_text(
+        '1793000000.002 execve("/usr/bin/true", ["true"], NULL) = 0 <0.0001>\n'
+        "1793000000.003 +++ exited with 0 +++\n"
+    )
     record = _taskstats_records(_event(113), 92)[0]
     child = replace(record, pid=114, tgid=114, ppid=113)
     tree = process_tree([t1, t2], kernel_exit={113: record, 114: child})
@@ -174,6 +177,12 @@ def test_worker_command_registers_kernel_collector_before_returning_launch(
         cgroup_join_sha256=hashlib.sha256(helper.read_bytes()).hexdigest(),
     )
     session = module.WorkerMonitorSession(config, uuid4(), uuid4(), "pinned-image")
+    events = session.cgroup / "cgroup.events"
+    events.write_text("populated 1\n")
+    with pytest.raises(CapabilityUnavailableError, match="already contains tasks"):
+        session.command(("/usr/bin/true",))
+    assert not calls
+    events.write_text("populated 0\n")
     argv = session.command(("/usr/bin/true",))
     assert calls == ["registered"]
     assert argv[0] == str(helper) and str(tracer) in argv

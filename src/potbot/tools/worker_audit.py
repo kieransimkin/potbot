@@ -2,7 +2,7 @@
 
 Never put this module behind a web route. The operator's raw trace and file
 journal remain authoritative evidence; the summaries preserve limitations and
-fail closed when a traced child lacks a corresponding trace. They do not turn
+fail closed when a traced task lacks an unambiguous exit record. They do not turn
 lexical paths into verified inode identities, or syscall wall time into CPU time.
 """
 
@@ -27,8 +27,11 @@ _RESUME = re.compile(
     r"^\s*(?P<time>[0-9]{9,14}\.[0-9]+)\s+<\.\.\.\s+(?P<call>[a-zA-Z_][a-zA-Z_0-9]*) resumed>(?P<rest>.*)$"
 )
 _CHILD_RETURN = re.compile(r"\)\s+=\s+([1-9][0-9]{0,9})(?:\s|$)")
-_EXIT = re.compile(r"\+\+\+ exited with (?P<code>[0-9]+) \+\+\+")
-_SIGNAL = re.compile(r"\+\+\+ killed by (?P<signal>SIG[A-Z0-9]+)")
+_TERMINAL = re.compile(
+    r"^\s*(?:[0-9]{9,14}\.[0-9]+\s+)?\+\+\+ "
+    r"(?:exited with (?P<code>[0-9]{1,3})|killed by (?P<signal>SIG[A-Z0-9_]+)"
+    r"(?: \(core dumped\))?) \+\+\+\s*$"
+)
 _TRACE_NAME = re.compile(r"trace\.([1-9][0-9]{0,9})\Z")
 _FORKS = frozenset(("fork", "vfork", "clone", "clone3"))
 _MAX_PROCESSES = 32768
@@ -91,6 +94,7 @@ def process_tree(
         pids[pid] = path
     children: dict[int, tuple[int, str]] = {}
     exit_codes: dict[int, dict[str, str | int]] = {}
+    ambiguous_exits: set[int] = set()
     lifetime: dict[int, tuple[float, float]] = {}
     fork_conflict = 0
     for pid, path in sorted(pids.items()):
@@ -103,10 +107,17 @@ def process_tree(
                     stamp = float(m["time"])
                     first = stamp if first is None else min(first, stamp)
                     last = stamp if last is None else max(last, stamp)
-                if e := _EXIT.search(line):
-                    exit_codes[pid] = {"state": "exited", "code": int(e["code"])}
-                elif e := _SIGNAL.search(line):
-                    exit_codes[pid] = {"state": "signalled", "signal": e["signal"]}
+                # Nothing except whitespace may follow a task's terminal record.
+                if pid in exit_codes and line.strip():
+                    ambiguous_exits.add(pid)
+                if terminal := _TERMINAL.fullmatch(line):
+                    if terminal["code"] is not None:
+                        code = int(terminal["code"])
+                        if code > 255:
+                            ambiguous_exits.add(pid)
+                        exit_codes[pid] = {"state": "exited", "code": code}
+                    else:
+                        exit_codes[pid] = {"state": "signalled", "signal": terminal["signal"]}
         for _, call, expression in _completed_calls(path):
             if call not in _FORKS:
                 continue
@@ -123,7 +134,7 @@ def process_tree(
                 else "process"
             )
             expected = (pid, relation)
-            if child in children and children[child] != expected:
+            if child in children:
                 fork_conflict += 1
             else:
                 children[child] = expected
@@ -131,6 +142,7 @@ def process_tree(
             lifetime[pid] = (first, last)
     missing = sorted(set(children) - set(pids))
     roots = sorted(set(pids) - set(children))
+    missing_exits = sorted(set(pids) - set(exit_codes))
     # One normal root does not prove a tree: an unrelated two-node cycle can
     # coexist with it.  Detect all cycles in O(process_count) parent walks.
     visited: set[int] = set()
@@ -168,7 +180,11 @@ def process_tree(
             "pid": pid,
             "parent_pid": children[pid][0] if pid in children else None,
             "kind": children[pid][1] if pid in children else "root",
-            "exit": exit_codes.get(pid, {"state": "unobserved"}),
+            "exit": (
+                {"state": "ambiguous"}
+                if pid in ambiguous_exits
+                else exit_codes.get(pid, {"state": "unobserved"})
+            ),
             "start_ticks": sample["start_ticks"] if sample else None,
             "resource_fidelity": (
                 "kernel_taskstats_exit"
@@ -212,7 +228,10 @@ def process_tree(
         "expected_but_untraced_pids": missing,
         "fork_conflicts": fork_conflict,
         "cycle_pids": sorted(cycle_pids),
-        "tree_complete": len(roots) == 1 and not missing and fork_conflict == 0 and not cycle_pids,
+        "missing_exit_pids": missing_exits,
+        "ambiguous_exit_pids": sorted(ambiguous_exits),
+        "tree_complete": len(roots) == 1
+        and not (missing or fork_conflict or cycle_pids or missing_exits or ambiguous_exits),
         "pid_reuse_not_ruled_out_without_start_ticks": kernel_exit is None,
         "exit_resource_fidelity": (
             "kernel_taskstats_exit" if kernel_exit is not None else "sampled_lower_bound"
@@ -347,6 +366,8 @@ def write_process_tree(tree: Mapping[str, Any], path: Path) -> dict[str, Any]:
         "expected_but_untraced_pids": tree["expected_but_untraced_pids"][:32],
         "expected_untraced_count": len(tree["expected_but_untraced_pids"]),
         "fork_conflicts": tree["fork_conflicts"],
+        "missing_exit_count": len(tree["missing_exit_pids"]),
+        "ambiguous_exit_count": len(tree["ambiguous_exit_pids"]),
         "tree_complete": tree["tree_complete"],
         "sha256": digest.hexdigest(),
         "file": "process-tree.jsonl",

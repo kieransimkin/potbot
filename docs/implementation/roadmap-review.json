@@ -225,13 +225,13 @@
         {
           "path": "src/potbot/tools/worker_audit.py",
           "symbol": "process_tree",
-          "sha256": "1f5f93aa5b80f2cde7e5bc4ffa8d1fd9178deec35fe2bd1899f91b4a128558b9",
+          "sha256": "7f07be4470b0728b9b50bfbbb9bda97594023241f765088f609475a612c9dcd9",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "d3ef2bf3d86aff24ef5600ec791093d7e8533b0fc101080bf15f3a2de32785a0",
+          "sha256": "d7fa23e53515f9a02a89d91e0c76e5cda9c167c533afaf981445d7f08522dbd2",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -239,23 +239,35 @@
         {
           "path": "tests/unit/test_worker_audit.py",
           "symbol": "test_fork_tree_captures_short_lived_process_and_threads",
-          "sha256": "b4d64f535932b1e1bf759ba636929bc9888977dcc5114058fc86bb31fca1d001",
+          "sha256": "af92c44fa5d76d870523120fb0fe05dcbcd923bbb37e07f9c9d16ddcd8e7549d",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
           "path": "tests/unit/test_worker_telemetry.py",
           "symbol": "test_trace_parser_records_pid_and_access_mode_without_disclosing_buffers",
-          "sha256": "f452e58507d1b88e981611389aac8c8af180e6cded58872ca1e377654a90b77f",
+          "sha256": "ca5b227b260ba2dd12b69bae82d0de6475edb1a32f47860dddfcb90491d484d9",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/integration/test_worker_audit_linux.py",
+          "symbol": "test_real_trace_records_thread_exec_and_signalled_child",
+          "sha256": "31c18b337e201ebfcd94be571b1dea5cb70985ec3cc8ee73f3f12f59bc92de40",
+          "basis": "Reviewed test source. The Linux workflow records execution separately."
+        },
+        {
+          "path": "tests/integration/test_worker_audit_linux.py",
+          "symbol": "test_real_nested_cgroup_requires_recursive_shutdown",
+          "sha256": "31c18b337e201ebfcd94be571b1dea5cb70985ec3cc8ee73f3f12f59bc92de40",
+          "basis": "Reviewed test source. The Linux workflow records execution separately."
         }
       ],
-      "assessment": "Descendant/file-access and per-task exit/cgroup accounting have source implementations. The local host has not passed the complete TASKSTATS/loss/delegation gate; heartbeat readiness is independent.",
+      "assessment": "The worker audit requires an unambiguous terminal trace per task and recursive cgroup release before a positive receipt. The full TASKSTATS and admitted Cog route qualification remains open.",
       "support_scope": "Process-start identity, attribution and measured-versus-unavailable metric contracts; no blanket every-route production result.",
       "remaining": [
         "Complete real loss-aware syscall/task-exit accounting for every executable Cog route",
         "Keep 60 BPM, 180-second weighted glow, separate 2-second flash and every-agent coverage; top-eight busy-CPU shares are partial"
       ],
-      "next_action": "Complete U03 before the joint Syn/sandbox live deployment gate; use registered-worker qualifiers and preserve exact metric denominators."
+      "next_action": "Qualify the combined Bubblewrap, TASKSTATS and cgroup boundary on deployment hosts and enumerate all executable Cog routes."
     },
     {
       "id": "identity",
@@ -64805,7 +64817,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "247756e1d2502101fdf4f0dc0dc5c13664dc81a324c80816b09469c9193b1941",
+      "sha256": "957b5ded9ffd55a8e552dd2fe8b619cfee1079d22c8b7759be7a827a18a98905",
       "families": [
         "accounting"
       ],
@@ -64813,8 +64825,15 @@
       "assessment": "Descendant/file-access and per-task exit/cgroup accounting have source implementations. The local host has not passed the complete TASKSTATS/loss/delegation gate; heartbeat readiness is independent.",
       "narrative": [
         {
-          "locator": "line:1-35",
-          "sha256": "9be7032c7646575fb1543bf244de38f55bb1653a8427de4ef1190d3c1e3107f4",
+          "locator": "line:1-31",
+          "sha256": "6a824c598706eb79935dcb8a33d15fe88b4a2ed36177822bb280217eea009fca",
+          "families": [
+            "accounting"
+          ]
+        },
+        {
+          "locator": "line:32-65",
+          "sha256": "3ef9a8084778cc84863422496ee2e1d88f78f6e8891968eeaefd51158d8e61d7",
           "families": [
             "accounting"
           ]
@@ -68665,7 +68684,7 @@
     },
     {
       "path": "docs/implementation/unified-development-roadmap.md",
-      "sha256": "f503acfc71cf0e1fabd11a64dce04c53000d68bd90b775d52cb13b9fdc9a276a",
+      "sha256": "e1bcb63795f6deaf455fc4e3a5312dd3ac9837add348aaf1d9730c256aa109a5",
       "families": [
         "audit",
         "transport-recovery"
@@ -68674,14 +68693,15 @@
       "assessment": "Separate retained source claims, reviewed obligations and executed acceptance. Preserve 21 ID namespaces and both P plan versions; audit closure does not close product work.",
       "narrative": [
         {
-          "locator": "line:1-16",
-          "sha256": "154e6237e2cb8522d0c7a2b51b2a5177e5a20b5e4e0c625f80ab967310443291",
+          "locator": "line:1-20",
+          "sha256": "a417d90dbdd3be4463833d628eeef716257ba42db5dd8cd04fd3133ed57e5cf1",
           "families": [
-            "audit"
+            "audit",
+            "transport-recovery"
           ]
         },
         {
-          "locator": "line:17-24",
+          "locator": "line:21-28",
           "sha256": "076016b54fff41fb78ff8fdcc90229d963fc5d746b89b7706eeebb49f54312c8",
           "families": [
             "audit",
@@ -68726,7 +68746,7 @@
           ]
         },
         {
-          "locator": "line:25-58",
+          "locator": "line:29-62",
           "sha256": "4c193a4a608fa975564b4f8db4bfe008307a41cf3d1b25c33882bcb783543194",
           "families": [
             "audit",
@@ -68771,7 +68791,7 @@
           ]
         },
         {
-          "locator": "line:59-80",
+          "locator": "line:63-84",
           "sha256": "3a83e4a3a3332d3ef4289fcfc3504ed4ab122ebf1cf45fdf94886f89bda19cce",
           "families": [
             "accounting",
@@ -68794,21 +68814,21 @@
           ]
         },
         {
-          "locator": "line:81-82",
+          "locator": "line:85-86",
           "sha256": "730dc617da00361212299c3f3bf7caa292eeb8375c4645a26f895fe255a9c69d",
           "families": [
             "audit"
           ]
         },
         {
-          "locator": "line:83-88",
+          "locator": "line:87-92",
           "sha256": "092663dafe878c1956a3843788aa7a58148603391dc7efc03a2ab4bf50b05224",
           "families": [
             "audit"
           ]
         },
         {
-          "locator": "line:89-94",
+          "locator": "line:93-98",
           "sha256": "382e3775074d6d89fbfe589167a208ad320459466fe816e1e619c4a2326bceab",
           "families": [
             "durable",
@@ -68819,7 +68839,7 @@
           ]
         },
         {
-          "locator": "line:95-98",
+          "locator": "line:99-102",
           "sha256": "ee0b5d377f44b86a968882f762dcddf5486951504484fae6f57bbdc4b5d897cf",
           "families": [
             "tool-schema",
@@ -68832,7 +68852,7 @@
           ]
         },
         {
-          "locator": "line:99-102",
+          "locator": "line:103-106",
           "sha256": "9b8568dc87a1fd913d2775e2cea463e8cc54271de5fdbd471a3846c47413462e",
           "families": [
             "models",
@@ -68845,7 +68865,7 @@
           ]
         },
         {
-          "locator": "line:103-108",
+          "locator": "line:107-112",
           "sha256": "9a38ce04ac2df10970d4c69ae459dab6757ed121e4c0135233670ccf0927cca1",
           "families": [
             "frontend",
@@ -68853,7 +68873,7 @@
           ]
         },
         {
-          "locator": "line:109-114",
+          "locator": "line:113-118",
           "sha256": "80b60f56644c374154018b6472010f50693d60ee0bd0831560224d401b134c72",
           "families": [
             "automation",
@@ -68861,7 +68881,7 @@
           ]
         },
         {
-          "locator": "line:115-124",
+          "locator": "line:119-128",
           "sha256": "4b39689d3f86890624016437f1019a9f443b42259c348acd3976344d39f5cb18",
           "families": [
             "durable",
@@ -68871,7 +68891,7 @@
           ]
         },
         {
-          "locator": "line:125-148",
+          "locator": "line:129-152",
           "sha256": "32b7eab97e7389ba15ce03552db8085933b764e7be0e88f1509f38049e1895a6",
           "families": [
             "durable",
@@ -68880,7 +68900,7 @@
           ]
         },
         {
-          "locator": "line:149-162",
+          "locator": "line:153-166",
           "sha256": "fad8ad3bc0f5c2f2834281f8aaa52d60a6cf39c7bbfccd4fae9aee0a7b60f130",
           "families": [
             "accounting",
@@ -68893,7 +68913,7 @@
           ]
         },
         {
-          "locator": "line:163-181",
+          "locator": "line:167-185",
           "sha256": "e8813cbdbc07b73b8e614df41c1dea7330abebc0152b5bcefd0603bf0353e4e7",
           "families": [
             "accounting",
@@ -68906,21 +68926,21 @@
           ]
         },
         {
-          "locator": "line:182-193",
+          "locator": "line:186-197",
           "sha256": "8fd9aa45ac7a56661637b71fa0a5607b1b2b45780bdea5c35f0434b61d7925a3",
           "families": [
             "audit"
           ]
         },
         {
-          "locator": "line:194-198",
+          "locator": "line:198-202",
           "sha256": "c6f1c77f80e48b91c4a197f815afa2760f516f5eff7fc07b87bbbe7ffc5b2197",
           "families": [
             "compatibility"
           ]
         },
         {
-          "locator": "line:199-207",
+          "locator": "line:203-211",
           "sha256": "a3a63964c24da210b3a841a4fa93e2529b30a3e255e67e78853aea0f4d0192ad",
           "families": [
             "compatibility",
@@ -68928,7 +68948,7 @@
           ]
         },
         {
-          "locator": "line:208-212",
+          "locator": "line:212-216",
           "sha256": "28dfd2784d97841df10d40c27bf4c7f21bc278c11ace17b0339a9ee74ece1daa",
           "families": [
             "evaluation"
@@ -80941,8 +80961,8 @@
         "accounting"
       ],
       "status": "partial",
-      "assessment": "Requirement: Account for descendants, threads, forks, execs, rapid exits and detached processes; confirm the whole tree stops.. Descendant/file-access and per-task exit/cgroup accounting have source implementations. The local host has not passed the complete TASKSTATS/loss/delegation gate; heartbeat readiness is independent.",
-      "next_action": "For MW02 (Account for descendants, threads, forks, execs, rapid exits and detached processes; confirm the whole tree stops.): Complete U03 before the joint Syn/sandbox live deployment gate; use registered-worker qualifiers and preserve exact metric denominators."
+      "assessment": "The worker audit requires an unambiguous terminal trace per task and recursive cgroup release before a positive receipt. The full TASKSTATS and admitted Cog route qualification remains open.",
+      "next_action": "Qualify the combined Bubblewrap, TASKSTATS and cgroup boundary on deployment hosts and enumerate all executable Cog routes."
     },
     {
       "key": "worker-reconciliation:MW03",
@@ -82470,7 +82490,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "0528e651bd063e02eb8f85f9fe41ebba7371f383bfeae43660595ceea564ad55",
+        "sha256": "28f629cffe491d7b90654517d1e7c01d7a2e9fadb5c62fc0dd11085a5707c5c0",
         "name": "Potbot verification",
         "state": "active",
         "scope": [
@@ -82509,7 +82529,8 @@
           "Upload sanitized failure diagnostics",
           "Retain source-inventory Cog acceptance",
           "Retain canonical semantic contract Cog acceptance",
-          "Record run blogworthiness"
+          "Record run blogworthiness",
+          "Verify task trace endings and recursive cgroup shutdown"
         ],
         "latest_inspected_run": {
           "id": 41532663749,

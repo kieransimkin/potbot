@@ -21,6 +21,7 @@ def test_fork_tree_captures_short_lived_process_and_threads(tmp_path: Path) -> N
 """)
     (tmp_path / "trace.301").write_text(
         '1793000000.000011 execve("/usr/bin/true", ["true"], 0x1) = 0 <0.001>\n'
+        "1793000000.000012 +++ exited with 0 +++\n"
     )
     (tmp_path / "trace.302").write_text("1793000000.000040 +++ killed by SIGKILL +++\n")
     paths = sorted(tmp_path.glob("trace.*"))
@@ -250,3 +251,19 @@ def test_disconnected_clone_cycle_is_not_a_complete_process_tree(tmp_path):
     assert tree["roots"] == [11]
     assert tree["cycle_pids"] == [12, 13]
     assert tree["tree_complete"] is False
+
+
+@pytest.mark.parametrize(
+    "tail",
+    (
+        "1793000000.0002 +++ exited with 0 +++\n1793000000.0003 +++ exited with 0 +++\n",
+        "1793000000.0002 +++ exited with 0 +++\n1793000000.0003 getpid() = 121 <0.0001>\n",
+    ),
+)
+def test_ambiguous_trace_termination_refuses_a_complete_tree(tmp_path: Path, tail: str) -> None:
+    trace = tmp_path / "trace.121"
+    trace.write_text("1793000000.0001 getpid() = 121 <0.0001>\n" + tail)
+    tree = process_tree([trace])
+    assert tree["tree_complete"] is False
+    assert tree["ambiguous_exit_pids"] == [121]
+    assert tree["nodes"][0]["exit"] == {"state": "ambiguous"}

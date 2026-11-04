@@ -4,7 +4,11 @@
 the pinned main `95610037311c80cdf7163372998b08e1b8958926`, retained documents,
 731 explicit source rows, narrative sections, code/test evidence, all 24 PRs and
 32 CI workflows. The separately authored review and drift checks close the audit;
-runtime qualification remains false. **U01-A is the next implementation milestone.**
+runtime qualification remains false. U01-A was the first implementation milestone from this audit.
+
+**4 November 2026:** U03-Q starts with [worker audit completion evidence](38-operator-worker-qualification.md#u03-q-completion-evidence).
+This gate requires terminal task traces and confirmed cgroup release before an audit can report success.
+The remaining U02 and U03 deployment and route qualification gates still apply.
 
 Plan **1.1** preserves P001–P153 and adds **P154–P204**; Architecture **1.1**
 defines **G01–G35**. Older P153/G24 crosswalks below describe their historical
