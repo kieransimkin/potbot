@@ -118,6 +118,22 @@ flowchart LR
     L --> V[Second Cog completes with verified accounting]
 ```
 
+### Concurrent work across lease renewal
+
+The Linux renewal case holds two registered Cogs in separate workspaces until
+both ledgers record a later lease expiry under the original generation.
+A second Agent in each workspace attempts conflicting work and is refused
+before the supervisor runs it. Both original Cogs remain in their own live
+cgroups through renewal. After release, both produce independently verified
+receipts, their trace PID sets are disjoint, and both leases and cgroups clear.
+
+```mermaid
+flowchart LR
+    A[Two workspaces with live Cogs] --> R[Both leases renew in place]
+    A --> B[Conflicting work within either workspace is refused]
+    R --> V[Verify two independent audits and release both leases]
+```
+
 ### Context RPC through the monitored worker
 
 The context acceptance job uses the shipped guest client, a disposable
@@ -141,7 +157,9 @@ flowchart LR
 ```
 
 The test uses the development Syn relay. The deployed image, released Syn
-authorization and sustained load still have their own qualification gates.
+authorization and sustained production load still have their own qualification
+gates. The hosted renewal case exercises one renewal interval with two
+workers.
 
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain
