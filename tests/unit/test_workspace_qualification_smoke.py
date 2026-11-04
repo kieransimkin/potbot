@@ -90,6 +90,19 @@ def test_negative_case_is_never_confused_with_failed_sandbox_launch(
     assert result["processes_stopped"] is case.processes_stopped
 
 
+def test_launch_diagnostic_does_not_echo_paths_or_arbitrary_reasons():
+    classify = _qualifier()._launch_diagnostic
+    assert classify(b"bwrap: Can't mount proc on /private/root: Permission denied\n") == {
+        "stage": "bubblewrap_mount",
+        "reason": "permission_denied",
+    }
+    assert classify(b"bwrap: /private/path: internal data\n") == {
+        "stage": "bubblewrap_other",
+        "reason": "other",
+    }
+    assert classify(b"unrecognized output") is None
+
+
 @pytest.mark.skipif(os.name != "posix", reason="Linux/WSL /proc namespace identifiers")
 def test_smoke_checks_actual_kernel_network_namespace(tmp_path: Path, monkeypatch) -> None:
     home = tmp_path / "home"
