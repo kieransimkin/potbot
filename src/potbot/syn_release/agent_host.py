@@ -14,9 +14,10 @@ from typing import Any
 from uuid import UUID
 
 from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError, StateMismatchError
+from potbot.tools.temporary import TemporaryDirectory
 
 from .contracts import canonical, document
-from .store import _directory, _write_new, private_read
+from .store import _directory, _sync_directory, _write_new, private_read
 
 
 def _root_file(path: Path) -> bytes:
@@ -100,6 +101,36 @@ def provision(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
         os.close(fd)
 
 
+def agent_log_directory(home: Path, uid: int, gid: int, *, create: bool = False) -> Path:
+    """Resolve the private backing directory beside a registered Agent home."""
+    parent = home.parent
+    _directory(parent)
+    logs = parent / "logs"
+    try:
+        info = logs.lstat()
+    except FileNotFoundError:
+        if not create:
+            raise ScopeDeniedError("Agent log directory has not been provisioned") from None
+        # Creation runs under the existing provisioning lock. Publish only an
+        # already-owned directory so a failed creation never exposes a partial one.
+        with TemporaryDirectory(prefix=".logs-", dir=parent) as stage:
+            ready = Path(stage) / "logs"
+            ready.mkdir(mode=0o700)
+            ready.chmod(0o700)
+            os.chown(ready, uid, gid)
+            ready.rename(logs)
+        _sync_directory(parent)
+        info = logs.lstat()
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or info.st_uid != uid
+        or info.st_gid != gid
+        or stat.S_IMODE(info.st_mode) != 0o700
+    ):
+        raise ScopeDeniedError("Agent log directory differs from its native account registration")
+    return logs
+
+
 def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]:
     import grp
     import pwd
@@ -135,6 +166,7 @@ def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]
         for path in (Path("/etc/subuid"), Path("/etc/subgid")):
             if f"root:{uid}:1".encode() not in _root_file(path).splitlines():
                 raise StateMismatchError("Registered Agent namespace delegation is absent")
+        agent_log_directory(home, uid, uid, create=True)
         return actual
     try:
         pwd.getpwnam(name)
@@ -193,5 +225,6 @@ def _provision_locked(root: Path, *, agent_id: UUID, uid: int) -> dict[str, Any]
     os.chown(home, uid, uid)
     _delegate(Path("/etc/subuid"), uid)
     _delegate(Path("/etc/subgid"), uid)
+    agent_log_directory(home, uid, uid, create=True)
     _write_new(registration, canonical(expected))
     return expected

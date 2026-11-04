@@ -109,8 +109,9 @@ that actual host UID. A changed label mapped back to host root cannot qualify.
 Bubblewrap supplies separate mount, PID, network, user, IPC, UTS and cgroup
 namespaces. The shared Potbot seccomp primitive admits only AF_UNIX sockets for
 the private credential service and readiness endpoint. The root filesystem and
-runtime mounts are read-only; the Agent home is its only persistent writable
-mount. Operator and peer homes, buses and Windows drive mounts are absent.
+runtime mounts are read-only. The Agent can write its own persistent home and
+`/var/logs/ai`. Operator and peer homes, logs, buses and Windows drive mounts
+are absent.
 Capabilities and their bounding set are empty, and new privileges are disabled.
 Runtime memory, process, descriptor and file-size limits are applied. This is a
 Syn runtime profile; it does not replace Cog image, lease, syscall-audit,
@@ -124,6 +125,31 @@ read/execute permissions without changing the sealed store. The root-owned view
 is mounted read-only in the Agent sandbox. Changed or partial views fence launch
 and are never repaired or accepted automatically. Verification probes explicitly
 disable bytecode writes, including when the controller runs as root.
+
+## Persistent Agent logs
+
+The root controller creates `logs` beside the registered Agent home. It binds
+that directory to `/var/logs/ai` and sets `POTBOT_AGENT_LOG_DIR` to the mount
+path. Existing registrations acquire the directory on their next session.
+The backing directory must match the registered host UID and GID and have
+mode `0700`. The controller refuses links and changed permissions.
+
+```mermaid
+flowchart LR
+    A[Agent A native UID] --> AL[Agent A private logs]
+    B[Agent B native UID] --> BL[Agent B private logs]
+    AL --> AR[Same files after Agent A restart]
+    BL --> BR[Same files after Agent B restart]
+```
+
+Each mount exposes one Agent's files. Restarting that sandbox remounts the same
+directory. The Linux test checks separate native UIDs, fresh sandbox launches,
+and the kernel's refusal of a peer write. This headless filesystem boundary is
+illustrated by the diagram and qualified by the test results.
+
+This U02 increment applies to the native Agent launch path. Shared Cog workers
+need a qualified per-Agent filesystem boundary before using this mount.
+Operator collection, rotation and retention remain separate U02 work.
 
 ## Controller entry point
 

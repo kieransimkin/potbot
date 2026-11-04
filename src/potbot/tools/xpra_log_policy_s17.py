@@ -1,6 +1,6 @@
 """S17: operator-private Xpra log custody, independent of every guest mount.
 
-Normal guest/agent logs use the workspace's managed /var/logs/ai overlay.  Host
+Native Agent logs use a private /var/logs/ai mount. Host
 Xpra stdout can contain private internal details, so it is never placed under
 shared /home or exposed through any guest, browser or public API.
 """
