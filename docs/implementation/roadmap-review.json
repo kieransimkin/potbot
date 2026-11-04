@@ -68256,6 +68256,28 @@
       ]
     },
     {
+      "path": "docs/implementation/self-contained-installer-plan.md",
+      "sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
+      ],
+      "disposition": "retained_requirement_or_implementation_narrative",
+      "assessment": "Proposes stock WSL setup and separate worker activation. The recorded custom kernel boot did not qualify local worker accounting. Installer implementation and actual deployment qualification remain open.",
+      "narrative": [
+        {
+          "locator": "line:1-74",
+          "sha256": "6fcd52e84a42d95af9b8f957bf4382d21219adc973fa0bcff3572e930de3bf7a",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        }
+      ]
+    },
+    {
       "path": "docs/implementation/syn-agent-deployment.md",
       "sha256": "1226b3e7d3eb8edc8ccbdb508a2fd4be867a6c2ee55c73644436091991e13ab8",
       "families": [

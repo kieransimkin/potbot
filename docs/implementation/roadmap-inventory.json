@@ -1243,6 +1243,16 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": "docs/implementation/self-contained-installer-plan.md",
+      "sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "bytes": 4995,
+      "kind": "narrative_text",
+      "text_sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "characters": 4987,
+      "lines": 74,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": "docs/implementation/syn-agent-deployment.md",
       "sha256": "1226b3e7d3eb8edc8ccbdb508a2fd4be867a6c2ee55c73644436091991e13ab8",
       "bytes": 11576,
@@ -36009,7 +36019,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "670a9ea6bdc64c2da74de42082418374f704fd21b3007e48339f2e3cbeeac02d",
+  "review_sha256": "6b10b51e72d68ed2b9eb513cc612d1adfaec40560e77fb38430667398cb4425b",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115798,6 +115808,17 @@
       "excerpt": "## Reference\n\nPython's `shutil.rmtree` documentation describes descriptor-based symlink-attack\nresistance and `onexc`; its pathname callback is not an appropria",
       "review_families": [
         "foundation"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:1-74",
+      "sha256": "6fcd52e84a42d95af9b8f957bf4382d21219adc973fa0bcff3572e930de3bf7a",
+      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Proposed. This plan covers installation and worker activation.\nThe [Syn release and deployment contract",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
       ]
     },
     {
