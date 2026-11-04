@@ -45,6 +45,7 @@ _STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 _FD_PATH = re.compile(r"\b\d+<(/[^>]{1,8192})>")
 _PID = re.compile(r"[1-9][0-9]{0,9}\Z")
 _STRACE_FLAGS = ("-f", "-ff", "-q", "-ttt", "-T", "-yy", "-s", "4096")
+_STRACE_PID_NAMESPACE = "--pidns-translation"
 _MAX_TRACE = 256 * 1024 * 1024  # Per worker; never silently drop audit events.
 _MAX_JSON = 96 * 1024
 
@@ -589,6 +590,7 @@ class WorkerMonitorSession:
             "--",
             str(self.config.strace),
             *_STRACE_FLAGS,
+            _STRACE_PID_NAMESPACE,
             "-o",
             str(self.path / "trace"),
             "--",
