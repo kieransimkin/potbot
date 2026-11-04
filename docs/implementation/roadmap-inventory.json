@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "365a458055d2254f821d90899b4bb26e9e843d708aa2a2efd8d43ad68880da22",
-      "bytes": 7411,
+      "sha256": "258ddfe0e8ae6c7277fec2b8f7d02c0a426f0514f764b5af95efa32aa967cafb",
+      "bytes": 8225,
       "kind": "narrative_text",
-      "text_sha256": "365a458055d2254f821d90899b4bb26e9e843d708aa2a2efd8d43ad68880da22",
-      "characters": 7408,
-      "lines": 149,
+      "text_sha256": "258ddfe0e8ae6c7277fec2b8f7d02c0a426f0514f764b5af95efa32aa967cafb",
+      "characters": 8222,
+      "lines": 167,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -34480,7 +34480,7 @@
         "U13",
         "U16"
       ],
-      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture checks cancellation fencing and cleanup of a timed-out worker alongside a separately audited live peer. The context RPC fixture checks durable results against audited worker exits. Qualification of the deployed worker routes remains open."
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture checks cancellation fencing, cleanup of a timed-out worker alongside a live peer, and renewal of both leases while concurrent workers remain isolated. The context RPC fixture checks durable results against audited worker exits. Qualification of the deployed worker routes remains open."
     },
     {
       "key": "worker-reconciliation:MW03",
@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "3b92484846a4c16d1a53dc7ae9968fb7ac89e7fec059be85072fc85d623699ee",
+  "review_sha256": "e2988fe11090fb361d166b4d95676d3e3f0650fe968498cea9bb0bb5f02ac6c5",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112537,8 +112537,17 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:121-149",
-      "sha256": "f43bd66e8b77aa1d838904173dc6458f469a5b0d5117feb62cbab6441e502c65",
+      "locator": "line:121-136",
+      "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
+      "excerpt": "### Concurrent work across lease renewal\n\nThe Linux renewal case holds two registered Cogs in separate workspaces until\nboth ledgers record a later lease expiry",
+      "review_families": [
+        "accounting"
+      ]
+    },
+    {
+      "source": "docs/implementation/38-operator-worker-qualification.md",
+      "locator": "line:137-167",
+      "sha256": "6bc5d325796b77053ff7cc375f1e71136ae192e0e8b96868d9d5bcba33aab7fc",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
         "accounting"
@@ -121533,25 +121542,25 @@
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_trace_records_thread_exec_and_signalled_child",
-          "sha256": "1265e1f26ff09741a6ade53748b0921703eff72d5448926b2f1fccf6fe9a37c9",
+          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_nested_cgroup_requires_recursive_shutdown",
-          "sha256": "1265e1f26ff09741a6ade53748b0921703eff72d5448926b2f1fccf6fe9a37c9",
+          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_pid_namespace_joins_forks_to_tracer_ids",
-          "sha256": "1265e1f26ff09741a6ade53748b0921703eff72d5448926b2f1fccf6fe9a37c9",
+          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_registered_cogs_join_bubblewrap_traces_and_taskstats",
-          "sha256": "1265e1f26ff09741a6ade53748b0921703eff72d5448926b2f1fccf6fe9a37c9",
+          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         },
         {
@@ -121561,7 +121570,7 @@
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
-      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture checks cancellation fencing and cleanup of a timed-out worker alongside a separately audited live peer. The context RPC fixture checks durable results against audited worker exits. Qualification of the deployed worker routes remains open.",
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture checks cancellation fencing, cleanup of a timed-out worker alongside a live peer, and renewal of both leases while concurrent workers remain isolated. The context RPC fixture checks durable results against audited worker exits. Qualification of the deployed worker routes remains open.",
       "support_scope": "Process-start identity, attribution and measured-versus-unavailable metric contracts; no blanket every-route production result.",
       "remaining": [
         "Complete real loss-aware syscall/task-exit accounting for every executable Cog route",

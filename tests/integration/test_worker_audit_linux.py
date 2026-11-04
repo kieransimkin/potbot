@@ -249,7 +249,7 @@ printf '%s\\n' '{"schema_version":1,"type_ref":"syn://type/out","value":{"done":
     sys.platform != "linux" or os.environ.get("POTBOT_TEST_WORKER_CGROUP") != "1",
     reason="requires a disposable Linux fixture with real worker accounting",
 )
-@pytest.mark.parametrize("scenario", ["complete", "cancel", "timeout-overlap"])
+@pytest.mark.parametrize("scenario", ["complete", "cancel", "timeout-overlap", "overlap-renewal"])
 def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
     tmp_path: Path, scenario: str
 ) -> None:
@@ -445,72 +445,136 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
                     pending.cancel()
                 await asyncio.gather(pending, return_exceptions=True)
 
-        async def timeout_with_running_peer() -> None:
+        def active_lease(access: WorkspaceLeaseLedger, workspace_id: UUID) -> tuple[int, int]:
+            (row,) = access.active(workspace_id)
+            assert row["state"] == "active"
+            generation, expires = row["generation"], row["expires_ns"]
+            assert type(generation) is int and type(expires) is int
+            return generation, expires
+
+        def verify_stopped_worker(
+            leaf: Path,
+            access: WorkspaceLeaseLedger,
+            scope: WorkspaceContext,
+            run: CogRunContext,
+            agent: UUID,
+            child_pid: int,
+        ) -> set[str]:
+            workspace_audit = audit / str(scope.workspace_id)
+            assert not leaf.exists()
+            assert not list((workspace_audit / ".active").iterdir())
+            assert not access.active(scope.workspace_id)
+            receipt = verify_gui_run(
+                audit,
+                scope.workspace_id,
+                run.invocation_id,
+                identity_kind="agent",
+                subject_id=agent,
+            )
+            assert receipt["qualified"] is True
+            traces = {
+                path.name for path in (workspace_audit / str(UUID(hex=leaf.name))).glob("trace.*")
+            }
+            assert f"trace.{child_pid}" in traces
+            return traces
+
+        async def overlap_with_peer(*, time_out: bool) -> None:
             peer_home = tmp_path / "peer-home"
             peer_staging = tmp_path / "peer-staging"
             (peer_home / ".tmp").mkdir(parents=True)
             peer_staging.mkdir()
             peer_runtime = replace(runtime, home=peer_home, model_staging=peer_staging)
-            peer_actor, peer_ledger, peer_executor, (peer,) = register_workspace(
-                peer_runtime, "audit-peer", 1
+            peer_actor, peer_ledger, peer_executor, (peer, peer_other) = register_workspace(
+                peer_runtime, "audit-peer", 2
             )
-            short = CogRunContext("a" * 64, uuid4(), uuid4(), uuid4())
-            long = replace(short, invocation_id=uuid4())
+            primary_run = CogRunContext("a" * 64, uuid4(), uuid4(), uuid4())
+            peer_run = replace(primary_run, invocation_id=uuid4())
             timeout_ms = 8000
-            timeout_op = replace(
+            waiting = replace(
                 op,
-                binding=replace(
-                    op.binding, policy=replace(op.binding.policy, max_wall_ms=timeout_ms)
-                ),
-                argv=(*op.argv, "hold"),
-            )
-            peer_op = replace(
-                op,
-                binding=replace(op.binding, policy=replace(op.binding.policy, max_wall_ms=25000)),
+                binding=replace(op.binding, policy=replace(op.binding.policy, max_wall_ms=35000)),
                 argv=(*op.argv, "release"),
             )
+            primary_op = (
+                replace(
+                    waiting,
+                    binding=replace(
+                        op.binding, policy=replace(op.binding.policy, max_wall_ms=timeout_ms)
+                    ),
+                    argv=(*op.argv, "hold"),
+                )
+                if time_out
+                else waiting
+            )
+            primary_dir = home / agent_homes[agents[0]].directory
             peer_dir = peer_home / peer.directory
-            jobs = [
-                asyncio.create_task(executor.execute(timeout_op, source, short, actor, agents[0])),
-                asyncio.create_task(
-                    peer_executor.execute(peer_op, source, long, peer_actor, peer.agent_id)
-                ),
-            ]
-            timed, surviving = jobs
+            primary_task = asyncio.create_task(
+                executor.execute(primary_op, source, primary_run, actor, agents[0])
+            )
+            peer_task = asyncio.create_task(
+                peer_executor.execute(waiting, source, peer_run, peer_actor, peer.agent_id)
+            )
+            jobs = (primary_task, peer_task)
             try:
-                (timed_leaf, timed_pid), (peer_leaf, peer_pid) = await asyncio.gather(
-                    wait_for_detached(home / agent_homes[agents[0]].directory, workspace, timed),
-                    wait_for_detached(peer_dir, peer_actor.workspace_id, surviving),
+                (primary_leaf, primary_pid), (peer_leaf, peer_pid) = await asyncio.gather(
+                    wait_for_detached(primary_dir, workspace, primary_task),
+                    wait_for_detached(peer_dir, peer_actor.workspace_id, peer_task),
                 )
-                assert timed_leaf != peer_leaf and timed_pid != peer_pid
-                assert not timed.done() and not surviving.done()
-                with pytest.raises((StateMismatchError, IndeterminateExecutionError)):
-                    await asyncio.wait_for(asyncio.shield(timed), timeout=14)
-                expired = results[short.invocation_id]
-                assert expired.dispatched and expired.elapsed_ms >= timeout_ms
-                assert expired.error_code in {"timeout", "audit_incomplete"}
-                assert not timed_leaf.exists()
-                assert not list((audit / str(workspace) / ".active").iterdir())
-                (retained,) = ledger.active(workspace)
-                assert retained["state"] == "indeterminate"
-                assert not surviving.done() and _cgroup_populated(peer_leaf)
+                assert primary_leaf != peer_leaf and primary_pid != peer_pid
+                assert not primary_task.done() and not peer_task.done()
 
+                if time_out:
+                    with pytest.raises((StateMismatchError, IndeterminateExecutionError)):
+                        await asyncio.wait_for(asyncio.shield(primary_task), timeout=14)
+                    expired = results[primary_run.invocation_id]
+                    assert expired.dispatched and expired.elapsed_ms >= timeout_ms
+                    assert expired.error_code in {"timeout", "audit_incomplete"}
+                    assert not primary_leaf.exists()
+                    assert not list((audit / str(workspace) / ".active").iterdir())
+                    (retained,) = ledger.active(workspace)
+                    assert retained["state"] == "indeterminate"
+                    primary_traces = {f"trace.{primary_pid}"}
+                else:
+                    generation, expires = active_lease(ledger, workspace)
+                    peer_generation, peer_expires = active_lease(
+                        peer_ledger, peer_actor.workspace_id
+                    )
+                    for worker, scope, contender in (
+                        (executor, actor, agents[1]),
+                        (peer_executor, peer_actor, peer_other.agent_id),
+                    ):
+                        blocked = replace(primary_run, invocation_id=uuid4())
+                        with pytest.raises(
+                            StateMismatchError, match="conflicting or indeterminate"
+                        ):
+                            await worker.execute(op, source, blocked, scope, contender)
+                        assert blocked.invocation_id not in results
+
+                    # The real guard renews every ten seconds. Keep both children live
+                    # until the controller observes durable renewal in both ledgers.
+                    async with asyncio.timeout(18):
+                        while True:
+                            assert not primary_task.done() and not peer_task.done()
+                            primary_now = active_lease(ledger, workspace)
+                            peer_now = active_lease(peer_ledger, peer_actor.workspace_id)
+                            assert primary_now[0] == generation and peer_now[0] == peer_generation
+                            if primary_now[1] > expires and peer_now[1] > peer_expires:
+                                break
+                            await asyncio.sleep(0.1)
+                    assert _cgroup_populated(primary_leaf) and _cgroup_populated(peer_leaf)
+                    (primary_dir / ".qualification-release").touch()
+                    assert (await asyncio.wait_for(primary_task, timeout=8)).value == {"done": True}
+                    primary_traces = verify_stopped_worker(
+                        primary_leaf, ledger, actor, primary_run, agents[0], primary_pid
+                    )
+
+                assert not peer_task.done() and _cgroup_populated(peer_leaf)
                 (peer_dir / ".qualification-release").touch()
-                assert (await asyncio.wait_for(surviving, timeout=8)).value == {"done": True}
-                assert not peer_leaf.exists()
-                assert not list((audit / str(peer_actor.workspace_id) / ".active").iterdir())
-                assert not peer_ledger.active(peer_actor.workspace_id)
-                receipt = verify_gui_run(
-                    audit,
-                    peer_actor.workspace_id,
-                    long.invocation_id,
-                    identity_kind="agent",
-                    subject_id=peer.agent_id,
+                assert (await asyncio.wait_for(peer_task, timeout=8)).value == {"done": True}
+                peer_traces = verify_stopped_worker(
+                    peer_leaf, peer_ledger, peer_actor, peer_run, peer.agent_id, peer_pid
                 )
-                assert receipt["qualified"] is True
-                traced = audit / str(peer_actor.workspace_id) / str(UUID(hex=peer_leaf.name))
-                assert (traced / f"trace.{peer_pid}").is_file()
-                assert not (traced / f"trace.{timed_pid}").exists()
+                assert primary_traces.isdisjoint(peer_traces)
             finally:
                 for job in jobs:
                     if not job.done():
@@ -518,9 +582,10 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
                 await asyncio.gather(*jobs, return_exceptions=True)
 
         try:
-            if scenario == "timeout-overlap":
-                asyncio.run(timeout_with_running_peer())
-            for agent in agents if scenario != "timeout-overlap" else ():
+            overlap = scenario in {"timeout-overlap", "overlap-renewal"}
+            if overlap:
+                asyncio.run(overlap_with_peer(time_out=scenario == "timeout-overlap"))
+            for agent in () if overlap else agents:
                 run = uuid4()
                 if scenario == "cancel" and agent == agents[0]:
                     asyncio.run(cancel_after_detach(agent, run))
