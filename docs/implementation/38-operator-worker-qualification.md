@@ -183,11 +183,12 @@ flowchart LR
     G -->|Invalid grant| F[Refuse before dispatch]
 ```
 
-The job retains a bounded receipt for each version.
+Each release and route combination uses a fresh pair of native Agents and
+retains a separate bounded receipt.
 
 ### Context RPC with official Syn authorization
 
-The same two release lanes exercise the shipped context client and the real
+Both pinned releases exercise the shipped context client and the real
 PostgreSQL session store. A grant for typed JSON cannot open context RPC. The
 test verifies that this refusal creates neither a context session nor a
 worker audit. A valid context grant starts the monitored worker and a native

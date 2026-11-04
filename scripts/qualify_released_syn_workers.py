@@ -50,7 +50,7 @@ printf '%s\\n' '{"schema_version":1,"type_ref":"syn://type/fixture-output","valu
 async def qualify_monitored_workers(
     workers: ReleasedSynWorkerNodeMesh, base: Path
 ) -> dict[str, Any]:
-    """Qualify the real typed JSON route for two Agent identities in one cohort."""
+    """Qualify one monitored route with a fresh pair of native Agents."""
     transport = workers.transport
     workspace = transport.workspace_id
     actor = WorkspaceContext(workspace, uuid4())
@@ -66,6 +66,18 @@ async def qualify_monitored_workers(
         assert (
             transport.participant(agent).deployment.policy.value["release_key_sha256"] == authority
         )
+
+    common_evidence = {
+        "profile": "potbot.official-syn-monitored-workers/1",
+        "result": "passed",
+        "release": {**expected, "release_key_sha256": authority},
+        "consumer_sha": os.environ["R04_POTBOT_SHA"],
+    }
+    route = os.environ.get("POTBOT_QUALIFICATION_ROUTE", "typed-json/v1")
+    if route == "context-rpc/v1":
+        context_evidence = await qualify_released_syn_context(workers, base / "context-rpc")
+        return {**common_evidence, **context_evidence}
+    assert route == "typed-json/v1", "Unknown monitored worker qualification route"
 
     fixture = base / "monitored-workers"
     image, home, staging, models, tools, private, audit = (
@@ -216,12 +228,8 @@ async def qualify_monitored_workers(
             await reject(context, agent, grant)  # The successful grant was consumed.
 
     return {
-        "profile": "potbot.official-syn-monitored-workers/1",
-        "result": "passed",
-        "release": {**expected, "release_key_sha256": authority},
-        "consumer_sha": os.environ["R04_POTBOT_SHA"],
-        "route": "typed-json/v1",
-        "context_rpc": await qualify_released_syn_context(workers, base / "context-rpc"),
+        **common_evidence,
+        "route": route,
         "audited_agents": len(verified),
         "traced_process_counts": verified,
         "native_peer_heartbeat_while_worker_live": True,

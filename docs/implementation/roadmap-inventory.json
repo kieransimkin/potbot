@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "ece1acdc1b7d6c7e60b6e8afcf84ae4abe9c978d06ac33d841b1cc049ba5708c",
-      "bytes": 10426,
+      "sha256": "681d7bde88169081e8cad9f6c114ff7cf9682201970f078df0ec4317f3150b3e",
+      "bytes": 10478,
       "kind": "narrative_text",
-      "text_sha256": "ece1acdc1b7d6c7e60b6e8afcf84ae4abe9c978d06ac33d841b1cc049ba5708c",
-      "characters": 10423,
-      "lines": 217,
+      "text_sha256": "681d7bde88169081e8cad9f6c114ff7cf9682201970f078df0ec4317f3150b3e",
+      "characters": 10475,
+      "lines": 218,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35730,12 +35730,12 @@
     },
     {
       "path": ".github/workflows/official-syn-monitored-workers.yml",
-      "sha256": "e3e1208854e9e7e3d22e397476d97776739c02d2648dcba297819c6a26958de8",
-      "bytes": 6478,
+      "sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53",
+      "bytes": 6831,
       "kind": "narrative_text",
-      "text_sha256": "e3e1208854e9e7e3d22e397476d97776739c02d2648dcba297819c6a26958de8",
-      "characters": 6478,
-      "lines": 135,
+      "text_sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53",
+      "characters": 6831,
+      "lines": 140,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35999,7 +35999,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "3ac5d4d1abd09a1faedc73d0524644ca8b96b60bc4f9742d9bece882cb8ed5b1",
+  "review_sha256": "8b5d17697b25abbcaa7c3716a76b1e050b675498ee25e2c71456a250adbed0f2",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112565,8 +112565,8 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:162-187",
-      "sha256": "44293150ca9cc96b7b71cefe80c7d642b787ce622f62c0bf44d85b21eda01202",
+      "locator": "line:162-188",
+      "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
       "review_families": [
         "accounting"
@@ -112574,9 +112574,9 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:188-217",
-      "sha256": "63c10e67031b6432c99e079112cc83627023ae11ed9f6ddb19cc7945db8cc29e",
-      "excerpt": "### Context RPC with official Syn authorization\n\nThe same two release lanes exercise the shipped context client and the real\nPostgreSQL session store. A grant f",
+      "locator": "line:189-218",
+      "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
+      "excerpt": "### Context RPC with official Syn authorization\n\nBoth pinned releases exercise the shipped context client and the real\nPostgreSQL session store. A grant for typ",
       "review_families": [
         "accounting"
       ]
