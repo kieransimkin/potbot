@@ -789,13 +789,13 @@
         {
           "path": "tests/unit/test_syn_agent_logs.py",
           "symbol": "test_agent_log_directory_survives_new_process_and_denies_peer_uid",
-          "sha256": "d8a844efdc73074594b0ef49af59f83bd3d3798a1a5d55e62fe70aac3a47f1b5",
+          "sha256": "a97eaa22603ff47ff5f6e82d90aaa9c43a03a41e6c12e77229701ead79787ad1",
           "basis": "Reviewed U02 implementation and test source; executed results are separate."
         },
         {
           "path": "tests/unit/test_syn_agent_logs.py",
           "symbol": "test_native_agent_log_mount_survives_sandbox_restart",
-          "sha256": "d8a844efdc73074594b0ef49af59f83bd3d3798a1a5d55e62fe70aac3a47f1b5",
+          "sha256": "a97eaa22603ff47ff5f6e82d90aaa9c43a03a41e6c12e77229701ead79787ad1",
           "basis": "Reviewed U02 implementation and test source; executed results are separate."
         }
       ],

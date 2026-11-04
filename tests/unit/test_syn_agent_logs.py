@@ -39,7 +39,9 @@ def _append(directory: Path, uid: int, marker: str) -> subprocess.CompletedProce
     try:
         return subprocess.run(
             [
-                sys.executable,
+                # The target UID must be able to execute the interpreter even
+                # when the controller's virtualenv is under a private home.
+                "/usr/bin/python3",
                 "-I",
                 "-B",
                 "-c",

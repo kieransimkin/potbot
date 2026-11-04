@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "bd60140f8dc3ab58b0600a6c0297eed53488772baa4b9e771b2847769e43d2df",
+  "review_sha256": "25fce328f8b40c131ca88f9dbf86880f5fed83492ae47242d4916e29adb2c1ba",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -122025,13 +122025,13 @@
         {
           "path": "tests/unit/test_syn_agent_logs.py",
           "symbol": "test_agent_log_directory_survives_new_process_and_denies_peer_uid",
-          "sha256": "d8a844efdc73074594b0ef49af59f83bd3d3798a1a5d55e62fe70aac3a47f1b5",
+          "sha256": "a97eaa22603ff47ff5f6e82d90aaa9c43a03a41e6c12e77229701ead79787ad1",
           "basis": "Reviewed U02 implementation and test source; executed results are separate."
         },
         {
           "path": "tests/unit/test_syn_agent_logs.py",
           "symbol": "test_native_agent_log_mount_survives_sandbox_restart",
-          "sha256": "d8a844efdc73074594b0ef49af59f83bd3d3798a1a5d55e62fe70aac3a47f1b5",
+          "sha256": "a97eaa22603ff47ff5f6e82d90aaa9c43a03a41e6c12e77229701ead79787ad1",
           "basis": "Reviewed U02 implementation and test source; executed results are separate."
         }
       ],
