@@ -12,6 +12,7 @@ from uuid import uuid4
 from potbot.evaluation.sandbox_worker_acceptance import write_report
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
+from scripts.qualify_phase35_worker import qualify as qualify_worker
 from scripts.qualify_shared_workspace import qualify as qualify_workspace
 from scripts.qualify_worker_exit_accounting import qualify as qualify_accounting
 from scripts.worker_audit_fixture import monitored_cog_cgroup
@@ -78,8 +79,15 @@ def main() -> int:
         smoke = qualify_workspace(
             runtime, watcher, workspace_id=uuid4(), principal_id=uuid4(), monitor_config=monitor
         )
+        worker = (
+            qualify_worker(runtime, monitor, watcher=watcher)
+            if smoke["qualified_smoke"] is True
+            else None
+        )
 
-    passed = accounting["qualified"] is True and smoke["qualified_smoke"] is True
+    passed = (
+        accounting["qualified"] is True and worker is not None and worker["qualified_smoke"] is True
+    )
     report = {
         "schema": "potbot.published-image-hosted-smoke/1",
         "scope": "disposable-linux-amd64",
@@ -91,6 +99,7 @@ def main() -> int:
         "shipped_sha256": shipped,
         "taskstats": accounting,
         "workspace_smoke": smoke,
+        "worker_fork_smoke": worker,
     }
     write_report(args.report, report)
     print(json.dumps({"qualified_smoke": passed, "image_digest": args.image_digest}))

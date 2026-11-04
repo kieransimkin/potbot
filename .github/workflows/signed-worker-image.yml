@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/signed-worker-image.yml'
       - 'scripts/qualify_published_sandbox_image.py'
+      - 'scripts/qualify_operator_workers.py'
+      - 'scripts/qualify_phase35_worker.py'
       - 'scripts/qualify_shared_workspace.py'
       - 'scripts/qualify_worker_exit_accounting.py'
       - 'scripts/worker_audit_fixture.py'
@@ -52,6 +54,8 @@ jobs:
           .venv/bin/python -m pytest -q
           tests/unit/test_workspace_qualification_smoke.py
           tests/unit/test_sandbox_image_manifest.py
+          tests/unit/test_operator_worker_qualification.py
+          tests/unit/test_phase35_qualification.py
       - name: Verify the published digest, platform and source before unpacking
         run: |
           set -euo pipefail
@@ -76,7 +80,9 @@ jobs:
           set -euo pipefail
           sudo install -d -m 0700 "$IMAGE_STAGE/probe"
           result=0
-          sudo env PYTHONPATH="$PWD" .venv/bin/python -B scripts/qualify_published_sandbox_image.py \
+          # Bubblewrap maps the launching primary group into the guest.
+          sudo setpriv --regid 69 --clear-groups env PYTHONPATH="$PWD" \
+            .venv/bin/python -B scripts/qualify_published_sandbox_image.py \
             --rootfs "$IMAGE_STAGE/bundle/rootfs" --scratch "$IMAGE_STAGE/probe" \
             --image-digest "$IMAGE_DIGEST" --image-source "$IMAGE_SOURCE" \
             --consumer "$(git rev-parse HEAD)" --report "$IMAGE_STAGE/probe/summary.json" || result=$?

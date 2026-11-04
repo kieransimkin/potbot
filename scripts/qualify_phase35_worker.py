@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
+from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
@@ -49,9 +50,16 @@ def inspect_result(result: object, lifetime: object) -> dict[str, object]:
     }
 
 
-def qualify(runtime: SharedWorkspaceRuntime, config: WorkerMonitorConfig) -> dict[str, object]:
+def qualify(
+    runtime: SharedWorkspaceRuntime,
+    config: WorkerMonitorConfig,
+    *,
+    watcher: AiConfigHistoryMonitor | None = None,
+) -> dict[str, object]:
     workspace, agent, run_id = uuid4(), uuid4(), uuid4()
-    supervisor = ProcessSupervisor(SharedWorkspaceBubblewrapBackend(runtime), monitor_config=config)
+    supervisor = ProcessSupervisor(
+        SharedWorkspaceBubblewrapBackend(runtime, ai_monitor=watcher), monitor_config=config
+    )
     # Children are guaranteed to invoke actual file operations; strace and
     # kernel task-exit collection must cover bash + its subshells and utilities.
     statement = (
@@ -98,10 +106,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-staging", type=Path, required=True)
     parser.add_argument("--shared-models", type=Path, required=True)
     parser.add_argument("--shared-tools", type=Path, required=True)
+    parser.add_argument("--ai-config", type=Path)
+    parser.add_argument("--ai-past", type=Path)
     parser.add_argument("--image-digest", required=True)
     parser.add_argument("--qualification-sha256", required=True)
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args(argv)
+    if (args.ai_config is None) != (args.ai_past is None):
+        parser.error("--ai-config and --ai-past must be supplied together")
     try:
         config = WorkerMonitorConfig.from_environment()
         runtime = SharedWorkspaceRuntime(
@@ -112,10 +124,18 @@ def main(argv: list[str] | None = None) -> int:
             model_staging=args.model_staging,
             shared_models=args.shared_models,
             shared_tools=args.shared_tools,
+            ai_config_dir=args.ai_config,
+            ai_history_dir=args.ai_past,
         )
         if args.report.resolve().is_relative_to(args.home.resolve()):
             raise ValueError("qualification report cannot be stored in sandbox /home")
-        report = qualify(runtime, config)
+        if args.ai_config is None:
+            report = qualify(runtime, config)
+        else:
+            with AiConfigHistoryMonitor(
+                config_dir=args.ai_config, past_dir=args.ai_past
+            ) as watcher:
+                report = qualify(runtime, config, watcher=watcher)
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(
             json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8"

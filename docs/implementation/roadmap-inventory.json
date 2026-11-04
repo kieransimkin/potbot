@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
-      "bytes": 9471,
+      "sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
+      "bytes": 9837,
       "kind": "narrative_text",
-      "text_sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
-      "characters": 9468,
-      "lines": 194,
+      "text_sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
+      "characters": 9834,
+      "lines": 200,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35820,12 +35820,12 @@
     },
     {
       "path": ".github/workflows/signed-worker-image.yml",
-      "sha256": "d0d07c8f40e76373bed37cd5e6fd05816f71554175cdab8f5a6e143a95ad8903",
-      "bytes": 4938,
+      "sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404",
+      "bytes": 5258,
       "kind": "narrative_text",
-      "text_sha256": "d0d07c8f40e76373bed37cd5e6fd05816f71554175cdab8f5a6e143a95ad8903",
-      "characters": 4938,
-      "lines": 99,
+      "text_sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404",
+      "characters": 5258,
+      "lines": 105,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36009,7 +36009,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "83883e6375f5fede684d68e24faa34d63b8a0a08de6880ca1947f7b4c554dfd7",
+  "review_sha256": "670a9ea6bdc64c2da74de42082418374f704fd21b3007e48339f2e3cbeeac02d",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112530,8 +112530,8 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:1-31",
-      "sha256": "6a824c598706eb79935dcb8a33d15fe88b4a2ed36177822bb280217eea009fca",
+      "locator": "line:1-37",
+      "sha256": "749930d3de6621b6a697d07fa3d9b1d7289fa987d99c053b7701790b9e81a375",
       "excerpt": "# Phase 38 \u2014 monitored Cog operator release gate\n\nThe Phase 34 sandbox-only work dispatch and kernel TASKSTATS exit collector\nalready exist. This gate validates",
       "review_families": [
         "accounting"
@@ -112539,7 +112539,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:32-61",
+      "locator": "line:38-67",
       "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
       "excerpt": "## U03-Q completion evidence\n\nThe worker tracer keeps the terminal line for each task. A process tree is\ncomplete only when each task has one unambiguous termin",
       "review_families": [
@@ -112548,7 +112548,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:62-102",
+      "locator": "line:68-108",
       "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
       "review_families": [
@@ -112557,7 +112557,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:103-120",
+      "locator": "line:109-126",
       "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
       "excerpt": "### Timeout while a second workspace is active\n\nThe concurrent Linux case starts two registered Cogs in separate disposable\nworkspaces. Both reach a live detach",
       "review_families": [
@@ -112566,7 +112566,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:121-136",
+      "locator": "line:127-142",
       "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
       "excerpt": "### Concurrent work across lease renewal\n\nThe Linux renewal case holds two registered Cogs in separate workspaces until\nboth ledgers record a later lease expiry",
       "review_families": [
@@ -112575,7 +112575,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:137-161",
+      "locator": "line:143-167",
       "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
@@ -112584,7 +112584,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:162-194",
+      "locator": "line:168-200",
       "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
       "review_families": [

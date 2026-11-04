@@ -64848,7 +64848,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
+      "sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
       "families": [
         "accounting"
       ],
@@ -64856,49 +64856,49 @@
       "assessment": "Descendant/file-access and per-task exit/cgroup accounting have source implementations. The local host has not passed the complete TASKSTATS/loss/delegation gate; heartbeat readiness is independent.",
       "narrative": [
         {
-          "locator": "line:1-31",
-          "sha256": "6a824c598706eb79935dcb8a33d15fe88b4a2ed36177822bb280217eea009fca",
+          "locator": "line:1-37",
+          "sha256": "749930d3de6621b6a697d07fa3d9b1d7289fa987d99c053b7701790b9e81a375",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:32-61",
+          "locator": "line:38-67",
           "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:62-102",
+          "locator": "line:68-108",
           "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:103-120",
+          "locator": "line:109-126",
           "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:121-136",
+          "locator": "line:127-142",
           "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:137-161",
+          "locator": "line:143-167",
           "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:162-194",
+          "locator": "line:168-200",
           "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
           "families": [
             "accounting"
@@ -83118,7 +83118,7 @@
         "latest_inspected_run": null,
         "at_reviewed_base": false,
         "qualification_limit": "One published linux/amd64 OCI image on disposable hosted Ubuntu. No live target or cutover evidence.",
-        "sha256": "d0d07c8f40e76373bed37cd5e6fd05816f71554175cdab8f5a6e143a95ad8903"
+        "sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404"
       }
     ],
     "baseline_checks": {
