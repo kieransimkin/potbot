@@ -81,10 +81,27 @@ flowchart LR
 Hosted Ubuntu traces real forks in a separate PID namespace and verifies that
 removing their translations breaks the join. It also attempts two registered
 Cog launches through the real supervisor using a disposable root filesystem
-and the development Syn fixture. If the runner cannot register TASKSTATS, the
-test report records that capability gap separately. This fixture covers the
-typed JSON route. The deployed image, released Syn authorization, context RPC,
-cancellation and concurrent load still have their own qualification gates.
+and the development Syn fixture. The dedicated CI job requires TASKSTATS
+registration; a local runner may report a capability skip. This fixture covers the
+typed JSON route. The cancellation case waits for a live guest child in a new
+session before cancelling the registered Cog. It checks that the worker cgroup
+and live index entry are gone. The lease still blocks conflicting work for both
+Agents because they share `/home`. After the fixture's host reconciles the
+cancelled invocation, the second Agent can complete its work and the original
+invocation ID still cannot be replayed.
+
+```mermaid
+flowchart LR
+    D[Observe a detached child in the worker cgroup] --> X[Cancel the Cog]
+    X --> C[Confirm the cgroup and live entry are gone]
+    X --> L[Keep the workspace lease indeterminate]
+    L --> B[Refuse conflicting work from either Agent]
+    B --> R[Host reviews effects and reconciles the lease]
+    R --> P[Allow new work while refusing replay]
+```
+
+The deployed image, released Syn authorization, context RPC, timeout and
+concurrent load still have their own qualification gates.
 
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain
