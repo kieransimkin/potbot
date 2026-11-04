@@ -65,7 +65,9 @@ A fork inside Bubblewrap returns a PID from the worker namespace. The audit
 tracer and TASKSTATS identify that child using the operator namespace. Pin a
 strace build that supports `--pidns-translation`. The process graph uses the
 translated PID to join a fork to its trace file and exit counters. Missing or
-invalid joins keep the worker audit incomplete. [strace PID translation](https://github.com/strace/strace/blob/v6.8/src/pidns.c) · [Linux TASKSTATS](https://docs.kernel.org/accounting/taskstats.html)
+invalid joins keep the worker audit incomplete. The monitor secures completed
+trace files before publishing the receipt, including when the operator's
+default umask would leave them group-readable. [strace PID translation](https://github.com/strace/strace/blob/v6.8/src/pidns.c) · [Linux TASKSTATS](https://docs.kernel.org/accounting/taskstats.html)
 
 ```mermaid
 flowchart LR

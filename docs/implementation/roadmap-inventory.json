@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "2ef43eb4caccca9f0771c14293c6a64faa880e0e4afb51ba9fd519ff823ea5df",
-      "bytes": 4574,
+      "sha256": "81b82c9c5fbfcb61d2c28e4ce6b9cc3acbd96fb46c3aa2b5e3578121fb801e3c",
+      "bytes": 4724,
       "kind": "narrative_text",
-      "text_sha256": "2ef43eb4caccca9f0771c14293c6a64faa880e0e4afb51ba9fd519ff823ea5df",
-      "characters": 4571,
-      "lines": 90,
+      "text_sha256": "81b82c9c5fbfcb61d2c28e4ce6b9cc3acbd96fb46c3aa2b5e3578121fb801e3c",
+      "characters": 4721,
+      "lines": 92,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35408,12 +35408,12 @@
     },
     {
       "path": "src/potbot/tools/worker_telemetry.py",
-      "sha256": "ba9d9af2f55ef5a29942ff6f4130811b3dc83714c8304ad16fa097734dc8b9a5",
-      "bytes": 45179,
+      "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
+      "bytes": 45990,
       "kind": "narrative_text",
-      "text_sha256": "ba9d9af2f55ef5a29942ff6f4130811b3dc83714c8304ad16fa097734dc8b9a5",
-      "characters": 45177,
-      "lines": 1066,
+      "text_sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
+      "characters": 45988,
+      "lines": 1087,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35548,12 +35548,12 @@
     },
     {
       "path": "tests/unit/test_worker_telemetry.py",
-      "sha256": "ca5b227b260ba2dd12b69bae82d0de6475edb1a32f47860dddfcb90491d484d9",
-      "bytes": 12602,
+      "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
+      "bytes": 13174,
       "kind": "narrative_text",
-      "text_sha256": "ca5b227b260ba2dd12b69bae82d0de6475edb1a32f47860dddfcb90491d484d9",
-      "characters": 12602,
-      "lines": 315,
+      "text_sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
+      "characters": 13174,
+      "lines": 331,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35670,12 +35670,12 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "9153f575599f7268a3b38f5027fd285c6c699371c3e5f1fcd6f44de46788f080",
-      "bytes": 12805,
+      "sha256": "fa64cc717c262b265b89e4cb0f508bc3974869b2739eb05fcc63128c0977d133",
+      "bytes": 12785,
       "kind": "narrative_text",
-      "text_sha256": "9153f575599f7268a3b38f5027fd285c6c699371c3e5f1fcd6f44de46788f080",
-      "characters": 12803,
-      "lines": 251,
+      "text_sha256": "fa64cc717c262b265b89e4cb0f508bc3974869b2739eb05fcc63128c0977d133",
+      "characters": 12783,
+      "lines": 250,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "44d51e6b5cb09497037118404be41f048e80762ba0410e165b96ffd8e9410c2a",
+  "review_sha256": "f3eb83f1e71e586eda543810c4a822091385f6412dd4cef7443d25051acf6bcb",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112519,8 +112519,8 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:62-90",
-      "sha256": "0df5417df9eb4e1cd180fdbc08032a639b5c7e9f2ccc2096a844142fe8e41fb5",
+      "locator": "line:62-92",
+      "sha256": "3749afe9ad1c543f54bc6e2e9b835b29ea9bdfb283ebd483b59ae6d359a0ee89",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
       "review_families": [
         "accounting"
@@ -121495,7 +121495,7 @@
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "ba9d9af2f55ef5a29942ff6f4130811b3dc83714c8304ad16fa097734dc8b9a5",
+          "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -121509,7 +121509,7 @@
         {
           "path": "tests/unit/test_worker_telemetry.py",
           "symbol": "test_trace_parser_records_pid_and_access_mode_without_disclosing_buffers",
-          "sha256": "ca5b227b260ba2dd12b69bae82d0de6475edb1a32f47860dddfcb90491d484d9",
+          "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {

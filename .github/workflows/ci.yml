@@ -73,7 +73,6 @@ jobs:
       - name: Verify Linux worker tracing and kernel accounting
         run: |
           strace --pidns-translation -o /dev/null -- /usr/bin/true
-          umask 077
           sudo env POTBOT_TEST_WORKER_CGROUP=1 .venv/bin/python -m pytest --noconftest -p no:cacheprovider -q tests/integration/test_worker_audit_linux.py --junitxml=artifacts/worker-audit-linux.xml
       - name: Record the routine CI completion assessment
         if: always()

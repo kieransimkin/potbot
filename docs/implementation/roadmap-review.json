@@ -231,7 +231,7 @@
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "ba9d9af2f55ef5a29942ff6f4130811b3dc83714c8304ad16fa097734dc8b9a5",
+          "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -245,7 +245,7 @@
         {
           "path": "tests/unit/test_worker_telemetry.py",
           "symbol": "test_trace_parser_records_pid_and_access_mode_without_disclosing_buffers",
-          "sha256": "ca5b227b260ba2dd12b69bae82d0de6475edb1a32f47860dddfcb90491d484d9",
+          "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -64829,7 +64829,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "2ef43eb4caccca9f0771c14293c6a64faa880e0e4afb51ba9fd519ff823ea5df",
+      "sha256": "81b82c9c5fbfcb61d2c28e4ce6b9cc3acbd96fb46c3aa2b5e3578121fb801e3c",
       "families": [
         "accounting"
       ],
@@ -64851,8 +64851,8 @@
           ]
         },
         {
-          "locator": "line:62-90",
-          "sha256": "0df5417df9eb4e1cd180fdbc08032a639b5c7e9f2ccc2096a844142fe8e41fb5",
+          "locator": "line:62-92",
+          "sha256": "3749afe9ad1c543f54bc6e2e9b835b29ea9bdfb283ebd483b59ae6d359a0ee89",
           "families": [
             "accounting"
           ]
@@ -82509,7 +82509,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "9153f575599f7268a3b38f5027fd285c6c699371c3e5f1fcd6f44de46788f080",
+        "sha256": "fa64cc717c262b265b89e4cb0f508bc3974869b2739eb05fcc63128c0977d133",
         "name": "Potbot verification",
         "state": "active",
         "scope": [
