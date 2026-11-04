@@ -23,6 +23,8 @@ on:
       - 'tests/integration/test_context_sessions.py'
       - 'tests/integration/test_context_skills.py'
       - 'tests/integration/test_context_lifecycle.py'
+      - 'tests/integration/test_monitored_context_rpc.py'
+      - 'tests/integration/test_worker_audit_linux.py'
       - '.github/workflows/context-agent-rpc.yml'
   pull_request:
   workflow_dispatch:
@@ -73,7 +75,15 @@ jobs:
           tests/integration/test_context_inspection.py
           tests/integration/test_context_refresh.py
           --junitxml=artifacts/context-integration/acceptance.xml
-      - name: Require executed lifecycle acceptance and retain source identity
+      - name: Exercise context RPC inside a monitored Linux sandbox
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends strace bubblewrap busybox-static
+          strace --pidns-translation -o /dev/null -- /usr/bin/true
+          sudo env POTBOT_TEMP_ROOT=/tmp POTBOT_TEST_WORKER_CGROUP=1 POTBOT_REQUIRE_WORKER_TASKSTATS=1 POTBOT_TEST_DSN="$POTBOT_TEST_DSN" \
+            .venv/bin/python -m pytest -p no:cacheprovider -q tests/integration/test_monitored_context_rpc.py \
+            --junitxml=artifacts/context-integration/monitored-worker.xml
+      - name: Require executed lifecycle and monitored worker acceptance
         run: |
           uv run --locked python - <<'PYCODE'
           import json
@@ -87,6 +97,10 @@ jobs:
           if len(lifecycle) < 11 or any(case.find(tag) is not None for case in cases
                                       for tag in ("skipped", "failure", "error")):
               raise SystemExit("All PostgreSQL context acceptance must run without skips")
+          monitored = list(ElementTree.parse(output / "monitored-worker.xml").iter("testcase"))
+          if len(monitored) != 1 or any(monitored[0].find(tag) is not None
+                                        for tag in ("skipped", "failure", "error")):
+              raise SystemExit("Monitored context worker acceptance must execute")
           report = {
               "schema": "potbot-context-integration-acceptance/v1",
               "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
@@ -94,6 +108,8 @@ jobs:
               "lifecycle_tests": len(lifecycle),
               "scope": "genuine-postgresql-context-lifecycle",
               "live_sandbox_qualified": False,
+              "monitored_context_worker_tests": len(monitored),
+              "monitored_worker_scope": "disposable-linux-postgresql-development-syn",
           }
           (output / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
           PYCODE
@@ -101,9 +117,15 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: context-integration-database-summary
-          path: artifacts/context-integration/summary.json
+          path: |
+            artifacts/context-integration/summary.json
+            artifacts/context-integration/monitored-worker.xml
           if-no-files-found: error
           retention-days: 14
+      - name: Record the routine CI completion assessment
+        if: always()
+        run: |
+          printf '%s\n' 'Blogworthiness: FAIL. Routine replay of context acceptance. Source evidence is this job and its test reports.' >> "$GITHUB_STEP_SUMMARY"
       - name: Remove disposable database
         if: always()
         run: docker compose down --volumes --remove-orphans --timeout 10

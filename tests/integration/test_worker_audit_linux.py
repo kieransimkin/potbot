@@ -12,7 +12,8 @@ import shutil
 import signal
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -23,6 +24,7 @@ from potbot.tools.worker_audit import process_tree
 from potbot.tools.worker_telemetry import (
     _STRACE_FLAGS,
     _STRACE_PID_NAMESPACE,
+    WorkerMonitorConfig,
     _cgroup_populated,
     _terminate_cgroup,
 )
@@ -162,6 +164,67 @@ def test_real_pid_namespace_joins_forks_to_tracer_ids(tmp_path: Path) -> None:
     assert incomplete["tree_complete"] is False
 
 
+def prepare_busybox_rootfs(rootfs: Path) -> None:
+    for name in (
+        "home",
+        "proc",
+        "dev",
+        "bin",
+        "var/ai",
+        "var/logs/ai",
+        "opt/potbot/models",
+        "usr/local/tools",
+    ):
+        (rootfs / name).mkdir(parents=True)
+    (rootfs / "tmp").symlink_to("/home/.tmp")
+    shutil.copy2("/usr/bin/busybox", rootfs / "bin/busybox")
+    (rootfs / "bin/sh").symlink_to("busybox")
+
+
+@contextmanager
+def monitored_cog_cgroup(private: Path, audit: Path) -> Iterator[WorkerMonitorConfig]:
+    from potbot.domain.errors import CapabilityUnavailableError
+    from potbot.tools.taskstats_exit import TaskstatsExitStream
+
+    stream = TaskstatsExitStream()
+    try:
+        stream.open()
+    except CapabilityUnavailableError as error:
+        cause = error.__cause__
+        if (
+            isinstance(cause, OSError)
+            and cause.errno in {errno.ENOENT, errno.EPERM, errno.EOPNOTSUPP}
+            and os.environ.get("POTBOT_REQUIRE_WORKER_TASKSTATS") != "1"
+        ):
+            pytest.skip(f"runner cannot register TASKSTATS (errno {cause.errno})")
+        raise
+    finally:
+        stream.close()
+
+    helper = private / "cgroup-join"
+    helper_source = Path(__file__).resolve().parents[2] / "native/potbot-cgroup-join/cgroup_join.c"
+    subprocess.run(["cc", "-O2", "-o", str(helper), str(helper_source)], check=True, timeout=15)
+    tracer = Path("/usr/bin/strace").resolve()
+    cgroup = Path("/sys/fs/cgroup") / f"potbot-u03-cog-test-{uuid4().hex}"
+    cgroup.mkdir()
+    try:
+        (cgroup / "cgroup.subtree_control").write_text("+cpu +memory +io +pids")
+        yield WorkerMonitorConfig(
+            audit,
+            cgroup,
+            tracer,
+            helper,
+            hashlib.sha256(tracer.read_bytes()).hexdigest(),
+            hashlib.sha256(helper.read_bytes()).hexdigest(),
+        )
+    finally:
+        for path in cgroup.iterdir():
+            if path.is_dir():
+                assert _terminate_cgroup(path)
+                path.rmdir()
+        cgroup.rmdir()
+
+
 _COG_PROBE = """#!/bin/sh
 set -eu
 IFS= read -r request || test -n "$request"
@@ -193,7 +256,6 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
     from potbot.cogs.contracts import CogRunContext, TypedCogValue
     from potbot.domain.auth import WorkspaceContext
     from potbot.domain.errors import (
-        CapabilityUnavailableError,
         IndeterminateExecutionError,
         StateMismatchError,
     )
@@ -208,25 +270,8 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
     )
     from potbot.tools.supervisor import ProcessRequest, ProcessResult, ProcessSupervisor
     from potbot.tools.syn_worker_nodes import SynWorkerNodeMesh
-    from potbot.tools.taskstats_exit import TaskstatsExitStream
-    from potbot.tools.worker_telemetry import WorkerMonitorConfig
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
     from potbot.tools.workspace_supervision import WorkspaceExecutorIdentity, WorkspaceLeaseGuard
-
-    stream = TaskstatsExitStream()
-    try:
-        stream.open()
-    except CapabilityUnavailableError as error:
-        cause = error.__cause__
-        if (
-            isinstance(cause, OSError)
-            and cause.errno in {errno.ENOENT, errno.EPERM, errno.EOPNOTSUPP}
-            and os.environ.get("POTBOT_REQUIRE_WORKER_TASKSTATS") != "1"
-        ):
-            pytest.skip(f"runner cannot register TASKSTATS (errno {cause.errno})")
-        raise
-    finally:
-        stream.close()
 
     rootfs, home, staging, models, tools, private, audit = (
         tmp_path / name
@@ -239,24 +284,9 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
         tools,
         private,
         audit,
-        *(
-            rootfs / name
-            for name in (
-                "home",
-                "proc",
-                "dev",
-                "bin",
-                "var/ai",
-                "var/logs/ai",
-                "opt/potbot/models",
-                "usr/local/tools",
-            )
-        ),
     ):
         path.mkdir(mode=0o700 if path == audit else 0o755, parents=True)
-    (rootfs / "tmp").symlink_to("/home/.tmp")
-    shutil.copy2("/usr/bin/busybox", rootfs / "bin/busybox")
-    (rootfs / "bin/sh").symlink_to("busybox")
+    prepare_busybox_rootfs(rootfs)
     worker = rootfs / "bin/qualification-worker"
     worker.write_text(_COG_PROBE)
     worker.chmod(0o555)
@@ -271,22 +301,8 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
         shared_models=models,
         shared_tools=tools,
     )
-    helper = private / "cgroup-join"
-    helper_source = Path(__file__).resolve().parents[2] / "native/potbot-cgroup-join/cgroup_join.c"
-    subprocess.run(["cc", "-O2", "-o", str(helper), str(helper_source)], check=True, timeout=15)
-    tracer = Path("/usr/bin/strace").resolve()
-    cgroup = Path("/sys/fs/cgroup") / f"potbot-u03-cog-test-{uuid4().hex}"
-    cgroup.mkdir()
-    try:
-        (cgroup / "cgroup.subtree_control").write_text("+cpu +memory +io +pids")
-        config = WorkerMonitorConfig(
-            audit,
-            cgroup,
-            tracer,
-            helper,
-            hashlib.sha256(tracer.read_bytes()).hexdigest(),
-            hashlib.sha256(helper.read_bytes()).hexdigest(),
-        )
+    with monitored_cog_cgroup(private, audit) as config:
+        cgroup = config.cgroup_root
         results: dict[UUID, ProcessResult] = {}
 
         class ObservedSupervisor(ProcessSupervisor):
@@ -543,9 +559,3 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
                 print({"state": status.get("state"), "fault": status.get("fault")})
             raise
         assert not any(path.is_dir() for path in cgroup.iterdir())
-    finally:
-        for path in cgroup.iterdir():
-            if path.is_dir():
-                assert _terminate_cgroup(path)
-                path.rmdir()
-        cgroup.rmdir()
