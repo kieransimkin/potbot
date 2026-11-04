@@ -19,6 +19,8 @@ from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
 from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
 from potbot.tools.temporary import TemporaryDirectory
 
+from .agent_host import agent_log_directory
+
 
 @contextmanager
 def native_user_namespace(uid: int, gid: int) -> Iterator[int]:
@@ -106,7 +108,7 @@ def prepared_launch(
 ) -> Iterator[IsolationLaunch]:
     """Only the trusted deployment controller chooses the verified package roots.
 
-    Home is the sole persistent writable mount; /tmp and /run are private tmpfs.
+    Only the Agent's own home and log directory persist; /tmp and /run are private tmpfs.
     The only network capability is AF_UNIX within this isolated mount namespace.
     """
     if os.name != "posix" or os.getuid() != 0:
@@ -121,7 +123,13 @@ def prepared_launch(
         or info.st_mode & 0o077
     ):
         raise ScopeDeniedError("Syn Agent home differs from its native account registration")
+    logs = agent_log_directory(home, uid, gid)
     roots = tuple(_read_only_root(path) for path in runtime_roots)
+    if any(path.is_relative_to(home.parent) or home.parent.is_relative_to(path) for path in roots):
+        raise ScopeDeniedError("Syn runtime mounts must be separate from private Agent state")
+    log_mount = Path("/var/logs/ai")
+    if any(path.is_relative_to(log_mount) or log_mount.is_relative_to(path) for path in roots):
+        raise ScopeDeniedError("Syn runtime mounts overlap the reserved Agent log path")
     if not any(python.is_relative_to(path) for path in roots) or python.is_relative_to(home):
         raise ScopeDeniedError("Syn Agent interpreter is outside the verified read-only runtime")
     executable = Path("/usr/bin/bwrap")
@@ -177,7 +185,7 @@ def prepared_launch(
             ]
             # Auto-created Bubblewrap ancestors may be 0700. These are empty
             # namespace-local placeholders, never broad binds of host trees.
-            ancestors = {Path("/etc"), Path("/etc/dbus-1"), Path("/run/user")}
+            ancestors = {Path(p) for p in ("/etc", "/etc/dbus-1", "/run/user", "/var", "/var/logs")}
             for destination in (home, *roots):
                 ancestors.update(parent for parent in destination.parents if parent != Path("/"))
             for ancestor in sorted(ancestors, key=lambda item: (len(item.parts), str(item))):
@@ -199,6 +207,12 @@ def prepared_launch(
                     "--bind",
                     str(home),
                     str(home),
+                    "--bind",
+                    str(logs),
+                    str(log_mount),
+                    "--setenv",
+                    "POTBOT_AGENT_LOG_DIR",
+                    str(log_mount),
                     "--chdir",
                     "/",
                     "--setenv",
@@ -245,6 +259,6 @@ def prepared_launch(
                     *arguments,
                 )
             )
-            yield IsolationLaunch(tuple(argv), (userns, seccomp), "syn-agent-native-uid-af-unix-v1")
+            yield IsolationLaunch(tuple(argv), (userns, seccomp), "syn-agent-native-uid-af-unix-v2")
         finally:
             os.close(seccomp)

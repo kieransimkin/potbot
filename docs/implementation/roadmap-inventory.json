@@ -1204,11 +1204,11 @@
     },
     {
       "path": "docs/implementation/recent-potbot-development-reconciliation.md",
-      "sha256": "edd86265c9ea71e73d929277e03ecce281d4fe5a7979ec6f3cdbd7178eca27b6",
-      "bytes": 54529,
+      "sha256": "ba3305a24741f5821323a56ebdcb73a4fc29f1c99780a30629f652e0a184f847",
+      "bytes": 54556,
       "kind": "narrative_text",
-      "text_sha256": "edd86265c9ea71e73d929277e03ecce281d4fe5a7979ec6f3cdbd7178eca27b6",
-      "characters": 54235,
+      "text_sha256": "ba3305a24741f5821323a56ebdcb73a4fc29f1c99780a30629f652e0a184f847",
+      "characters": 54262,
       "lines": 270,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/syn-agent-deployment.md",
-      "sha256": "1158cd1a00ba7397b19b6ab5dd03d0c4ee7c70e2dfed525148ea4026666cd656",
-      "bytes": 10322,
+      "sha256": "5a75eac76933cf56bd13f3304192e53503adbce5950f7d33bdcee3c8d3809e71",
+      "bytes": 11494,
       "kind": "narrative_text",
-      "text_sha256": "1158cd1a00ba7397b19b6ab5dd03d0c4ee7c70e2dfed525148ea4026666cd656",
-      "characters": 10320,
-      "lines": 176,
+      "text_sha256": "5a75eac76933cf56bd13f3304192e53503adbce5950f7d33bdcee3c8d3809e71",
+      "characters": 11492,
+      "lines": 202,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -28489,7 +28489,7 @@
       "title": "`/var/logs/ai`, creator-only agent writes, tool/default-log aliases, operator analysis/watch/archive. Recovered 25 October request; [browser evidence][browser37], [gallery][browser38], [S42][browser42] reference S36.",
       "locator": "line:70",
       "source_claim": "requirements_only",
-      "requirement_sha256": "7aaf3746fccb59c2b8161d8f8e8540b68ad2dc52e2217c283eae95d77f083546",
+      "requirement_sha256": "aa0f8311a865885253b976a93822ee3ef0717b30b503b5698461de8654e2a2bd",
       "unified_owners": [
         "U02",
         "U03",
@@ -28505,11 +28505,12 @@
         "tests/unit/test_shared_workspace_isolation.py",
         "tests/unit/test_worker_telemetry.py"
       ],
-      "evidence_state": "reviewed_planned",
+      "evidence_state": "reviewed_partial",
       "blockers": [
-        "Provide creator-only Agent writes, aliases, operator analysis/watch/archive and mount/retention tests"
+        "Qualify host identities and guest log mounts for shared Cog workers.",
+        "Verify supported tool aliases and operator collection, archival, quotas and retention."
       ],
-      "next_action": "For RD16 (`/var/logs/ai`, creator-only agent writes, tool/default-log aliases, operator analysis/watch/archive. Recovered 25 October request; [browser evidence][browser37], [gallery][browser38], [S42][browser42] reference S36.): Implement or recover S36 under U02/U03; keep it separate from S17 host-log custody.",
+      "next_action": "Qualify shared Cog worker host IDs and route their supported tool logs to a separately protected mount.",
       "review_families": [
         "guest-logs"
       ],
@@ -28518,7 +28519,7 @@
         "U03",
         "U16"
       ],
-      "assessment": "Requirement: `/var/logs/ai`, creator-only agent writes, tool/default-log aliases, operator analysis/watch/archive. Recovered 25 October request; [browser evidence][browser37], [gallery][browser38], [S42][browser42] reference S36.. S36 guest /var/logs/ai was requested but no owning implementation/plan was found in inspected main source. S17 protects host Xpra /var/logs/ai/operator only and does not deliver the guest topology."
+      "assessment": "Native Syn Agent sessions receive a private persistent log mount. S17 host Xpra log custody remains separate."
     },
     {
       "key": "recent-development:RD17",
@@ -35869,12 +35870,12 @@
     },
     {
       "path": ".github/workflows/syn-release-installation.yml",
-      "sha256": "30b997e9b1137e6cb69f8f4956bd06c7242341bdd2ee685846af3fe73554544a",
-      "bytes": 2043,
+      "sha256": "3d0811c4f099564fb16d6107ae0dc3a6e9a21d77d693766c742577dbb33509b5",
+      "bytes": 2591,
       "kind": "narrative_text",
-      "text_sha256": "30b997e9b1137e6cb69f8f4956bd06c7242341bdd2ee685846af3fe73554544a",
-      "characters": 2043,
-      "lines": 41,
+      "text_sha256": "3d0811c4f099564fb16d6107ae0dc3a6e9a21d77d693766c742577dbb33509b5",
+      "characters": 2591,
+      "lines": 48,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35988,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "513c58aaca34180d8c72486eecc2ade3a604e7f86c096b016e0cdd6dad417bbc",
+  "review_sha256": "bd60140f8dc3ab58b0600a6c0297eed53488772baa4b9e771b2847769e43d2df",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115408,7 +115409,7 @@
     {
       "source": "docs/implementation/recent-potbot-development-reconciliation.md",
       "locator": "line:61-76",
-      "sha256": "ee36ef6df457d0080e1a284753ed6c0c2bdb1483a32c52e199d30d7f311f048c",
+      "sha256": "1f666e1689f03481691915deba815b35fcb7303cd974019121cee2606451d9e6",
       "excerpt": "### Shared environment, tools and operator lifecycle\n\n| ID / U owner | Requirement and source | Finding | Required completion or acceptance gate |\n| --- | --- |",
       "review_families": [
         "artifacts",
@@ -115745,8 +115746,8 @@
     },
     {
       "source": "docs/implementation/syn-agent-deployment.md",
-      "locator": "line:101-127",
-      "sha256": "a258cc389842ddda64e306f72c4b08d480a08f9ba944348a022d610fa38e8b84",
+      "locator": "line:101-128",
+      "sha256": "678afed4c295c79c99b8dce3d62ce0cff9226369e31ff75544c4a73d19a8de25",
       "excerpt": "## Native host boundary\n\nThe first Agent profile runs on **Linux x86-64, including the managed Ubuntu WSL2\nhost**. Existing native macOS operator support is ret",
       "review_families": [
         "syn-release"
@@ -115754,7 +115755,16 @@
     },
     {
       "source": "docs/implementation/syn-agent-deployment.md",
-      "locator": "line:128-143",
+      "locator": "line:129-153",
+      "sha256": "371e79ddd72bfc21a4035b2f0b7c79633bf4f6025fa4302f6e0927244114a347",
+      "excerpt": "## Persistent Agent logs\n\nThe root controller creates `logs` beside the registered Agent home. It binds\nthat directory to `/var/logs/ai` and sets `POTBOT_AGENT_",
+      "review_families": [
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/syn-agent-deployment.md",
+      "locator": "line:154-169",
       "sha256": "82c9b40bfbd10f7d34b66af63c1b2bc0d1aaf84807485b71352427e2e82ecd1a",
       "excerpt": "## Controller entry point\n\nUse `potbot syn-agent --help` for the complete argument contract. Operations run\nas the privileged controller **inside native Linux o",
       "review_families": [
@@ -115763,7 +115773,7 @@
     },
     {
       "source": "docs/implementation/syn-agent-deployment.md",
-      "locator": "line:144-176",
+      "locator": "line:170-202",
       "sha256": "0570b194e829f7a314d5b7275f896efac97721c71607e2f42b6cfd895a347aa6",
       "excerpt": "## Acceptance evidence and remaining work\n\nThe source-package check exercises the real pinned HD provider, encrypted native\nLinux Secret Service, two simultaneo",
       "review_families": [
@@ -121996,15 +122006,42 @@
         "U03",
         "U16"
       ],
-      "status": "planned",
-      "code": [],
-      "tests": [],
-      "assessment": "S36 guest /var/logs/ai was requested but no owning implementation/plan was found in inspected main source. S17 protects host Xpra /var/logs/ai/operator only and does not deliver the guest topology.",
-      "support_scope": "Bounded source search found only host-log references; absence in this scope is not a claim about inaccessible artifacts.",
-      "remaining": [
-        "Provide creator-only Agent writes, aliases, operator analysis/watch/archive and mount/retention tests"
+      "status": "partial",
+      "code": [
+        {
+          "path": "src/potbot/syn_release/agent_host.py",
+          "symbol": "agent_log_directory",
+          "sha256": "15028e00a885da8005716bc82b64a1276a7b92c3aec854d1d46da304b86e6d6d",
+          "basis": "Reviewed U02 implementation and test source; executed results are separate."
+        },
+        {
+          "path": "src/potbot/syn_release/agent_sandbox.py",
+          "symbol": "prepared_launch",
+          "sha256": "622c413b4d9934878f2e74c32bd9af16dbb641cd613cd4a30e07cb7570ecf20c",
+          "basis": "Reviewed U02 implementation and test source; executed results are separate."
+        }
       ],
-      "next_action": "Implement or recover S36 under U02/U03; keep it separate from S17 host-log custody."
+      "tests": [
+        {
+          "path": "tests/unit/test_syn_agent_logs.py",
+          "symbol": "test_agent_log_directory_survives_new_process_and_denies_peer_uid",
+          "sha256": "d8a844efdc73074594b0ef49af59f83bd3d3798a1a5d55e62fe70aac3a47f1b5",
+          "basis": "Reviewed U02 implementation and test source; executed results are separate."
+        },
+        {
+          "path": "tests/unit/test_syn_agent_logs.py",
+          "symbol": "test_native_agent_log_mount_survives_sandbox_restart",
+          "sha256": "d8a844efdc73074594b0ef49af59f83bd3d3798a1a5d55e62fe70aac3a47f1b5",
+          "basis": "Reviewed U02 implementation and test source; executed results are separate."
+        }
+      ],
+      "assessment": "Native Syn Agent sessions receive a private persistent log mount. S17 host Xpra log custody remains separate.",
+      "support_scope": "Native Linux UID provisioning and launcher; the shared Cog launcher and production host are outside this increment.",
+      "remaining": [
+        "Qualify host identities and guest log mounts for shared Cog workers.",
+        "Verify supported tool aliases and operator collection, archival, quotas and retention."
+      ],
+      "next_action": "Qualify shared Cog worker host IDs and route their supported tool logs to a separately protected mount."
     },
     {
       "id": "configuration",
