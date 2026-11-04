@@ -39,6 +39,23 @@ restart with an unverified gap, or unsupported event class marks the history
 reconciliation against the last durable head and records the discontinuity and
 result. The system never invents intermediate bytes it could not observe.
 
+On Linux, moving or unmounting a watched directory fences new launches and
+keeps the last committed head available for operator reconciliation. Inotify
+follows the watched inode, so a replacement at the original path can have the
+same files and still lack a watch. Ordinary file renames and directory deletions
+continue to produce reverse records.
+
+```mermaid
+flowchart LR
+    A[Watched directory moves] --> B[Kernel reports lost path coverage]
+    B --> C[Preserve last committed history head]
+    B --> D[Refuse new sandbox launches]
+    C --> E[Operator reconciles the full tree]
+```
+
+The Linux regression reproduces root and nested replacements with temporary
+directories. This headless behavior is shown in the diagram and test results.
+
 Records therefore accurately reverse committed observed filesystem states and
 retain native event provenance where available. Platform-specific watcher
 qualification must test overflow/loss/restart behavior as well as ordinary
