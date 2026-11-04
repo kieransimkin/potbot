@@ -459,11 +459,11 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "eea8b6417f9e28ea000297b4c4d0c0875d17a716cbb2136356ab4f6c4ff56577",
-      "bytes": 11440,
+      "sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
+      "bytes": 11425,
       "kind": "narrative_text",
-      "text_sha256": "eea8b6417f9e28ea000297b4c4d0c0875d17a716cbb2136356ab4f6c4ff56577",
-      "characters": 11438,
+      "text_sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
+      "characters": 11423,
       "lines": 92,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -35989,7 +35989,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "5160f890205f70058aff21b5f5e5461cfe03e69f714f9957b44ac87e33263f0f",
+  "review_sha256": "7c55fe8f4cf1490c8f1e7daa50a027dde123be10051e11b180bf879b0e527137",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -111584,7 +111584,7 @@
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
       "locator": "line:5-16",
-      "sha256": "05e3d9be9473e9f147997332e2fe567d8696f1869e08d5eeb50e65ff89da4cd6",
+      "sha256": "2b4bccf442714ecb06ea5019eef5be04b1587c2db3e6ed183951a918a09959ad",
       "excerpt": "## Target execution architecture\n\nEach workspace has **one** persistent `/home` tree. Every chat, agent, Cog and tool in that workspace receives a stable worksp",
       "review_families": [
         "sandbox"
@@ -111629,7 +111629,7 @@
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
       "locator": "line:76-85",
-      "sha256": "5849fa445f2cf9c6f3065291c79f672a3ac20fc2621afc60a3f50f12a744bc15",
+      "sha256": "14b7ba961f05b1eb3e47f83db9e5094a831555ac499f7f5bb92d86ee65fce7df",
       "excerpt": "## Tests and acceptance before production\n\nRun offline deterministic tests:\n\n```bash\nuv run --locked python -m pytest -q tests/unit/test_workspace_concurrency.p",
       "review_families": [
         "sandbox"

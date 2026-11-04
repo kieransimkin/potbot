@@ -6,7 +6,7 @@
 
 Each workspace has **one** persistent `/home` tree. Every chat, agent, Cog and tool in that workspace receives a stable workspace identity, but a separate agent identity and an admitted capability. Tools access that shared home under a host-side concurrency lease. Other workspaces get other home trees and sandbox processes. The guest shell is `/bin/bash`; its initial CWD and `$HOME` are `/home`.
 
-Everything except `/home` is recreated from a versioned, signed system image. The Linux image is mounted read-only, with a persistent shared `/home` and narrowly scoped mounts added by later stages. `/tmp` and `/var/tmp` are links to `/home/.tmp`. `/proc` and `/dev` are kernel-provided pseudo-filesystems, **not persistent writable application volumes**. No Windows drive, host secrets, Docker socket, SSH agent, host home, network namespace, or ambient executable root is bound into the guest. Outbound GitHub/network interactions must use separately authorized host-side brokers.
+The Linux root filesystem comes from a versioned, signed image mounted read-only. The shared `/home` persists, along with the narrowly scoped mounts described in later stages. `/tmp` and `/var/tmp` are links to `/home/.tmp`. `/proc` and `/dev` are kernel-provided pseudo-filesystems, **not persistent writable application volumes**. No Windows drive, host secrets, Docker socket, SSH agent, host home, network namespace, or ambient executable root is bound into the guest. Outbound GitHub/network interactions must use separately authorized host-side brokers.
 
 - Linux: namespace/seccomp/prlimit through the existing Bubblewrap policy.
 - Windows: the controller's **WSL2 guest** uses that same Linux Bubblewrap/seccomp policy. No dedicated Hyper-V VM managed by Potbot.
@@ -81,7 +81,7 @@ Run offline deterministic tests:
 uv run --locked python -m pytest -q tests/unit/test_workspace_concurrency.py tests/unit/test_shared_workspace_isolation.py
 ```
 
-On a real Linux/WSL2 worker, **also** test actual bwrap rootfs execution, source commit, seccomp enforcement, prevention of writes outside `/home`, symlink/rename races, fork-bombs, network denial, WSL Windows executable interoperability, DrvFs visibility, failure/termination and resource caps. On Windows, launch under the nonprivileged Potbot WSL distribution (not bare Windows Python). An unsupported kernel or tool fails closed. The shared filesystem/multihost/PR integration tests must run on a real PostgreSQL test system and against a controlled GitHub fixture repository with protected-branch policies. The unit tests do not establish those qualifications.
+On a real Linux/WSL2 worker, **also** test actual bwrap rootfs execution, source commit, seccomp enforcement, prevention of writes outside admitted mounts, symlink/rename races, fork-bombs, network denial, WSL Windows executable interoperability, DrvFs visibility, failure/termination and resource caps. On Windows, launch under the nonprivileged Potbot WSL distribution (not bare Windows Python). An unsupported kernel or tool fails closed. The shared filesystem/multihost/PR integration tests must run on a real PostgreSQL test system and against a controlled GitHub fixture repository with protected-branch policies. The unit tests do not establish those qualifications.
 
 ## References
 
