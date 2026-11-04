@@ -118,8 +118,29 @@ flowchart LR
     L --> V[Second Cog completes with verified accounting]
 ```
 
-The deployed image, released Syn authorization, context RPC and sustained
-concurrent load still have their own qualification gates.
+### Context RPC through the monitored worker
+
+The context acceptance job uses the shipped guest client, a disposable
+PostgreSQL database, Bubblewrap, strace, cgroup v2 and TASKSTATS. The registered
+Cog reads its typed input and agent context over the framed channel, checks the
+read-only projection against that context, and submits an idempotent result.
+After a result, the session refuses further context reads.
+
+PostgreSQL retains the result and revokes the session for both exits. A clean
+exit with a complete audit lets the controller accept the output and release
+the workspace lease. A nonzero exit leaves the lease indeterminate even when
+the result reached PostgreSQL and the worker cgroup was cleaned up.
+
+```mermaid
+flowchart LR
+    R[Guest submits a framed work result] --> D[PostgreSQL stores it and fences the session]
+    D --> A[Linux audit confirms cleanup]
+    A -->|Clean exit| C[Accept output and release workspace lease]
+    A -->|Nonzero exit| F[Keep workspace lease indeterminate]
+```
+
+The test uses the development Syn relay. The deployed image, released Syn
+authorization and sustained load still have their own qualification gates.
 
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain
