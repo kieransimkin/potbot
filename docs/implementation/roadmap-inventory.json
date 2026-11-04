@@ -35988,7 +35988,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "8c10cf987ec66c18dc91a52434ee5d09a50e125e2e13c463973e9f2891b70392",
+  "review_sha256": "d08dfe9ecccce7d61d265b2837b4b3075d14b85207bc756e09e05dea5bd1a9c5",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -121551,7 +121551,7 @@
         {
           "path": "src/potbot/syn_release/agent.py",
           "symbol": "AgentSession",
-          "sha256": "89c1b42555843a95c039a8c955c938503b581eb23eb21f9d2f051d107fa3d210",
+          "sha256": "aa432a0ec1994d0c6dd71f594bb34dc324ed5953efc8e4329b1739e747691861",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121577,7 +121577,7 @@
         {
           "path": "tests/unit/test_syn_agent_deployment.py",
           "symbol": "test_installing_a_service_package_cannot_provision_an_agent",
-          "sha256": "1ee50630a8e49ee3dd2f6efe794815e12c39ec4c542d6038530f399aef5959e1",
+          "sha256": "06c9cf416ab1a712182835a728684a43abf81b6e2cd988f3611e618c2e6688f1",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -121599,7 +121599,7 @@
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],
-      "assessment": "SYN-R01-R04 now have actual signed release acquisition and native operator/Agent deployment paths. Official Syn 0.4.0 consumer acceptance passed at its recorded source; successful package installation alone supplies no Cog execution authority. SYN-R06 adds side-by-side package staging without selecting an active runtime. Reviewed native operator pairs also support atomic package reselection over retained state.",
+      "assessment": "SYN-R01-R04 now have actual signed release acquisition and native operator/Agent deployment paths. Official Syn 0.4.0 consumer acceptance passed at its recorded source; successful package installation alone supplies no Cog execution authority. SYN-R06 adds side-by-side package staging without selecting an active runtime. Reviewed native operator pairs also support atomic package reselection over retained state. SYN-R07 adds policy-gated rollover commands and verifies the selected epoch through the installed client. Official-package execution remains a separate gate.",
       "support_scope": "Independently pinned Ed25519 authority, immutable manifest/assets, compatible official packages, distinct native Agent custody and retained identity.",
       "remaining": [
         "Do not automatically upgrade the retained 0.2.1 production operator",

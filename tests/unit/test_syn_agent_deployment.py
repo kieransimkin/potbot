@@ -40,9 +40,47 @@ def test_installing_a_service_package_cannot_provision_an_agent(tmp_path):
 
 def test_private_enrollment_pipe_never_becomes_an_arbitrary_command_runner():
     session = AgentSession(SimpleNamespace(stdin=None))
-    for operation in ("exec", "sign", "export-key", "read-password", "delete-identity"):
+    for operation in (
+        "exec",
+        "sign",
+        "export-key",
+        "read-password",
+        "delete-identity",
+        "prepare-group-rollover",
+        "apply-group-rollover",
+    ):
         with pytest.raises(ScopeDeniedError, match="explicit Syn Agent"):
             session.exchange(operation)
+
+
+def test_rollover_session_forwards_only_explicit_maintenance(monkeypatch):
+    from io import BytesIO
+
+    pipe = BytesIO()
+    session = AgentSession(SimpleNamespace(stdin=pipe), group_rollover=True)
+    monkeypatch.setattr(session, "read", lambda **_: {"retained": True})
+    assert session.exchange("prepare-group-rollover") == {"retained": True}
+    assert session.exchange("apply-group-rollover", {"transition": {}, "transfer": None})
+    assert pipe.getvalue().splitlines() == [
+        canonical({"operation": "prepare-group-rollover", "payload": None}),
+        canonical(
+            {"operation": "apply-group-rollover", "payload": {"transition": {}, "transfer": None}}
+        ),
+    ]
+    with pytest.raises(ScopeDeniedError):
+        session.exchange("exec")
+
+
+def test_only_rollover_policy_allows_later_epoch_for_retained_registration():
+    deployment = SynAgentDeployment.__new__(SynAgentDeployment)
+    deployment.group_epoch = 2
+    deployment.group_rollover = False
+    assert deployment._accepts_registration_epoch(2)
+    assert not deployment._accepts_registration_epoch(1)
+    deployment.group_rollover = True
+    assert deployment._accepts_registration_epoch(1)
+    assert not deployment._accepts_registration_epoch(3)
+    assert not deployment._accepts_registration_epoch(True)
 
 
 def test_enrollment_frame_bound_is_checked_before_any_write():
