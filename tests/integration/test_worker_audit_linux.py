@@ -12,6 +12,7 @@ import shutil
 import signal
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -164,11 +165,14 @@ def test_real_pid_namespace_joins_forks_to_tracer_ids(tmp_path: Path) -> None:
 _COG_PROBE = """#!/bin/sh
 set -eu
 IFS= read -r request || test -n "$request"
-if [ "${1-}" = cancel ]; then
+if [ "${1-}" = hold ] || [ "${1-}" = release ]; then
     /bin/busybox setsid /bin/sh -c '
         printf "%s\\n" "$$" > .qualification-ready
-        exec /bin/busybox sleep 60
-    ' &
+        if [ "$1" = hold ]; then
+            exec /bin/busybox sleep 60
+        fi
+        until [ -f .qualification-release ]; do /bin/busybox sleep 0.25; done
+    ' probe "$1" &
     wait "$!"
 else
     /bin/busybox true &
@@ -182,8 +186,10 @@ printf '%s\\n' '{"schema_version":1,"type_ref":"syn://type/out","value":{"done":
     sys.platform != "linux" or os.environ.get("POTBOT_TEST_WORKER_CGROUP") != "1",
     reason="requires a disposable Linux fixture with real worker accounting",
 )
-@pytest.mark.parametrize("cancel", [False, True], ids=["complete", "cancel"])
-def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, cancel: bool) -> None:
+@pytest.mark.parametrize("scenario", ["complete", "cancel", "timeout-overlap"])
+def test_registered_cogs_join_bubblewrap_traces_and_taskstats(
+    tmp_path: Path, scenario: str
+) -> None:
     from potbot.cogs.contracts import CogRunContext, TypedCogValue
     from potbot.domain.auth import WorkspaceContext
     from potbot.domain.errors import (
@@ -191,15 +197,16 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, ca
         IndeterminateExecutionError,
         StateMismatchError,
     )
-    from potbot.tools.agent_homes import AgentHomeRegistry
+    from potbot.tools.agent_homes import AgentHome, AgentHomeRegistry
     from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
     from potbot.tools.gui_audit_verification import verify_gui_run
     from potbot.tools.sandbox_cog_worker import SandboxedCogExecutor, SandboxedCogOperation
+    from potbot.tools.secrets import CaptureRedactor
     from potbot.tools.shared_workspace_isolation import (
         SharedWorkspaceBubblewrapBackend,
         SharedWorkspaceRuntime,
     )
-    from potbot.tools.supervisor import ProcessSupervisor
+    from potbot.tools.supervisor import ProcessRequest, ProcessResult, ProcessSupervisor
     from potbot.tools.syn_worker_nodes import SynWorkerNodeMesh
     from potbot.tools.taskstats_exit import TaskstatsExitStream
     from potbot.tools.worker_telemetry import WorkerMonitorConfig
@@ -264,23 +271,9 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, ca
         shared_models=models,
         shared_tools=tools,
     )
-    workspace, principal = uuid4(), uuid4()
-    ledger = WorkspaceLeaseLedger(private / "leases.sqlite", workspace_home=home)
-    ledger.pin_image(
-        workspace,
-        digest=runtime.image_digest,
-        image_ref=f"ghcr.io/test/image@sha256:{runtime.image_digest}",
-        build_commit="c" * 40,
-        platform="linux/amd64",
-        rootfs_path=rootfs,
-        qualification_sha256=runtime.qualification_sha256,
-    )
-    homes = AgentHomeRegistry(ledger, workspace_name="audit-test")
-    agents = (uuid4(), uuid4())
-    agent_homes = {agent: homes.provision(workspace, agent) for agent in agents}
     helper = private / "cgroup-join"
-    source = Path(__file__).resolve().parents[2] / "native/potbot-cgroup-join/cgroup_join.c"
-    subprocess.run(["cc", "-O2", "-o", str(helper), str(source)], check=True, timeout=15)
+    helper_source = Path(__file__).resolve().parents[2] / "native/potbot-cgroup-join/cgroup_join.c"
+    subprocess.run(["cc", "-O2", "-o", str(helper), str(helper_source)], check=True, timeout=15)
     tracer = Path("/usr/bin/strace").resolve()
     cgroup = Path("/sys/fs/cgroup") / f"potbot-u03-cog-test-{uuid4().hex}"
     cgroup.mkdir()
@@ -294,14 +287,58 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, ca
             hashlib.sha256(tracer.read_bytes()).hexdigest(),
             hashlib.sha256(helper.read_bytes()).hexdigest(),
         )
-        executor = SandboxedCogExecutor(
-            runtime,
-            ledger,
-            homes,
-            ProcessSupervisor(SharedWorkspaceBubblewrapBackend(runtime), monitor_config=config),
-            SynWorkerNodeMesh(),
-            development_syn_fixture=True,
-        )
+        results: dict[UUID, ProcessResult] = {}
+
+        class ObservedSupervisor(ProcessSupervisor):
+            def run(
+                self,
+                request: ProcessRequest,
+                *,
+                cancelled: Callable[[], bool] | None = None,
+                redactor: CaptureRedactor | None = None,
+            ) -> ProcessResult:
+                result = super().run(request, cancelled=cancelled, redactor=redactor)
+                assert request.telemetry_run_id is not None
+                results[request.telemetry_run_id] = result
+                return result
+
+        def register_workspace(
+            worker_runtime: SharedWorkspaceRuntime, name: str, agent_count: int
+        ) -> tuple[WorkspaceContext, WorkspaceLeaseLedger, SandboxedCogExecutor, list[AgentHome]]:
+            context = WorkspaceContext(uuid4(), uuid4())
+            access = WorkspaceLeaseLedger(
+                private / f"{name}.sqlite", workspace_home=worker_runtime.home
+            )
+            access.pin_image(
+                context.workspace_id,
+                digest=worker_runtime.image_digest,
+                image_ref=f"ghcr.io/test/image@sha256:{worker_runtime.image_digest}",
+                build_commit="c" * 40,
+                platform="linux/amd64",
+                rootfs_path=rootfs,
+                qualification_sha256=worker_runtime.qualification_sha256,
+            )
+            homes = AgentHomeRegistry(access, workspace_name=name)
+            registered = [
+                homes.provision(context.workspace_id, uuid4()) for _ in range(agent_count)
+            ]
+            worker_executor = SandboxedCogExecutor(
+                worker_runtime,
+                access,
+                homes,
+                ObservedSupervisor(
+                    SharedWorkspaceBubblewrapBackend(worker_runtime), monitor_config=config
+                ),
+                SynWorkerNodeMesh(),
+                development_syn_fixture=True,
+            )
+            return context, access, worker_executor, registered
+
+        actor, ledger, executor, registered = register_workspace(runtime, "audit-test", 2)
+        workspace = actor.workspace_id
+        agent_homes = {entry.agent_id: entry for entry in registered}
+        agents = tuple(agent_homes)
+        source = TypedCogValue("syn://type/in", {"probe": True})
         op = SandboxedCogOperation(
             WorkBinding(
                 "tool",
@@ -315,40 +352,51 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, ca
             ("/bin/qualification-worker",),
             worker_sha,
         )
-        actor = WorkspaceContext(workspace, principal)
+
+        async def wait_for_detached(
+            directory: Path, workspace_id: UUID, pending: asyncio.Task[TypedCogValue]
+        ) -> tuple[Path, int]:
+            marker = directory / ".qualification-ready"
+            active = audit / str(workspace_id) / ".active"
+            async with asyncio.timeout(8):
+                while True:
+                    if pending.done():
+                        await pending
+                        pytest.fail("Cog completed without a detached child")
+                    markers = list(active.glob("*.json"))
+                    if marker.exists() and marker.read_text().strip() and markers:
+                        break
+                    await asyncio.sleep(0.025)
+            (entry,) = markers
+            leaf = cgroup / UUID(entry.stem).hex
+            guest_pid = int(marker.read_text())
+            detached = []
+            for pid in map(int, (leaf / "cgroup.procs").read_text().split()):
+                try:
+                    status = Path(f"/proc/{pid}/status").read_text()
+                    namespace_line = re.search(r"^NSpid:[ \t]+(.+)$", status, re.MULTILINE)
+                    namespace_ids = namespace_line[1].split() if namespace_line else []
+                    if (
+                        len(namespace_ids) >= 2
+                        and int(namespace_ids[-1]) == guest_pid
+                        and os.getsid(pid) == pid
+                    ):
+                        detached.append(pid)
+                except (FileNotFoundError, ProcessLookupError):
+                    continue
+            assert len(detached) == 1, "detached guest child must be alive in the worker cgroup"
+            return leaf, detached[0]
 
         async def cancel_after_detach(agent: UUID, run: UUID) -> None:
-            marker = home / agent_homes[agent].directory / ".qualification-ready"
-            source = TypedCogValue("syn://type/in", {"probe": True})
             context = CogRunContext("a" * 64, uuid4(), uuid4(), run)
-            cancel_op = replace(op, argv=(*op.argv, "cancel"))
+            cancel_op = replace(op, argv=(*op.argv, "hold"))
             pending = asyncio.create_task(
                 executor.execute(cancel_op, source, context, actor, agent)
             )
             try:
-                async with asyncio.timeout(8):
-                    while not marker.exists() or not marker.read_text().strip():
-                        if pending.done():
-                            await pending
-                            pytest.fail("Cog completed without a detached child")
-                        await asyncio.sleep(0.025)
-                (leaf,) = (path for path in cgroup.iterdir() if path.is_dir())
-                guest_pid = int(marker.read_text())
-                detached = []
-                for pid in map(int, (leaf / "cgroup.procs").read_text().split()):
-                    try:
-                        status = Path(f"/proc/{pid}/status").read_text()
-                        namespace_line = re.search(r"^NSpid:[ \t]+(.+)$", status, re.MULTILINE)
-                        namespace_ids = namespace_line[1].split() if namespace_line else []
-                        if (
-                            len(namespace_ids) >= 2
-                            and int(namespace_ids[-1]) == guest_pid
-                            and os.getsid(pid) == pid
-                        ):
-                            detached.append(pid)
-                    except (FileNotFoundError, ProcessLookupError):
-                        continue
-                assert len(detached) == 1, "detached guest child must be alive in the worker cgroup"
+                leaf, host_pid = await wait_for_detached(
+                    home / agent_homes[agent].directory, workspace, pending
+                )
                 assert pending.cancel()
                 with pytest.raises(IndeterminateExecutionError, match="Cog task cancelled"):
                     await pending
@@ -369,7 +417,7 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, ca
                 assert lease.state == "indeterminate"
                 # The disposable probe's only persistent write was its marker.
                 evidence = hashlib.sha256(
-                    f"{run.hex}:{leaf.name}:released:{guest_pid}".encode()
+                    f"{run.hex}:{leaf.name}:released:{host_pid}".encode()
                 ).hexdigest()
                 ledger.reconcile(lease, evidence_sha256=evidence)
                 with pytest.raises(
@@ -381,43 +429,119 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, ca
                     pending.cancel()
                 await asyncio.gather(pending, return_exceptions=True)
 
-        for agent in agents:
-            run = uuid4()
+        async def timeout_with_running_peer() -> None:
+            peer_home = tmp_path / "peer-home"
+            peer_staging = tmp_path / "peer-staging"
+            (peer_home / ".tmp").mkdir(parents=True)
+            peer_staging.mkdir()
+            peer_runtime = replace(runtime, home=peer_home, model_staging=peer_staging)
+            peer_actor, peer_ledger, peer_executor, (peer,) = register_workspace(
+                peer_runtime, "audit-peer", 1
+            )
+            short = CogRunContext("a" * 64, uuid4(), uuid4(), uuid4())
+            long = replace(short, invocation_id=uuid4())
+            timeout_ms = 8000
+            timeout_op = replace(
+                op,
+                binding=replace(
+                    op.binding, policy=replace(op.binding.policy, max_wall_ms=timeout_ms)
+                ),
+                argv=(*op.argv, "hold"),
+            )
+            peer_op = replace(
+                op,
+                binding=replace(op.binding, policy=replace(op.binding.policy, max_wall_ms=25000)),
+                argv=(*op.argv, "release"),
+            )
+            peer_dir = peer_home / peer.directory
+            jobs = [
+                asyncio.create_task(executor.execute(timeout_op, source, short, actor, agents[0])),
+                asyncio.create_task(
+                    peer_executor.execute(peer_op, source, long, peer_actor, peer.agent_id)
+                ),
+            ]
+            timed, surviving = jobs
             try:
-                if cancel and agent == agents[0]:
+                (timed_leaf, timed_pid), (peer_leaf, peer_pid) = await asyncio.gather(
+                    wait_for_detached(home / agent_homes[agents[0]].directory, workspace, timed),
+                    wait_for_detached(peer_dir, peer_actor.workspace_id, surviving),
+                )
+                assert timed_leaf != peer_leaf and timed_pid != peer_pid
+                assert not timed.done() and not surviving.done()
+                with pytest.raises((StateMismatchError, IndeterminateExecutionError)):
+                    await asyncio.wait_for(asyncio.shield(timed), timeout=14)
+                expired = results[short.invocation_id]
+                assert expired.dispatched and expired.elapsed_ms >= timeout_ms
+                assert expired.error_code in {"timeout", "audit_incomplete"}
+                assert not timed_leaf.exists()
+                assert not list((audit / str(workspace) / ".active").iterdir())
+                (retained,) = ledger.active(workspace)
+                assert retained["state"] == "indeterminate"
+                assert not surviving.done() and _cgroup_populated(peer_leaf)
+
+                (peer_dir / ".qualification-release").touch()
+                assert (await asyncio.wait_for(surviving, timeout=8)).value == {"done": True}
+                assert not peer_leaf.exists()
+                assert not list((audit / str(peer_actor.workspace_id) / ".active").iterdir())
+                assert not peer_ledger.active(peer_actor.workspace_id)
+                receipt = verify_gui_run(
+                    audit,
+                    peer_actor.workspace_id,
+                    long.invocation_id,
+                    identity_kind="agent",
+                    subject_id=peer.agent_id,
+                )
+                assert receipt["qualified"] is True
+                traced = audit / str(peer_actor.workspace_id) / str(UUID(hex=peer_leaf.name))
+                assert (traced / f"trace.{peer_pid}").is_file()
+                assert not (traced / f"trace.{timed_pid}").exists()
+            finally:
+                for job in jobs:
+                    if not job.done():
+                        job.cancel()
+                await asyncio.gather(*jobs, return_exceptions=True)
+
+        try:
+            if scenario == "timeout-overlap":
+                asyncio.run(timeout_with_running_peer())
+            for agent in agents if scenario != "timeout-overlap" else ():
+                run = uuid4()
+                if scenario == "cancel" and agent == agents[0]:
                     asyncio.run(cancel_after_detach(agent, run))
                     continue
                 output = asyncio.run(
                     executor.execute(
                         op,
-                        TypedCogValue("syn://type/in", {"probe": True}),
+                        source,
                         CogRunContext("a" * 64, uuid4(), uuid4(), run),
                         actor,
                         agent,
                     )
                 )
-            except Exception:
-                # The fixture is synthetic. Report bounded reasons and counts only.
-                for path in sorted((audit / str(workspace)).glob("*/lifetime.json")):
-                    evidence = json.loads(path.read_text())
-                    print(
-                        {
-                            key: evidence.get(key)
-                            for key in (
-                                "audit_failure",
-                                "trace_integrity",
-                                "traced_pid_count",
-                                "per_pid_kernel_exit_count",
-                            )
-                        }
-                    )
-                for path in sorted((audit / str(workspace)).glob("*/live.json")):
-                    status = json.loads(path.read_text())
-                    print({"state": status.get("state"), "fault": status.get("fault")})
-                raise
-            assert output.value == {"done": True}
-            receipt = verify_gui_run(audit, workspace, run, identity_kind="agent", subject_id=agent)
-            assert receipt["qualified"] is True and receipt["tracedProcesses"] >= 3
+                assert output.value == {"done": True}
+                receipt = verify_gui_run(
+                    audit, workspace, run, identity_kind="agent", subject_id=agent
+                )
+                assert receipt["qualified"] is True and receipt["tracedProcesses"] >= 3
+        except Exception:
+            # The fixture is synthetic. Report bounded reasons and counts only.
+            for path in sorted(audit.glob("*/*/lifetime.json")):
+                evidence = json.loads(path.read_text())
+                print(
+                    {
+                        key: evidence.get(key)
+                        for key in (
+                            "audit_failure",
+                            "trace_integrity",
+                            "traced_pid_count",
+                            "per_pid_kernel_exit_count",
+                        )
+                    }
+                )
+            for path in sorted(audit.glob("*/*/live.json")):
+                status = json.loads(path.read_text())
+                print({"state": status.get("state"), "fault": status.get("fault")})
+            raise
         assert not any(path.is_dir() for path in cgroup.iterdir())
     finally:
         for path in cgroup.iterdir():
