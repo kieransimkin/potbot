@@ -12,8 +12,9 @@ import shutil
 import signal
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -163,8 +164,16 @@ def test_real_pid_namespace_joins_forks_to_tracer_ids(tmp_path: Path) -> None:
 _COG_PROBE = """#!/bin/sh
 set -eu
 IFS= read -r request || test -n "$request"
-/bin/busybox true &
-wait "$!"
+if [ "${1-}" = cancel ]; then
+    /bin/busybox setsid /bin/sh -c '
+        printf "%s\\n" "$$" > .qualification-ready
+        exec /bin/busybox sleep 60
+    ' &
+    wait "$!"
+else
+    /bin/busybox true &
+    wait "$!"
+fi
 printf '%s\\n' '{"schema_version":1,"type_ref":"syn://type/out","value":{"done":true}}'
 """
 
@@ -173,10 +182,15 @@ printf '%s\\n' '{"schema_version":1,"type_ref":"syn://type/out","value":{"done":
     sys.platform != "linux" or os.environ.get("POTBOT_TEST_WORKER_CGROUP") != "1",
     reason="requires a disposable Linux fixture with real worker accounting",
 )
-def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path) -> None:
+@pytest.mark.parametrize("cancel", [False, True], ids=["complete", "cancel"])
+def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path, cancel: bool) -> None:
     from potbot.cogs.contracts import CogRunContext, TypedCogValue
     from potbot.domain.auth import WorkspaceContext
-    from potbot.domain.errors import CapabilityUnavailableError
+    from potbot.domain.errors import (
+        CapabilityUnavailableError,
+        IndeterminateExecutionError,
+        StateMismatchError,
+    )
     from potbot.tools.agent_homes import AgentHomeRegistry
     from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
     from potbot.tools.gui_audit_verification import verify_gui_run
@@ -190,17 +204,18 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path) ->
     from potbot.tools.taskstats_exit import TaskstatsExitStream
     from potbot.tools.worker_telemetry import WorkerMonitorConfig
     from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
+    from potbot.tools.workspace_supervision import WorkspaceExecutorIdentity, WorkspaceLeaseGuard
 
     stream = TaskstatsExitStream()
     try:
         stream.open()
     except CapabilityUnavailableError as error:
         cause = error.__cause__
-        if isinstance(cause, OSError) and cause.errno in {
-            errno.ENOENT,
-            errno.EPERM,
-            errno.EOPNOTSUPP,
-        }:
+        if (
+            isinstance(cause, OSError)
+            and cause.errno in {errno.ENOENT, errno.EPERM, errno.EOPNOTSUPP}
+            and os.environ.get("POTBOT_REQUIRE_WORKER_TASKSTATS") != "1"
+        ):
             pytest.skip(f"runner cannot register TASKSTATS (errno {cause.errno})")
         raise
     finally:
@@ -262,8 +277,7 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path) ->
     )
     homes = AgentHomeRegistry(ledger, workspace_name="audit-test")
     agents = (uuid4(), uuid4())
-    for agent in agents:
-        homes.provision(workspace, agent)
+    agent_homes = {agent: homes.provision(workspace, agent) for agent in agents}
     helper = private / "cgroup-join"
     source = Path(__file__).resolve().parents[2] / "native/potbot-cgroup-join/cgroup_join.c"
     subprocess.run(["cc", "-O2", "-o", str(helper), str(source)], check=True, timeout=15)
@@ -302,9 +316,77 @@ def test_registered_cogs_join_bubblewrap_traces_and_taskstats(tmp_path: Path) ->
             worker_sha,
         )
         actor = WorkspaceContext(workspace, principal)
+
+        async def cancel_after_detach(agent: UUID, run: UUID) -> None:
+            marker = home / agent_homes[agent].directory / ".qualification-ready"
+            source = TypedCogValue("syn://type/in", {"probe": True})
+            context = CogRunContext("a" * 64, uuid4(), uuid4(), run)
+            cancel_op = replace(op, argv=(*op.argv, "cancel"))
+            pending = asyncio.create_task(
+                executor.execute(cancel_op, source, context, actor, agent)
+            )
+            try:
+                async with asyncio.timeout(8):
+                    while not marker.exists() or not marker.read_text().strip():
+                        if pending.done():
+                            await pending
+                            pytest.fail("Cog completed without a detached child")
+                        await asyncio.sleep(0.025)
+                (leaf,) = (path for path in cgroup.iterdir() if path.is_dir())
+                guest_pid = int(marker.read_text())
+                detached = []
+                for pid in map(int, (leaf / "cgroup.procs").read_text().split()):
+                    try:
+                        status = Path(f"/proc/{pid}/status").read_text()
+                        namespace_line = re.search(r"^NSpid:[ \t]+(.+)$", status, re.MULTILINE)
+                        namespace_ids = namespace_line[1].split() if namespace_line else []
+                        if (
+                            len(namespace_ids) >= 2
+                            and int(namespace_ids[-1]) == guest_pid
+                            and os.getsid(pid) == pid
+                        ):
+                            detached.append(pid)
+                    except (FileNotFoundError, ProcessLookupError):
+                        continue
+                assert len(detached) == 1, "detached guest child must be alive in the worker cgroup"
+                assert pending.cancel()
+                with pytest.raises(IndeterminateExecutionError, match="Cog task cancelled"):
+                    await pending
+                assert not leaf.exists(), "cancelled Cog left its cgroup behind"
+                assert not list((audit / str(workspace) / ".active").iterdir())
+                # The shared /home lease fences both Agents until host reconciliation.
+                with pytest.raises(StateMismatchError, match="conflicting or indeterminate"):
+                    await executor.execute(
+                        op, source, replace(context, invocation_id=uuid4()), actor, agents[1]
+                    )
+                guard = WorkspaceLeaseGuard.exclusive_home(
+                    ledger,
+                    WorkspaceExecutorIdentity(workspace, agent, runtime.image_digest),
+                    operation="cog.sandbox.execute",
+                    idempotency_key="cog-" + run.hex,
+                )
+                lease = ledger.claim(guard.request)
+                assert lease.state == "indeterminate"
+                # The disposable probe's only persistent write was its marker.
+                evidence = hashlib.sha256(
+                    f"{run.hex}:{leaf.name}:released:{guest_pid}".encode()
+                ).hexdigest()
+                ledger.reconcile(lease, evidence_sha256=evidence)
+                with pytest.raises(
+                    StateMismatchError, match="workspace invocation already recorded"
+                ):
+                    await executor.execute(cancel_op, source, context, actor, agent)
+            finally:
+                if not pending.done():
+                    pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)
+
         for agent in agents:
             run = uuid4()
             try:
+                if cancel and agent == agents[0]:
+                    asyncio.run(cancel_after_detach(agent, run))
+                    continue
                 output = asyncio.run(
                     executor.execute(
                         op,

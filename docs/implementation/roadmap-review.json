@@ -251,29 +251,29 @@
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_trace_records_thread_exec_and_signalled_child",
-          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
+          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_nested_cgroup_requires_recursive_shutdown",
-          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
+          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_pid_namespace_joins_forks_to_tracer_ids",
-          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
+          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_registered_cogs_join_bubblewrap_traces_and_taskstats",
-          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
+          "sha256": "dc05b8a929086578ff4a6a1507ab1f8266aaaa07ad752beeb91a2d8a158767a4",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         }
       ],
-      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. Qualification of the deployed worker routes remains open.",
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture also checks detached Cog cleanup and retry fencing after cancellation. Qualification of the deployed worker routes remains open.",
       "support_scope": "Process-start identity, attribution and measured-versus-unavailable metric contracts; no blanket every-route production result.",
       "remaining": [
         "Complete real loss-aware syscall/task-exit accounting for every executable Cog route",
@@ -64829,7 +64829,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "81b82c9c5fbfcb61d2c28e4ce6b9cc3acbd96fb46c3aa2b5e3578121fb801e3c",
+      "sha256": "4a4f91e89425817567574661961f5ae28585abfee58d6ce333f82e9c611391ea",
       "families": [
         "accounting"
       ],
@@ -64851,8 +64851,8 @@
           ]
         },
         {
-          "locator": "line:62-92",
-          "sha256": "3749afe9ad1c543f54bc6e2e9b835b29ea9bdfb283ebd483b59ae6d359a0ee89",
+          "locator": "line:62-109",
+          "sha256": "e2a0683a2c0341b7d9906f1b352086171c6cc74dfb98c85bf35a021413cc278f",
           "families": [
             "accounting"
           ]
@@ -80980,7 +80980,7 @@
         "accounting"
       ],
       "status": "partial",
-      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. Qualification of the deployed worker routes remains open.",
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. The Linux fixture also checks detached Cog cleanup and retry fencing after cancellation. Qualification of the deployed worker routes remains open.",
       "next_action": "Qualify the combined Bubblewrap, TASKSTATS and cgroup boundary on deployment hosts and enumerate all executable Cog routes."
     },
     {
@@ -82509,7 +82509,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "fa64cc717c262b265b89e4cb0f508bc3974869b2739eb05fcc63128c0977d133",
+        "sha256": "847a0955cbf6542cc985ebb7c809f93e07392dd34ac34927a6ea79bb1bb9e114",
         "name": "Potbot verification",
         "state": "active",
         "scope": [
