@@ -35730,10 +35730,10 @@
     },
     {
       "path": ".github/workflows/official-syn-monitored-workers.yml",
-      "sha256": "6a47ba4eb4bfa62664221a7e4a6e9accacc5a572d9231f6aaf8b8781f2ff18c3",
+      "sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150",
       "bytes": 5293,
       "kind": "narrative_text",
-      "text_sha256": "6a47ba4eb4bfa62664221a7e4a6e9accacc5a572d9231f6aaf8b8781f2ff18c3",
+      "text_sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150",
       "characters": 5293,
       "lines": 111,
       "interpretation": "source_content_not_runtime_evidence"
@@ -35999,7 +35999,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "9396a9c864efd37e37ccee71f8687f52ae2480f64cf47f75f473b634439275ea",
+  "review_sha256": "96e5313e102397a2b00719ae4614f36f68f219483f7162bd188fd127b36b3d18",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {

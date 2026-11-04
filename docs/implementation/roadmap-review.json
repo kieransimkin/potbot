@@ -83097,7 +83097,7 @@
         "latest_inspected_run": null,
         "at_reviewed_base": false,
         "qualification_limit": "Pinned official Linux Agent packages and the disposable typed JSON Cog route only.",
-        "sha256": "6a47ba4eb4bfa62664221a7e4a6e9accacc5a572d9231f6aaf8b8781f2ff18c3"
+        "sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150"
       }
     ],
     "baseline_checks": {

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -22,11 +23,12 @@ from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
 from potbot.tools.gui_audit_verification import verify_gui_run
 from potbot.tools.released_syn_nodes import ReleasedSynWorkerNodeMesh, SynCogGrant
 from potbot.tools.sandbox_cog_worker import SandboxedCogExecutor, SandboxedCogOperation
+from potbot.tools.secrets import CaptureRedactor
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
 )
-from potbot.tools.supervisor import ProcessSupervisor
+from potbot.tools.supervisor import ProcessRequest, ProcessResult, ProcessSupervisor
 from potbot.tools.syn_worker_nodes import SynWorkerNode
 from potbot.tools.worker_telemetry import _cgroup_populated
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
@@ -110,12 +112,31 @@ async def qualify_monitored_workers(
     value = TypedCogValue("syn://type/fixture-input", {"fixture": True})
     workspace_audit = audit / str(workspace)
 
+    class ObservedSupervisor(ProcessSupervisor):
+        def run(
+            self,
+            request: ProcessRequest,
+            *,
+            cancelled: Callable[[], bool] | None = None,
+            redactor: CaptureRedactor | None = None,
+        ) -> ProcessResult:
+            result = super().run(request, cancelled=cancelled, redactor=redactor)
+            if result.outcome != "completed":
+                print(
+                    "Official worker stopped:",
+                    result.outcome,
+                    result.error_code,
+                    f"elapsed_ms={result.elapsed_ms}",
+                    flush=True,
+                )
+            return result
+
     with monitored_cog_cgroup(private, audit) as config:
         executor = SandboxedCogExecutor(
             runtime,
             ledger,
             homes,
-            ProcessSupervisor(SharedWorkspaceBubblewrapBackend(runtime), monitor_config=config),
+            ObservedSupervisor(SharedWorkspaceBubblewrapBackend(runtime), monitor_config=config),
             workers,
         )
 
@@ -205,6 +226,15 @@ async def qualify_monitored_workers(
                         result = await asyncio.shield(task)
                     assert result.type_ref == operation.binding.output_type_ref
                     assert result.value == {"done": True}
+                except Exception:
+                    print(
+                        "Official worker observation:",
+                        f"transport_healthy={transport.healthy}",
+                        f"peer_healthy={peer.healthy}",
+                        f"sequence={observed_sequence(peer, agent, context.invocation_id)}",
+                        flush=True,
+                    )
+                    raise
                 finally:
                     if not task.done():
                         task.cancel()

@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: Synsphere/syn
-          ref: '90768f0d2d421abd9e55bca6acac28c7292159f1'
+          ref: 'd55f2afce040f2da93d92713452fbda8f06d9de2'
           path: syn-fixture
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -61,7 +61,7 @@ jobs:
           strace --pidns-translation -o /dev/null -- /usr/bin/true
       - name: Install the exact Potbot consumer
         run: |
-          test "$(git -C syn-fixture rev-parse HEAD)" = '90768f0d2d421abd9e55bca6acac28c7292159f1'
+          test "$(git -C syn-fixture rev-parse HEAD)" = 'd55f2afce040f2da93d92713452fbda8f06d9de2'
           uv sync --locked --project consumer-agent --dev --extra security
           echo "R04_POTBOT_SHA=$(git -C consumer-agent rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "R04_HOST_PYTHON=$(uv python find --managed-python "$R04_PYTHON")" >> "$GITHUB_ENV"
