@@ -156,10 +156,37 @@ flowchart LR
     A -->|Nonzero exit| F[Keep workspace fenced through lease expiry]
 ```
 
-The test uses the development Syn relay. The deployed image, released Syn
-authorization and sustained production load still have their own qualification
-gates. The hosted renewal case exercises one renewal interval with two
-workers.
+The context RPC test uses the development Syn relay. The hosted renewal case
+exercises one renewal interval with two workers.
+
+### Authorization with official Syn packages
+
+The official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu
+fixtures. It pins the source commit, signed manifest digest and release
+authority for each version. The fixture starts two independently installed
+native Syn Agents with separate UIDs and keystores. Their registered identities
+authorize one monitored typed JSON Cog each through Potbot's normal executor.
+
+A peer observes the authenticated heartbeat for each live Cog invocation.
+The host then releases the probe and verifies the worker's trace, TASKSTATS
+receipt, cgroup removal and workspace lease release. Missing grants, changed
+task revisions, cross-Agent grants and consumed grants are refused before
+dispatch.
+
+```mermaid
+flowchart LR
+    R[Install pinned signed Syn packages] --> A[Start two native Agents]
+    A --> G[Bind one-use grant to Agent and invocation]
+    G --> C[Dispatch monitored Cog]
+    C --> H[Peer verifies the live heartbeat]
+    H --> V[Verify audit and release workspace lease]
+    G -->|Invalid grant| F[Refuse before dispatch]
+```
+
+The job retains a bounded receipt for each version. The released Syn check
+covers the typed JSON route in a disposable image. Context RPC with released
+Syn, the deployed image and host, sustained production load and the remaining
+cutover gates need their own evidence.
 
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain

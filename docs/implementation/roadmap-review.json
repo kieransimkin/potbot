@@ -251,25 +251,25 @@
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_trace_records_thread_exec_and_signalled_child",
-          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
+          "sha256": "008b00f0df512953d683235cffca4e579584c358c8c3550466ccc17ae64a6cae",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_nested_cgroup_requires_recursive_shutdown",
-          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
+          "sha256": "008b00f0df512953d683235cffca4e579584c358c8c3550466ccc17ae64a6cae",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_pid_namespace_joins_forks_to_tracer_ids",
-          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
+          "sha256": "008b00f0df512953d683235cffca4e579584c358c8c3550466ccc17ae64a6cae",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_registered_cogs_join_bubblewrap_traces_and_taskstats",
-          "sha256": "6ad133543c0e66a926ff4a87573c471f46fa37f75a5d9b1240111f4320e73f0f",
+          "sha256": "008b00f0df512953d683235cffca4e579584c358c8c3550466ccc17ae64a6cae",
           "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         },
         {
@@ -64841,7 +64841,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "258ddfe0e8ae6c7277fec2b8f7d02c0a426f0514f764b5af95efa32aa967cafb",
+      "sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
       "families": [
         "accounting"
       ],
@@ -64884,8 +64884,15 @@
           ]
         },
         {
-          "locator": "line:137-167",
-          "sha256": "6bc5d325796b77053ff7cc375f1e71136ae192e0e8b96868d9d5bcba33aab7fc",
+          "locator": "line:137-161",
+          "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
+          "families": [
+            "accounting"
+          ]
+        },
+        {
+          "locator": "line:162-194",
+          "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
           "families": [
             "accounting"
           ]
@@ -68395,7 +68402,7 @@
     },
     {
       "path": "docs/implementation/syn-r07-release-parity.md",
-      "sha256": "80336f5cb5695fb3e73c0b05bbbf1d32c0d33cd0b75d3c2d80b11f31395d4540",
+      "sha256": "cce5f4054c0253c076b2ea88c72fed6a22727779a4cb8cb5b6520eda1e6046f3",
       "families": [
         "identity",
         "syn-mesh",
@@ -68427,7 +68434,7 @@
         },
         {
           "locator": "line:25-40",
-          "sha256": "7bc90ea3e2e5150703d6a316aff9ee70c2555865b32dfb5d63d1556359d92222",
+          "sha256": "e7312060fab598127e06622be0e588a82aa9a3ff3268b2b5ddfa716c6ac32253",
           "families": [
             "identity",
             "syn-mesh",
@@ -83077,6 +83084,20 @@
         },
         "at_reviewed_base": false,
         "qualification_limit": "Passing means the selected jobs/steps succeeded at the recorded head only. Conditional live smoke, disabled device profiles, skipped publication and other host gates are not promoted. A workflow with an older head is historical evidence."
+      },
+      {
+        "path": ".github/workflows/official-syn-monitored-workers.yml",
+        "name": "Official Syn monitored worker authorization",
+        "state": "active",
+        "scope": [
+          "Install the exact Potbot consumer",
+          "Verify the signed release and execute the monitored authorization probe",
+          "Verify the monitored receipt matches the release and consumer pins"
+        ],
+        "latest_inspected_run": null,
+        "at_reviewed_base": false,
+        "qualification_limit": "Pinned official Linux Agent packages and the disposable typed JSON Cog route only.",
+        "sha256": "3ba6e7c640a591e3e93edd76311a08cd31039679ae227bef39202121a916a3ec"
       }
     ],
     "baseline_checks": {

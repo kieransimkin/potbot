@@ -1,0 +1,110 @@
+name: Official Syn monitored worker authorization
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/official-syn-monitored-workers.yml'
+      - 'scripts/qualify_released_syn_workers.py'
+      - 'scripts/worker_audit_fixture.py'
+      - 'src/potbot/syn_release/**'
+      - 'src/potbot/tools/released_syn_nodes.py'
+      - 'src/potbot/tools/sandbox_cog_worker.py'
+      - 'src/potbot/tools/supervisor.py'
+      - 'src/potbot/tools/worker_telemetry.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  official-monitored-worker:
+    if: ${{ github.repository == 'kieransimkin/potbot' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '0.7.0'
+            source: 'b6f28476ffb398e9fc75d41676ae906fe040c011'
+            manifest: '42fbe2c8d7421b0f9f39fe04db2f148c4cc26e7397bc40149759f6b9a4ea8bb2'
+          - version: '0.8.0'
+            source: '74f6ef75d77ab6aa00fb49d30ec446e3a6d4ebcd'
+            manifest: '0ee89e2b5e27d38827e6d75ef25e7bca1ed1e0f40a5360df07404595912ec1d0'
+    env:
+      R04_VERSION: ${{ matrix.version }}
+      R04_RELEASE_SOURCE: ${{ matrix.source }}
+      R04_MANIFEST: ${{ matrix.manifest }}
+      R04_RELEASE_AUTHORITY: 'a47f15e010613c0a839a48f2035b8f71d6f9e46ee3df07ed58487079d56ae216'
+      R04_PYTHON: '3.12'
+      UV_MANAGED_PYTHON: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: consumer-agent
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: Synsphere/syn
+          ref: '90768f0d2d421abd9e55bca6acac28c7292159f1'
+          path: syn-fixture
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.12.23'
+          python-version: '3.12'
+          enable-cache: false
+      - name: Install the native custody and kernel audit tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus-user-session libgmp-dev bubblewrap uidmap libseccomp2 strace busybox-static
+          strace --pidns-translation -o /dev/null -- /usr/bin/true
+      - name: Install the exact Potbot consumer
+        run: |
+          test "$(git -C syn-fixture rev-parse HEAD)" = '90768f0d2d421abd9e55bca6acac28c7292159f1'
+          uv sync --locked --project consumer-agent --dev --extra security
+          echo "R04_POTBOT_SHA=$(git -C consumer-agent rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "R04_HOST_PYTHON=$(uv python find --managed-python "$R04_PYTHON")" >> "$GITHUB_ENV"
+          echo "R04_UV=$(command -v uv)" >> "$GITHUB_ENV"
+      - name: Verify the signed release and execute the monitored authorization probe
+        env:
+          POTBOT_SYN_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          sudo -E consumer-agent/.venv/bin/python syn-fixture/scripts/ci_agent_release.py \
+            --consumer-dir "$PWD/consumer-agent" --monitored-worker
+      - name: Verify the monitored receipt matches the release and consumer pins
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("syn-fixture/artifacts/agent/private-pubsub.json")
+          evidence = json.loads(path.read_text())["monitored_worker_authorization"]
+          assert evidence["result"] == "passed"
+          assert evidence["route"] == "typed-json/v1"
+          assert evidence["audited_agents"] == 2
+          assert evidence["native_peer_heartbeat_while_worker_live"] is True
+          assert evidence["missing_changed_task_cross_agent_and_replayed_grants_refused"] is True
+          assert evidence["workspace_leases_and_worker_cgroups_released"] is True
+          assert evidence["consumer_sha"] == os.environ["R04_POTBOT_SHA"]
+          assert evidence["release"] == {
+              "version": os.environ["R04_VERSION"],
+              "source_commit": os.environ["R04_RELEASE_SOURCE"],
+              "manifest_sha256": os.environ["R04_MANIFEST"],
+              "release_key_sha256": os.environ["R04_RELEASE_AUTHORITY"],
+          }
+          out = Path("artifacts/official-syn-worker")
+          out.mkdir(parents=True)
+          (out / "summary.json").write_text(json.dumps(evidence, indent=2) + "\n")
+          PY
+      - name: Retain the official monitored worker receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: official-syn-worker-authorization-${{ matrix.version }}
+          path: artifacts/official-syn-worker/summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record the routine CI completion assessment
+        if: always()
+        run: |
+          printf '%s\n' 'Blogworthiness: FAIL. Routine replay of the official Syn monitored worker fixture. Source evidence is this job and its receipt.' >> "$GITHUB_STEP_SUMMARY"

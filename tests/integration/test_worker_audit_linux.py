@@ -13,7 +13,7 @@ import signal
 import subprocess
 import sys
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -28,6 +28,8 @@ from potbot.tools.worker_telemetry import (
     _cgroup_populated,
     _terminate_cgroup,
 )
+from scripts.worker_audit_fixture import monitored_cog_cgroup as _monitored_cog_cgroup
+from scripts.worker_audit_fixture import prepare_busybox_rootfs
 
 _WORKLOAD = """
 import asyncio
@@ -164,65 +166,23 @@ def test_real_pid_namespace_joins_forks_to_tracer_ids(tmp_path: Path) -> None:
     assert incomplete["tree_complete"] is False
 
 
-def prepare_busybox_rootfs(rootfs: Path) -> None:
-    for name in (
-        "home",
-        "proc",
-        "dev",
-        "bin",
-        "var/ai",
-        "var/logs/ai",
-        "opt/potbot/models",
-        "usr/local/tools",
-    ):
-        (rootfs / name).mkdir(parents=True)
-    (rootfs / "tmp").symlink_to("/home/.tmp")
-    shutil.copy2("/usr/bin/busybox", rootfs / "bin/busybox")
-    (rootfs / "bin/sh").symlink_to("busybox")
-
-
 @contextmanager
 def monitored_cog_cgroup(private: Path, audit: Path) -> Iterator[WorkerMonitorConfig]:
     from potbot.domain.errors import CapabilityUnavailableError
-    from potbot.tools.taskstats_exit import TaskstatsExitStream
 
-    stream = TaskstatsExitStream()
-    try:
-        stream.open()
-    except CapabilityUnavailableError as error:
-        cause = error.__cause__
-        if (
-            isinstance(cause, OSError)
-            and cause.errno in {errno.ENOENT, errno.EPERM, errno.EOPNOTSUPP}
-            and os.environ.get("POTBOT_REQUIRE_WORKER_TASKSTATS") != "1"
-        ):
-            pytest.skip(f"runner cannot register TASKSTATS (errno {cause.errno})")
-        raise
-    finally:
-        stream.close()
-
-    helper = private / "cgroup-join"
-    helper_source = Path(__file__).resolve().parents[2] / "native/potbot-cgroup-join/cgroup_join.c"
-    subprocess.run(["cc", "-O2", "-o", str(helper), str(helper_source)], check=True, timeout=15)
-    tracer = Path("/usr/bin/strace").resolve()
-    cgroup = Path("/sys/fs/cgroup") / f"potbot-u03-cog-test-{uuid4().hex}"
-    cgroup.mkdir()
-    try:
-        (cgroup / "cgroup.subtree_control").write_text("+cpu +memory +io +pids")
-        yield WorkerMonitorConfig(
-            audit,
-            cgroup,
-            tracer,
-            helper,
-            hashlib.sha256(tracer.read_bytes()).hexdigest(),
-            hashlib.sha256(helper.read_bytes()).hexdigest(),
-        )
-    finally:
-        for path in cgroup.iterdir():
-            if path.is_dir():
-                assert _terminate_cgroup(path)
-                path.rmdir()
-        cgroup.rmdir()
+    with ExitStack() as stack:
+        try:
+            config = stack.enter_context(_monitored_cog_cgroup(private, audit))
+        except CapabilityUnavailableError as error:
+            cause = error.__cause__
+            if (
+                isinstance(cause, OSError)
+                and cause.errno in {errno.ENOENT, errno.EPERM, errno.EOPNOTSUPP}
+                and os.environ.get("POTBOT_REQUIRE_WORKER_TASKSTATS") != "1"
+            ):
+                pytest.skip(f"runner cannot register TASKSTATS (errno {cause.errno})")
+            raise
+        yield config
 
 
 _COG_PROBE = """#!/bin/sh
