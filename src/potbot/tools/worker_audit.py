@@ -26,7 +26,11 @@ _LINE = re.compile(r"^\s*(?P<time>[0-9]{9,14}\.[0-9]+)\s+(?P<call>[a-zA-Z_][a-zA
 _RESUME = re.compile(
     r"^\s*(?P<time>[0-9]{9,14}\.[0-9]+)\s+<\.\.\.\s+(?P<call>[a-zA-Z_][a-zA-Z_0-9]*) resumed>(?P<rest>.*)$"
 )
-_CHILD_RETURN = re.compile(r"\)\s+=\s+([1-9][0-9]{0,9})(?:\s|$)")
+_CHILD_RETURN = re.compile(r"\)\s+=\s+(?P<local>[1-9][0-9]{0,9})(?=\s|$)")
+_CHILD_SUFFIX = re.compile(
+    r"(?:\s+/\* (?P<tracer>[1-9][0-9]{0,9}) in strace's PID NS \*/)?"
+    r"(?:\s+<[0-9]+\.[0-9]+>)?\s*"
+)
 _TERMINAL = re.compile(
     r"^\s*(?:[0-9]{9,14}\.[0-9]+\s+)?\+\+\+ "
     r"(?:exited with (?P<code>[0-9]{1,3})|killed by (?P<signal>SIG[A-Z0-9_]+)"
@@ -97,6 +101,7 @@ def process_tree(
     ambiguous_exits: set[int] = set()
     lifetime: dict[int, tuple[float, float]] = {}
     fork_conflict = 0
+    translated_edges = 0
     for pid, path in sorted(pids.items()):
         first = last = None
         # Observe exit lines separately: they are not syscall invocations.
@@ -124,7 +129,13 @@ def process_tree(
             result = _CHILD_RETURN.search(expression)
             if not result:
                 continue  # Failed fork or a child-side return.
-            child = int(result[1])
+            suffix = _CHILD_SUFFIX.fullmatch(expression[result.end() :])
+            if suffix is None:
+                fork_conflict += 1
+                continue
+            # Trace filenames and TASKSTATS records use the tracer's PID namespace.
+            tracer_pid = suffix["tracer"]
+            child = int(tracer_pid or result["local"])
             if child == pid:  # Never accept an impossible self-edge.
                 fork_conflict += 1
                 continue
@@ -138,6 +149,7 @@ def process_tree(
                 fork_conflict += 1
             else:
                 children[child] = expected
+                translated_edges += int(tracer_pid is not None)
         if first is not None and last is not None:
             lifetime[pid] = (first, last)
     missing = sorted(set(children) - set(pids))
@@ -227,6 +239,7 @@ def process_tree(
         "roots": roots,
         "expected_but_untraced_pids": missing,
         "fork_conflicts": fork_conflict,
+        "namespace_translated_edges": translated_edges,
         "cycle_pids": sorted(cycle_pids),
         "missing_exit_pids": missing_exits,
         "ambiguous_exit_pids": sorted(ambiguous_exits),
@@ -366,6 +379,7 @@ def write_process_tree(tree: Mapping[str, Any], path: Path) -> dict[str, Any]:
         "expected_but_untraced_pids": tree["expected_but_untraced_pids"][:32],
         "expected_untraced_count": len(tree["expected_but_untraced_pids"]),
         "fork_conflicts": tree["fork_conflicts"],
+        "namespace_translated_edges": tree["namespace_translated_edges"],
         "missing_exit_count": len(tree["missing_exit_pids"]),
         "ambiguous_exit_count": len(tree["ambiguous_exit_pids"]),
         "tree_complete": tree["tree_complete"],

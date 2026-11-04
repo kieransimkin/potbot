@@ -48,6 +48,9 @@ SOURCES = (
     "src/potbot/tools/workspace_concurrency.py",
     "src/potbot/tools/agent_homes.py",
     "src/potbot/tools/worker_telemetry.py",
+    "src/potbot/tools/worker_audit.py",
+    "src/potbot/tools/taskstats_exit.py",
+    "native/potbot-cgroup-join/cgroup_join.c",
     "src/potbot/tools/gui_audit_verification.py",
     "src/potbot/tools/syn_worker_nodes.py",
 )

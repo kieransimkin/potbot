@@ -305,11 +305,27 @@ def test_final_audit_receipt_requires_cgroup_release_and_trace_end(
     trace = "1793000000.0001 getpid() = 121 <0.0001>\n"
     if terminal:
         trace += "1793000000.0002 +++ exited with 0 +++\n"
-    (monitor.path / "trace.121").write_text(trace)
+    trace_path = monitor.path / "trace.121"
+    trace_path.write_text(trace)
+    trace_path.chmod(0o644)
     assert monitor.finish(confirmed_stopped=True) is (released and terminal)
+    assert trace_path.stat().st_mode & 0o777 == 0o600
     receipt = json.loads((monitor.path / "lifetime.json").read_text())
     assert receipt["audit_complete"] is (released and terminal)
     assert receipt["process_tree"]["missing_exit_count"] == (0 if terminal else 1)
     if not released:
         assert receipt["audit_failure"] == "cgroup_release_unconfirmed"
         assert monitor.cgroup.exists()
+
+
+def test_completed_trace_hardlink_cannot_change_another_file_mode(tmp_path: Path) -> None:
+    from potbot.tools.worker_telemetry import _seal_worker_trace
+
+    other = tmp_path / "other"
+    other.write_text("protected file")
+    other.chmod(0o644)
+    trace = tmp_path / "trace.99"
+    trace.hardlink_to(other)
+    with pytest.raises(ScopeDeniedError, match="unsafe custody"):
+        _seal_worker_trace(trace)
+    assert other.stat().st_mode & 0o777 == 0o644

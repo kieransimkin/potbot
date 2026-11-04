@@ -267,3 +267,24 @@ def test_ambiguous_trace_termination_refuses_a_complete_tree(tmp_path: Path, tai
     assert tree["tree_complete"] is False
     assert tree["ambiguous_exit_pids"] == [121]
     assert tree["nodes"][0]["exit"] == {"state": "ambiguous"}
+
+
+def test_translated_fork_uses_the_tracer_pid(tmp_path: Path) -> None:
+    parent = tmp_path / "trace.500"
+    child = tmp_path / "trace.501"
+    parent.write_text(
+        "1793000000.001 clone(child_stack=NULL, flags=SIGCHLD) = 2 "
+        "/* 501 in strace's PID NS */ <0.000010>\n"
+        "1793000000.003 +++ exited with 0 +++\n"
+    )
+    child.write_text("1793000000.002 +++ exited with 0 +++\n")
+
+    tree = process_tree([parent, child])
+    assert tree["tree_complete"] is True
+    assert tree["namespace_translated_edges"] == 1
+    assert tree["nodes"][1]["parent_pid"] == 500
+
+    parent.write_text(parent.read_text().replace("/* 501", "/* unknown"))
+    rejected = process_tree([parent, child])
+    assert rejected["tree_complete"] is False
+    assert rejected["fork_conflicts"] == 1

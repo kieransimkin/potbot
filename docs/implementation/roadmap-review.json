@@ -225,13 +225,13 @@
         {
           "path": "src/potbot/tools/worker_audit.py",
           "symbol": "process_tree",
-          "sha256": "7f07be4470b0728b9b50bfbbb9bda97594023241f765088f609475a612c9dcd9",
+          "sha256": "602e3b5ea578cc7e62ea5dc5160df646ca0151046c97ffb118975992b960c3cb",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "d7fa23e53515f9a02a89d91e0c76e5cda9c167c533afaf981445d7f08522dbd2",
+          "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -239,29 +239,41 @@
         {
           "path": "tests/unit/test_worker_audit.py",
           "symbol": "test_fork_tree_captures_short_lived_process_and_threads",
-          "sha256": "af92c44fa5d76d870523120fb0fe05dcbcd923bbb37e07f9c9d16ddcd8e7549d",
+          "sha256": "d00eab89e7a3bbfeb81309ccdfb660b7ce55b4a86a27adaa5797cf6d15128857",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
           "path": "tests/unit/test_worker_telemetry.py",
           "symbol": "test_trace_parser_records_pid_and_access_mode_without_disclosing_buffers",
-          "sha256": "ca5b227b260ba2dd12b69bae82d0de6475edb1a32f47860dddfcb90491d484d9",
+          "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_trace_records_thread_exec_and_signalled_child",
-          "sha256": "31c18b337e201ebfcd94be571b1dea5cb70985ec3cc8ee73f3f12f59bc92de40",
+          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
         },
         {
           "path": "tests/integration/test_worker_audit_linux.py",
           "symbol": "test_real_nested_cgroup_requires_recursive_shutdown",
-          "sha256": "31c18b337e201ebfcd94be571b1dea5cb70985ec3cc8ee73f3f12f59bc92de40",
+          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
           "basis": "Reviewed test source. The Linux workflow records execution separately."
+        },
+        {
+          "path": "tests/integration/test_worker_audit_linux.py",
+          "symbol": "test_real_pid_namespace_joins_forks_to_tracer_ids",
+          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
+          "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
+        },
+        {
+          "path": "tests/integration/test_worker_audit_linux.py",
+          "symbol": "test_registered_cogs_join_bubblewrap_traces_and_taskstats",
+          "sha256": "7e4f6a9bdab563403ddb4531f596f17436ec18bf487f05fa58824ad750629c2b",
+          "basis": "Reviewed test source. The Linux report distinguishes executed cases and capability skips."
         }
       ],
-      "assessment": "The worker audit requires an unambiguous terminal trace per task and recursive cgroup release before a positive receipt. The full TASKSTATS and admitted Cog route qualification remains open.",
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. Qualification of the deployed worker routes remains open.",
       "support_scope": "Process-start identity, attribution and measured-versus-unavailable metric contracts; no blanket every-route production result.",
       "remaining": [
         "Complete real loss-aware syscall/task-exit accounting for every executable Cog route",
@@ -64817,7 +64829,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "957b5ded9ffd55a8e552dd2fe8b619cfee1079d22c8b7759be7a827a18a98905",
+      "sha256": "81b82c9c5fbfcb61d2c28e4ce6b9cc3acbd96fb46c3aa2b5e3578121fb801e3c",
       "families": [
         "accounting"
       ],
@@ -64832,8 +64844,15 @@
           ]
         },
         {
-          "locator": "line:32-65",
-          "sha256": "3ef9a8084778cc84863422496ee2e1d88f78f6e8891968eeaefd51158d8e61d7",
+          "locator": "line:32-61",
+          "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
+          "families": [
+            "accounting"
+          ]
+        },
+        {
+          "locator": "line:62-92",
+          "sha256": "3749afe9ad1c543f54bc6e2e9b835b29ea9bdfb283ebd483b59ae6d359a0ee89",
           "families": [
             "accounting"
           ]
@@ -80961,7 +80980,7 @@
         "accounting"
       ],
       "status": "partial",
-      "assessment": "The worker audit requires an unambiguous terminal trace per task and recursive cgroup release before a positive receipt. The full TASKSTATS and admitted Cog route qualification remains open.",
+      "assessment": "The worker audit joins namespaced forks to operator-side trace and TASKSTATS identities. A positive receipt also requires terminal task traces and recursive cgroup release. Qualification of the deployed worker routes remains open.",
       "next_action": "Qualify the combined Bubblewrap, TASKSTATS and cgroup boundary on deployment hosts and enumerate all executable Cog routes."
     },
     {
@@ -82490,7 +82509,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "28f629cffe491d7b90654517d1e7c01d7a2e9fadb5c62fc0dd11085a5707c5c0",
+        "sha256": "fa64cc717c262b265b89e4cb0f508bc3974869b2739eb05fcc63128c0977d133",
         "name": "Potbot verification",
         "state": "active",
         "scope": [
@@ -82530,7 +82549,7 @@
           "Retain source-inventory Cog acceptance",
           "Retain canonical semantic contract Cog acceptance",
           "Record run blogworthiness",
-          "Verify task trace endings and recursive cgroup shutdown"
+          "Verify Linux worker tracing and kernel accounting"
         ],
         "latest_inspected_run": {
           "id": 41532663749,

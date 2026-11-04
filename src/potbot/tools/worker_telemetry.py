@@ -45,6 +45,7 @@ _STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 _FD_PATH = re.compile(r"\b\d+<(/[^>]{1,8192})>")
 _PID = re.compile(r"[1-9][0-9]{0,9}\Z")
 _STRACE_FLAGS = ("-f", "-ff", "-q", "-ttt", "-T", "-yy", "-s", "4096")
+_STRACE_PID_NAMESPACE = "--pidns-translation"
 _MAX_TRACE = 256 * 1024 * 1024  # Per worker; never silently drop audit events.
 _MAX_JSON = 96 * 1024
 
@@ -455,6 +456,26 @@ class WorkerMonitorConfig:
         return cls(Path(root), Path(cgroup), Path(tracer), Path(helper), tracer_sha, helper_sha)
 
 
+def _seal_worker_trace(path: Path) -> int:
+    # strace inherits the operator umask. The receipt verifier requires private
+    # files, so restrict completed traces without changing the guest umask.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
+    try:
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_nlink != 1
+            or info.st_mode & 0o022
+        ):
+            raise ScopeDeniedError("worker trace has unsafe custody")
+        if stat.S_IMODE(info.st_mode) != 0o600:
+            os.fchmod(fd, 0o600)
+        return info.st_size
+    finally:
+        os.close(fd)
+
+
 def _cgroup_populated(cgroup: Path) -> bool:
     # The kernel's population flag includes all descendant cgroups.
     fd = os.open(cgroup / "cgroup.events", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
@@ -589,6 +610,7 @@ class WorkerMonitorSession:
             "--",
             str(self.config.strace),
             *_STRACE_FLAGS,
+            _STRACE_PID_NAMESPACE,
             "-o",
             str(self.path / "trace"),
             "--",
@@ -677,10 +699,11 @@ class WorkerMonitorSession:
             if not _terminate_cgroup(self.cgroup):
                 self._fault = self._fault or "descendants_not_stopped"
                 confirmed_stopped = False
+                raise CapabilityUnavailableError("worker cgroup shutdown unconfirmed")
             # This never upgrades a caller's unconfirmed parent shutdown.
             self._sample()
             traces = sorted(self.path.glob("trace.*"))
-            total_size = sum(p.stat().st_size for p in traces)
+            total_size = sum(_seal_worker_trace(path) for path in traces)
             if not traces or total_size > self.config.max_trace_bytes:
                 raise CapabilityUnavailableError("worker trace absent or over byte quota")
             counts: Counter[str] = Counter()

@@ -59,6 +59,33 @@ shutdown. These tests qualify the two completion checks. Deployment host
 qualification still covers the full Bubblewrap, TASKSTATS and Cog route
 combination, including concurrent load and cancellation.
 
+### Worker PID namespaces
+
+A fork inside Bubblewrap returns a PID from the worker namespace. The audit
+tracer and TASKSTATS identify that child using the operator namespace. Pin a
+strace build that supports `--pidns-translation`. The process graph uses the
+translated PID to join a fork to its trace file and exit counters. Missing or
+invalid joins keep the worker audit incomplete. The monitor secures completed
+trace files before publishing the receipt, including when the operator's
+default umask would leave them group-readable. [strace PID translation](https://github.com/strace/strace/blob/v6.8/src/pidns.c) · [Linux TASKSTATS](https://docs.kernel.org/accounting/taskstats.html)
+
+```mermaid
+flowchart LR
+    G[Worker fork returns guest PID] --> T[strace emits the operator PID]
+    T --> F[Match child trace filename]
+    T --> K[Match TASKSTATS exit record]
+    F --> A[Process tree]
+    K --> A
+```
+
+Hosted Ubuntu traces real forks in a separate PID namespace and verifies that
+removing their translations breaks the join. It also attempts two registered
+Cog launches through the real supervisor using a disposable root filesystem
+and the development Syn fixture. If the runner cannot register TASKSTATS, the
+test report records that capability gap separately. This fixture covers the
+typed JSON route. The deployed image, released Syn authorization, context RPC,
+cancellation and concurrent load still have their own qualification gates.
+
 Do not publish raw trace output or private filesystem paths with the JSON
 qualification summary. Pin the approved operator image/build and retain
 qualified test evidence for each deployment. Re-run after any kernel, cgroup,
