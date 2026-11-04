@@ -63908,7 +63908,7 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
+      "sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
       "families": [
         "sandbox"
       ],
@@ -63951,21 +63951,28 @@
           ]
         },
         {
-          "locator": "line:47-75",
+          "locator": "line:47-70",
+          "sha256": "b9de5a7d333debb17dbee6e9c91303d2d534fe1cb6e1b43d03bf8a5bec40e4ca",
+          "families": [
+            "sandbox"
+          ]
+        },
+        {
+          "locator": "line:71-99",
           "sha256": "f229a219f871775b778d8c493015fe38f3accf8c4a9aa5b7d61a1067a5a1f4a4",
           "families": [
             "sandbox"
           ]
         },
         {
-          "locator": "line:76-85",
+          "locator": "line:100-109",
           "sha256": "14b7ba961f05b1eb3e47f83db9e5094a831555ac499f7f5bb92d86ee65fce7df",
           "families": [
             "sandbox"
           ]
         },
         {
-          "locator": "line:86-92",
+          "locator": "line:110-116",
           "sha256": "2a1368563464c2309722c2d7576b967c03915d19a4272d7f4bd263becdc2f393",
           "families": [
             "sandbox"
@@ -83098,6 +83105,20 @@
         "at_reviewed_base": false,
         "qualification_limit": "Pinned official Linux Agent packages and the disposable typed JSON Cog route only.",
         "sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150"
+      },
+      {
+        "path": ".github/workflows/signed-worker-image.yml",
+        "name": "Published sandbox image smoke",
+        "state": "active",
+        "scope": [
+          "Verify the published digest, platform and source before unpacking",
+          "Audit the signed rootfs with the shared workspace smoke",
+          "Retain the bounded smoke receipt"
+        ],
+        "latest_inspected_run": null,
+        "at_reviewed_base": false,
+        "qualification_limit": "One published linux/amd64 OCI image on disposable hosted Ubuntu. No live target or cutover evidence.",
+        "sha256": "d694590458fa31d25a040d8cff8dfb5e356ea658312da0c575cb06142c15395f"
       }
     ],
     "baseline_checks": {

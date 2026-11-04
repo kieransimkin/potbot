@@ -459,12 +459,12 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
-      "bytes": 11425,
+      "sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
+      "bytes": 12648,
       "kind": "narrative_text",
-      "text_sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
-      "characters": 11423,
-      "lines": 92,
+      "text_sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
+      "characters": 12646,
+      "lines": 116,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35819,6 +35819,16 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": ".github/workflows/signed-worker-image.yml",
+      "sha256": "d694590458fa31d25a040d8cff8dfb5e356ea658312da0c575cb06142c15395f",
+      "bytes": 4699,
+      "kind": "narrative_text",
+      "text_sha256": "d694590458fa31d25a040d8cff8dfb5e356ea658312da0c575cb06142c15395f",
+      "characters": 4699,
+      "lines": 96,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": ".github/workflows/syn-agent-enrollment.yml",
       "sha256": "ca5624ae38f315f5a443e892ef8cac1e253c3a41708a9fa9e18c6007120a8d59",
       "bytes": 3566,
@@ -35999,7 +36009,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "96e5313e102397a2b00719ae4614f36f68f219483f7162bd188fd127b36b3d18",
+  "review_sha256": "3fe11afc2d86a5a241bd98fd8b03b11d0d6a6b91133d9f8f101c3a215a769a75",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -111629,7 +111639,16 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:47-75",
+      "locator": "line:47-70",
+      "sha256": "b9de5a7d333debb17dbee6e9c91303d2d534fe1cb6e1b43d03bf8a5bec40e4ca",
+      "excerpt": "### Smoke test of a published sandbox image\n\nThe [published-image workflow](../../.github/workflows/signed-worker-image.yml)\ntakes the immutable linux/amd64 dig",
+      "review_families": [
+        "sandbox"
+      ]
+    },
+    {
+      "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
+      "locator": "line:71-99",
       "sha256": "f229a219f871775b778d8c493015fe38f3accf8c4a9aa5b7d61a1067a5a1f4a4",
       "excerpt": "## Persistent shared Cog worker logs\n\nThe shared Cog launcher binds one writable directory at `/var/logs/ai` and\nsets `POTBOT_AGENT_LOG_DIR` when the pinned ima",
       "review_families": [
@@ -111638,7 +111657,7 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:76-85",
+      "locator": "line:100-109",
       "sha256": "14b7ba961f05b1eb3e47f83db9e5094a831555ac499f7f5bb92d86ee65fce7df",
       "excerpt": "## Tests and acceptance before production\n\nRun offline deterministic tests:\n\n```bash\nuv run --locked python -m pytest -q tests/unit/test_workspace_concurrency.p",
       "review_families": [
@@ -111647,7 +111666,7 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:86-92",
+      "locator": "line:110-116",
       "sha256": "2a1368563464c2309722c2d7576b967c03915d19a4272d7f4bd263becdc2f393",
       "excerpt": "## References\n\n- [Microsoft WSL security model](https://wsl.dev/technical-documentation/security/)\n- [Microsoft WSL distribution settings](https://learn.microso",
       "review_families": [

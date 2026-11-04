@@ -1,0 +1,96 @@
+name: Published sandbox image smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/signed-worker-image.yml'
+      - 'scripts/qualify_published_sandbox_image.py'
+      - 'scripts/qualify_shared_workspace.py'
+      - 'scripts/qualify_worker_exit_accounting.py'
+      - 'scripts/worker_audit_fixture.py'
+      - 'src/potbot/tools/shared_workspace_isolation.py'
+      - 'src/potbot/tools/supervisor.py'
+      - 'src/potbot/tools/worker_telemetry.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-image:
+    if: >-
+      github.repository == 'kieransimkin/potbot' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      IMAGE: ghcr.io/kieransimkin/potbot-sandbox
+      IMAGE_DIGEST: fb2073511f71fbd1b3b0e400dd07585eea519e633a01f06a00da9a7a853f0ac1
+      IMAGE_SOURCE: d87e19f22fb4f9ce5f6123112ea90d77cf8e4f9a
+      IMAGE_SIGNER: https://github.com/kieransimkin/potbot/.github/workflows/sandbox-system-image.yml@refs/heads/main
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: '0.12.23'
+          python-version: '3.12'
+          enable-cache: false
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
+        with:
+          cosign-release: 'v2.6.2'
+      - name: Install the OCI unpacker and Linux monitor tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends skopeo umoci bubblewrap uidmap libseccomp2 strace
+          strace --pidns-translation -o /dev/null -- /usr/bin/true
+          uv sync --locked --dev --extra security
+      - name: Verify the Linux smoke and image manifest contracts
+        run: >-
+          .venv/bin/python -m pytest -q
+          tests/unit/test_workspace_qualification_smoke.py
+          tests/unit/test_sandbox_image_manifest.py
+      - name: Verify the published digest, platform and source before unpacking
+        run: |
+          set -euo pipefail
+          stage="$(mktemp -d "$RUNNER_TEMP/potbot-published-image.XXXXXXXX")"
+          echo "IMAGE_STAGE=$stage" >> "$GITHUB_ENV"
+          ref="$IMAGE@sha256:$IMAGE_DIGEST"
+          cosign verify --certificate-identity "$IMAGE_SIGNER" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "$ref" > "$stage/signature.json"
+          jq -e --arg digest "sha256:$IMAGE_DIGEST" \
+            'any(.[]; .critical.image["docker-manifest-digest"] == $digest)' "$stage/signature.json" >/dev/null
+          skopeo copy --format oci "docker://$ref" "oci:$stage/oci:candidate"
+          skopeo inspect --config "oci:$stage/oci:candidate" | jq -e --arg source "$IMAGE_SOURCE" \
+            '.os == "linux" and .architecture == "amd64" and
+             .config.Labels["org.opencontainers.image.revision"] == $source' >/dev/null
+          sudo umoci unpack --image "$stage/oci:candidate" "$stage/bundle"
+      - name: Audit the signed rootfs with the shared workspace smoke
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0700 "$IMAGE_STAGE/probe"
+          result=0
+          sudo env PYTHONPATH="$PWD" .venv/bin/python -B scripts/qualify_published_sandbox_image.py \
+            --rootfs "$IMAGE_STAGE/bundle/rootfs" --scratch "$IMAGE_STAGE/probe" \
+            --image-digest "$IMAGE_DIGEST" --image-source "$IMAGE_SOURCE" \
+            --consumer "$(git rev-parse HEAD)" --report "$IMAGE_STAGE/probe/summary.json" || result=$?
+          if sudo test -f "$IMAGE_STAGE/probe/summary.json"; then
+            mkdir -p artifacts/published-image-smoke
+            sudo cat "$IMAGE_STAGE/probe/summary.json" > artifacts/published-image-smoke/summary.json
+          fi
+          exit "$result"
+      - name: Retain the bounded smoke receipt
+        if: always() && hashFiles('artifacts/published-image-smoke/summary.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: published-amd64-sandbox-smoke
+          path: artifacts/published-image-smoke/summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record the routine CI completion assessment
+        if: always()
+        run: |
+          printf '%s\n' 'Blogworthiness: FAIL. Routine replay of the published-image smoke. Source evidence is this job and its retained receipt.' >> "$GITHUB_STEP_SUMMARY"
