@@ -114,6 +114,8 @@ def main() -> None:
         source_names = source_archive.getnames()
     for name in [*names, *source_names]:
         parts = Path(name).parts
+        if "syn-node" in parts or "syn_node" in parts:
+            raise SystemExit("Transitional Syn runtime found in Potbot distribution")
         if any(
             p
             in {

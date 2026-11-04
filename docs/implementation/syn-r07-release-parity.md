@@ -1,72 +1,90 @@
 # SYN-R07 official-release parity
 
-**Removal gate: held.** The official release supports the current local native
-Agent flow. Some capabilities in the standalone transitional package have no
-qualified successor in the pinned release. Keep the package and its historical
-test jobs available while those gaps are resolved.
+**Removal gate held.** Syn 0.8.0 and the exact Potbot controller below are
+qualified for disposable Agent enrollment, private messaging, revocation,
+operator recovery and legacy archival readback. The cutover requirements have
+separate evidence. The Potbot checkout keeps the historical runtime and its test jobs.
+Potbot distributions use only the independently released Syn path.
 
-## Tested identities
+## Qualification pins
 
-- Potbot consumer `489203fd21e6891738b4f3cf2abd120b552597f2`.
-- Transitional `syn-node/` tree `ac34b663b65999744a74ac872931198dc3734e85`.
-  The tree matches the one exercised by the retained legacy jobs below.
-- Official Syn 0.3.1 source `bb5f458fab11de6de408d19f53cc21524a1f7735`
-  and manifest `10da08e7b0af7d32c48a3087e873c2e448e846e2e3aac6ad56df81330267b4f1`.
-- Official Syn 0.4.0 source `6205baf95b87193133d45c749a0fe5d5b577581f`,
-  manifest `a406356fba844a28c04870e45299ccd83e406b5dbe8b7a55741db6d5a6cd1088`,
-  and independently approved authority
-  `a47f15e010613c0a839a48f2035b8f71d6f9e46ee3df07ed58487079d56ae216`.
-  Independent inspection verified the detached signature and the runtime wheel
-  SHA-256 `49f53382314626869fb6439b4869960e7677ead8a367f9ba28cf914c3fd674c9`.
-  The [upstream release record](https://github.com/Synsphere/syn/blob/9cd898692aeea5ea336930057647d4393bf9af9d/docs/development/releases/v0.4.0.md)
-  supplies publication and pin provenance.
+| Item | Exact pin |
+| --- | --- |
+| Official Syn | `0.8.0`, source `74f6ef75d77ab6aa00fb49d30ec446e3a6d4ebcd` |
+| Signed manifest SHA-256 | `0ee89e2b5e27d38827e6d75ef25e7bca1ed1e0f40a5360df07404595912ec1d0` |
+| Release authority SHA-256 | `a47f15e010613c0a839a48f2035b8f71d6f9e46ee3df07ed58487079d56ae216` |
+| Potbot controller under test | `1862281634cf838f4d601162018afb948ab79dfb` |
+| Transitional fixture tree | `ac34b663b65999744a74ac872931198dc3734e85` |
+
+The [immutable release](https://github.com/Synsphere/syn/releases/tag/v0.8.0)
+and [public asset check](https://github.com/Synsphere/syn/actions/runs/41768592689)
+bind all seven assets to these release pins. The
+[controller change](https://github.com/kieransimkin/potbot/pull/31) keeps the
+original registration and requires signed readiness for the selected epoch.
 
 ## Parity evidence
 
-| Behavior | Evidence and result |
+| Behavior | Result and scope |
 | --- | --- |
-| Operator identity, selected-leaf adoption, native group custody and local IPC | **Pass on Python 3.12 and 3.13 for both releases.** The [0.3.1 run](https://github.com/Synsphere/syn/actions/runs/41743928436) and [0.4.0 run](https://github.com/Synsphere/syn/actions/runs/41743474691) each exercised a disposable operator and two native Agents with separate UIDs and keystores, authenticated readiness, retained identity across node/session restart and locked-custody refusal. Independent readback verified seven historical signed status receipts per job with the corresponding official SDK wheel. |
-| Private Agent messages and Cog grants | **Pass on 0.4.0, Python 3.12 and 3.13.** The [0.4.0 run](https://github.com/Synsphere/syn/actions/runs/41743474691) exercised the public Potbot adapter, one-use grants, changed-task and missing-grant refusal, and relay-loss fencing. Independent readback verified two historical signed peer receptions per job. 0.3.1 predates that profile. Positive audited Cog process dispatch remains an independent host gate. |
-| Signed LAN discovery and confidential pending-pledge intake | **Gap.** The [Phase 48 tests](https://github.com/kieransimkin/potbot/actions/runs/41350871903) cover signed discovery and encrypted TCP intake with durable pending records and replay tombstones. Syn 0.4.0 supports local encrypted enrollment and a bounded post-enrollment pub/sub cohort. Its service-mode libp2p discovery does not bind operator pulses to the protected intake flow. The signed wheel has no `syn-p2p` entry point or pending-inbox contract. |
-| Private recovery into a fresh native keystore | **Gap.** The [legacy recovery suite](https://github.com/kieransimkin/potbot/actions/runs/41350871933) covers private-terminal BIP-39 recovery with an independent base-key pin and overwrite refusal. Syn 0.4.0 supports retained-state restart and detects stale anchored state. Its signed wheel exposes neither `show-recovery` nor `recover-operator`. |
-| Phase 42 public receipt reads and retained legacy records | **Gap.** The [legacy service](https://github.com/kieransimkin/potbot/actions/runs/41350871991) and [adoption](https://github.com/kieransimkin/potbot/actions/runs/41350871840) jobs exercise immutable public receipt storage, signed lookup and conflicting-write refusal. The official path verifies native adoption certificates and fresh readiness through the new SDK. It has no qualified import or compatibility path for the old receipt and replay records. |
-| Group revocation and epoch rollover | **Open acceptance gate.** Relay-loss fencing is tested. The [released pub/sub profile](https://github.com/Synsphere/syn/blob/9cd898692aeea5ea336930057647d4393bf9af9d/docs/development/private-pubsub.md) uses a frozen cohort and leaves general membership rotation open. |
+| Signed LAN discovery, protected pledge intake and explicit reservation | **Pass on 0.8.0.** Two separate sandboxed Agents enrolled and restarted on both Python versions in the [official Agent matrix](https://github.com/Synsphere/syn/actions/runs/41769604308). The [0.5.0 release](https://github.com/Synsphere/syn/releases/tag/v0.5.0) introduced this path. |
+| Operator identity, selected Agent key, native group custody and local IPC | **Pass on 0.8.0.** The official Agent matrix used separate UIDs and keystores, authenticated readiness, restart and locked-custody refusal. The earlier [0.3.1](https://github.com/Synsphere/syn/actions/runs/41743928436) and [0.4.0](https://github.com/Synsphere/syn/actions/runs/41743474691) runs retain their historical acceptance. |
+| Private messages and Cog grants | **Pass on 0.8.0.** The official Agent matrix exercised signed reception, one-use grants, refusal on changed task or missing grant, and fencing when the relay stopped. Positive audited Cog execution remains a separate host gate. |
+| Revocation and epoch rollover | **Pass on 0.8.0.** After reopening both native keystores, the revoked Agent was refused with either epoch pin. The retained Agent kept its identity and assignment, refused the previous roster and joined epoch 2 through Potbot's mesh. [Official Agent matrix](https://github.com/Synsphere/syn/actions/runs/41769604308) |
+| Operator recovery into a fresh native keystore | **Pass on 0.8.0.** Restored the pinned identity, protected control, adoption and LAN state into a fresh native keystore. Refused invalid, stale, partial and conflicting recoveries. [0.8.0 recovery run](https://github.com/Synsphere/syn/actions/runs/41770523153) |
+| Original Phase 42 receipts and replay tombstones | **Pass on 0.8.0.** The four source snapshots matched the archived bytes. The original receipt and tombstone matched readback, both receipt signatures verified and a tampered archive was refused. [0.8.0 archive run](https://github.com/Synsphere/syn/actions/runs/41770521915) |
+
+The Linux Agent matrix used Python 3.12 and 3.13. Operator checks include Linux,
+Apple silicon macOS and Intel macOS. The artifacts describe disposable nodes and
+generated enrollment records. Live installations require their own inventory
+and acceptance.
+
+## Disposition of the Phase 42 interfaces
+
+| Historical surface | Replacement and disposition |
+| --- | --- |
+| `scripts/syn_phase42_preflight.py` and `SynStartupPlanner` | Use the signed-release installer and the [operator attachment path](syn-operator-deployment.md) for new operator readiness checks. Provision an Agent through the [released Agent controller](syn-agent-deployment.md). Retire the historical preflight script with its last caller. |
+| `SynLocalDaemonClient` and `adoption_receipt.get` | Use the released client's signed readiness and assignment checks for active deployments. Route historical receipt lookup to `syn-operator legacy-state receipt` on an operator-pinned archive. Retire the old socket reader once its callers and records are accounted for. |
+| `SynAdoptionLedger` and Phase 41/42 SQLite projection | Archive exact snapshot bytes and verify the original signed receipts. New enrollment uses Syn's protected native state, and Potbot's PostgreSQL remains authoritative for execution. An old receipt proves its historical assignment. Activation requires live signed readiness and current policy. |
+| Phase 47 handoff and Phase 48 LAN journals | Keep grant, receipt and replay commitments together under the operator pin. Read the retired records with `syn-operator legacy-state replay`. The current protected LAN inbox owns replay protection for new enrollment. |
+
+The tracked-source audit found the Phase 42 planner invoked by its standalone
+preflight script. The daemon reader and projection have their own legacy tests.
+Confirm any external callers with the installation owner before retirement.
+
+## Cutover and removal
 
 ```mermaid
 flowchart LR
-    A[Pin released package and consumer] --> B[Disposable two-Agent run]
-    A --> C[Compare signed release and legacy behavior]
-    B --> D[Combine live and compatibility evidence]
-    C --> D
-    D --> E[Keep removal held while coverage gaps remain]
+    A[Verify one official release and controller] --> C[Review the removal candidate]
+    B[Inventory and archive retained records] --> C
+    C --> D[Retire the old protocol and readers]
+    D --> E[Rebuild and test Potbot without the transitional runtime]
 ```
 
-The diagram summarizes the gate. CI artifacts supply the actual installation
-and native protocol evidence. The fixture is headless and its custody prompts
-are private.
+1. Land the qualified controller and confirm its merged tree matches the
+   tested commit. Requalify any intervening changes that affect the boundary.
+2. Have the owner of each installation account for four roles in a private
+   cutover record. Record the public operator pin, the network and whether
+   each receipt ledger, handoff journal, LAN inbox and Potbot projection is
+   present or verified absent. Identify the owner of every remaining old
+   socket client. An unavailable host or unknown journal stays open.
+3. Quiesce legacy writers. For records that exist, make and pin standalone
+   SQLite snapshots. Use the [Syn archive guide](https://github.com/Synsphere/syn/blob/74f6ef75d77ab6aa00fb49d30ec446e3a6d4ebcd/docs/development/legacy-state-archive.md)
+   to verify archived readback of the original receipt bytes and replay
+   commitments. Keep the source and archive pins separately under operator
+   custody. Retire old protocol entry points after verified readback. Use the
+   read-only archive if a historical lookup is needed after cutover.
+4. Review one removal candidate covering `syn-node/`, the retired Phase 42
+   interfaces and their callers. Remove or replace the four legacy-only jobs
+   `syn-node-service`, `syn-python-hd`, `syn-inherited-adoption` and
+   `syn-p2p-lan` together. Preserve the still-applicable contract checks from
+   `syn-agent-enrollment`. Build both Potbot distributions and run the
+   released multi-Agent suite against the resulting tree. Pin the legacy
+   writer independently of the new controller for archive compatibility checks.
+5. Keep deployed service changes subject to the owner’s host and rollback
+   approval. Review U06-D's PostgreSQL reconciliation and U03/U16 host
+   qualification separately before any general rollout.
 
-## Required before removal
-
-Potbot’s normal package and sandbox use the released Syn path. The transitional
-distribution is separately installable. Its runtime and fixtures still own
-the `syn-node-service`, `syn-python-hd`, `syn-inherited-adoption` and
-`syn-p2p-lan` workflows. The historical Phase 42 client and its public-ledger
-adapter need an explicit disposition alongside any legacy record migration.
-
-1. Qualify an official protected LAN enrollment flow with two disposable peers,
-   independently pinned operator identity, restart, duplicate and spoof
-   rejection, and durable pending intake. Admission still requires separate
-   operator approval.
-2. Qualify a supported private recovery path that reproduces the pinned
-   operator identity and preserves or explicitly reconciles protected
-   enrollment state. Exercise a wrong phrase, partial destination, stale
-   state and concurrent recovery.
-3. Account for any retained Phase 42/48 records before retiring their readers.
-   Preserve original signed bytes, immutable commitments and replay tombstones
-   during a tested migration or read-only archival handoff. This audit did
-   not inspect private installations or establish that they contain such data.
-4. Exercise explicit member revocation and a new cohort/epoch against a released
-   package, with a revoked peer refused after restart.
-5. Repeat the official multi-Agent suite on the selected replacement release.
-   Then remove the transitional package and its four legacy-only workflows
-   together, with an install and test pass from the resulting Potbot tree.
+The diagram shows the cutover decisions. These are headless
+workflows with private custody prompts, so the linked CI evidence supplies
+the test results and the guide uses a diagram for the operator sequence.
