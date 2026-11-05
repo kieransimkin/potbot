@@ -16,6 +16,12 @@ from pathlib import Path
 OLDER_SCHEMA = "20261023_0014"
 CURRENT_SCHEMA = "20261024_0015"
 VERSIONS = ("0.2.1", "0.3.1", "0.4.0")
+BRIDGE_VERSION = "0.8.1"
+BRIDGE_PIN = {
+    "version": BRIDGE_VERSION,
+    "source_commit": "4a4b8095844f7bf525e0494567d7d9a350e4d1c7",
+    "manifest_sha256": "414bb66cfa9e2d2ed4d8e91253a2a005f603759d4a749c5527ffe76cefd2ef7b",
+}
 DB_URL = "postgresql+psycopg://syn_ci:syn_ci_disposable_only@127.0.0.1:5432/syn_ci"
 
 
@@ -26,14 +32,14 @@ def command(argv, *, timeout=60):
     return json.loads(result.stdout)
 
 
-def native(upstream, base, consumer, pythons):
+def native(upstream, base, consumer, pythons, *, bridge=False):
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from syn_client.operator_protocol import canonical
 
     fixture = runpy.run_path(str(upstream / "scripts/ci_operator_native.py"))["native_fixture"]
-    root = base / "operator"
+    root = base / ("operator-bridge" if bridge else "operator")
     state = root / "syn-state"
-    policies = {version: base / (version + ".json") for version in VERSIONS}
+    policies = {version: base / (version + ".json") for version in (*VERSIONS, BRIDGE_VERSION)}
 
     def args(version):
         return [
@@ -120,7 +126,10 @@ except Exception as error:
 else:
     print(json.dumps({"reserved": True}))
 """
-    with fixture(base):
+    custody = base / "bridge-custody" if bridge else base
+    if bridge:
+        custody.mkdir(mode=0o700)
+    with fixture(custody):
         first, middle, latest = VERSIONS
         initial = operator(
             first,
@@ -135,7 +144,7 @@ else:
         )
         key = Ed25519PrivateKey.generate()
         public = key.public_key().public_bytes_raw()
-        request = base / "reservation.json"
+        request = base / ("bridge-reservation.json" if bridge else "reservation.json")
         device = secrets.token_hex(16)
 
         def pledge(version):
@@ -168,6 +177,41 @@ else:
         reserve = [pythons[first], "-I", "-B", "-c", reservation, config[1], str(request)]
         assert command(reserve)["reserved"]
         original = run_and_attach(first)
+        if bridge:
+            registration = root / "operator-registration.json"
+            initial_registration = registration.read_bytes()
+            assert switch(first, BRIDGE_VERSION)["restart_required"]
+            current = run_and_attach(BRIDGE_VERSION, busy_target=first)
+            assert switch(BRIDGE_VERSION, first)["restart_required"]
+            restored = run_and_attach(first)
+            assert registration.read_bytes() == initial_registration
+            observations = [original, current, restored]
+            assert len({item["base_public_key"] for item in observations}) == 1
+            assert [item["boot"] for item in observations] == [1, 2, 3]
+            assert all(item["allocation_count"] == 1 for item in observations)
+            assert (
+                hashlib.sha256((state / "operator.json").read_bytes()).hexdigest()
+                == initial["configuration_sha256"]
+            )
+            pledge(first)
+            assert command(reserve)["reserved"] is False
+
+            assert switch(first, BRIDGE_VERSION)["restart_required"]
+            syn(BRIDGE_VERSION, "adoption-init")
+            retained = registration.read_bytes()
+            refusal = subprocess.run(
+                switch_command(BRIDGE_VERSION, first), capture_output=True, timeout=30
+            )
+            assert refusal.returncode == 2
+            assert "requires control state alone" in json.loads(refusal.stdout)["message"]
+            assert registration.read_bytes() == retained
+            return {
+                "versions": [item["runtime"]["runtime_version"] for item in observations],
+                "same_operator_identity": True,
+                "reservation_preserved_and_replay_refused": True,
+                "exact_registration_restored": True,
+                "rollback_after_adoption_refused": True,
+            }
         assert switch(first, middle)["restart_required"]
         # Native adoption is a separate anchored journal introduced in 0.3.x.
         syn(middle, "adoption-init")
@@ -269,12 +313,17 @@ def main(upstream):
         shutil.copy2(Path(shutil.which("uv") or "missing").resolve(strict=True), uv)
         uv.chmod(0o500)
         previous = None
+        baseline_policy = None
         pythons = {}
         manifests = []
-        for version in VERSIONS:
+        for version in (*VERSIONS, BRIDGE_VERSION):
             print(f"Verifying and installing official Syn {version}", flush=True)
-            pin = json.loads((upstream / f"release/pins/v{version}.json").read_bytes())
-            floor = "0.2.1" if version == "0.2.1" else "0.3.1"
+            pin = (
+                BRIDGE_PIN
+                if version == BRIDGE_VERSION
+                else json.loads((upstream / f"release/pins/v{version}.json").read_bytes())
+            )
+            floor = "0.2.1" if version in {"0.2.1", BRIDGE_VERSION} else "0.3.1"
             value = {**seed, **pin, "minimum_version": floor}
             policy = Policy.parse(canonical(value))
             path = base / (version + ".json")
@@ -284,33 +333,31 @@ def main(upstream):
                 policy,
                 python=Path("/usr/bin/python3.12"),
                 uv=uv,
-                upgrade_from=previous,
+                upgrade_from=baseline_policy if version == BRIDGE_VERSION else previous,
                 source=source,
             )
+            if version == "0.2.1":
+                baseline_policy = policy
             previous = policy
             manifests.append(installed["manifest_sha256"])
             pythons[version] = str(
                 store.root / "installs" / installed["directory"] / "venv/bin/python"
             )
-        completed = subprocess.run(
-            [
-                "/usr/bin/dbus-run-session",
-                "--",
-                pythons["0.4.0"],
-                "-I",
-                "-B",
-                __file__,
-                "--native",
-                str(upstream),
-                str(base),
-                sys.executable,
-                json.dumps(pythons),
-            ],
-            timeout=440,
-            check=True,
-            stdout=subprocess.PIPE,
-        )
-        result = json.loads(completed.stdout)
+        native_command = [
+            "/usr/bin/dbus-run-session",
+            "--",
+            pythons[BRIDGE_VERSION],
+            "-I",
+            "-B",
+            __file__,
+            "--native",
+            str(upstream),
+            str(base),
+            sys.executable,
+            json.dumps(pythons),
+        ]
+        result = command(native_command, timeout=440)
+        result["operator_only_bridge"] = command([*native_command, "--bridge"], timeout=440)
         result["migration"] = database(pythons)
         result["manifest_sha256"] = manifests
         evidence = Path("artifacts/syn-r06/official.json")
@@ -325,7 +372,11 @@ if __name__ == "__main__":
         # Keep the process output readable without mixing progress into JSON.
         with redirect_stdout(sys.stderr):
             result = native(
-                Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4], json.loads(sys.argv[5])
+                Path(sys.argv[2]),
+                Path(sys.argv[3]),
+                sys.argv[4],
+                json.loads(sys.argv[5]),
+                bridge=sys.argv[6:] == ["--bridge"],
             )
         print(json.dumps(result))
     else:
