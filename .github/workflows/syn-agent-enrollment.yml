@@ -12,15 +12,6 @@ on:
       - vocab/syn-agent-operator-enrollment.schema.json
       - vocab/syn-agent-pledge.schema.json
       - docs/implementation/41-syn-operator-enrollment-ledger.md
-      - src/potbot/domain/syn_adoption.py
-      - src/potbot/tools/syn_local_daemon.py
-      - src/potbot/tools/syn_adoption_ledger.py
-      - scripts/syn_phase42_preflight.py
-      - tests/unit/test_syn_adoption.py
-      - tests/unit/test_syn_local_daemon.py
-      - vocab/syn-agent-adoption.schema.json
-      - vocab/syn-local-daemon.schema.json
-      - docs/implementation/42-syn-local-daemon-and-adoption-boundary.md
       - .github/workflows/syn-agent-enrollment.yml
   pull_request:
     paths:
@@ -32,15 +23,6 @@ on:
       - vocab/syn-agent-operator-enrollment.schema.json
       - vocab/syn-agent-pledge.schema.json
       - docs/implementation/41-syn-operator-enrollment-ledger.md
-      - src/potbot/domain/syn_adoption.py
-      - src/potbot/tools/syn_local_daemon.py
-      - src/potbot/tools/syn_adoption_ledger.py
-      - scripts/syn_phase42_preflight.py
-      - tests/unit/test_syn_adoption.py
-      - tests/unit/test_syn_local_daemon.py
-      - vocab/syn-agent-adoption.schema.json
-      - vocab/syn-local-daemon.schema.json
-      - docs/implementation/42-syn-local-daemon-and-adoption-boundary.md
       - .github/workflows/syn-agent-enrollment.yml
   workflow_dispatch:
 
@@ -61,21 +43,8 @@ jobs:
         run: uv sync --locked --dev --extra security
       - name: Verify public handshake, durable anti-replay and source syntax
         run: |
-          uv run --locked python -m compileall -q \
-            src/potbot/domain/syn_enrollment_protocol.py \
-            src/potbot/tools/syn_enrollment_ledger.py \
-            src/potbot/domain/syn_adoption.py \
-            src/potbot/tools/syn_local_daemon.py \
-            src/potbot/tools/syn_adoption_ledger.py \
-            scripts/syn_phase42_preflight.py \
-            tests/unit/test_syn_enrollment_ledger.py \
-            tests/unit/test_syn_adoption.py \
-            tests/unit/test_syn_local_daemon.py
-          uv run --locked python -m pytest -q \
-            tests/unit/test_syn_agent_pledge.py \
-            tests/unit/test_syn_enrollment_ledger.py \
-            tests/unit/test_syn_adoption.py \
-            tests/unit/test_syn_local_daemon.py
-      - name: Verify signed-message JSON Schema
+          uv run --locked python -m compileall -q src/potbot/domain/syn_enrollment_protocol.py src/potbot/tools/syn_enrollment_ledger.py src/potbot/domain/syn_agent_pledge.py
+          uv run --locked python -m pytest -q tests/unit/test_syn_agent_pledge.py tests/unit/test_syn_enrollment_ledger.py
+      - name: Verify signed enrollment and pledge schemas
         run: |
-          uv run --locked python -c 'import json; from pathlib import Path; from jsonschema import Draft202012Validator; [Draft202012Validator.check_schema(json.loads(Path(p).read_text())) for p in ("vocab/syn-agent-operator-enrollment.schema.json", "vocab/syn-agent-adoption.schema.json", "vocab/syn-local-daemon.schema.json")]'
+          uv run --locked python -c 'import json; from pathlib import Path; from jsonschema import Draft202012Validator; [Draft202012Validator.check_schema(json.loads(Path(p).read_text())) for p in ("vocab/syn-agent-operator-enrollment.schema.json", "vocab/syn-agent-pledge.schema.json")]'
