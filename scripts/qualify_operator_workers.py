@@ -78,9 +78,13 @@ def main() -> int:
         "report",
     ):
         parser.add_argument("--" + name, required=True)
+    parser.add_argument("--ai-config")
+    parser.add_argument("--ai-past")
     args = parser.parse_args()
     if not 5 <= args.timeout <= 3600:
         parser.error("timeout must be between 5 and 3600 seconds")
+    if (args.ai_config is None) != (args.ai_past is None):
+        parser.error("--ai-config and --ai-past must be supplied together")
     # The report is operator-private evidence, never an artefact in guest /home.
     home, report = Path(args.home).resolve(), Path(args.report).resolve()
     if report.is_relative_to(home):
@@ -113,6 +117,8 @@ def main() -> int:
                 "--report",
                 args.report,
             ]
+            if args.ai_config is not None:
+                smoke_args.extend(("--ai-config", args.ai_config, "--ai-past", args.ai_past))
             checks["sandbox_integration"] = run_command(
                 [args.python, "scripts/qualify_phase35_worker.py", *smoke_args],
                 timeout=args.timeout,

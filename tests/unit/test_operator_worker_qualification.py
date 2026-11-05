@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -51,3 +52,39 @@ def test_explicit_success_field_and_status_required(monkeypatch):
         _gate.run_command(["ignored"], timeout=5, success_field="qualified_smoke")["passed"]
         is False
     )
+
+
+def test_passes_disposable_ai_mounts_to_live_worker_probe(monkeypatch, tmp_path):
+    calls = []
+
+    def record_command(argv, **_):
+        calls.append(argv)
+        return {"passed": True}
+
+    fields = {
+        "rootfs": tmp_path / "rootfs",
+        "home": tmp_path / "home",
+        "model-staging": tmp_path / "staging",
+        "shared-models": tmp_path / "models",
+        "shared-tools": tmp_path / "tools",
+        "image-digest": "1" * 64,
+        "qualification-sha256": "2" * 64,
+        "report": tmp_path / "worker.json",
+        "ai-config": tmp_path / "ai",
+        "ai-past": tmp_path / "history",
+    }
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["probe", *(item for name, value in fields.items() for item in (f"--{name}", str(value)))],
+    )
+    monkeypatch.setattr(_gate, "inspect_host", lambda: {"passed": True})
+    monkeypatch.setattr(_gate, "run_command", record_command)
+    monkeypatch.setattr(_gate.os, "O_NOFOLLOW", getattr(_gate.os, "O_NOFOLLOW", 0), raising=False)
+    assert _gate.main() == 0
+    assert calls[-1][-4:] == [
+        "--ai-config",
+        str(fields["ai-config"]),
+        "--ai-past",
+        str(fields["ai-past"]),
+    ]

@@ -44,6 +44,30 @@ Keep a **per-agent Git worktree/branch** under `/home` for speculative changes; 
 
 **Do not confuse an OCI digest with a rootfs directory checksum.** The digest identifies the signed OCI artifact; unpacked runtime content must be separately validated/qualified. The CI build uses package repository snapshots resolved at build time: image digests pin a shipped result but do not yet guarantee byte-for-byte reproducible rebuilds. Fully reproducible builds require a pinned apt repository snapshot and package version lock.
 
+### Smoke test of a published sandbox image
+
+The [published-image workflow](../../.github/workflows/signed-worker-image.yml)
+takes the immutable linux/amd64 digest from the
+[sandbox publication](https://github.com/kieransimkin/potbot/actions/runs/41789787205).
+It checks the expected publisher's Cosign identity and verifies the platform
+and source label before unpacking the rootfs. The embedded context client and
+worker diagnostic must match the checked-out source. The existing audited
+shared-workspace smoke then exercises the read-only root, writable mounts,
+network namespace, socket policy and AI configuration history. The hosted
+run also requires Linux TASKSTATS exit accounting. The report binds the image
+digest and source to the exact Potbot controller commit.
+
+```mermaid
+flowchart LR
+    I[Verify the published digest and signer] --> U[Unpack the checked rootfs]
+    U --> S[Exercise real Bubblewrap mounts and network denial]
+    S --> R[Retain verified Linux audit and image pins]
+```
+
+This run covers a published image on disposable Ubuntu. The installation
+owner still runs the approved operator smoke and registered Agent suite on
+the target Linux or WSL2 host before selecting the image for live use.
+
 ## Persistent shared Cog worker logs
 
 The shared Cog launcher binds one writable directory at `/var/logs/ai` and

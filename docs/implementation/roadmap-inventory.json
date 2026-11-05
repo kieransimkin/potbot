@@ -459,12 +459,12 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
-      "bytes": 11425,
+      "sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
+      "bytes": 12648,
       "kind": "narrative_text",
-      "text_sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
-      "characters": 11423,
-      "lines": 92,
+      "text_sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
+      "characters": 12646,
+      "lines": 116,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
-      "bytes": 9471,
+      "sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
+      "bytes": 9837,
       "kind": "narrative_text",
-      "text_sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
-      "characters": 9468,
-      "lines": 194,
+      "text_sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
+      "characters": 9834,
+      "lines": 200,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1240,6 +1240,16 @@
       "text_sha256": "944d23368919da724970bc061e04f94be061f1b6e0720add516a82750b25cbdf",
       "characters": 5514,
       "lines": 103,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
+      "path": "docs/implementation/self-contained-installer-plan.md",
+      "sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "bytes": 4995,
+      "kind": "narrative_text",
+      "text_sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "characters": 4987,
+      "lines": 74,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35819,6 +35829,16 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": ".github/workflows/signed-worker-image.yml",
+      "sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404",
+      "bytes": 5258,
+      "kind": "narrative_text",
+      "text_sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404",
+      "characters": 5258,
+      "lines": 105,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": ".github/workflows/syn-agent-enrollment.yml",
       "sha256": "ca5624ae38f315f5a443e892ef8cac1e253c3a41708a9fa9e18c6007120a8d59",
       "bytes": 3566,
@@ -35999,7 +36019,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "20fa4e40af835f28be5a766fd112756ea03d3bf816036aadc6559ef9e738e5c6",
+  "review_sha256": "11fe8b9aed37b1d96dea0ae4490c9a2c94d5b16721f13126fd0a9f38f4a67b57",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -111629,7 +111649,16 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:47-75",
+      "locator": "line:47-70",
+      "sha256": "b9de5a7d333debb17dbee6e9c91303d2d534fe1cb6e1b43d03bf8a5bec40e4ca",
+      "excerpt": "### Smoke test of a published sandbox image\n\nThe [published-image workflow](../../.github/workflows/signed-worker-image.yml)\ntakes the immutable linux/amd64 dig",
+      "review_families": [
+        "sandbox"
+      ]
+    },
+    {
+      "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
+      "locator": "line:71-99",
       "sha256": "f229a219f871775b778d8c493015fe38f3accf8c4a9aa5b7d61a1067a5a1f4a4",
       "excerpt": "## Persistent shared Cog worker logs\n\nThe shared Cog launcher binds one writable directory at `/var/logs/ai` and\nsets `POTBOT_AGENT_LOG_DIR` when the pinned ima",
       "review_families": [
@@ -111638,7 +111667,7 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:76-85",
+      "locator": "line:100-109",
       "sha256": "14b7ba961f05b1eb3e47f83db9e5094a831555ac499f7f5bb92d86ee65fce7df",
       "excerpt": "## Tests and acceptance before production\n\nRun offline deterministic tests:\n\n```bash\nuv run --locked python -m pytest -q tests/unit/test_workspace_concurrency.p",
       "review_families": [
@@ -111647,7 +111676,7 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:86-92",
+      "locator": "line:110-116",
       "sha256": "2a1368563464c2309722c2d7576b967c03915d19a4272d7f4bd263becdc2f393",
       "excerpt": "## References\n\n- [Microsoft WSL security model](https://wsl.dev/technical-documentation/security/)\n- [Microsoft WSL distribution settings](https://learn.microso",
       "review_families": [
@@ -112511,8 +112540,8 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:1-31",
-      "sha256": "6a824c598706eb79935dcb8a33d15fe88b4a2ed36177822bb280217eea009fca",
+      "locator": "line:1-37",
+      "sha256": "749930d3de6621b6a697d07fa3d9b1d7289fa987d99c053b7701790b9e81a375",
       "excerpt": "# Phase 38 \u2014 monitored Cog operator release gate\n\nThe Phase 34 sandbox-only work dispatch and kernel TASKSTATS exit collector\nalready exist. This gate validates",
       "review_families": [
         "accounting"
@@ -112520,7 +112549,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:32-61",
+      "locator": "line:38-67",
       "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
       "excerpt": "## U03-Q completion evidence\n\nThe worker tracer keeps the terminal line for each task. A process tree is\ncomplete only when each task has one unambiguous termin",
       "review_families": [
@@ -112529,7 +112558,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:62-102",
+      "locator": "line:68-108",
       "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
       "review_families": [
@@ -112538,7 +112567,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:103-120",
+      "locator": "line:109-126",
       "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
       "excerpt": "### Timeout while a second workspace is active\n\nThe concurrent Linux case starts two registered Cogs in separate disposable\nworkspaces. Both reach a live detach",
       "review_families": [
@@ -112547,7 +112576,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:121-136",
+      "locator": "line:127-142",
       "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
       "excerpt": "### Concurrent work across lease renewal\n\nThe Linux renewal case holds two registered Cogs in separate workspaces until\nboth ledgers record a later lease expiry",
       "review_families": [
@@ -112556,7 +112585,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:137-161",
+      "locator": "line:143-167",
       "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
@@ -112565,7 +112594,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:162-194",
+      "locator": "line:168-200",
       "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
       "review_families": [
@@ -115779,6 +115808,17 @@
       "excerpt": "## Reference\n\nPython's `shutil.rmtree` documentation describes descriptor-based symlink-attack\nresistance and `onexc`; its pathname callback is not an appropria",
       "review_families": [
         "foundation"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:1-74",
+      "sha256": "6fcd52e84a42d95af9b8f957bf4382d21219adc973fa0bcff3572e930de3bf7a",
+      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Proposed. This plan covers installation and worker activation.\nThe [Syn release and deployment contract",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
       ]
     },
     {

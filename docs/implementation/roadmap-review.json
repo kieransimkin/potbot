@@ -63908,7 +63908,7 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
+      "sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
       "families": [
         "sandbox"
       ],
@@ -63951,21 +63951,28 @@
           ]
         },
         {
-          "locator": "line:47-75",
+          "locator": "line:47-70",
+          "sha256": "b9de5a7d333debb17dbee6e9c91303d2d534fe1cb6e1b43d03bf8a5bec40e4ca",
+          "families": [
+            "sandbox"
+          ]
+        },
+        {
+          "locator": "line:71-99",
           "sha256": "f229a219f871775b778d8c493015fe38f3accf8c4a9aa5b7d61a1067a5a1f4a4",
           "families": [
             "sandbox"
           ]
         },
         {
-          "locator": "line:76-85",
+          "locator": "line:100-109",
           "sha256": "14b7ba961f05b1eb3e47f83db9e5094a831555ac499f7f5bb92d86ee65fce7df",
           "families": [
             "sandbox"
           ]
         },
         {
-          "locator": "line:86-92",
+          "locator": "line:110-116",
           "sha256": "2a1368563464c2309722c2d7576b967c03915d19a4272d7f4bd263becdc2f393",
           "families": [
             "sandbox"
@@ -64841,7 +64848,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "e300209623ce4fd8e29493cd61b56d58793b76cbba7143b5ad728bbfb6376338",
+      "sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
       "families": [
         "accounting"
       ],
@@ -64849,49 +64856,49 @@
       "assessment": "Descendant/file-access and per-task exit/cgroup accounting have source implementations. The local host has not passed the complete TASKSTATS/loss/delegation gate; heartbeat readiness is independent.",
       "narrative": [
         {
-          "locator": "line:1-31",
-          "sha256": "6a824c598706eb79935dcb8a33d15fe88b4a2ed36177822bb280217eea009fca",
+          "locator": "line:1-37",
+          "sha256": "749930d3de6621b6a697d07fa3d9b1d7289fa987d99c053b7701790b9e81a375",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:32-61",
+          "locator": "line:38-67",
           "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:62-102",
+          "locator": "line:68-108",
           "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:103-120",
+          "locator": "line:109-126",
           "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:121-136",
+          "locator": "line:127-142",
           "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:137-161",
+          "locator": "line:143-167",
           "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:162-194",
+          "locator": "line:168-200",
           "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
           "families": [
             "accounting"
@@ -68244,6 +68251,28 @@
           "sha256": "85a4c5594905bc35d2a3f3294f60179649e5c350e6be8f91e898075217322fb4",
           "families": [
             "foundation"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/implementation/self-contained-installer-plan.md",
+      "sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
+      ],
+      "disposition": "retained_requirement_or_implementation_narrative",
+      "assessment": "Proposes stock WSL setup and separate worker activation. The recorded custom kernel boot did not qualify local worker accounting. Installer implementation and actual deployment qualification remain open.",
+      "narrative": [
+        {
+          "locator": "line:1-74",
+          "sha256": "6fcd52e84a42d95af9b8f957bf4382d21219adc973fa0bcff3572e930de3bf7a",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
           ]
         }
       ]
@@ -83098,6 +83127,20 @@
         "at_reviewed_base": false,
         "qualification_limit": "Pinned official Linux Agent packages and the disposable typed JSON Cog route only.",
         "sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150"
+      },
+      {
+        "path": ".github/workflows/signed-worker-image.yml",
+        "name": "Published sandbox image smoke",
+        "state": "active",
+        "scope": [
+          "Verify the published digest, platform and source before unpacking",
+          "Audit the signed rootfs with the shared workspace smoke",
+          "Retain the bounded smoke receipt"
+        ],
+        "latest_inspected_run": null,
+        "at_reviewed_base": false,
+        "qualification_limit": "One published linux/amd64 OCI image on disposable hosted Ubuntu. No live target or cutover evidence.",
+        "sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404"
       }
     ],
     "baseline_checks": {
