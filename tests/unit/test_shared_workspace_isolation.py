@@ -63,6 +63,16 @@ def test_wsl2_requires_explicit_disablement_and_no_host_mounts() -> None:
     )
 
 
+def test_scoped_worker_defers_only_the_wsl_driver_share_to_its_launcher() -> None:
+    config = "[automount]\nenabled=false\nmountFsTab=false\n[interop]\nenabled=false\nappendWindowsPath=false\n"
+    driver = "21 1 0:99 / /usr/lib/wsl/drivers rw - 9p drivers rw"
+    host = "22 1 0:99 /C:/ /mnt/c rw - 9p C: rw"
+    options = {"kernel_release": "6.6.87.2-microsoft-standard-WSL2", "config_text": config}
+    assert wsl_guest_preflight(**options, mountinfo=driver)
+    assert not wsl_guest_preflight(**options, mountinfo=driver, scoped_worker=True)
+    assert wsl_guest_preflight(**options, mountinfo=f"{driver}\n{host}", scoped_worker=True)
+
+
 def test_bubblewrap_rootfs_prepares_readonly_root_and_scoped_writes(
     tmp_path: Path,
     seccomp_descriptors,

@@ -217,6 +217,7 @@ async def execute_context_operation(
     from potbot.tools.workspace_supervision import (
         WorkspaceExecutorIdentity,
         WorkspaceLeaseGuard,
+        admission_digest,
         assert_shared_execution_allowed,
     )
 
@@ -358,7 +359,21 @@ async def execute_context_operation(
                 except BaseException:
                     pass
             if guard.lease is not None and not getattr(guard, "_finished", False):
-                guard.abandon()  # even a stopped failed write needs ordinary outcome reconciliation
+                if not stopped and getattr(process, "audit_failed", False):
+                    try:
+                        await _settle(
+                            lambda: guard.finish(
+                                evidence_sha256=admission_digest(
+                                    "context-worker-audit-incomplete:" + str(cog.invocation_id)
+                                ),
+                                uncertain=True,
+                            )
+                        )
+                    except Exception:
+                        guard.abandon()
+                else:
+                    # Even a stopped failed write needs ordinary outcome reconciliation.
+                    guard.abandon()
             if projections is not None and (not dispatched or stopped):
                 projections.close()
             # An ambiguous launch retains immutable snapshots until host reconciliation.

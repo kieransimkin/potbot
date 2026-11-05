@@ -138,8 +138,9 @@ def test_kernel_exit_attached_to_fork_tree_and_missing_data_denied(tmp_path: Pat
         process_tree([t1, t2], kernel_exit={113: record})
 
 
+@pytest.mark.parametrize("scoped", [False, True])
 def test_worker_command_registers_kernel_collector_before_returning_launch(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path, monkeypatch, scoped: bool
 ):
     import hashlib
     from types import SimpleNamespace
@@ -156,12 +157,16 @@ def test_worker_command_registers_kernel_collector_before_returning_launch(
     helper = tmp_path / "join"
     helper.write_bytes(b"fake-helper")
     calls = []
+    worker_id = uuid4()
 
     class Stream:
         healthy = True
 
-        def open(self):
-            calls.append("registered")
+        def __init__(self):
+            self.worker_id = worker_id
+
+        def open(self, cgroup=None):
+            calls.append(cgroup)
 
         def close(self):
             calls.append("closed")
@@ -175,6 +180,8 @@ def test_worker_command_registers_kernel_collector_before_returning_launch(
         cgroup_join=helper,
         strace_sha256=hashlib.sha256(tracer.read_bytes()).hexdigest(),
         cgroup_join_sha256=hashlib.sha256(helper.read_bytes()).hexdigest(),
+        scoped_taskstats=Stream() if scoped else None,
+        scoped_launcher=None,
     )
     session = module.WorkerMonitorSession(config, uuid4(), uuid4(), "pinned-image")
     events = session.cgroup / "cgroup.events"
@@ -184,7 +191,9 @@ def test_worker_command_registers_kernel_collector_before_returning_launch(
     assert not calls
     events.write_text("populated 0\n")
     argv = session.command(("/usr/bin/true",))
-    assert calls == ["registered"]
+    assert calls == [session.cgroup if scoped else None]
+    if scoped:
+        assert session.worker_id == worker_id
     assert argv[0] == str(helper) and str(tracer) in argv
     assert session.healthy is False  # No worker poll thread exists yet.
     session._kernel.close()

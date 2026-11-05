@@ -36,7 +36,8 @@ TERMINAL_JOB_STATES = frozenset(
     {JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED, JobState.INDETERMINATE}
 )
 ACTIVE_JOB_STATES = frozenset({JobState.RUNNING, JobState.CANCELLING})
-JOB_TYPES = frozenset({"model.generate"})
+COG_JOB = "cog.execute"
+JOB_TYPES = frozenset({"model.generate", COG_JOB})
 
 
 def identifier(value: object, name: str) -> str:
@@ -96,6 +97,14 @@ def selected_models(value: object) -> list[dict[str, str]]:
     return result
 
 
+def job_models(kind: str, value: object) -> list[dict[str, str]]:
+    if kind == COG_JOB:
+        if value != []:
+            raise InvalidInputError("A native Cog job cannot select hosted models.")
+        return []
+    return selected_models(value)
+
+
 @dataclass(frozen=True, slots=True)
 class JobSpec:
     job_type: str
@@ -123,11 +132,14 @@ class JobSpec:
                 raise ValueError
         except (ValueError, TypeError, AttributeError):
             raise InvalidInputError("The job requires a canonical task identity.") from None
+        payload = _json_object(value["input"], maximum=MAX_JOB_INPUT_BYTES)
+        if value["job_type"] == COG_JOB:
+            CogJobInput.parse(payload)
         return cls(
             value["job_type"],
             episode_id,
-            _json_object(value["input"], maximum=MAX_JOB_INPUT_BYTES),
-            selected_models(value["selected_models"]),
+            payload,
+            job_models(value["job_type"], value["selected_models"]),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -135,7 +147,7 @@ class JobSpec:
             "job_type": self.job_type,
             "episode_id": str(self.episode_id),
             "input": _json_object(self.input, maximum=MAX_JOB_INPUT_BYTES),
-            "selected_models": selected_models(self.selected_models),
+            "selected_models": job_models(self.job_type, self.selected_models),
         }
 
 
@@ -151,6 +163,42 @@ class JobLease:
     input: dict[str, Any] = field(repr=False)
     selected_models: list[dict[str, str]]
     contract_revision_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class CogJobInput:
+    agent_id: UUID
+    repository_state_id: UUID
+    operation_ref: str
+    profile_sha256: str
+    type_ref: str
+    value: Any = field(repr=False)
+
+    @classmethod
+    def parse(cls, value: object) -> CogJobInput:
+        from potbot.cogs.contracts import TypedCogValue
+        from potbot.tools.execution_contracts import digest
+        from potbot.tools.execution_contracts import identifier as uuid
+
+        data = _json_object(value, maximum=16_384)
+        if set(data) != {
+            "agent_id",
+            "repository_state_id",
+            "operation_ref",
+            "profile_sha256",
+            "type_ref",
+            "value",
+        } or not all(isinstance(data[key], str) for key in ("operation_ref", "type_ref")):
+            raise InvalidInputError("Native Cog job fields differ from the installed contract.")
+        typed = TypedCogValue(data["type_ref"], data["value"])
+        return cls(
+            uuid(data["agent_id"]),
+            uuid(data["repository_state_id"]),
+            data["operation_ref"],
+            digest(data["profile_sha256"]),
+            typed.type_ref,
+            typed.value,
+        )
 
 
 def progress_data(stage: object, completed: object = None, total: object = None) -> dict[str, Any]:

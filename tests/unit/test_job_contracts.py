@@ -29,6 +29,32 @@ def test_input_is_copied_and_excluded_from_job_repr() -> None:
     assert JobSpec.from_dict(spec.to_dict()).to_dict() == spec.to_dict()
 
 
+def test_native_cog_jobs_take_a_profile_pin_and_typed_value() -> None:
+    request = {
+        "job_type": "cog.execute",
+        "episode_id": str(uuid4()),
+        "selected_models": [],
+        "input": {
+            "agent_id": str(uuid4()),
+            "repository_state_id": str(uuid4()),
+            "profile_sha256": "a" * 64,
+            "operation_ref": "syn://thing/context-audit-fixture",
+            "type_ref": "syn://type/in",
+            "value": {"query": "private-cog-input"},
+        },
+    }
+    spec = JobSpec.from_dict(request)
+    assert spec.to_dict() == request
+    assert "private-cog-input" not in repr(spec)
+
+    with pytest.raises(InvalidInputError):
+        JobSpec.from_dict({**request, "selected_models": payload()["selected_models"]})
+    with pytest.raises(InvalidInputError):
+        JobSpec.from_dict({**request, "input": {**request["input"], "argv": ["/bin/sh"]}})
+    with pytest.raises(InvalidInputError):
+        JobSpec.from_dict({**request, "input": {**request["input"], "type_ref": []}})
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

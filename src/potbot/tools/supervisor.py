@@ -242,6 +242,14 @@ class ProcessSupervisor:
         try:
             from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
 
+            config = None
+            launch_options = request.shared_launch_options(self.backend)
+            if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+                config = self.monitor_config or WorkerMonitorConfig.from_environment(
+                    scoped_worker=True
+                )
+                if config.scoped_launcher is not None:
+                    launch_options["scoped_worker"] = True
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -255,7 +263,7 @@ class ProcessSupervisor:
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
                 ipc_profile=request.ipc_profile,
-                **request.shared_launch_options(self.backend),
+                **launch_options,
             )
             environment = {
                 "PATH": "/usr/bin:/bin",
@@ -264,12 +272,12 @@ class ProcessSupervisor:
                 "PYTHONDONTWRITEBYTECODE": "1",
                 **request.environment,
             }
-            if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+            if config is not None:
+                assert isinstance(self.backend, SharedWorkspaceBubblewrapBackend)
                 if request.telemetry_workspace_id is None or request.telemetry_agent_id is None:
                     raise CapabilityUnavailableError(
                         "unidentified sandbox worker cannot run unmonitored"
                     )
-                config = self.monitor_config or WorkerMonitorConfig.from_environment()
                 home, audit = self.backend.runtime.home.resolve(), config.audit_root
                 if (
                     audit == home
@@ -291,7 +299,9 @@ class ProcessSupervisor:
                     run_id=request.telemetry_run_id,
                 )
             process = subprocess.Popen(
-                telemetry.command(launch.argv) if telemetry is not None else launch.argv,
+                telemetry.command(launch.argv, pass_fds=launch.pass_fds)
+                if telemetry is not None
+                else launch.argv,
                 cwd="/",
                 env=environment,
                 stdin=subprocess.PIPE,
@@ -299,7 +309,10 @@ class ProcessSupervisor:
                 stderr=subprocess.PIPE,
                 start_new_session=True,
                 close_fds=True,
-                pass_fds=launch.pass_fds,
+                pass_fds=(
+                    *launch.pass_fds,
+                    *(telemetry.launch_fds if telemetry is not None else ()),
+                ),
             )
             if telemetry is not None:
                 telemetry.start(process.pid)

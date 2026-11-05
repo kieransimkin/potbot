@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import os
 import secrets
+import select
+import socket
+import stat
+import struct
 import subprocess
 import threading
 import time
@@ -26,10 +30,58 @@ from .contracts import canonical
 from .store import _directory, _write_new
 
 
+class AttachedAgentSession:
+    """Hold the exact native socket peer of an already-running enrolled Agent."""
+
+    def __init__(self, endpoint: Path, owner_uid: int) -> None:
+        entry = endpoint.lstat()
+        if os.getuid() != 0 or entry.st_uid != owner_uid or not stat.S_ISSOCK(entry.st_mode):
+            raise ScopeDeniedError("Native Agent endpoint has unsafe ownership")
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as channel:
+            channel.settimeout(4)
+            channel.connect(str(endpoint))
+            pid, uid, gid = struct.unpack(
+                "iII", channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
+            )
+            if (
+                pid <= 1
+                or (uid, gid) != (owner_uid, owner_uid)
+                or not os.path.samestat(entry, endpoint.lstat())
+            ):
+                raise ScopeDeniedError("Native Agent endpoint peer changed during attachment")
+            self.pid = pid
+            self._fd = os.pidfd_open(pid)
+
+    def close(self) -> None:
+        if self._fd >= 0:
+            os.close(self._fd)
+            self._fd = -1
+
+    @property
+    def healthy(self) -> bool:
+        if self._fd < 0:
+            return False
+        wait = select.poll()
+        wait.register(self._fd, select.POLLIN)
+        return not wait.poll(0)
+
+    def observe(self, proof: dict[str, Any], *, owner_uid: int) -> dict[str, Any]:
+        path = Path("/proc") / str(self.pid)
+        if (
+            not self.healthy
+            or b"-m\x00syn.agent\x00serve\x00" not in (path / "cmdline").read_bytes()
+        ):
+            raise StateMismatchError("Attached process is not a live native Syn Agent")
+        result = AgentSession.measure(path, proof, owner_uid=owner_uid)
+        if not self.healthy:
+            raise StateMismatchError("Native Agent exited during attachment")
+        return result
+
+
 @dataclass(frozen=True)
 class LiveSynParticipant:
     deployment: SynAgentDeployment
-    session: AgentSession
+    session: AgentSession | AttachedAgentSession
     python: Path
     proof: dict[str, Any]
     observation: dict[str, Any]
@@ -47,7 +99,7 @@ class SynPrivateMesh(SynPublicCommands):
         root: Path,
         *,
         workspace_id: UUID,
-        participants: Mapping[UUID, tuple[SynAgentDeployment, AgentSession]],
+        participants: Mapping[UUID, tuple[SynAgentDeployment, AgentSession | AttachedAgentSession]],
     ) -> None:
         if (
             os.name != "posix"
@@ -70,9 +122,9 @@ class SynPrivateMesh(SynPublicCommands):
             if (
                 type(agent_id) is not UUID
                 or not isinstance(deployment, SynAgentDeployment)
-                or not isinstance(session, AgentSession)
+                or not isinstance(session, (AgentSession, AttachedAgentSession))
                 or deployment.agent_id != agent_id
-                or session.process.poll() is not None
+                or not session.healthy
             ):
                 raise ScopeDeniedError(
                     "Private mesh requires independently enrolled owned Agent sessions"
@@ -133,7 +185,7 @@ class SynPrivateMesh(SynPublicCommands):
             and not self._closed
             and self._process is not None
             and self._process.poll() is None
-            and all(item.session.process.poll() is None for item in self._participants.values())
+            and all(item.session.healthy for item in self._participants.values())
         )
 
     def participant(self, agent_id: UUID) -> LiveSynParticipant:
@@ -248,17 +300,18 @@ class SynPrivateMesh(SynPublicCommands):
             ),
         )
         selected = next(iter(self._participants.values()))
-        self._process = subprocess.Popen(
-            [str(selected.python), "-I", "-B", "-m", "syn.mesh", "--config", str(path)],
-            cwd=self.root,
-            env=self._environment(),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        reader = AgentSession(self._process)
+        reader: AgentSession | None = None
         try:
+            self._process = subprocess.Popen(
+                [str(selected.python), "-I", "-B", "-m", "syn.mesh", "--config", str(path)],
+                cwd=self.root,
+                env=self._environment(),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            reader = AgentSession(self._process)
             ready = reader.read(timeout=15)
             if (
                 ready.get("profile") != "syn.private-relay-ready/1"
@@ -286,6 +339,9 @@ class SynPrivateMesh(SynPublicCommands):
             yield self
         finally:
             self._closed = True
-            if self._process.poll() is None:
-                self._process.terminate()
-            reader.stop()
+            if reader is not None:
+                if reader.healthy:
+                    reader.process.terminate()
+                reader.stop()
+            # Keep the exclusive relay claim until its exact child has exited.
+            path.unlink()

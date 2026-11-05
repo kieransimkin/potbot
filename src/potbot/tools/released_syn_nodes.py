@@ -20,6 +20,7 @@ from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 from potbot.domain.serialization import content_hash
 from potbot.syn_release.mesh import SynPrivateMesh
+from potbot.syn_release.mesh_endpoint import NativeMeshClient
 from potbot.tools.syn_worker_nodes import (
     HEARTBEAT_TYPE,
     SynHeartbeat,
@@ -41,8 +42,10 @@ class SynCogGrant:
 class ReleasedSynWorkerNodeMesh(SynWorkerNodeMesh):
     """One fixed native cohort; logical invocation nodes share its transport."""
 
-    def __init__(self, transport: SynPrivateMesh, *, interval_seconds: float = 5.0) -> None:
-        if not isinstance(transport, SynPrivateMesh):
+    def __init__(
+        self, transport: SynPrivateMesh | NativeMeshClient, *, interval_seconds: float = 5.0
+    ) -> None:
+        if not isinstance(transport, (SynPrivateMesh, NativeMeshClient)):
             raise ScopeDeniedError("Cog mesh needs the released native Syn adapter")
         super().__init__(interval_seconds=interval_seconds)
         self.transport = transport
