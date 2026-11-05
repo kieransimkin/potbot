@@ -40,7 +40,7 @@ jobs:
         with:
           repository: Synsphere/syn
           # Reviewed public pins and native keystore fixture only.
-          ref: 9cd898692aeea5ea336930057647d4393bf9af9d
+          ref: 4a4b8095844f7bf525e0494567d7d9a350e4d1c7
           path: syn-fixture
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9

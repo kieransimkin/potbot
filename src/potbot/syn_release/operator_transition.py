@@ -18,7 +18,10 @@ from potbot.syn_release.store import _sync_directory, _write_new
 OPERATOR_021 = "8455cc21a8fc320d5522f88a873e9b5575aa4379d9c2e65c60cf21f9f4d28d46"
 OPERATOR_031 = "10da08e7b0af7d32c48a3087e873c2e448e846e2e3aac6ad56df81330267b4f1"
 OPERATOR_040 = "a406356fba844a28c04870e45299ccd83e406b5dbe8b7a55741db6d5a6cd1088"
+OPERATOR_081 = "414bb66cfa9e2d2ed4d8e91253a2a005f603759d4a749c5527ffe76cefd2ef7b"
+OPERATOR_ONLY_PAIRS = {(OPERATOR_021, OPERATOR_081), (OPERATOR_081, OPERATOR_021)}
 SUPPORTED = {
+    *OPERATOR_ONLY_PAIRS,
     (OPERATOR_021, OPERATOR_031),
     (OPERATOR_031, OPERATOR_040),
     (OPERATOR_040, OPERATOR_031),
@@ -55,6 +58,41 @@ def _preflight(deployment: SynOperatorDeployment, python: Path, record: dict[str
     return digest(value["state_sha256"])
 
 
+def _operator_only_preflight(
+    deployment: SynOperatorDeployment, python: Path, record: dict[str, Any]
+) -> str:
+    value = fields(
+        deployment._public_command(
+            python,
+            [
+                "-m",
+                "syn.operator",
+                "transition-preflight",
+                "--config",
+                str(deployment.state_dir / "operator.json"),
+            ],
+        ),
+        {
+            "profile",
+            "base_public_key_hash",
+            "configuration_sha256",
+            "state_sha256",
+            "agent_activation_authorized",
+        },
+    )
+    if (
+        value["profile"] != "syn.operator-transition-preflight/1"
+        or value["base_public_key_hash"] != record["base_public_key_hash"]
+        or value["configuration_sha256"] != record["configuration_sha256"]
+        or value["agent_activation_authorized"] is not False
+    ):
+        raise StateMismatchError("Syn transition preflight differs from the retained operator")
+    states = value["state_sha256"]
+    if type(states) is not dict or set(states) != {"control"}:
+        raise ScopeDeniedError("Operator-only package switch requires control state alone")
+    return digest(states["control"])
+
+
 def switch_release(deployment: SynOperatorDeployment, target: Policy) -> dict[str, Any]:
     """Atomically select already staged code after independently verifying both packages."""
     target = Policy.parse(canonical(target.value))
@@ -87,6 +125,14 @@ def switch_release(deployment: SynOperatorDeployment, target: Policy) -> dict[st
         before = _preflight(deployment, current_python, record)
         if _preflight(deployment, candidate_python, record) != before:
             raise StateMismatchError("Syn packages disagree on the anchored operator state")
+        if pair in OPERATOR_ONLY_PAIRS:
+            proof_owner, proof_python = (
+                (deployment, current_python)
+                if previous.manifest_sha256 == OPERATOR_081
+                else (selected, candidate_python)
+            )
+            if _operator_only_preflight(proof_owner, proof_python, record) != before:
+                raise StateMismatchError("Anchored control changed during transition preflight")
         if endpoint.exists() or endpoint.is_symlink() or deployment._registered() != record:
             raise StateMismatchError("Operator state changed during release preflight")
         replacement = {

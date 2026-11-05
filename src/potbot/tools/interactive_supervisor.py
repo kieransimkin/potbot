@@ -99,6 +99,10 @@ class IsolatedInteractiveProcess:
     def closed(self) -> bool:
         return self._closed
 
+    @property
+    def audit_failed(self) -> bool:
+        return self._audit_ok is False
+
     def remaining_seconds(self) -> float:
         return max(0.0, self.request.timeout_ms / 1000 - (time.monotonic() - self._started_at))
 
@@ -252,6 +256,16 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
         process: asyncio.subprocess.Process | None = None
         telemetry: WorkerMonitorSession | None = None
         try:
+            from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
+
+            config = None
+            launch_options = request.shared_launch_options(self.backend)
+            if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+                config = self.monitor_config or WorkerMonitorConfig.from_environment(
+                    scoped_worker=True
+                )
+                if config.scoped_launcher is not None:
+                    launch_options["scoped_worker"] = True
             launch = self.backend.prepare(
                 argv=request.argv,
                 workspace_root=request.workspace_root,
@@ -265,7 +279,7 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 max_file_bytes=request.max_file_bytes,
                 max_open_files=request.max_open_files,
                 ipc_profile=request.ipc_profile,
-                **request.shared_launch_options(self.backend),
+                **launch_options,
             )
             # Do not inherit environment or CWD from the model/controller host.
             environment = {
@@ -275,14 +289,12 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                 "PYTHONDONTWRITEBYTECODE": "1",
                 **request.environment,
             }
-            from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
-
-            if isinstance(self.backend, SharedWorkspaceBubblewrapBackend):
+            if config is not None:
+                assert isinstance(self.backend, SharedWorkspaceBubblewrapBackend)
                 if request.telemetry_workspace_id is None or request.telemetry_agent_id is None:
                     raise CapabilityUnavailableError(
                         "unidentified interactive Cog cannot run unmonitored"
                     )
-                config = self.monitor_config or WorkerMonitorConfig.from_environment()
                 home, audit = self.backend.runtime.home.resolve(), config.audit_root
                 if (
                     audit == home
@@ -303,14 +315,21 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                     run_id=request.telemetry_run_id,
                 )
             process = await asyncio.create_subprocess_exec(
-                *(telemetry.command(launch.argv) if telemetry is not None else launch.argv),
+                *(
+                    telemetry.command(launch.argv, pass_fds=launch.pass_fds)
+                    if telemetry is not None
+                    else launch.argv
+                ),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd="/",
                 env=environment,
                 start_new_session=True,
-                pass_fds=launch.pass_fds,
+                pass_fds=(
+                    *launch.pass_fds,
+                    *(telemetry.launch_fds if telemetry is not None else ()),
+                ),
                 limit=min(request.max_output_bytes + 2, 2 * 1024 * 1024 + 2),
             )
             if telemetry is not None:
@@ -331,6 +350,8 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                     pass
             if process is None:
                 os.close(status_read)
+                if telemetry is not None:
+                    await asyncio.to_thread(telemetry.finish, confirmed_stopped=True)
         assert launch is not None and process is not None
 
         def cancellation_or_audit_fault() -> bool:

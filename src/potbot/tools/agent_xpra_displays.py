@@ -511,7 +511,10 @@ class AgentXpraSandboxBackend(SharedWorkspaceBubblewrapBackend):
         guest_uid: int | None = None,
         guest_gid: int | None = None,
         cog_log_scope: tuple[Path, UUID, UUID] | None = None,
+        scoped_worker: bool = False,
     ) -> IsolationLaunch:
+        if scoped_worker:
+            raise ScopeDeniedError("agent Xpra cannot use the scoped worker launcher")
         if cog_log_scope is not None:
             raise ScopeDeniedError("agent Xpra cannot mount shared Cog logs")
         home = self.pool._agent(self.agent_id)
