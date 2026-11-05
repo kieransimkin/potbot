@@ -162,7 +162,7 @@ def _parser() -> argparse.ArgumentParser:
     listing.add_argument("--limit", type=_integer(1, 200), default=50)
     inspect = commands.add_parser("inspect", help="inspect one accessible job")
     inspect.add_argument("job_id", type=UUID)
-    submit = commands.add_parser("submit", help="submit a private generation-job JSON document")
+    submit = commands.add_parser("submit", help="submit a private hosted or native Cog job")
     submit.add_argument("--input", required=True, type=Path)
     submit.add_argument("--key", required=True, help="stable idempotency key for this submission")
     cancel = commands.add_parser("cancel", help="request cancellation without replaying work")
@@ -255,6 +255,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             from potbot.api.observability import EventLogger
             from potbot.controller.job_runner import HostedJobRunner
+            from potbot.controller.native_cog_dispatch import configured_native_cogs
             from potbot.service_credentials import ServiceCredentials
 
             # Fail before announcing a worker if these UUIDs do not match the
@@ -270,18 +271,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if os.environ.get("POTBOT_LOG_CONTENT") == "1"
                 else (),
             )
-            runner = HostedJobRunner(service, hosted_gateway(database, policy), logger=logger)
-            if args.once:
-                job = runner.run_once(context, args.worker_id)
-                result = {"job": job, "idle": job is None}
-            else:
-                _print_result({"worker_id": args.worker_id, "status": "listening"})
-                while True:
+            with configured_native_cogs(database, context) as native_cogs:
+                runner = HostedJobRunner(
+                    service,
+                    hosted_gateway(database, policy),
+                    logger=logger,
+                    native_cogs=native_cogs,
+                )
+                if args.once:
                     job = runner.run_once(context, args.worker_id)
-                    if job is None:
-                        time.sleep(args.poll_interval)
-                    else:
-                        _print_result({"job": job, "worker_id": args.worker_id})
+                    result = {"job": job, "idle": job is None}
+                else:
+                    _print_result({"worker_id": args.worker_id, "status": "listening"})
+                    while True:
+                        job = runner.run_once(context, args.worker_id)
+                        if job is None:
+                            time.sleep(args.poll_interval)
+                        else:
+                            _print_result({"job": job, "worker_id": args.worker_id})
         _print_result(result)
         return 0
     except KeyboardInterrupt:

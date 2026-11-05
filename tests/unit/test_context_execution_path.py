@@ -37,7 +37,7 @@ def rig(tmp_path, monkeypatch):
 
         def finish(self, **kw):
             self._finished = True
-            events.append("finish")
+            events.append("fence" if kw.get("uncertain") else "finish")
 
         def abandon(self):
             events.append("abandon")
@@ -91,6 +91,7 @@ def rig(tmp_path, monkeypatch):
         SimpleNamespace(
             WorkspaceExecutorIdentity=lambda *a: object(),
             WorkspaceLeaseGuard=LeaseGuard,
+            admission_digest=lambda reason: "d" * 64,
             assert_shared_execution_allowed=lambda **kw: events.append("pin"),
         ),
     )
@@ -184,6 +185,15 @@ def test_unconfirmed_shutdown_retains_projection_and_claim(rig):
         and "abandon" in rig.events
         and ("drop-projection" not in rig.events)
     )
+
+
+def test_incomplete_audit_fences_workspace_without_releasing_projections(rig):
+    rig.receipt.processes_stopped = False
+    rig.process.audit_failed = True
+    with pytest.raises(IndeterminateExecutionError):
+        asyncio.run(rig.execute())
+    assert rig.events.index("stop") < rig.events.index("fence")
+    assert not {"finish", "abandon", "drop-projection"}.intersection(rig.events)
 
 
 def test_unbound_executor_cannot_run_context_protocol(rig):

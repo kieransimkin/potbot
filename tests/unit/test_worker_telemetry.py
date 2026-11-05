@@ -280,7 +280,12 @@ def test_final_audit_receipt_requires_cgroup_release_and_trace_end(
     monkeypatch.setattr(module, "_cgroup_usage", lambda _: {})
     monkeypatch.setattr(module.WorkerMonitorSession, "_sample", lambda _: None)
     monitor = module.WorkerMonitorSession(
-        SimpleNamespace(audit_root=audit, cgroup_root=cgroup_root, max_trace_bytes=1 << 20),
+        SimpleNamespace(
+            audit_root=audit,
+            cgroup_root=cgroup_root,
+            max_trace_bytes=1 << 20,
+            scoped_taskstats=None,
+        ),
         uuid4(),
         uuid4(),
         "a" * 64,

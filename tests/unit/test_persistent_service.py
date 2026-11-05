@@ -67,13 +67,30 @@ class _null_context:
         return False
 
 
-def test_service_unit_uses_resolved_python_and_not_root(monkeypatch, tmp_path):
-    monkeypatch.setattr(service, "project_root", lambda: tmp_path)
+def test_service_unit_keeps_user_service_settings(monkeypatch, tmp_path):
+    directory = tmp_path / "workspace with %"
+    monkeypatch.setattr(service, "project_root", lambda: directory)
     unit = service._systemd_unit()
+    assert f"WorkingDirectory={str(directory).replace('%', '%%')}" in unit.splitlines()
     assert "--user" not in unit
     assert "NoNewPrivileges=true" in unit
     assert "potbot.startup" in unit
     assert "Restart=on-failure" in unit
+
+
+def test_service_unit_preserves_the_virtualenv_interpreter(monkeypatch, tmp_path):
+    base = tmp_path / "base-python"
+    base.touch()
+    executable = tmp_path / "venv-python"
+    try:
+        executable.symlink_to(base)
+    except OSError:
+        pytest.skip("The test host does not support creating symlinks")
+    monkeypatch.setattr(service.sys, "executable", str(executable))
+    monkeypatch.setattr(service, "project_root", lambda: tmp_path)
+    escaped = str(executable).replace("\\", "\\\\")
+    assert service._service_command()[0] == str(executable)
+    assert f'ExecStart="{escaped}"' in service._systemd_unit()
 
 
 def test_model_install_and_service_status_parse_without_vault(monkeypatch, tmp_path, capsys):

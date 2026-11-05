@@ -39,6 +39,10 @@ class AgentSession:
         self.buffer = bytearray()
         self.initial: dict[str, Any] | None = None
 
+    @property
+    def healthy(self) -> bool:
+        return self.process.poll() is None
+
     def read(self, *, timeout: int = 120) -> dict[str, Any]:
         if self.process.stdout is None:
             raise StateMismatchError("Syn private session has no public response pipe")
@@ -126,7 +130,11 @@ class AgentSession:
                 continue
         if len(matched) != 1:
             raise StateMismatchError("Owned session has no unique real Syn Agent process")
-        path = matched[0]
+        return self.measure(matched[0], proof, owner_uid=owner_uid)
+
+    @staticmethod
+    def measure(path: Path, proof: dict[str, Any], *, owner_uid: int) -> dict[str, Any]:
+        """Inspect an exact live PID selected by a trusted host handle."""
         status = dict(row.split(":", 1) for row in (path / "status").read_text().splitlines())
         if (
             list(map(int, status["Uid"].split())) != [owner_uid] * 4

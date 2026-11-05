@@ -6,20 +6,29 @@ import threading
 import time
 from collections.abc import Callable
 from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from potbot.controller.jobs import JobService
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import DomainError, RevisionConflictError
-from potbot.domain.jobs import JobLease
+from potbot.domain.jobs import COG_JOB, JobLease
 from potbot.models.hosted_gateway import HostedAdmissionError, HostedInferenceGateway
+
+if TYPE_CHECKING:
+    from potbot.controller.native_cog_dispatch import NativeCogDispatcher
 
 
 class HostedJobRunner:
     def __init__(
-        self, jobs: JobService, gateway: HostedInferenceGateway, logger: Any | None = None
+        self,
+        jobs: JobService,
+        gateway: HostedInferenceGateway,
+        logger: Any | None = None,
+        *,
+        native_cogs: NativeCogDispatcher | None = None,
     ) -> None:
         self.jobs, self.gateway, self.logger = jobs, gateway, logger
+        self.native_cogs = native_cogs
 
     def _finish(
         self, context: WorkspaceContext, lease: JobLease, state: str, **kwargs: Any
@@ -33,7 +42,12 @@ class HostedJobRunner:
             return self.jobs.inspect(context, lease.job_id)
 
     def run_once(self, context: WorkspaceContext, worker_id: str) -> dict[str, Any] | None:
-        lease = self.jobs.claim(context, worker_id, lease_seconds=45)
+        if self.native_cogs is None:
+            lease = self.jobs.claim(context, worker_id, lease_seconds=45)
+        else:
+            lease = self.jobs.claim(
+                context, worker_id, kinds=("model.generate", COG_JOB), lease_seconds=45
+            )
         if lease is None:
             return None
         stopped, abort = threading.Event(), threading.Event()
@@ -59,6 +73,9 @@ class HostedJobRunner:
         monitor = threading.Thread(target=heartbeat, name="potbot-job-heartbeat", daemon=True)
         monitor.start()
         try:
+            if lease.job_type == COG_JOB and self.native_cogs is not None:
+                result = self.native_cogs.run(self.jobs, context, lease, abort)
+                return self._finish(context, lease, "succeeded", result=result)
             return self._run(context, lease, abort)
         except RevisionConflictError:
             # A lost/expired generation is already terminal or owned elsewhere.

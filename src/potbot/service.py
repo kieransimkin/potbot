@@ -47,6 +47,8 @@ class ServiceConfig:
     log_content: bool = False
     credential_profile: str = "default"
     operator_manifest: str | None = None
+    scoped_worker_launcher: bool = False
+    native_cog_config: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> ServiceConfig:
@@ -90,6 +92,16 @@ class ServiceConfig:
                 not isinstance(self.operator_manifest, str)
                 or not Path(self.operator_manifest).is_absolute()
                 or not sys.platform.startswith("linux")
+            ):
+                raise ValueError
+            if type(self.scoped_worker_launcher) is not bool or (
+                self.scoped_worker_launcher and self.operator_manifest is None
+            ):
+                raise ValueError
+            if self.native_cog_config is not None and (
+                not self.scoped_worker_launcher
+                or not isinstance(self.native_cog_config, str)
+                or not Path(self.native_cog_config).is_absolute()
             ):
                 raise ValueError
         except (ValueError, TypeError):
@@ -141,15 +153,22 @@ def _manager() -> str:
 
 
 def _service_command() -> list[str]:
-    return [str(Path(sys.executable).resolve()), "-m", "potbot.startup", "service", "run"]
+    # Resolving a venv's interpreter symlink selects the base Python and loses its packages.
+    return [os.path.abspath(sys.executable), "-m", "potbot.startup", "service", "run"]
 
 
 def _systemd_unit() -> str:
     def quote(arg: str) -> str:
+        if "\n" in arg or "\r" in arg:
+            raise InvalidInputError("Service executable path must fit on one unit-file line.")
         return '"' + arg.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%") + '"'
 
     command = " ".join(quote(part) for part in _service_command())
-    directory = quote(str(project_root()))
+    directory = str(project_root())
+    if "\n" in directory or "\r" in directory or directory != directory.rstrip():
+        raise InvalidInputError("Project path cannot be represented in a systemd unit.")
+    # WorkingDirectory takes a single path. Quotes would become part of that path.
+    directory = directory.replace("%", "%%")
     return (
         "[Unit]\nDescription=Potbot API and hosted inference worker\n"
         "After=network-online.target\nWants=network-online.target\n\n"
@@ -312,8 +331,18 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
         operator_manifest=str(args.operator_manifest.resolve(strict=True))
         if args.operator_manifest is not None
         else None,
+        scoped_worker_launcher=getattr(args, "scoped_worker_launcher", False),
+        native_cog_config=str(args.native_cog_config.absolute())
+        if getattr(args, "native_cog_config", None) is not None
+        else None,
     )
     config.validate()
+    if config.native_cog_config is not None:
+        from potbot.controller.native_cog_dispatch import read_profile
+
+        profile, _ = read_profile(Path(config.native_cog_config))
+        if profile["workspace_id"] != config.workspace_id:
+            raise InvalidInputError("Native Cog configuration belongs to another workspace.")
     if config.operator_manifest is not None:
         from potbot.tools.operator_cli import parse_manifest
 
@@ -399,6 +428,7 @@ def _supervise(config: ServiceConfig) -> int:
 
     children: dict[str, subprocess.Popen[str]] = {}
     env = dict(os.environ)
+    env.pop("POTBOT_NATIVE_COG_CONFIG", None)
     env["POTBOT_CREDENTIAL_PROFILE"] = config.credential_profile
     env["POTBOT_PROJECT_ROOT"] = str(project_root())
     env["POTBOT_LOG_FILE"] = str(home / "worker.jsonl")
@@ -410,11 +440,18 @@ def _supervise(config: ServiceConfig) -> int:
             mount_fingerprint,
         )
         from potbot.tools.operator_cli import parse_manifest
+        from potbot.tools.scoped_launcher import DEFAULT_SOCKET, check_endpoint
 
         paths = parse_manifest(Path(config.operator_manifest))
         if str(paths.workspace_id) != config.workspace_id:
             raise InvalidInputError("Operator manifest workspace differs from service scope")
         socket_path = home / "operator.sock"
+        if config.scoped_worker_launcher:
+            check_endpoint(DEFAULT_SOCKET)
+            env["POTBOT_OPERATOR_SCOPED_LAUNCHER"] = str(DEFAULT_SOCKET)
+        if config.native_cog_config is not None:
+            env["POTBOT_NATIVE_COG_CONFIG"] = config.native_cog_config
+            env["POTBOT_OPERATOR_MANIFEST"] = config.operator_manifest
         for mount in (
             paths.rootfs,
             paths.home,
@@ -427,6 +464,10 @@ def _supervise(config: ServiceConfig) -> int:
             physical = mount.resolve(strict=True)
             if socket_path == physical or socket_path.is_relative_to(physical):
                 raise InvalidInputError("Managed service socket overlaps a guest mount")
+            if config.scoped_worker_launcher and (
+                DEFAULT_SOCKET == physical or DEFAULT_SOCKET.is_relative_to(physical)
+            ):
+                raise InvalidInputError("Scoped worker launcher socket overlaps a guest mount")
         operator_attachment = OperatorAttachmentClient(
             socket_path=socket_path,
             workspace_id=paths.workspace_id,
@@ -550,6 +591,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=Path,
         default=None,
         help="opt into Linux/WSL2 managed operator startup",
+    )
+    install_parser.add_argument(
+        "--scoped-worker-launcher",
+        action="store_true",
+        help="require the administrator-provisioned Linux TASKSTATS launcher for Cog workers",
+    )
+    install_parser.add_argument(
+        "--native-cog-config", type=Path, help="administrator-owned native Cog worker profile"
     )
     install_parser.add_argument("--schema", default="potbot")
     install_parser.add_argument("--host", default="127.0.0.1")
