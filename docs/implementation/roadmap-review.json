@@ -367,7 +367,7 @@
         {
           "path": "src/potbot/syn_release/operator_transition.py",
           "symbol": "switch_release",
-          "sha256": "41e6e38ff5a3f1d015dece7c4b5d278221690d46d4c17159abae1a02b5620dc5",
+          "sha256": "7eb5fe64038a379012a4ce1b47858e21358f9df96ad5c9079127f4bb247a92b3",
           "basis": "Atomic operator release selection with two upstream preflight checks."
         }
       ],
@@ -393,13 +393,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],
@@ -82883,7 +82883,7 @@
       },
       {
         "path": ".github/workflows/syn-operator-lifecycle.yml",
-        "sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+        "sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
         "scope": [
           "Install native Linux prerequisites",
           "Verify official upgrade, migration and rollback"

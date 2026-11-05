@@ -35840,10 +35840,10 @@
     },
     {
       "path": ".github/workflows/syn-operator-lifecycle.yml",
-      "sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+      "sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
       "bytes": 2992,
       "kind": "narrative_text",
-      "text_sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+      "text_sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
       "characters": 2992,
       "lines": 82,
       "interpretation": "source_content_not_runtime_evidence"
@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "6502c3512f646d77bdd13cf626b5ba34387d9ff22805c2761b1e91330d9b0e1d",
+  "review_sha256": "6acdc2a47cff3138feded5605ffe4f02a3984e52c188a0c8c9517da3c1c14f9b",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -121607,7 +121607,7 @@
         {
           "path": "src/potbot/syn_release/operator_transition.py",
           "symbol": "switch_release",
-          "sha256": "41e6e38ff5a3f1d015dece7c4b5d278221690d46d4c17159abae1a02b5620dc5",
+          "sha256": "7eb5fe64038a379012a4ce1b47858e21358f9df96ad5c9079127f4bb247a92b3",
           "basis": "Atomic operator release selection with two upstream preflight checks."
         }
       ],
@@ -121633,13 +121633,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],
