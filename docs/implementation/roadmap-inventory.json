@@ -35308,12 +35308,12 @@
     },
     {
       "path": "src/potbot/context/runtime_integration.py",
-      "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
-      "bytes": 14505,
+      "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
+      "bytes": 15146,
       "kind": "narrative_text",
-      "text_sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
-      "characters": 14505,
-      "lines": 372,
+      "text_sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
+      "characters": 15146,
+      "lines": 387,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35408,22 +35408,22 @@
     },
     {
       "path": "src/potbot/tools/shared_workspace_isolation.py",
-      "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
-      "bytes": 32060,
+      "sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
+      "bytes": 33172,
       "kind": "narrative_text",
-      "text_sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
-      "characters": 32060,
-      "lines": 696,
+      "text_sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
+      "characters": 33172,
+      "lines": 721,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": "src/potbot/tools/worker_telemetry.py",
-      "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
-      "bytes": 45990,
+      "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
+      "bytes": 47900,
       "kind": "narrative_text",
-      "text_sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
-      "characters": 45988,
-      "lines": 1087,
+      "text_sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
+      "characters": 47898,
+      "lines": 1127,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35538,12 +35538,12 @@
     },
     {
       "path": "tests/unit/test_shared_workspace_isolation.py",
-      "sha256": "ef6e607bf590ed0523703acb98188397c0956c6d11efdc7d077782ba08c313bc",
-      "bytes": 18255,
+      "sha256": "6108cd03f0a1ca8ad22ecb68b8d16e9215e3db1aed2cb85bee71564003807b9b",
+      "bytes": 18898,
       "kind": "narrative_text",
-      "text_sha256": "ef6e607bf590ed0523703acb98188397c0956c6d11efdc7d077782ba08c313bc",
-      "characters": 18255,
-      "lines": 504,
+      "text_sha256": "6108cd03f0a1ca8ad22ecb68b8d16e9215e3db1aed2cb85bee71564003807b9b",
+      "characters": 18898,
+      "lines": 514,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35558,12 +35558,12 @@
     },
     {
       "path": "tests/unit/test_worker_telemetry.py",
-      "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
-      "bytes": 13174,
+      "sha256": "8be52dcb3a83527baa5fb78140977216ae1d64c6c67e248aadd161e7acb5d98d",
+      "bytes": 13256,
       "kind": "narrative_text",
-      "text_sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
-      "characters": 13174,
-      "lines": 331,
+      "text_sha256": "8be52dcb3a83527baa5fb78140977216ae1d64c6c67e248aadd161e7acb5d98d",
+      "characters": 13256,
+      "lines": 336,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35870,10 +35870,10 @@
     },
     {
       "path": ".github/workflows/syn-operator-lifecycle.yml",
-      "sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+      "sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
       "bytes": 2992,
       "kind": "narrative_text",
-      "text_sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+      "text_sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
       "characters": 2992,
       "lines": 82,
       "interpretation": "source_content_not_runtime_evidence"
@@ -36019,7 +36019,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "11fe8b9aed37b1d96dea0ae4490c9a2c94d5b16721f13126fd0a9f38f4a67b57",
+  "review_sha256": "2ec5663ccada2cab8197b81010974baf99c940ad07be7868593b63877d53710f",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -121404,7 +121404,7 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "8efbfb8c009423f7064c9c0d2839d2281eeb415651093726c8ae66d11149c21c",
+          "sha256": "56d3b63c36f480ae32b36658512ef89de4c828d09cbaf0e3894cb7da60ba526b",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -121531,7 +121531,7 @@
         {
           "path": "src/potbot/tools/shared_workspace_isolation.py",
           "symbol": "SharedWorkspaceRuntime",
-          "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
+          "sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121581,7 +121581,7 @@
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
+          "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -121595,7 +121595,7 @@
         {
           "path": "tests/unit/test_worker_telemetry.py",
           "symbol": "test_trace_parser_records_pid_and_access_mode_without_disclosing_buffers",
-          "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
+          "sha256": "8be52dcb3a83527baa5fb78140977216ae1d64c6c67e248aadd161e7acb5d98d",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -121705,7 +121705,7 @@
         {
           "path": "src/potbot/syn_release/agent.py",
           "symbol": "AgentSession",
-          "sha256": "aa432a0ec1994d0c6dd71f594bb34dc324ed5953efc8e4329b1739e747691861",
+          "sha256": "69acf237e7caf4fce0dd558c6ddcba1fcfb7f131b1fd2333e367b8cdac0df3b6",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121717,7 +121717,7 @@
         {
           "path": "src/potbot/syn_release/operator_transition.py",
           "symbol": "switch_release",
-          "sha256": "41e6e38ff5a3f1d015dece7c4b5d278221690d46d4c17159abae1a02b5620dc5",
+          "sha256": "7eb5fe64038a379012a4ce1b47858e21358f9df96ad5c9079127f4bb247a92b3",
           "basis": "Atomic operator release selection with two upstream preflight checks."
         }
       ],
@@ -121743,13 +121743,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],
@@ -121774,13 +121774,13 @@
         {
           "path": "src/potbot/syn_release/mesh.py",
           "symbol": "LiveSynParticipant",
-          "sha256": "4069e6a72410b55d7d2136eed190d2060871f3550d18b5b77f350de9e93762d9",
+          "sha256": "e295b5323a76f21e699f02446c078531d884171b06beb55ad87da70e58640fe4",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
           "path": "src/potbot/tools/released_syn_nodes.py",
           "symbol": "SynCogGrant",
-          "sha256": "fcd226de81fceb204d0c1183c9ba99bf9f0488a1f2eb2471fd70b283edb89675",
+          "sha256": "0fff529132785fe8197e48ccc21d734715840963f4deb8b4fabf9b149480c317",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -122167,7 +122167,7 @@
         {
           "path": "src/potbot/tools/shared_workspace_isolation.py",
           "symbol": "_prepare_cog_logs",
-          "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
+          "sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
@@ -122179,7 +122179,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
+          "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -122674,7 +122674,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
+          "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122933,13 +122933,13 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "8efbfb8c009423f7064c9c0d2839d2281eeb415651093726c8ae66d11149c21c",
+          "sha256": "56d3b63c36f480ae32b36658512ef89de4c828d09cbaf0e3894cb7da60ba526b",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "28ac4dc847f2dbbb44cfc509a5a26ae992f40bb369ab32a19b796ff5bb57cc14",
+          "sha256": "ba142f8f6a9286d8d6f595fd4820b8969796a7dd52b3f510f7b2afd18f944545",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -123007,7 +123007,7 @@
         {
           "path": "src/potbot/controller/budgets.py",
           "symbol": "BudgetLedger",
-          "sha256": "a78431f2bc4ed8c2c91212be11f0f626bd09a3328749c2a2118bc4a14aa88ae1",
+          "sha256": "ae2bd79f8ee337fd3474c4b86a7a905384420ebe626fa7b38071be6dc43e1809",
           "basis": "U01-A queue and settlement source."
         },
         {
