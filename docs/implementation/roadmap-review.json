@@ -275,7 +275,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "dc2ba89a4fb35e3e6702ce18a91e70e6710d26bff4ddb8136c81120d614d1d1f",
+          "sha256": "44709dfdd1647965d5c60871eb9e3b06756e60ae324eb81d5b8896c8feeca985",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
@@ -1350,7 +1350,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "dc2ba89a4fb35e3e6702ce18a91e70e6710d26bff4ddb8136c81120d614d1d1f",
+          "sha256": "44709dfdd1647965d5c60871eb9e3b06756e60ae324eb81d5b8896c8feeca985",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
@@ -64848,7 +64848,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
+      "sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
       "families": [
         "accounting"
       ],
@@ -64898,8 +64898,15 @@
           ]
         },
         {
-          "locator": "line:168-200",
-          "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
+          "locator": "line:168-194",
+          "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
+          "families": [
+            "accounting"
+          ]
+        },
+        {
+          "locator": "line:195-224",
+          "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
           "families": [
             "accounting"
           ]
@@ -82573,7 +82580,7 @@
       },
       {
         "path": ".github/workflows/context-agent-rpc.yml",
-        "sha256": "187bcba9d4858c5606bd125209485652649d5e7240a4694247c9e7537cffdf9b",
+        "sha256": "e16a88a7715e29b364d9f0a48471592dc03ea54a3eef9300f27e8a111a6cfb36",
         "name": "MODEL.md agent RPC and PostgreSQL sessions",
         "state": "active",
         "scope": [
@@ -82976,8 +82983,8 @@
         ],
         "latest_inspected_run": null,
         "at_reviewed_base": false,
-        "qualification_limit": "Pinned official Linux Agent packages and the disposable typed JSON Cog route only.",
-        "sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150"
+        "qualification_limit": "Pinned official Linux Agent packages with fresh disposable typed JSON and Context RPC Cog workers.",
+        "sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53"
       },
       {
         "path": ".github/workflows/signed-worker-image.yml",

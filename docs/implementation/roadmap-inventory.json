@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
-      "bytes": 9837,
+      "sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
+      "bytes": 10844,
       "kind": "narrative_text",
-      "text_sha256": "3fea6349a1d075cf9f7339c5e0291d2e48335a37f851b3e0dbaf7bf766097ab1",
-      "characters": 9834,
-      "lines": 200,
+      "text_sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
+      "characters": 10841,
+      "lines": 224,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35680,12 +35680,12 @@
     },
     {
       "path": ".github/workflows/context-agent-rpc.yml",
-      "sha256": "187bcba9d4858c5606bd125209485652649d5e7240a4694247c9e7537cffdf9b",
-      "bytes": 6604,
+      "sha256": "e16a88a7715e29b364d9f0a48471592dc03ea54a3eef9300f27e8a111a6cfb36",
+      "bytes": 6711,
       "kind": "narrative_text",
-      "text_sha256": "187bcba9d4858c5606bd125209485652649d5e7240a4694247c9e7537cffdf9b",
-      "characters": 6604,
-      "lines": 131,
+      "text_sha256": "e16a88a7715e29b364d9f0a48471592dc03ea54a3eef9300f27e8a111a6cfb36",
+      "characters": 6711,
+      "lines": 133,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35730,12 +35730,12 @@
     },
     {
       "path": ".github/workflows/official-syn-monitored-workers.yml",
-      "sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150",
-      "bytes": 5293,
+      "sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53",
+      "bytes": 6831,
       "kind": "narrative_text",
-      "text_sha256": "9b096fff9c5828a16a40da798b57de8cef4c0cc0f5b545517f7c4082b9a15150",
-      "characters": 5293,
-      "lines": 111,
+      "text_sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53",
+      "characters": 6831,
+      "lines": 140,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "8d62eac8948b4028adc9daefcc78cc3221276bae6e0025342f5a8fa2ea4e0a1c",
+  "review_sha256": "18075de16327c766274397ab704a06d5c874acfe337858f0b0f0c45b6dbbdb9f",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112544,9 +112544,18 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:168-200",
-      "sha256": "2b1587a8a60fbe7c47e1c96e27a09088e4f8127b634a76443b5c2b5c3118ec07",
+      "locator": "line:168-194",
+      "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
+      "review_families": [
+        "accounting"
+      ]
+    },
+    {
+      "source": "docs/implementation/38-operator-worker-qualification.md",
+      "locator": "line:195-224",
+      "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
+      "excerpt": "### Context RPC with official Syn authorization\n\nBoth pinned releases exercise the shipped context client and the real\nPostgreSQL session store. A grant for typ",
       "review_families": [
         "accounting"
       ]
@@ -121515,7 +121524,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "dc2ba89a4fb35e3e6702ce18a91e70e6710d26bff4ddb8136c81120d614d1d1f",
+          "sha256": "44709dfdd1647965d5c60871eb9e3b06756e60ae324eb81d5b8896c8feeca985",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],
@@ -122590,7 +122599,7 @@
         {
           "path": "tests/integration/test_monitored_context_rpc.py",
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
-          "sha256": "dc2ba89a4fb35e3e6702ce18a91e70e6710d26bff4ddb8136c81120d614d1d1f",
+          "sha256": "44709dfdd1647965d5c60871eb9e3b06756e60ae324eb81d5b8896c8feeca985",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
         }
       ],

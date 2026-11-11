@@ -4,6 +4,11 @@ on:
     paths:
       - '.github/workflows/official-syn-monitored-workers.yml'
       - 'scripts/qualify_released_syn_workers.py'
+      - 'scripts/qualify_released_syn_context.py'
+      - 'scripts/context_rpc_qualification_fixture.py'
+      - 'scripts/postgres_qualification_fixture.py'
+      - 'sandbox/clients/context_client.py'
+      - 'src/potbot/context/**'
       - 'scripts/worker_audit_fixture.py'
       - 'src/potbot/syn_release/**'
       - 'src/potbot/tools/released_syn_nodes.py'
@@ -16,13 +21,15 @@ permissions:
 
 jobs:
   official-monitored-worker:
-    name: Official worker (Syn ${{ matrix.version }})
+    name: Official worker (Syn ${{ matrix.version }}, ${{ matrix.route }})
     if: ${{ github.repository == 'kieransimkin/potbot' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
+        version: ['0.7.0', '0.8.0']
+        route: [typed-json, context-rpc]
         include:
           - version: '0.7.0'
             source: 'b6f28476ffb398e9fc75d41676ae906fe040c011'
@@ -37,6 +44,8 @@ jobs:
       R04_RELEASE_AUTHORITY: 'a47f15e010613c0a839a48f2035b8f71d6f9e46ee3df07ed58487079d56ae216'
       R04_PYTHON: '3.12'
       UV_MANAGED_PYTHON: 'true'
+      POTBOT_QUALIFICATION_ROUTE: ${{ matrix.route }}/v1
+      POTBOT_TEST_DSN: postgresql://potbot_test:potbot_test_only@127.0.0.1:55432/potbot_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -66,6 +75,10 @@ jobs:
           echo "R04_POTBOT_SHA=$(git -C consumer-agent rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "R04_HOST_PYTHON=$(uv python find --managed-python "$R04_PYTHON")" >> "$GITHUB_ENV"
           echo "R04_UV=$(command -v uv)" >> "$GITHUB_ENV"
+      - name: Start disposable PostgreSQL for the context route
+        if: matrix.route == 'context-rpc'
+        working-directory: consumer-agent
+        run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify the signed release and execute the monitored authorization probe
         env:
           POTBOT_SYN_GITHUB_TOKEN: ${{ github.token }}
@@ -82,11 +95,23 @@ jobs:
           path = Path("syn-fixture/artifacts/agent/private-pubsub.json")
           evidence = json.loads(path.read_text())["monitored_worker_authorization"]
           assert evidence["result"] == "passed"
-          assert evidence["route"] == "typed-json/v1"
-          assert evidence["audited_agents"] == 2
+          assert evidence["route"] == os.environ["POTBOT_QUALIFICATION_ROUTE"]
           assert evidence["native_peer_heartbeat_while_worker_live"] is True
-          assert evidence["missing_changed_task_cross_agent_and_replayed_grants_refused"] is True
-          assert evidence["workspace_leases_and_worker_cgroups_released"] is True
+          assert len(evidence["traced_process_counts"]) == 2
+          if evidence["route"] == "typed-json/v1":
+              assert evidence["audited_agents"] == 2
+              assert evidence["missing_changed_task_cross_agent_and_replayed_grants_refused"] is True
+              assert evidence["workspace_leases_and_worker_cgroups_released"] is True
+          else:
+              assert evidence["route"] == "context-rpc/v1"
+              assert evidence["audited_exit_codes"] == [0, 9]
+              for key in (
+                  "typed_json_grant_refused_before_dispatch",
+                  "postgresql_results_persisted_and_sessions_revoked",
+                  "clean_exit_released_lease",
+                  "failed_exit_kept_workspace_fenced",
+              ):
+                  assert evidence[key] is True
           assert evidence["consumer_sha"] == os.environ["R04_POTBOT_SHA"]
           assert evidence["release"] == {
               "version": os.environ["R04_VERSION"],
@@ -101,10 +126,14 @@ jobs:
       - name: Retain the official monitored worker receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: official-syn-worker-authorization-${{ matrix.version }}
+          name: official-syn-worker-authorization-${{ matrix.version }}-${{ matrix.route }}
           path: artifacts/official-syn-worker/summary.json
           if-no-files-found: error
           retention-days: 30
+      - name: Remove disposable PostgreSQL
+        if: always() && matrix.route == 'context-rpc'
+        working-directory: consumer-agent
+        run: docker compose down --volumes --remove-orphans --timeout 10
       - name: Record the routine CI completion assessment
         if: always()
         run: |

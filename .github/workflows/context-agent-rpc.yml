@@ -24,6 +24,8 @@ on:
       - 'tests/integration/test_context_skills.py'
       - 'tests/integration/test_context_lifecycle.py'
       - 'tests/integration/test_monitored_context_rpc.py'
+      - 'scripts/context_rpc_qualification_fixture.py'
+      - 'scripts/postgres_qualification_fixture.py'
       - 'tests/integration/test_worker_audit_linux.py'
       - '.github/workflows/context-agent-rpc.yml'
   pull_request:
