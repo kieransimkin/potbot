@@ -230,73 +230,21 @@ class SynContextRoute:
 
     def serve_connection(self, channel: socket.socket, *, operator_uid: int) -> None:
         """Handle one accepted connection on the installer's private service socket."""
-        if sys.platform != "linux" or channel.family != socket.AF_UNIX:
-            raise ScopeDeniedError("Syn Context service requires native Linux IPC")
-        credentials = channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
-        _, peer_uid, _ = struct.unpack("iII", credentials)
-        if type(operator_uid) is not int or peer_uid != operator_uid:
-            raise ScopeDeniedError("Context service peer is not the installed Syn operator")
-        deadline = time.monotonic() + 2
-
-        def set_timeout() -> None:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError("Syn Context service deadline elapsed")
-            channel.settimeout(remaining)
-
-        def read(count: int) -> bytes:
-            payload = bytearray()
-            while len(payload) < count:
-                set_timeout()
-                part = channel.recv(count - len(payload))
-                if not part:
-                    raise ScopeDeniedError("Truncated Syn Context service frame")
-                payload.extend(part)
-            return bytes(payload)
-
-        (length,) = struct.unpack("!I", read(4))
-        if not 1 <= length <= DOCUMENT_LIMIT:
-            raise ScopeDeniedError("Syn Context service header exceeds its bound")
-        header = document(read(length), canonical_only=True)
-        length = header.get("size")
-        if type(length) is not int or not 1 <= length <= MAX_FRAME_BYTES:
-            raise ScopeDeniedError("Syn Context payload exceeds its bound")
-        reply = self.accept(header, read(length))
-        metadata = canonical(
-            {
-                "profile": "syn.local-rpc-service-reply/1",
-                "request_id": header["request_id"],
-                "size": len(reply),
-            }
+        serve_rpc_connection(
+            channel, operator_uid=operator_uid, max_payload=MAX_FRAME_BYTES, accept=self.accept
         )
-        set_timeout()
-        channel.sendall(struct.pack("!I", len(metadata)) + metadata)
-        set_timeout()
-        channel.sendall(reply)
 
     def accept(self, header: Mapping[str, object], payload: bytes) -> bytes:
         """Accept a dispatch only after the endpoint checks the OS peer is Syn."""
-        if (
-            set(header) != _DISPATCH_FIELDS
-            or header["profile"] != _DISPATCH
-            or header["workspace_id"] != str(self.workspace_id)
-            or header["method"] != METHOD
-            or header["boot_id"] != self.operator_boot
-            or type(header["caller_uid"]) is not int
-            or header["caller_uid"] != self.caller_uid
-            or type(header["size"]) is not int
-            or type(payload) is not bytes
-            or header["size"] != len(payload)
-            or not 1 <= len(payload) <= MAX_FRAME_BYTES
-            or not isinstance(header["request_id"], str)
-        ):
-            raise ScopeDeniedError("Context dispatch differs from the installed Syn route")
-        try:
-            transport_id = UUID(header["request_id"])
-        except ValueError:
-            raise ScopeDeniedError("Invalid Syn dispatch ID") from None
-        if str(transport_id) != header["request_id"]:
-            raise ScopeDeniedError("Invalid Syn dispatch ID")
+        transport_id = dispatch_id(
+            header,
+            payload,
+            workspace_id=self.workspace_id,
+            method=METHOD,
+            operator_boot=self.operator_boot,
+            caller_uid=self.caller_uid,
+            max_payload=MAX_FRAME_BYTES,
+        )
         digest = hashlib.sha256(payload).digest()
         with self._condition:
             submission = self._collections.get(transport_id)
@@ -325,3 +273,89 @@ class SynContextRoute:
                 raise ScopeDeniedError("Syn dispatch has no matching live Context call")
             slot.request = payload
             return _ACCEPTED
+
+
+def serve_rpc_connection(
+    channel: socket.socket,
+    *,
+    operator_uid: int,
+    max_payload: int,
+    accept: Callable[[Mapping[str, object], bytes], bytes],
+) -> None:
+    if sys.platform != "linux" or channel.family != socket.AF_UNIX:
+        raise ScopeDeniedError("Syn RPC service requires native Linux IPC")
+    credentials = channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12)
+    _, peer_uid, _ = struct.unpack("iII", credentials)
+    if type(operator_uid) is not int or peer_uid != operator_uid:
+        raise ScopeDeniedError("RPC service peer is not the installed Syn operator")
+    deadline = time.monotonic() + 2
+
+    def set_timeout() -> None:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Syn RPC service deadline elapsed")
+        channel.settimeout(remaining)
+
+    def read(count: int) -> bytes:
+        payload = bytearray()
+        while len(payload) < count:
+            set_timeout()
+            part = channel.recv(count - len(payload))
+            if not part:
+                raise ScopeDeniedError("Truncated Syn RPC service frame")
+            payload.extend(part)
+        return bytes(payload)
+
+    (length,) = struct.unpack("!I", read(4))
+    if not 1 <= length <= DOCUMENT_LIMIT:
+        raise ScopeDeniedError("Syn RPC service header exceeds its bound")
+    header = document(read(length), canonical_only=True)
+    length = header.get("size")
+    if type(length) is not int or not 1 <= length <= max_payload:
+        raise ScopeDeniedError("Syn RPC payload exceeds its bound")
+    reply = accept(header, read(length))
+    metadata = canonical(
+        {
+            "profile": "syn.local-rpc-service-reply/1",
+            "request_id": header["request_id"],
+            "size": len(reply),
+        }
+    )
+    set_timeout()
+    channel.sendall(struct.pack("!I", len(metadata)) + metadata)
+    set_timeout()
+    channel.sendall(reply)
+
+
+def dispatch_id(
+    header: Mapping[str, object],
+    payload: bytes,
+    *,
+    workspace_id: UUID,
+    method: str,
+    operator_boot: str,
+    caller_uid: int,
+    max_payload: int,
+) -> UUID:
+    if (
+        set(header) != _DISPATCH_FIELDS
+        or header["profile"] != _DISPATCH
+        or header["workspace_id"] != str(workspace_id)
+        or header["method"] != method
+        or header["boot_id"] != operator_boot
+        or type(header["caller_uid"]) is not int
+        or header["caller_uid"] != caller_uid
+        or type(header["size"]) is not int
+        or type(payload) is not bytes
+        or header["size"] != len(payload)
+        or not 1 <= len(payload) <= max_payload
+        or not isinstance(header["request_id"], str)
+    ):
+        raise ScopeDeniedError("RPC dispatch differs from the installed Syn route")
+    try:
+        transport_id = UUID(header["request_id"])
+    except ValueError:
+        raise ScopeDeniedError("Invalid Syn dispatch ID") from None
+    if str(transport_id) != header["request_id"]:
+        raise ScopeDeniedError("Invalid Syn dispatch ID")
+    return transport_id
