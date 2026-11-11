@@ -41,7 +41,12 @@ def bounded_work(value: dict[str, Any]) -> dict[str, Any]:
 
 class ContextWorkExchange:
     def __init__(
-        self, input_envelope: dict[str, Any], output_type_ref: str, *, allow_mutations: bool = True
+        self,
+        input_envelope: dict[str, Any],
+        output_type_ref: str,
+        *,
+        allow_mutations: bool = True,
+        work_only: bool = False,
     ) -> None:
         if (
             not isinstance(output_type_ref, str)
@@ -49,9 +54,10 @@ class ContextWorkExchange:
             or len(output_type_ref) > 1024
         ):
             raise InvalidInputError("Work result requires its installed semantic port")
-        if type(allow_mutations) is not bool:
+        if type(allow_mutations) is not bool or type(work_only) is not bool:
             raise InvalidInputError("Invalid work mutation allowance")
         self.allow_mutations = allow_mutations
+        self.work_only = work_only
         self._input = bounded_work(input_envelope)
         if set(self._input) != {"schema_version", "operation_ref", "input", "invocation_id"}:
             raise InvalidInputError("Unexpected controller work envelope")
@@ -71,6 +77,8 @@ class ContextWorkExchange:
 
     def admit(self, request: OperationRequest) -> None:
         """A read-only installed operation cannot gain writes via its side protocol."""
+        if self.work_only and not isinstance(request, WorkRequest):
+            raise ScopeDeniedError("Installed work accepts only its typed input and result")
         mutates = (isinstance(request, ContextRequest) and request.method == "context.update") or (
             isinstance(request, SkillRequest) and request.mutates
         )

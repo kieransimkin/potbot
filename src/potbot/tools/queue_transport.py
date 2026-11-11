@@ -34,7 +34,7 @@ def schemas() -> dict[str, dict[str, Any]]:
 
 
 def install_queue_transport(
-    target_id: UUID, executable_sha256: str, policy: ExecutionPolicy
+    target_id: UUID, executable_sha256: str, policy: ExecutionPolicy, *, directed: bool = False
 ) -> SandboxedCogOperation:
     target = str(target_id)
     return SandboxedCogOperation(
@@ -47,20 +47,22 @@ def install_queue_transport(
             "idempotent_write",
             policy,
         ),
-        (EXECUTABLE, "apply", target),
+        (EXECUTABLE, "directed", "apply", target) if directed else (EXECUTABLE, "apply", target),
         executable_sha256,
+        protocol="context-rpc/v1" if directed else "typed-json/v1",
     )
 
 
 def queue_target(operation: SandboxedCogOperation) -> str:
-    if len(operation.argv) != 3:
+    directed = operation.protocol == "context-rpc/v1"
+    if len(operation.argv) != (4 if directed else 3):
         raise ScopeDeniedError("Queue requires an operator-pinned installation")
     try:
-        target = UUID(operation.argv[2])
+        target = UUID(operation.argv[-1])
     except ValueError as exc:
         raise ScopeDeniedError("Queue requires a pinned target identity") from exc
     if operation != install_queue_transport(
-        target, operation.executable_sha256, operation.binding.policy
+        target, operation.executable_sha256, operation.binding.policy, directed=directed
     ):
         raise ScopeDeniedError("Queue requires an operator-pinned installation")
     return str(target)
@@ -71,5 +73,5 @@ def resolution_worker(operation: SandboxedCogOperation) -> SandboxedCogOperation
     return replace(
         operation,
         binding=replace(operation.binding, operation_ref=operation_ref(target, "resolve")),
-        argv=(EXECUTABLE, "resolve", target),
+        argv=(*operation.argv[:-2], "resolve", target),
     )

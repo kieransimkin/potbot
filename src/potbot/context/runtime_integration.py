@@ -232,6 +232,7 @@ async def execute_context_operation(
     if binding is None:
         raise ScopeDeniedError("Context work requires the authenticated controller binding")
     binding.check(executor, actor)
+    directed_queue = getattr(op, "directed_queue", False) is True
     home = executor.homes.lookup(actor.workspace_id, agent_id)
     if home is None:
         raise ScopeDeniedError("Worker is not registered")
@@ -319,6 +320,7 @@ async def execute_context_operation(
                 envelope,
                 op.binding.output_type_ref,
                 allow_mutations=op.binding.effect_class != "read_only",
+                work_only=directed_queue,
             ),
         )
         result = await channel.serve(process)
@@ -368,7 +370,21 @@ async def execute_context_operation(
                 except BaseException:
                     pass
             if guard.lease is not None and not getattr(guard, "_finished", False):
-                if not stopped and getattr(process, "audit_failed", False):
+                if directed_queue and stopped:
+                    # The target's receipt remains authoritative. Release a
+                    # confirmed stopped worker so a new admitted resolver can
+                    # reconcile the same effect ID without reapplying it.
+                    try:
+                        await _settle(
+                            lambda: guard.finish(
+                                evidence_sha256=admission_digest(
+                                    "stopped-queue-effect-unknown:" + str(cog.invocation_id)
+                                )
+                            )
+                        )
+                    except Exception:
+                        guard.abandon()
+                elif not stopped and getattr(process, "audit_failed", False):
                     try:
                         await _settle(
                             lambda: guard.finish(

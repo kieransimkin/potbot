@@ -88,6 +88,16 @@ class SandboxedCogOperation:
         if self.binding.parent_event_id or self.binding.links:
             raise ScopeDeniedError("Cog cause belongs to an invocation, not the installation")
 
+    @property
+    def directed_queue(self) -> bool:
+        from potbot.tools.queue_transport_worker import EXECUTABLE, REQUEST
+
+        return (
+            self.protocol == "context-rpc/v1"
+            and self.argv[:2] == (EXECUTABLE, "directed")
+            and self.binding.input_type_ref == REQUEST
+        )
+
 
 def require_isolated_work(operations: tuple[object, ...]) -> None:
     """No arbitrary Python callbacks can be installed as executable work Cogs."""
@@ -412,6 +422,8 @@ class SandboxedCogExecutor:
             raise ScopeDeniedError("Cog worker requires trusted installed operation and agent")
         if source.type_ref != op.binding.input_type_ref:
             raise ScopeDeniedError("Cog work source differs from pinned typed port")
+        if op.directed_queue and getattr(self, "_syn_context_route", None) is None:
+            raise CapabilityUnavailableError("Directed queue work requires a verified Syn route")
         # Separate SYN node runtime instance for each admitted worker. The
         # operator-only mesh relays heartbeats within the workspace; it never
         # opens guest-to-guest sockets or grants a capability to the worker.
