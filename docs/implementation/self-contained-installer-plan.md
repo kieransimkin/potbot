@@ -1,8 +1,8 @@
 # Potbot self-contained installer mini-plan
 
-**Status:** Stock WSL host setup, controller recovery and the installed
-service's scoped accounting check are implemented. Signed kernel
-distribution and automatic launcher provisioning remain planned.
+**Status:** Stock WSL host setup, controller recovery, Linux scoped launcher
+provisioning and the installed service's accounting check are implemented.
+Signed kernel distribution and clean Windows installer acceptance remain planned.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -99,11 +99,11 @@ command supplies the actual observation.
 
 ## Start an installed scoped worker
 
-Install the Linux service with its operator manifest and
-`--scoped-worker-launcher` after the administrator has provisioned the
-launcher, the delegated cgroup and the pinned audit executables. Use
-`--no-start` to prepare configuration before those prerequisites are
-ready. The existing `potbot service start` command starts the installed
+Run the Linux administrator provisioning step below, then install the Linux
+service as the selected service user with its operator manifest and
+`--scoped-worker-launcher`. Use `--no-start` to prepare the user service
+before those prerequisites are ready. The existing
+`potbot service start` command starts the installed
 service, and the worker starts after the service proves it can register
 and cleanly stop the scoped TASKSTATS collector.
 
@@ -261,15 +261,43 @@ flowchart LR
     M -->|Collector lost| F[Fence workspace lease]
 ```
 
-The host administrator provisions `/run/potbot-scoped-worker.sock` using a
-systemd socket with `ListenSequentialPacket=`, `Accept=yes` and mode `0660`.
-Set the socket group to the installed service's dedicated primary group. The
-paired `potbot-scoped-worker@.service` takes `StandardInput=socket` and runs
-`python -I -m potbot.tools.scoped_launcher accept CGROUP_ROOT CGROUP_JOIN SERVICE_UID SERVICE_GID AUDITOR_UID`.
-Use an administrator-owned interpreter and installed package. Supply the
-same delegated cgroup root and pinned cgroup join helper to the installed
-worker monitor. The auditor account has a different UID. The socket and
-monitoring assets must be outside guest mounts.
+On Linux with systemd 254 or newer and cgroup v2, run the provisioning
+command from the administrator-owned Potbot installation:
+
+```sh
+sudo /opt/potbot/venv/bin/python -I -m potbot.tools.scoped_provision install \
+  --service-user potbot --auditor-user potbot-auditor \
+  --join /usr/local/libexec/potbot-cgroup-join --join-sha256 "$JOIN_SHA256" \
+  --strace /usr/bin/strace --strace-sha256 "$STRACE_SHA256"
+```
+
+Create dedicated unprivileged accounts first. The auditor's numeric primary
+group must equal its UID and differ from the service user's group. Use the
+SHA-256 pins approved for the chosen host binaries. Keep the interpreter,
+its package and both binaries in administrator-controlled storage outside
+guest mounts. The command does not download dependencies or alter WSL
+kernel settings. It accepts the same configuration on rerun and refuses
+conflicts instead of replacing existing units.
+
+```mermaid
+flowchart LR
+    I[Administrator runs provisioning] --> G[Dedicated cgroup with four controllers]
+    I --> S[Root-owned launcher socket]
+    I --> E[Read-only monitor settings]
+    G --> S
+    E --> U[Unprivileged Potbot user service]
+    S --> U
+    U --> P[Run live accounting check before worker startup]
+```
+
+The socket is enabled for boot and bound to the delegated cgroup service.
+Its permissions allow the service group to connect; the broker also checks
+the caller's UID and primary GID. The opted-in user unit loads the pins and
+paths from `/etc/potbot-scoped-worker/monitor.env` without importing any
+administrator credentials. Reinstall an existing user unit with
+`--scoped-worker-launcher --replace --no-start` to add this setting.
+Successful provisioning confirms the host wiring. The live accounting check
+still decides whether this kernel can start workers.
 
 The socket launcher passed a disposable WSL2 test using an unprivileged
 monitor, real strace and cgroup v2. All four traced tasks produced receipts.

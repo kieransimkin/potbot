@@ -157,7 +157,7 @@ def _service_command() -> list[str]:
     return [os.path.abspath(sys.executable), "-m", "potbot.startup", "service", "run"]
 
 
-def _systemd_unit() -> str:
+def _systemd_unit(*, scoped_worker_launcher: bool = False) -> str:
     def quote(arg: str) -> str:
         if "\n" in arg or "\r" in arg:
             raise InvalidInputError("Service executable path must fit on one unit-file line.")
@@ -169,12 +169,19 @@ def _systemd_unit() -> str:
         raise InvalidInputError("Project path cannot be represented in a systemd unit.")
     # WorkingDirectory takes a single path. Quotes would become part of that path.
     directory = directory.replace("%", "%%")
+    monitor_environment = ""
+    if scoped_worker_launcher:
+        from potbot.tools.scoped_provision import ENV_FILE
+
+        monitor_environment = f"EnvironmentFile=-{ENV_FILE}\n"
     return (
         "[Unit]\nDescription=Potbot API and hosted inference worker\n"
         "After=network-online.target\nWants=network-online.target\n\n"
         "[Service]\nType=simple\nWorkingDirectory="
         + directory
-        + "\nExecStart="
+        + "\n"
+        + monitor_environment
+        + "ExecStart="
         + command
         + "\nRestart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n"
         "NoNewPrivileges=true\n\n[Install]\nWantedBy=default.target\n"
@@ -198,12 +205,14 @@ def _managed(command: list[str]) -> None:
         raise InvalidInputError("The native service manager is unavailable.") from None
 
 
-def install_manager() -> None:
+def install_manager(*, scoped_worker_launcher: bool = False) -> None:
     manager = _manager()
     if manager == "systemd_user":
         unit = Path.home() / ".config" / "systemd" / "user" / UNIT_NAME
         unit.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        unit.write_text(_systemd_unit(), encoding="utf-8")
+        unit.write_text(
+            _systemd_unit(scoped_worker_launcher=scoped_worker_launcher), encoding="utf-8"
+        )
         _managed(["systemctl", "--user", "daemon-reload"])
         _managed(["systemctl", "--user", "enable", UNIT_NAME])
     elif manager == "launchd":
@@ -358,7 +367,7 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
         )
     created, key = _token_store()
     _atomic_configuration(config)
-    install_manager()
+    install_manager(scoped_worker_launcher=config.scoped_worker_launcher)
     if not args.no_start:
         manager_action("start")
     # Only display the new token once, to the installing user's terminal, never

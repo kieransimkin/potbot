@@ -1589,7 +1589,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "6e202812f9b9084f5618dd25b74b01b591c35d740f96151b918cfb7d78a6265f",
+          "sha256": "0e54f04244e8f8a284c2c330e2fbd38fd889a6e56fab08f5695b1d3f27f52d33",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -68271,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "43977b9b33901c3d3ed073a8d17a72757d2d0567e32e506516d519e067755ac9",
+      "sha256": "caf1980f6a4f40948771cbdc4df8eb65dbe96bafe2431b345b31391fb6d9b4b0",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and the installed service admission check for live scoped accounting. Clean Windows reboot acceptance, automatic launcher provisioning and signed kernel distribution remain separate.",
+      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and automated scoped launcher provisioning and the installed service accounting check. Clean Windows reboot acceptance and signed kernel distribution remain separate.",
       "narrative": [
         {
           "locator": "line:1-52",
-          "sha256": "db6f6f5b3deca5823f4a88a48c1c24220a955d0ef93bd7fe5cfe7cc4fd112d8e",
+          "sha256": "9ca784951f5625f08a490b14d094e810a6b1728ef2e6f7c19d5a7cefdb656164",
           "families": [
             "accounting",
             "sandbox",
@@ -68299,8 +68299,8 @@
           ]
         },
         {
-          "locator": "line:100-369",
-          "sha256": "83c11eb7d3532b5fe31d193e209aa85680c91098c8ecce77e7d48d2a62ce6065",
+          "locator": "line:100-397",
+          "sha256": "65d3d9c6f894cf080ba5567a282f8f1542b25890fbd68e1f87dad4a3b80344d6",
           "families": [
             "accounting",
             "sandbox",
