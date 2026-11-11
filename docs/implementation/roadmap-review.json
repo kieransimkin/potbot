@@ -1589,7 +1589,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "ba142f8f6a9286d8d6f595fd4820b8969796a7dd52b3f510f7b2afd18f944545",
+          "sha256": "d3ce7108b935d72c1d86a904a0550ebdddc285891609b406d96d18237d028f2c",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],

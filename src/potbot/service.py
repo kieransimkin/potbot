@@ -282,7 +282,7 @@ def remove_manager() -> None:
 
 def _token_store() -> tuple[bool, str | None]:
     # Refuse plaintext fallback on a headless machine with no native vault.
-    store = CredentialStore()
+    store = CredentialStore(credential_profile())
     existing = store.get("api.access_token")
     if existing:
         return False, None
