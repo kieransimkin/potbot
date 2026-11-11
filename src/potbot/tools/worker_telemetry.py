@@ -469,6 +469,26 @@ class WorkerMonitorConfig:
         )
 
 
+def qualify_scoped_worker(endpoint: Path) -> None:
+    """Check the installed worker's accounting prerequisites without launching work."""
+    config = WorkerMonitorConfig.from_environment()
+    worker_id = uuid4()
+    leaf = config.cgroup_root / worker_id.hex
+    leaf.mkdir(mode=0o755)
+    try:
+        _cgroup_usage(leaf)
+        launch = ScopedWorkerLaunch(endpoint, worker_id, probe=True)
+        try:
+            launch.confirm_probe(leaf, config.cgroup_join_sha256)
+        finally:
+            try:
+                launch.collector.close()
+            finally:
+                launch.close()
+    finally:
+        leaf.rmdir()
+
+
 def _seal_worker_trace(path: Path) -> int:
     # strace inherits the operator umask. The receipt verifier requires private
     # files, so restrict completed traces without changing the guest umask.

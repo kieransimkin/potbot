@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
-      "bytes": 10844,
+      "sha256": "4293136ad66268e253914d9252c7f6ff8f4eb37d6dad18ffe784e413377f3ef4",
+      "bytes": 11485,
       "kind": "narrative_text",
-      "text_sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
-      "characters": 10841,
-      "lines": 224,
+      "text_sha256": "4293136ad66268e253914d9252c7f6ff8f4eb37d6dad18ffe784e413377f3ef4",
+      "characters": 11482,
+      "lines": 235,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "df5ce376c5e5fdb814525dd8b9709ae1ae27f70039e430318c5e0553a33c9fc6",
-      "bytes": 20374,
+      "sha256": "43977b9b33901c3d3ed073a8d17a72757d2d0567e32e506516d519e067755ac9",
+      "bytes": 21998,
       "kind": "narrative_text",
-      "text_sha256": "df5ce376c5e5fdb814525dd8b9709ae1ae27f70039e430318c5e0553a33c9fc6",
-      "characters": 20356,
-      "lines": 337,
+      "text_sha256": "43977b9b33901c3d3ed073a8d17a72757d2d0567e32e506516d519e067755ac9",
+      "characters": 21980,
+      "lines": 369,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35408,12 +35408,12 @@
     },
     {
       "path": "src/potbot/tools/worker_telemetry.py",
-      "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
-      "bytes": 47900,
+      "sha256": "41648a7f2031ccd50a8d4e6dea70778d237ab85a943b3ab5e42183dc9eb49183",
+      "bytes": 48536,
       "kind": "narrative_text",
-      "text_sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
-      "characters": 47898,
-      "lines": 1127,
+      "text_sha256": "41648a7f2031ccd50a8d4e6dea70778d237ab85a943b3ab5e42183dc9eb49183",
+      "characters": 48534,
+      "lines": 1147,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "500ea06e6b45bdc13ff2a72ecad82b0e48984226158f880af90642b4bef35eb0",
+  "review_sha256": "f3956b1311c73485dac058c570706cf755add9d21135d9a9f818fbf338824c7e",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112499,7 +112499,16 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:38-67",
+      "locator": "line:38-48",
+      "sha256": "b3f014c2f5e951753bca617e35a4aa384ecb21a79fc843db5a6128419ae9cd43",
+      "excerpt": "## Installed service startup\n\nAn installed service configured with `--scoped-worker-launcher` runs a\nfresh collector probe before starting or restarting its wor",
+      "review_families": [
+        "accounting"
+      ]
+    },
+    {
+      "source": "docs/implementation/38-operator-worker-qualification.md",
+      "locator": "line:49-78",
       "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
       "excerpt": "## U03-Q completion evidence\n\nThe worker tracer keeps the terminal line for each task. A process tree is\ncomplete only when each task has one unambiguous termin",
       "review_families": [
@@ -112508,7 +112517,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:68-108",
+      "locator": "line:79-119",
       "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
       "review_families": [
@@ -112517,7 +112526,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:109-126",
+      "locator": "line:120-137",
       "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
       "excerpt": "### Timeout while a second workspace is active\n\nThe concurrent Linux case starts two registered Cogs in separate disposable\nworkspaces. Both reach a live detach",
       "review_families": [
@@ -112526,7 +112535,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:127-142",
+      "locator": "line:138-153",
       "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
       "excerpt": "### Concurrent work across lease renewal\n\nThe Linux renewal case holds two registered Cogs in separate workspaces until\nboth ledgers record a later lease expiry",
       "review_families": [
@@ -112535,7 +112544,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:143-167",
+      "locator": "line:154-178",
       "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
@@ -112544,7 +112553,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:168-194",
+      "locator": "line:179-205",
       "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
       "review_families": [
@@ -112553,7 +112562,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:195-224",
+      "locator": "line:206-235",
       "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
       "excerpt": "### Context RPC with official Syn authorization\n\nBoth pinned releases exercise the shipped context client and the real\nPostgreSQL session store. A grant for typ",
       "review_families": [
@@ -115771,9 +115780,9 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:1-51",
-      "sha256": "d1aea9b81916ec9bbbc00d4876f000ca32b6ed4bf7e4965d71fd752df19ad63b",
-      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup and controller recovery are implemented.\nAutomated worker activation and signed ke",
+      "locator": "line:1-52",
+      "sha256": "db6f6f5b3deca5823f4a88a48c1c24220a955d0ef93bd7fe5cfe7cc4fd112d8e",
+      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup, controller recovery and the installed\nservice's scoped accounting check are imple",
       "review_families": [
         "accounting",
         "sandbox",
@@ -115782,9 +115791,20 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:52-337",
-      "sha256": "c24961c8aadf188fa9f15974fdbe506402956eb6870260dad96609aa2542896a",
+      "locator": "line:53-99",
+      "sha256": "53e76397511c9d77eadc9cf2ed33a322935687a83b9c57b1bfd1a387f965f0f4",
       "excerpt": "## Resume stock WSL setup\n\nUse the same command for a first install, a retry after Windows asks for a\nreboot, and selection of another reviewed controller wheel",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:100-369",
+      "sha256": "83c11eb7d3532b5fe31d193e209aa85680c91098c8ecce77e7d48d2a62ce6065",
+      "excerpt": "## Start an installed scoped worker\n\nInstall the Linux service with its operator manifest and\n`--scoped-worker-launcher` after the administrator has provisioned",
       "review_families": [
         "accounting",
         "sandbox",
@@ -121491,7 +121511,7 @@
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
+          "sha256": "41648a7f2031ccd50a8d4e6dea70778d237ab85a943b3ab5e42183dc9eb49183",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -122849,7 +122869,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "d3ce7108b935d72c1d86a904a0550ebdddc285891609b406d96d18237d028f2c",
+          "sha256": "6e202812f9b9084f5618dd25b74b01b591c35d740f96151b918cfb7d78a6265f",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
