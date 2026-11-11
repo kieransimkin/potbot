@@ -35,9 +35,45 @@ PostgreSQL reconciliation. A failed transport faults that invocation. Potbot
 does not execute locally or resend on an uncertain outcome. Teardown waits
 for any accepted operation to settle before revoking its Context session.
 
-The installer does not select the route yet. Before cutover, pin a signed Syn
-release that advertises directed local RPC, provision the private service
-socket and operator-side client identity, and run the installed worker through
-the route. Test two Agents, loss before and after commit, and collector-loss
-lease fencing. The historical direct stdio fixture remains available for
-its existing acceptance checks until the installed route passes.
+## Enable the installed route
+
+Install a signed Syn runtime through the normal release store. The operator
+policy must require `syn.operator-local-rpc/1` and pin the exact release and
+manifest. Run both user services under the same unprivileged Linux account.
+Sandboxed Cogs continue to use their assigned Agent accounts.
+
+Run these commands in the native Linux host or managed WSL distribution,
+with the existing operator root and release policy.
+
+```bash
+potbot syn-operator configure-context-route --workspace-id "$WORKSPACE_ID" \
+  --store "$SYN_STORE" --policy "$SYN_POLICY" --operator-root "$SYN_OPERATOR_ROOT"
+potbot syn-operator install-service --context-rpc \
+  --store "$SYN_STORE" --policy "$SYN_POLICY" --operator-root "$SYN_OPERATOR_ROOT"
+```
+
+The foreground `syn-operator serve` command also takes `--context-rpc`.
+For an existing managed Linux unit, the installer adds the route flag and
+restarts the service. It restores the previous unit if the service manager
+rejects the restart. A customized unit requires a separate update. The
+operator registration and identity are reused.
+
+Select `potbot.hosted-native-cog/2` in the administrator-owned native Cog
+profile passed to `potbot service install --native-cog-config`. Retain the
+existing fields and add this `context_rpc` object. Use the SHA-256 of the
+exact private Syn operator policy file.
+
+```json
+{
+  "store": "/private/syn/packages",
+  "operator_root": "/private/syn/operator",
+  "policy": "/private/syn/operator-policy.json",
+  "policy_sha256": "<64 lowercase hex digits>"
+}
+```
+
+The trusted hosted worker checks the live signed operator boot and the
+supervisor's route digest before listening on the private service socket.
+The original profile `potbot.hosted-native-cog/1` still selects the historical
+stdio fixture. Qualification of profile 2 requires two installed Agents,
+reply loss before and after commit, and lease fencing after collector loss.

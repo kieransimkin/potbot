@@ -8,12 +8,13 @@ import os
 import stat
 import threading
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
+from potbot.context.installed_syn_route import installed_context_route
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
     IndeterminateExecutionError,
@@ -47,8 +48,12 @@ def read_profile(path: Path) -> tuple[dict[str, Any], str]:
         raise ScopeDeniedError("Native Cog job profile must be administrator-owned.")
     with path.open("rb") as reader:
         data = reader.read(DOCUMENT_LIMIT + 1)
+    raw = document(data)
+    version = raw.get("profile")
+    if version not in ("potbot.hosted-native-cog/1", "potbot.hosted-native-cog/2"):
+        raise ScopeDeniedError("Unknown native Cog job profile.")
     profile = fields(
-        document(data),
+        raw,
         {
             "profile",
             "workspace_id",
@@ -62,10 +67,11 @@ def read_profile(path: Path) -> tuple[dict[str, Any], str]:
             "operations",
             "image_digest",
             "qualification_sha256",
-        },
+        }
+        | ({"context_rpc"} if version == "potbot.hosted-native-cog/2" else set()),
     )
-    if profile["profile"] != "potbot.hosted-native-cog/1":
-        raise ScopeDeniedError("Unknown native Cog job profile.")
+    if version == "potbot.hosted-native-cog/2":
+        fields(profile["context_rpc"], {"store", "operator_root", "policy", "policy_sha256"})
     return profile, hashlib.sha256(data).hexdigest()
 
 
@@ -231,7 +237,7 @@ def configured_native_cogs(
                         fingerprint,
                         paths.qualification_sha256,
                         digest(op["repository_digest"]),
-                        "hosted-native-cog/1",
+                        profile["profile"].removeprefix("potbot."),
                         max_wall_ms=op["max_wall_ms"],
                     ),
                 ),
@@ -260,9 +266,31 @@ def configured_native_cogs(
     )
     try:
         workers = ReleasedSynWorkerNodeMesh(transport)
-        with workers.running():
+        route_context = (
+            installed_context_route(
+                profile["context_rpc"],
+                actor.workspace_id,
+                protected_mounts=tuple(
+                    path.resolve(strict=True)
+                    for path in (
+                        runtime.rootfs,
+                        runtime.home,
+                        runtime.model_staging,
+                        runtime.shared_models,
+                        runtime.shared_tools,
+                        runtime.shared_skills,
+                        runtime.ai_config_dir,
+                        runtime.ai_history_dir,
+                    )
+                    if path is not None
+                ),
+            )
+            if profile["profile"] == "potbot.hosted-native-cog/2"
+            else nullcontext(None)
+        )
+        with route_context as route, workers.running():
             executor = SandboxedCogExecutor(
-                runtime, ledger, homes, ProcessSupervisor(backend), workers
+                runtime, ledger, homes, ProcessSupervisor(backend), workers, syn_context_route=route
             )
             executor.bind_context(db, actor, tuple(operations))
             yield NativeCogDispatcher(executor, tuple(operations), agents, fingerprint)

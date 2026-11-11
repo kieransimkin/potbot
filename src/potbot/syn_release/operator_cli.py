@@ -10,6 +10,7 @@ import sys
 import threading
 from collections.abc import Sequence
 from pathlib import Path
+from uuid import UUID
 
 from potbot.domain.errors import DomainError
 
@@ -50,11 +51,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="replace an interrupted controller selection with the supplied reviewed wheel and digest",
     )
     commands.add_parser("host-status", help="Report managed WSL host and worker prerequisites")
-    for name in ("unlock", "bootstrap", "attach", "serve", "install-service", "switch-release"):
+    for name in (
+        "unlock",
+        "bootstrap",
+        "attach",
+        "serve",
+        "install-service",
+        "switch-release",
+        "configure-context-route",
+    ):
         sub = commands.add_parser(name)
         sub.add_argument("--store", type=Path, required=True)
         sub.add_argument("--policy", type=Path, required=True)
         sub.add_argument("--operator-root", type=Path, required=True)
+        if name in {"serve", "install-service"}:
+            sub.add_argument("--context-rpc", action="store_true")
+        if name == "configure-context-route":
+            sub.add_argument("--workspace-id", type=UUID, required=True)
         if name == "switch-release":
             sub.add_argument("--target-policy", type=Path, required=True)
         if name == "bootstrap":
@@ -116,7 +129,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.operation == "install-service":
                 from .system_service import install_service
 
-                value = install_service(deployment, args.policy)
+                value = install_service(deployment, args.policy, context_rpc=args.context_rpc)
+            elif args.operation == "configure-context-route":
+                from potbot.context.installed_syn_route import provision_context_route
+
+                path = provision_context_route(deployment, args.workspace_id)
+                value = {"workspace_id": str(args.workspace_id), "route": str(path)}
             elif args.operation == "bootstrap":
                 value = deployment.bootstrap(
                     new_identity=args.new_identity,
@@ -134,7 +152,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 stopped = threading.Event()
                 for sig in (signal.SIGINT, signal.SIGTERM):
                     signal.signal(sig, lambda *_: stopped.set())
-                deployment.supervise(stop=stopped.is_set)
+                deployment.supervise(stop=stopped.is_set, context_rpc=args.context_rpc)
                 return 0
         print(json.dumps(value, sort_keys=True))
         return 0
