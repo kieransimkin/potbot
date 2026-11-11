@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "fd43d655cbef74105769feb381ef07c5bc5cc18211691690c7ad3306bdf387cc",
+  "review_sha256": "e3b7502b3227df133cf9922fd3fb6ca02ade7639a649d22d7330350e3c346d3f",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -121932,7 +121932,7 @@
         {
           "path": "src/potbot/tools/inventory.py",
           "symbol": "build_inventory",
-          "sha256": "4a3ec4e4150bcb917809ad83522276d288a727de7dba74457f908325452c7d23",
+          "sha256": "f464b00735a65506fe8645158bfe57431e72393d8c49095de34d3dec3189c411",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],

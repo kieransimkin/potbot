@@ -45,6 +45,7 @@ ROOT_OWNERS = {
     "startup.py": "entrypoints",
     "service.py": "entrypoints",
     "dependencies.py": "entrypoints",
+    "wsl_kernel.py": "entrypoints",
     "credentials.py": "credentials",
     "service_credentials.py": "credentials",
     "workspace_sandbox.py": "workspace",

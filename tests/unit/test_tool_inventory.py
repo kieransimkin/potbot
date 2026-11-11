@@ -86,7 +86,8 @@ def runtime(snapshot, *, admit=lambda *_: None, events=None, loader=None):
 
 
 def test_inventory_is_deterministic_complete_and_source_only():
-    snapshot = fixture_snapshot()
+    verifier = "src/potbot/wsl_kernel.py"
+    snapshot = fixture_snapshot(extra={verifier: b"# WSL installer verification\n"})
     first = build_inventory(snapshot)
     assert first == build_inventory(snapshot)
     assert first["inventory_sha256"] == content_hash(
@@ -97,6 +98,8 @@ def test_inventory_is_deterministic_complete_and_source_only():
     )
     assert all(x["state"] == "unqualified" and not x["enabled"] for x in first["specialist_routes"])
     assert "synthetic source fixture" not in json.dumps(first)
+    entrypoints = next(item for item in first["components"] if item["id"] == "entrypoints")
+    assert verifier in {item["path"] for item in entrypoints["source_files"]}
     assert (
         sum(len(x["source_files"]) for x in first["components"])
         == len(snapshot.manifest["files"]) - 2
