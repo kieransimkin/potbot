@@ -231,7 +231,7 @@
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
+          "sha256": "41648a7f2031ccd50a8d4e6dea70778d237ab85a943b3ab5e42183dc9eb49183",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -1589,7 +1589,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "d3ce7108b935d72c1d86a904a0550ebdddc285891609b406d96d18237d028f2c",
+          "sha256": "6e202812f9b9084f5618dd25b74b01b591c35d740f96151b918cfb7d78a6265f",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -64848,12 +64848,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
+      "sha256": "4293136ad66268e253914d9252c7f6ff8f4eb37d6dad18ffe784e413377f3ef4",
       "families": [
         "accounting"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Descendant/file-access and per-task exit/cgroup accounting have source implementations. The local host has not passed the complete TASKSTATS/loss/delegation gate; heartbeat readiness is independent.",
+      "assessment": "Describes worker admission, production qualification and the separate installed service check for live scoped accounting before worker start and restart.",
       "narrative": [
         {
           "locator": "line:1-37",
@@ -64863,49 +64863,56 @@
           ]
         },
         {
-          "locator": "line:38-67",
+          "locator": "line:38-48",
+          "sha256": "b3f014c2f5e951753bca617e35a4aa384ecb21a79fc843db5a6128419ae9cd43",
+          "families": [
+            "accounting"
+          ]
+        },
+        {
+          "locator": "line:49-78",
           "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:68-108",
+          "locator": "line:79-119",
           "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:109-126",
+          "locator": "line:120-137",
           "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:127-142",
+          "locator": "line:138-153",
           "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:143-167",
+          "locator": "line:154-178",
           "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:168-194",
+          "locator": "line:179-205",
           "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:195-224",
+          "locator": "line:206-235",
           "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
           "families": [
             "accounting"
@@ -68264,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "df5ce376c5e5fdb814525dd8b9709ae1ae27f70039e430318c5e0553a33c9fc6",
+      "sha256": "43977b9b33901c3d3ed073a8d17a72757d2d0567e32e506516d519e067755ac9",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records the verified SYN-R07 cutover and the stock WSL registration, controller recovery and kernel prerequisite reporting increment. Clean Windows reboot acceptance, installer worker activation and signed kernel distribution remain separate gates.",
+      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and the installed service admission check for live scoped accounting. Clean Windows reboot acceptance, automatic launcher provisioning and signed kernel distribution remain separate.",
       "narrative": [
         {
-          "locator": "line:1-51",
-          "sha256": "d1aea9b81916ec9bbbc00d4876f000ca32b6ed4bf7e4965d71fd752df19ad63b",
+          "locator": "line:1-52",
+          "sha256": "db6f6f5b3deca5823f4a88a48c1c24220a955d0ef93bd7fe5cfe7cc4fd112d8e",
           "families": [
             "accounting",
             "sandbox",
@@ -68283,8 +68290,17 @@
           ]
         },
         {
-          "locator": "line:52-337",
-          "sha256": "c24961c8aadf188fa9f15974fdbe506402956eb6870260dad96609aa2542896a",
+          "locator": "line:53-99",
+          "sha256": "53e76397511c9d77eadc9cf2ed33a322935687a83b9c57b1bfd1a387f965f0f4",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:100-369",
+          "sha256": "83c11eb7d3532b5fe31d193e209aa85680c91098c8ecce77e7d48d2a62ce6065",
           "families": [
             "accounting",
             "sandbox",

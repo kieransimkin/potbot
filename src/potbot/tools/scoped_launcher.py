@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import select
@@ -76,7 +77,7 @@ def check_endpoint(path: Path) -> None:
 class ScopedWorkerLaunch:
     """Allocate a per-run auditor and carry the sandbox launch over its control socket."""
 
-    def __init__(self, endpoint: Path, worker_id: UUID) -> None:
+    def __init__(self, endpoint: Path, worker_id: UUID, *, probe: bool = False) -> None:
         check_endpoint(endpoint)
         self.channel = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
         try:
@@ -84,7 +85,10 @@ class ScopedWorkerLaunch:
             self.channel.connect(str(endpoint))
             if _peer(self.channel)[1] != 0:
                 raise CapabilityUnavailableError("Scoped worker launcher has an untrusted owner")
-            _send(self.channel, {"worker_id": str(worker_id)})
+            request: dict[str, Any] = {"worker_id": str(worker_id)}
+            if probe:
+                request["probe"] = True
+            _send(self.channel, request)
             with ExitStack() as resources:
                 response, fds = _receive(self.channel, resources, 1)
                 if set(response) != {"pid_namespace"} or len(fds) != 1:
@@ -117,6 +121,22 @@ class ScopedWorkerLaunch:
 
     def close(self) -> None:
         self.channel.close()
+
+    def confirm_probe(self, cgroup: Path, join_sha256: str) -> None:
+        self.collector.open(cgroup)
+        if not self.collector.healthy:
+            raise CapabilityUnavailableError("Scoped TASKSTATS probe did not stay live")
+        self.collector.close()
+        try:
+            _send(self.channel, {"probe": "complete"})
+            with ExitStack() as resources:
+                response, _ = _receive(self.channel, resources)
+            if response != {"probe": "complete", "join_sha256": join_sha256}:
+                raise CapabilityUnavailableError("Scoped worker probe did not verify its helper")
+        except (OSError, ValueError) as exc:
+            raise CapabilityUnavailableError(
+                "Scoped worker probe could not confirm shutdown"
+            ) from exc
 
 
 def _proxy(fd: int, targets: list[int], argv: list[str]) -> int:
@@ -202,6 +222,8 @@ def _scope(
     auditor_uid: int,
     join: Path,
     parent_namespaces: tuple[str, str],
+    *,
+    probe: bool = False,
 ) -> None:
     if os.getpid() != 1 or os.geteuid() != 0:
         raise CapabilityUnavailableError("Scoped launcher requires a private PID namespace")
@@ -247,6 +269,20 @@ def _scope(
             _send(channel, {"pid_namespace": os.readlink("/proc/self/ns/pid")}, (first.fileno(),))
             first.close()
             channel.settimeout(12)
+            if probe:
+                request, _ = _receive(channel, resources)
+                if (
+                    request != {"probe": "complete"}
+                    or auditor.wait(timeout=5) != 0
+                    or _cgroup_identity(leaf) != identity
+                ):
+                    raise CapabilityUnavailableError(
+                        "Scoped worker probe did not shut down cleanly"
+                    )
+                with join.open("rb") as helper:
+                    helper_digest = hashlib.file_digest(helper, "sha256").hexdigest()
+                _send(channel, {"probe": "complete", "join_sha256": helper_digest})
+                return
             with ExitStack() as descriptors:
                 request, fds = _receive(channel, descriptors, _MAX_FDS + 3)
                 _validate_worker(request, fds)
@@ -327,7 +363,8 @@ def _accept(root: Path, join: Path, uid: int, gid: int, auditor_uid: int) -> int
             raise CapabilityUnavailableError("Scoped worker launch peer is not the configured user")
         channel.settimeout(5)
         request, _ = _receive(channel, resources)
-        if set(request) != {"worker_id"}:
+        probe = set(request) == {"worker_id", "probe"} and request["probe"] is True
+        if not probe and set(request) != {"worker_id"}:
             raise CapabilityUnavailableError("Invalid scoped worker allocation")
         worker_id = UUID(request["worker_id"])
         leaf = root / worker_id.hex
@@ -354,6 +391,7 @@ def _accept(root: Path, join: Path, uid: int, gid: int, auditor_uid: int) -> int
                 str(join),
                 os.readlink("/proc/self/ns/pid"),
                 os.readlink("/proc/self/ns/net"),
+                *(["probe"] if probe else []),
             ],
             cwd="/",
             env=_SAFE_ENV,
@@ -369,7 +407,10 @@ def main() -> int:
                 return _proxy(int(fd), [int(x) for x in raw_fds.split(",") if x], argv)
             case ["exec", fd, *received]:
                 _worker_exec(int(fd), [int(x) for x in received])
-            case ["scope", fd, leaf, uid, gid, auditor, join, pid_ns, net_ns]:
+            case ["scope", fd, leaf, uid, gid, auditor, join, pid_ns, net_ns, *mode] if mode in (
+                [],
+                ["probe"],
+            ):
                 with socket.socket(fileno=int(fd)) as channel:
                     _scope(
                         channel,
@@ -379,6 +420,7 @@ def main() -> int:
                         int(auditor),
                         Path(join),
                         (pid_ns, net_ns),
+                        probe=bool(mode),
                     )
                 return 0
             case ["audit", fd, leaf, pid_ns, net_ns]:

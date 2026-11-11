@@ -35,6 +35,17 @@ exit is a prerequisite, **not** proof of comprehensive forensic completeness:
 a separate release assessment must still verify syscall loss detection,
 namespace escape tests, full Cog-route enumeration, and operation under stress.
 
+## Installed service startup
+
+An installed service configured with `--scoped-worker-launcher` runs a
+fresh collector probe before starting or restarting its worker. The
+probe uses the service UID, the scoped launcher's private namespaces and
+an empty delegated cgroup. It requires a live TASKSTATS registration,
+acknowledged shutdown, and the expected join-helper digest. A failed
+probe holds worker startup until the service is restarted. This check
+runs without submitting a job. The full image, Cog route and loss
+qualification above still applies. [Installer sequence](self-contained-installer-plan.md#start-an-installed-scoped-worker)
+
 ## U03-Q completion evidence
 
 The worker tracer keeps the terminal line for each task. A process tree is

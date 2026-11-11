@@ -1,7 +1,8 @@
 # Potbot self-contained installer mini-plan
 
-**Status:** Stock WSL host setup and controller recovery are implemented.
-Automated worker activation and signed kernel distribution remain planned.
+**Status:** Stock WSL host setup, controller recovery and the installed
+service's scoped accounting check are implemented. Signed kernel
+distribution and automatic launcher provisioning remain planned.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -95,6 +96,37 @@ configuration. The diagram shows the sequence and the headless status
 command supplies the actual observation.
 
 [Microsoft WSL installation and reboot behaviour](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+## Start an installed scoped worker
+
+Install the Linux service with its operator manifest and
+`--scoped-worker-launcher` after the administrator has provisioned the
+launcher, the delegated cgroup and the pinned audit executables. Use
+`--no-start` to prepare configuration before those prerequisites are
+ready. The existing `potbot service start` command starts the installed
+service, and the worker starts after the service proves it can register
+and cleanly stop the scoped TASKSTATS collector.
+
+~~~mermaid
+flowchart LR
+    S[Start the installed service] --> A[Attach the operator and start the API]
+    A --> Q[Check the delegated cgroup and scoped collector]
+    Q -->|Registration and shutdown confirmed| W[Start the worker]
+    Q -->|Check fails| B[Keep the worker blocked and log the failure]
+    W -->|Worker exits| Q
+~~~
+
+The check runs under the installed service identity. It uses a fresh
+empty cgroup, confirms the broker's join-helper digest, and removes the
+probe cgroup. A failure logs `service.worker_blocked` and keeps the worker
+blocked until the service is restarted. The operator and API remain
+available while their own checks pass. Use `potbot service logs` to
+inspect the result. The service repeats the check before restarting a
+worker, and each Cog still needs the full per-run audit and authority.
+
+The headless probe exercises accounting registration and cleanup. The
+[live worker qualification](38-operator-worker-qualification.md) separately
+covers the selected image, executable route, and real task exit evidence.
 
 The first custom Microsoft WSL kernel booted with TASKSTATS enabled and
 matching modules. Potbot’s live subscription still
@@ -332,6 +364,6 @@ transitional runtime in PR #46. PR #43 added the official Syn 0.7.0 and
 Complete installer acceptance on a clean Windows host. Exercise WSL
 feature installation, a reboot and resume, and an operator upgrade that
 retains identity and enrollment. Verify that unsupported accounting leaves
-Syn usable and blocks local worker admission. Qualify worker activation
-through the installer on a supported host and test kernel rollback if the
-optional bundle is introduced.
+Syn usable and blocks local worker admission. Qualify the installed worker
+with its signed image and pinned Syn release on the deployment host.
+Test kernel rollback if the optional bundle is introduced.

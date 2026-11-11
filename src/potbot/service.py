@@ -434,21 +434,22 @@ def _supervise(config: ServiceConfig) -> int:
     env["POTBOT_LOG_FILE"] = str(home / "worker.jsonl")
     env["POTBOT_LOG_CONTENT"] = "1" if config.log_content else "0"
     operator_attachment = None
+    scoped_endpoint: Path | None = None
     if config.operator_manifest is not None:
         from potbot.tools.operator_attachment_s13 import (
             OperatorAttachmentClient,
             mount_fingerprint,
         )
         from potbot.tools.operator_cli import parse_manifest
-        from potbot.tools.scoped_launcher import DEFAULT_SOCKET, check_endpoint
+        from potbot.tools.scoped_launcher import DEFAULT_SOCKET
 
         paths = parse_manifest(Path(config.operator_manifest))
         if str(paths.workspace_id) != config.workspace_id:
             raise InvalidInputError("Operator manifest workspace differs from service scope")
         socket_path = home / "operator.sock"
         if config.scoped_worker_launcher:
-            check_endpoint(DEFAULT_SOCKET)
-            env["POTBOT_OPERATOR_SCOPED_LAUNCHER"] = str(DEFAULT_SOCKET)
+            scoped_endpoint = DEFAULT_SOCKET
+            env["POTBOT_OPERATOR_SCOPED_LAUNCHER"] = str(scoped_endpoint)
         if config.native_cog_config is not None:
             env["POTBOT_NATIVE_COG_CONFIG"] = config.native_cog_config
             env["POTBOT_OPERATOR_MANIFEST"] = config.operator_manifest
@@ -505,6 +506,7 @@ def _supervise(config: ServiceConfig) -> int:
         for line in process.stdout:
             events.emit("service.console", source=name, line=line.rstrip("\n")[:8192])
 
+    worker_blocked = False
     try:
         while not stopped.is_set():
             for name, command in commands.items():
@@ -520,6 +522,20 @@ def _supervise(config: ServiceConfig) -> int:
                     operator_attachment.require_healthy()
                 if previous is not None and previous.poll() is None:
                     continue
+                if name == "worker" and scoped_endpoint is not None:
+                    if worker_blocked:
+                        continue
+                    from potbot.tools.worker_telemetry import qualify_scoped_worker
+
+                    try:
+                        qualify_scoped_worker(scoped_endpoint)
+                    except (DomainError, OSError, ValueError) as error:
+                        worker_blocked = True
+                        events.emit("service.worker_blocked", reason=type(error).__name__)
+                        continue
+                    events.emit("service.worker_accounting_ready")
+                if stopped.is_set():
+                    break
                 if previous is not None:
                     events.emit("service.restart", component=name, return_code=previous.returncode)
                 process = subprocess.Popen(
