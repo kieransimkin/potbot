@@ -652,7 +652,7 @@
         {
           "path": "src/potbot/tools/inventory.py",
           "symbol": "build_inventory",
-          "sha256": "4a3ec4e4150bcb917809ad83522276d288a727de7dba74457f908325452c7d23",
+          "sha256": "f464b00735a65506fe8645158bfe57431e72393d8c49095de34d3dec3189c411",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -68271,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "64e4d6192a32d206cd1090f59985e7d1d9b48e0888c02bcd2af590343695c3c6",
+      "sha256": "e2c640fa11fc4cb8de7089f7559a15865c56369dbc2cbaa5e6767b18b1478cd1",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and scoped launcher provisioning, installed service accounting, and the controller checkpoint across Windows reboot. A clean Windows reboot trial and signed kernel distribution remain separate.",
+      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and scoped launcher provisioning, installed service accounting, and the controller checkpoint across Windows reboot. Adds offline verification of signed x86-64 kernel bundles. Official distribution and a clean reboot trial remain separate.",
       "narrative": [
         {
-          "locator": "line:1-53",
-          "sha256": "4ef08a2d1ba203c28b9a5f1c66400d45e1bb78e470b5cb60ce8de6557af8b4cd",
+          "locator": "line:1-54",
+          "sha256": "be8ee065e2fde94569fc06b6082d14686ad6de27b27b5da9909624d327f1f7b7",
           "families": [
             "accounting",
             "sandbox",
@@ -68290,7 +68290,7 @@
           ]
         },
         {
-          "locator": "line:54-124",
+          "locator": "line:55-125",
           "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
           "families": [
             "accounting",
@@ -68299,8 +68299,8 @@
           ]
         },
         {
-          "locator": "line:125-422",
-          "sha256": "65d3d9c6f894cf080ba5567a282f8f1542b25890fbd68e1f87dad4a3b80344d6",
+          "locator": "line:126-466",
+          "sha256": "c99d7d955557e3ca2cbd79453d6141641908e2bd2d59db5d7891a5d752ce471f",
           "families": [
             "accounting",
             "sandbox",
@@ -82550,7 +82550,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "847a0955cbf6542cc985ebb7c809f93e07392dd34ac34927a6ea79bb1bb9e114",
+        "sha256": "7b83c8c8d0b8db544d3a8c4a98b6362844a3ac2e71f620adca9bf83beb7c2d85",
         "name": "Potbot verification",
         "state": "active",
         "scope": [
@@ -82590,7 +82590,8 @@
           "Retain source-inventory Cog acceptance",
           "Retain canonical semantic contract Cog acceptance",
           "Record run blogworthiness",
-          "Verify Linux worker tracing and kernel accounting"
+          "Verify Linux worker tracing and kernel accounting",
+          "Verify offline WSL kernel bundles"
         ],
         "latest_inspected_run": {
           "id": 41532663749,

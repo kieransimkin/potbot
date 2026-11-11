@@ -49,6 +49,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         from potbot.syn_release.cli import main as syn_release_main
 
         return syn_release_main(args[1:])
+    if args and args[0] == "wsl-kernel":
+        from potbot.wsl_kernel import main as wsl_kernel_main
+
+        return wsl_kernel_main(args[1:])
     if args and args[0] == "syn":
         from potbot.semantics.cli import main as syn_main
 
@@ -117,6 +121,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser(
         "syn-release", help="verify and install independently pinned official Syn packages"
     )
+    commands.add_parser("wsl-kernel", help="verify optional signed WSL kernel bundles")
     commands.add_parser(
         "syn-operator", help="provision a native operator host and supervise verified Syn"
     )
