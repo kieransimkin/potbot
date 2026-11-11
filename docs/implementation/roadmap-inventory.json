@@ -29,10 +29,10 @@
     },
     {
       "path": "README.md",
-      "sha256": "ae9d59d5e7f33792f3bf21525ff413b222a8a977804dad0b91d1cb372764f3ad",
+      "sha256": "1ceee9cf7ddff65bac4c60005d4897620a5515b1e3734b647e794eae5aed479c",
       "bytes": 31180,
       "kind": "narrative_text",
-      "text_sha256": "ae9d59d5e7f33792f3bf21525ff413b222a8a977804dad0b91d1cb372764f3ad",
+      "text_sha256": "1ceee9cf7ddff65bac4c60005d4897620a5515b1e3734b647e794eae5aed479c",
       "characters": 31178,
       "lines": 528,
       "interpretation": "source_content_not_runtime_evidence"
@@ -459,12 +459,12 @@
     },
     {
       "path": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
-      "bytes": 11425,
+      "sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
+      "bytes": 12648,
       "kind": "narrative_text",
-      "text_sha256": "698733f7eb98188069d57308a687c641dfd159ea17020f25305123aa0831942d",
-      "characters": 11423,
-      "lines": 92,
+      "text_sha256": "6e75d5dff13809d3e59ec56b68c788187a98cee22244ca739994616d2b9538af",
+      "characters": 12646,
+      "lines": 116,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "681d7bde88169081e8cad9f6c114ff7cf9682201970f078df0ec4317f3150b3e",
-      "bytes": 10478,
+      "sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
+      "bytes": 10844,
       "kind": "narrative_text",
-      "text_sha256": "681d7bde88169081e8cad9f6c114ff7cf9682201970f078df0ec4317f3150b3e",
-      "characters": 10475,
-      "lines": 218,
+      "text_sha256": "a6315e44dcb2061793eef75cb1f95c5f2d7476b70014232193430902c6ed8723",
+      "characters": 10841,
+      "lines": 224,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1240,6 +1240,16 @@
       "text_sha256": "944d23368919da724970bc061e04f94be061f1b6e0720add516a82750b25cbdf",
       "characters": 5514,
       "lines": 103,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
+      "path": "docs/implementation/self-contained-installer-plan.md",
+      "sha256": "7d7feb973f34f47f420ab92574ba61f092518f83aad0c9a711c690c66b565866",
+      "bytes": 17851,
+      "kind": "narrative_text",
+      "text_sha256": "7d7feb973f34f47f420ab92574ba61f092518f83aad0c9a711c690c66b565866",
+      "characters": 17834,
+      "lines": 283,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1921,16 +1931,6 @@
       "text_sha256": "a271fc12f35cf9cb20a1b5bf824384b3430fe7bce4ca7db0aad23b648b0418b0",
       "characters": 17024,
       "lines": 150,
-      "interpretation": "source_content_not_runtime_evidence"
-    },
-    {
-      "path": "syn-node/README.md",
-      "sha256": "40b0c26fb2fd5270c59a06e5ef486dbc2f85e2b092e26363c8fe9fb07ad9d9a5",
-      "bytes": 8825,
-      "kind": "narrative_text",
-      "text_sha256": "40b0c26fb2fd5270c59a06e5ef486dbc2f85e2b092e26363c8fe9fb07ad9d9a5",
-      "characters": 8819,
-      "lines": 155,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35298,12 +35298,12 @@
     },
     {
       "path": "src/potbot/context/runtime_integration.py",
-      "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
-      "bytes": 14505,
+      "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
+      "bytes": 15146,
       "kind": "narrative_text",
-      "text_sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
-      "characters": 14505,
-      "lines": 372,
+      "text_sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
+      "characters": 15146,
+      "lines": 387,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35398,22 +35398,22 @@
     },
     {
       "path": "src/potbot/tools/shared_workspace_isolation.py",
-      "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
-      "bytes": 32060,
+      "sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
+      "bytes": 33172,
       "kind": "narrative_text",
-      "text_sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
-      "characters": 32060,
-      "lines": 696,
+      "text_sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
+      "characters": 33172,
+      "lines": 721,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": "src/potbot/tools/worker_telemetry.py",
-      "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
-      "bytes": 45990,
+      "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
+      "bytes": 47900,
       "kind": "narrative_text",
-      "text_sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
-      "characters": 45988,
-      "lines": 1087,
+      "text_sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
+      "characters": 47898,
+      "lines": 1127,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35528,12 +35528,12 @@
     },
     {
       "path": "tests/unit/test_shared_workspace_isolation.py",
-      "sha256": "ef6e607bf590ed0523703acb98188397c0956c6d11efdc7d077782ba08c313bc",
-      "bytes": 18255,
+      "sha256": "6108cd03f0a1ca8ad22ecb68b8d16e9215e3db1aed2cb85bee71564003807b9b",
+      "bytes": 18898,
       "kind": "narrative_text",
-      "text_sha256": "ef6e607bf590ed0523703acb98188397c0956c6d11efdc7d077782ba08c313bc",
-      "characters": 18255,
-      "lines": 504,
+      "text_sha256": "6108cd03f0a1ca8ad22ecb68b8d16e9215e3db1aed2cb85bee71564003807b9b",
+      "characters": 18898,
+      "lines": 514,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35548,12 +35548,12 @@
     },
     {
       "path": "tests/unit/test_worker_telemetry.py",
-      "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
-      "bytes": 13174,
+      "sha256": "8be52dcb3a83527baa5fb78140977216ae1d64c6c67e248aadd161e7acb5d98d",
+      "bytes": 13256,
       "kind": "narrative_text",
-      "text_sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
-      "characters": 13174,
-      "lines": 331,
+      "text_sha256": "8be52dcb3a83527baa5fb78140977216ae1d64c6c67e248aadd161e7acb5d98d",
+      "characters": 13256,
+      "lines": 336,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35819,63 +35819,33 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": ".github/workflows/signed-worker-image.yml",
+      "sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404",
+      "bytes": 5258,
+      "kind": "narrative_text",
+      "text_sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404",
+      "characters": 5258,
+      "lines": 105,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": ".github/workflows/syn-agent-enrollment.yml",
-      "sha256": "ca5624ae38f315f5a443e892ef8cac1e253c3a41708a9fa9e18c6007120a8d59",
-      "bytes": 3566,
+      "sha256": "e8b809421a572ed96b5488e7d16c4c4cd58575cb6e9463c28406da61caabd8c7",
+      "bytes": 2229,
       "kind": "narrative_text",
-      "text_sha256": "ca5624ae38f315f5a443e892ef8cac1e253c3a41708a9fa9e18c6007120a8d59",
-      "characters": 3566,
-      "lines": 81,
-      "interpretation": "source_content_not_runtime_evidence"
-    },
-    {
-      "path": ".github/workflows/syn-inherited-adoption.yml",
-      "sha256": "f0557c8d0ffa3ed2ca4e6307ba4d50e488dfc236deeda1853ae7f43b57c26176",
-      "bytes": 2888,
-      "kind": "narrative_text",
-      "text_sha256": "f0557c8d0ffa3ed2ca4e6307ba4d50e488dfc236deeda1853ae7f43b57c26176",
-      "characters": 2888,
-      "lines": 69,
-      "interpretation": "source_content_not_runtime_evidence"
-    },
-    {
-      "path": ".github/workflows/syn-node-service.yml",
-      "sha256": "a9fd14c097dd15df96503923a6478f9e39905e926e07c12216ed284da91238f5",
-      "bytes": 2033,
-      "kind": "narrative_text",
-      "text_sha256": "a9fd14c097dd15df96503923a6478f9e39905e926e07c12216ed284da91238f5",
-      "characters": 2033,
-      "lines": 55,
+      "text_sha256": "e8b809421a572ed96b5488e7d16c4c4cd58575cb6e9463c28406da61caabd8c7",
+      "characters": 2229,
+      "lines": 50,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": ".github/workflows/syn-operator-lifecycle.yml",
-      "sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+      "sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
       "bytes": 2992,
       "kind": "narrative_text",
-      "text_sha256": "9fee8c333d42e6418b2fca6116a6a4cf8bc241f02e1ccfea2e96ad872801bbb4",
+      "text_sha256": "2375746cef909113ae662d7913fe31a32f6cc07d87761796cf86e4ba172fb532",
       "characters": 2992,
       "lines": 82,
-      "interpretation": "source_content_not_runtime_evidence"
-    },
-    {
-      "path": ".github/workflows/syn-p2p-lan.yml",
-      "sha256": "cbe50bfd70a9fa8e0683ff7dae2c91bcc512f1b851e6cfdc0a4a2a08e9d8c201",
-      "bytes": 2447,
-      "kind": "narrative_text",
-      "text_sha256": "cbe50bfd70a9fa8e0683ff7dae2c91bcc512f1b851e6cfdc0a4a2a08e9d8c201",
-      "characters": 2447,
-      "lines": 63,
-      "interpretation": "source_content_not_runtime_evidence"
-    },
-    {
-      "path": ".github/workflows/syn-python-hd.yml",
-      "sha256": "64b1d5e5d32564d24261f33707d9f20ed602a754b8a72f97096b3dbaf0c3ef75",
-      "bytes": 3289,
-      "kind": "narrative_text",
-      "text_sha256": "64b1d5e5d32564d24261f33707d9f20ed602a754b8a72f97096b3dbaf0c3ef75",
-      "characters": 3287,
-      "lines": 73,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35999,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "8b5d17697b25abbcaa7c3716a76b1e050b675498ee25e2c71456a250adbed0f2",
+  "review_sha256": "24be1fa0ee31cb3c275c51994cd46cde318c92b9225dc68adc579330409f8b36",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -36050,7 +36020,7 @@
     {
       "source": "README.md",
       "locator": "line:1-97",
-      "sha256": "2bf6be086e89752767df70358ea2d1caf90564c2e61937d01745fcab62735dbf",
+      "sha256": "2c9764230f160b07dbdcfc26b28bed07e8505fb04f9db59bd2ee2ef62c753fa1",
       "excerpt": "# potbot\n\nAn evidence-driven, multi-model coding agent, built in stages from the architecture\nand implementation plan in `docs/`.\n\nFor the current delivery orde",
       "review_families": [
         "audit",
@@ -111629,7 +111599,16 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:47-75",
+      "locator": "line:47-70",
+      "sha256": "b9de5a7d333debb17dbee6e9c91303d2d534fe1cb6e1b43d03bf8a5bec40e4ca",
+      "excerpt": "### Smoke test of a published sandbox image\n\nThe [published-image workflow](../../.github/workflows/signed-worker-image.yml)\ntakes the immutable linux/amd64 dig",
+      "review_families": [
+        "sandbox"
+      ]
+    },
+    {
+      "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
+      "locator": "line:71-99",
       "sha256": "f229a219f871775b778d8c493015fe38f3accf8c4a9aa5b7d61a1067a5a1f4a4",
       "excerpt": "## Persistent shared Cog worker logs\n\nThe shared Cog launcher binds one writable directory at `/var/logs/ai` and\nsets `POTBOT_AGENT_LOG_DIR` when the pinned ima",
       "review_families": [
@@ -111638,7 +111617,7 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:76-85",
+      "locator": "line:100-109",
       "sha256": "14b7ba961f05b1eb3e47f83db9e5094a831555ac499f7f5bb92d86ee65fce7df",
       "excerpt": "## Tests and acceptance before production\n\nRun offline deterministic tests:\n\n```bash\nuv run --locked python -m pytest -q tests/unit/test_workspace_concurrency.p",
       "review_families": [
@@ -111647,7 +111626,7 @@
     },
     {
       "source": "docs/implementation/26-shared-workspace-sandbox-and-concurrency.md",
-      "locator": "line:86-92",
+      "locator": "line:110-116",
       "sha256": "2a1368563464c2309722c2d7576b967c03915d19a4272d7f4bd263becdc2f393",
       "excerpt": "## References\n\n- [Microsoft WSL security model](https://wsl.dev/technical-documentation/security/)\n- [Microsoft WSL distribution settings](https://learn.microso",
       "review_families": [
@@ -112511,8 +112490,8 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:1-31",
-      "sha256": "6a824c598706eb79935dcb8a33d15fe88b4a2ed36177822bb280217eea009fca",
+      "locator": "line:1-37",
+      "sha256": "749930d3de6621b6a697d07fa3d9b1d7289fa987d99c053b7701790b9e81a375",
       "excerpt": "# Phase 38 \u2014 monitored Cog operator release gate\n\nThe Phase 34 sandbox-only work dispatch and kernel TASKSTATS exit collector\nalready exist. This gate validates",
       "review_families": [
         "accounting"
@@ -112520,7 +112499,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:32-61",
+      "locator": "line:38-67",
       "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
       "excerpt": "## U03-Q completion evidence\n\nThe worker tracer keeps the terminal line for each task. A process tree is\ncomplete only when each task has one unambiguous termin",
       "review_families": [
@@ -112529,7 +112508,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:62-102",
+      "locator": "line:68-108",
       "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
       "review_families": [
@@ -112538,7 +112517,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:103-120",
+      "locator": "line:109-126",
       "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
       "excerpt": "### Timeout while a second workspace is active\n\nThe concurrent Linux case starts two registered Cogs in separate disposable\nworkspaces. Both reach a live detach",
       "review_families": [
@@ -112547,7 +112526,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:121-136",
+      "locator": "line:127-142",
       "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
       "excerpt": "### Concurrent work across lease renewal\n\nThe Linux renewal case holds two registered Cogs in separate workspaces until\nboth ledgers record a later lease expiry",
       "review_families": [
@@ -112556,7 +112535,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:137-161",
+      "locator": "line:143-167",
       "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
@@ -112565,7 +112544,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:162-188",
+      "locator": "line:168-194",
       "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
       "review_families": [
@@ -112574,7 +112553,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:189-218",
+      "locator": "line:195-224",
       "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
       "excerpt": "### Context RPC with official Syn authorization\n\nBoth pinned releases exercise the shipped context client and the real\nPostgreSQL session store. A grant for typ",
       "review_families": [
@@ -115788,6 +115767,17 @@
       "excerpt": "## Reference\n\nPython's `shutil.rmtree` documentation describes descriptor-based symlink-attack\nresistance and `onexc`; its pathname callback is not an appropria",
       "review_families": [
         "foundation"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:1-283",
+      "sha256": "25ae047647c5c3496f7abd4d750ce95344dc541fd8f45fea5dc5570ecd28f7e0",
+      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Proposed. This plan covers installation and worker activation.\nThe [Syn release and deployment contract",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
       ]
     },
     {
@@ -121156,66 +121146,6 @@
       ]
     },
     {
-      "source": "syn-node/README.md",
-      "locator": "line:1-28",
-      "sha256": "e3d37e6e4f0081dbf5ff33dc6a2f9586ae8e08f2b46d4f34a60bc12515c5fc4b",
-      "excerpt": "# SYN standalone local node \u2014 Phase 43 service + Phase 44 Python HD authority\n\nThis is an **independently installable** `syn-node-service` Python package. It is",
-      "review_families": [
-        "syn-operations",
-        "identity"
-      ]
-    },
-    {
-      "source": "syn-node/README.md",
-      "locator": "line:29-73",
-      "sha256": "9fb12e14acc75e837d22007c72240b4552b0458c69aa91c729bcc1bd7b880e7b",
-      "excerpt": "## Install and run\n\nFor new operator installations use the SYN-owned Python HD profile:\n\n```bash\npython -m pip install -e './syn-node[hd]'\nsyn-node new-operator",
-      "review_families": [
-        "syn-operations",
-        "identity"
-      ]
-    },
-    {
-      "source": "syn-node/README.md",
-      "locator": "line:74-91",
-      "sha256": "a7117270f9749dd39fb2f1f094e8601f546d5fc2edb36480ba27ca50ae973cf5",
-      "excerpt": "## Native SYN signer protocol, proposed version 1\n\nThe SYN-owned external program is operator-pinned by absolute executable path\nand SHA-256. It reads exactly o",
-      "review_families": [
-        "syn-operations",
-        "identity"
-      ]
-    },
-    {
-      "source": "syn-node/README.md",
-      "locator": "line:92-109",
-      "sha256": "7a6e42af0b4ecf372acfb2c7cc39b78f10ead7952e9aed65f5655232c7e3f9b9",
-      "excerpt": "## Test gates\n\n```bash\nPYTHONPATH=syn-node/src:src python -m pytest -q syn-node/tests \\\n  tests/unit/test_syn_local_daemon.py tests/unit/test_syn_adoption.py\n``",
-      "review_families": [
-        "syn-operations",
-        "identity"
-      ]
-    },
-    {
-      "source": "syn-node/README.md",
-      "locator": "line:110-133",
-      "sha256": "0c4f9f88df9c78e51a1e8cc26fa55ca74039da781b194f016849dafedfd22fc9",
-      "excerpt": "## Phase 45 \u2014 explicit operator recovery and qualified-provider gate\n\nPhase 45 adds a 24-word BIP-39 export/recovery workflow, pinned\n`cbor2==5.8.0` / `cbor2pur",
-      "review_families": [
-        "syn-operations",
-        "identity"
-      ]
-    },
-    {
-      "source": "syn-node/README.md",
-      "locator": "line:134-155",
-      "sha256": "de6f78448cbd00986bce0153e7582c29bdff14aaed7b3d661be33c83645618c9",
-      "excerpt": "## Phase 48 \u2014 Python SYN signed LAN discovery and encrypted pledges\n\n`0.1.0a5` adds `syn-p2p` (not a Potbot executable). The operator broadcasts\nEd25519-BIP32-s",
-      "review_families": [
-        "syn-operations",
-        "identity"
-      ]
-    },
-    {
       "source": "vocab/README.md",
       "locator": "line:1-4",
       "sha256": "677d130dff4dafcdce5615d66059c56ef7f3deb866c2f9b4f50c2af63666b841",
@@ -121373,7 +121303,7 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "8efbfb8c009423f7064c9c0d2839d2281eeb415651093726c8ae66d11149c21c",
+          "sha256": "56d3b63c36f480ae32b36658512ef89de4c828d09cbaf0e3894cb7da60ba526b",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -121500,7 +121430,7 @@
         {
           "path": "src/potbot/tools/shared_workspace_isolation.py",
           "symbol": "SharedWorkspaceRuntime",
-          "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
+          "sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121550,7 +121480,7 @@
         {
           "path": "src/potbot/tools/worker_telemetry.py",
           "symbol": "WorkerMonitorConfig",
-          "sha256": "3bcefe7c8066c4c298edc916b675797eaeb1d5618844a7fe8747f1e9cad42ac7",
+          "sha256": "b1276c10d678fb314c77265e6fda3e3d54ea4f457bc2008d62ea7362506ec53e",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -121564,7 +121494,7 @@
         {
           "path": "tests/unit/test_worker_telemetry.py",
           "symbol": "test_trace_parser_records_pid_and_access_mode_without_disclosing_buffers",
-          "sha256": "6e42e3c12fdcf118d9239df02973dc62a90fc0c1bf04d32355b28bcbd6d01a0d",
+          "sha256": "8be52dcb3a83527baa5fb78140977216ae1d64c6c67e248aadd161e7acb5d98d",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -121674,7 +121604,7 @@
         {
           "path": "src/potbot/syn_release/agent.py",
           "symbol": "AgentSession",
-          "sha256": "aa432a0ec1994d0c6dd71f594bb34dc324ed5953efc8e4329b1739e747691861",
+          "sha256": "69acf237e7caf4fce0dd558c6ddcba1fcfb7f131b1fd2333e367b8cdac0df3b6",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121686,7 +121616,7 @@
         {
           "path": "src/potbot/syn_release/operator_transition.py",
           "symbol": "switch_release",
-          "sha256": "41e6e38ff5a3f1d015dece7c4b5d278221690d46d4c17159abae1a02b5620dc5",
+          "sha256": "7eb5fe64038a379012a4ce1b47858e21358f9df96ad5c9079127f4bb247a92b3",
           "basis": "Atomic operator release selection with two upstream preflight checks."
         }
       ],
@@ -121712,13 +121642,13 @@
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "native",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Official installed operator packages, actual native keystore and controlled enrolled allocation."
         },
         {
           "path": "scripts/qualify_syn_operator_transition.py",
           "symbol": "database",
-          "sha256": "328fb41ace9562b4bd7128da1ea3e176e4580f47c05816d4fdcc20111663e254",
+          "sha256": "c783a052ad256297ea5c51e67d104684d290d8bd93615c0ee0729142fe7c5df0",
           "basis": "Packaged Alembic migration and older-package readback against disposable PostgreSQL."
         }
       ],
@@ -121743,13 +121673,13 @@
         {
           "path": "src/potbot/syn_release/mesh.py",
           "symbol": "LiveSynParticipant",
-          "sha256": "4069e6a72410b55d7d2136eed190d2060871f3550d18b5b77f350de9e93762d9",
+          "sha256": "e295b5323a76f21e699f02446c078531d884171b06beb55ad87da70e58640fe4",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
           "path": "src/potbot/tools/released_syn_nodes.py",
           "symbol": "SynCogGrant",
-          "sha256": "fcd226de81fceb204d0c1183c9ba99bf9f0488a1f2eb2471fd70b283edb89675",
+          "sha256": "0fff529132785fe8197e48ccc21d734715840963f4deb8b4fabf9b149480c317",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -122136,7 +122066,7 @@
         {
           "path": "src/potbot/tools/shared_workspace_isolation.py",
           "symbol": "_prepare_cog_logs",
-          "sha256": "160aa76fa8989eec0bc4b7a42919731aca1c8cc94a82578730937cfa7dfd93eb",
+          "sha256": "5901e0babd7b0830452cdfa86ab103f457ccc70b52a5546f1327e58f2cf29624",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
@@ -122148,7 +122078,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
+          "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -122643,7 +122573,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "2df87fe3f21ae4fb1c6662f07ac7461583b7948fad217a3ae778340e58cfbae8",
+          "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122902,13 +122832,13 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "8efbfb8c009423f7064c9c0d2839d2281eeb415651093726c8ae66d11149c21c",
+          "sha256": "56d3b63c36f480ae32b36658512ef89de4c828d09cbaf0e3894cb7da60ba526b",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "28ac4dc847f2dbbb44cfc509a5a26ae992f40bb369ab32a19b796ff5bb57cc14",
+          "sha256": "ba142f8f6a9286d8d6f595fd4820b8969796a7dd52b3f510f7b2afd18f944545",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -122976,7 +122906,7 @@
         {
           "path": "src/potbot/controller/budgets.py",
           "symbol": "BudgetLedger",
-          "sha256": "a78431f2bc4ed8c2c91212be11f0f626bd09a3328749c2a2118bc4a14aa88ae1",
+          "sha256": "ae2bd79f8ee337fd3474c4b86a7a905384420ebe626fa7b38071be6dc43e1809",
           "basis": "U01-A queue and settlement source."
         },
         {

@@ -30,6 +30,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError
+from potbot.tools.scoped_launcher import ScopedWorkerLaunch
+from potbot.tools.scoped_taskstats import ScopedTaskstatsClient
 from potbot.tools.taskstats_exit import TaskstatsExitStream
 from potbot.tools.worker_audit import file_access_index, process_tree, write_process_tree
 
@@ -397,6 +399,8 @@ class WorkerMonitorConfig:
     cgroup_join_sha256: str
     max_trace_bytes: int = _MAX_TRACE
     sample_seconds: float = 0.2
+    scoped_taskstats: ScopedTaskstatsClient | None = field(default=None, repr=False, compare=False)
+    scoped_launcher: Path | None = None
 
     def __post_init__(self) -> None:
         _private_root(self.audit_root)
@@ -437,7 +441,7 @@ class WorkerMonitorConfig:
             raise ValueError("worker monitor limits invalid")
 
     @classmethod
-    def from_environment(cls) -> WorkerMonitorConfig:
+    def from_environment(cls, *, scoped_worker: bool = False) -> WorkerMonitorConfig:
         root, cgroup, tracer, helper, tracer_sha, helper_sha = (
             os.environ.get(key)
             for key in (
@@ -453,7 +457,16 @@ class WorkerMonitorConfig:
             raise CapabilityUnavailableError(
                 "operator telemetry binaries, pinned digests and roots must be configured"
             )
-        return cls(Path(root), Path(cgroup), Path(tracer), Path(helper), tracer_sha, helper_sha)
+        launcher = os.environ.get("POTBOT_OPERATOR_SCOPED_LAUNCHER") if scoped_worker else None
+        return cls(
+            Path(root),
+            Path(cgroup),
+            Path(tracer),
+            Path(helper),
+            tracer_sha,
+            helper_sha,
+            scoped_launcher=Path(launcher) if launcher else None,
+        )
 
 
 def _seal_worker_trace(path: Path) -> int:
@@ -530,7 +543,8 @@ class WorkerMonitorSession:
             raise ScopeDeniedError("unqualified telemetry attribution or run identity")
         self.config, self.workspace_id, self.agent_id = config, workspace_id, agent_id
         self.identity_kind, self.run_id = identity_kind, run_id
-        self.worker_id = uuid4()
+        scoped = config.scoped_taskstats
+        self.worker_id = scoped.worker_id if scoped is not None else uuid4()
         self.image_identity = image_identity
         self._path = config.audit_root / str(workspace_id)
         self._path.mkdir(mode=0o700, exist_ok=True)
@@ -559,7 +573,8 @@ class WorkerMonitorSession:
         self._start_pid: int | None = None
         # Register taskstats on all CPUs BEFORE spawning the first subprocess.
         # A late collector misses short-lived children irrecoverably.
-        self._kernel: TaskstatsExitStream | None = None
+        self._kernel: TaskstatsExitStream | ScopedTaskstatsClient | None = None
+        self._scoped_launch: ScopedWorkerLaunch | None = None
         self._live = self.path / "live.json"
         try:
             _cgroup_usage(self.cgroup)  # Reject unaccounted cgroup before launch.
@@ -580,7 +595,7 @@ class WorkerMonitorSession:
             self.cgroup.rmdir()
             raise
 
-    def command(self, argv: tuple[str, ...]) -> tuple[str, ...]:
+    def command(self, argv: tuple[str, ...], *, pass_fds: tuple[int, ...] = ()) -> tuple[str, ...]:
         # Requalify hashes at launch, not merely when the monitor was created.
         for executable, expected in (
             (self.config.strace, self.config.strace_sha256),
@@ -598,16 +613,23 @@ class WorkerMonitorSession:
                 raise CapabilityUnavailableError("worker cgroup already contains tasks")
         except OSError as exc:
             raise CapabilityUnavailableError("worker cgroup population cannot be verified") from exc
-        collector = TaskstatsExitStream()
-        collector.open()  # Must succeed before we return an executable command.
+        collector: TaskstatsExitStream | ScopedTaskstatsClient
+        if self.config.scoped_launcher is not None:
+            self._scoped_launch = ScopedWorkerLaunch(self.config.scoped_launcher, self.worker_id)
+            collector = self._scoped_launch.collector
+            collector.open(self.cgroup)
+        elif self.config.scoped_taskstats is None:
+            collector = TaskstatsExitStream()
+            collector.open()
+        else:
+            collector = self.config.scoped_taskstats
+            collector.open(self.cgroup)
+        # Both collectors must be live before we return an executable command.
         if not collector.healthy:
             collector.close()
             raise CapabilityUnavailableError("taskstats exit listener failed pre-dispatch")
         self._kernel = collector
-        return (
-            str(self.config.cgroup_join),
-            str(self.cgroup),
-            "--",
+        traced = (
             str(self.config.strace),
             *_STRACE_FLAGS,
             _STRACE_PID_NAMESPACE,
@@ -616,8 +638,17 @@ class WorkerMonitorSession:
             "--",
             *argv,
         )
+        if self._scoped_launch is not None:
+            return self._scoped_launch.command(traced, pass_fds)
+        return (str(self.config.cgroup_join), str(self.cgroup), "--", *traced)
+
+    @property
+    def launch_fds(self) -> tuple[int, ...]:
+        return () if self._scoped_launch is None else (self._scoped_launch.channel.fileno(),)
 
     def start(self, pid: int) -> None:
+        if self._scoped_launch is not None:
+            self._scoped_launch.close()
         self._start_pid = pid
         self._thread = threading.Thread(
             target=self._poll, name="potbot-operator-cgroup-audit", daemon=True
@@ -638,7 +669,14 @@ class WorkerMonitorSession:
         if self._kernel is None or not self._kernel.healthy:
             raise CapabilityUnavailableError("kernel task-exit collection lost")
         self._last_usage = _cgroup_usage(self.cgroup)
-        for token in (self.cgroup / "cgroup.procs").read_text(encoding="ascii").splitlines():
+        # In a brokered run these are host PIDs, while the trace filenames and
+        # kernel records use the tracer's private PID namespace.
+        tasks = (
+            ()
+            if self._scoped_launch
+            else (self.cgroup / "cgroup.procs").read_text(encoding="ascii").splitlines()
+        )
+        for token in tasks:
             if not _PID.fullmatch(token):
                 raise CapabilityUnavailableError("invalid cgroup process identifier")
             pid = int(token)
@@ -688,6 +726,8 @@ class WorkerMonitorSession:
 
     def finish(self, *, confirmed_stopped: bool) -> bool:
         lifetime: dict[str, Any] | None = None
+        if self._scoped_launch is not None:
+            self._scoped_launch.close()
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=3)

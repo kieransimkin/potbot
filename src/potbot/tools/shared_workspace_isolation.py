@@ -25,6 +25,7 @@ from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.isolation import BubblewrapBackend, IsolationLaunch, _seccomp_fd
 from potbot.tools.model_cache_routes import model_environment
 from potbot.tools.operator_attachment_s13 import runtime_attachment
+from potbot.tools.scoped_launcher import WSL_DRIVER_SHARE
 from potbot.tools.shared_tool_mounts import ToolWriteGrant
 
 _COG_LOG_MOUNT = "/var/logs/ai"
@@ -93,6 +94,7 @@ def wsl_guest_preflight(
     kernel_release: str,
     config_text: str | None,
     mountinfo: str,
+    scoped_worker: bool = False,
 ) -> tuple[str, ...]:
     """WSL distribution checks, NOT proof of a Windows host security boundary."""
     lower = kernel_release.casefold()
@@ -118,11 +120,17 @@ def wsl_guest_preflight(
         except configparser.Error:
             failures.append("invalid wsl.conf")
     # DrvFs can still be mounted manually; reject it even with automount disabled.
-    if any(
-        " - drvfs " in line.casefold() or " - 9p " in line.casefold()
-        for line in mountinfo.splitlines()
-    ):
+    for line in mountinfo.splitlines():
+        before, _, after = line.partition(" - ")
+        filesystem = after.split(" ", 1)[0].casefold()
+        if filesystem not in {"drvfs", "9p"}:
+            continue
+        # The trusted launcher's private namespace detaches this exact mount
+        # and refuses exec if any Windows filesystem survives there.
+        if scoped_worker and filesystem == "9p" and before.split()[4:5] == [WSL_DRIVER_SHARE]:
+            continue
         failures.append("Windows shared filesystem visible to WSL guest")
+        break
     return tuple(failures)
 
 
@@ -206,6 +214,7 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
         guest_uid: int | None = None,
         guest_gid: int | None = None,
         cog_log_scope: tuple[Path, UUID, UUID] | None = None,
+        scoped_worker: bool = False,
     ) -> IsolationLaunch:
         if (guest_uid is None) != (guest_gid is None) or (
             guest_uid is not None
@@ -232,7 +241,9 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             mounts = Path("/proc/self/mountinfo").read_text(encoding="utf-8")
         except OSError as exc:
             raise CapabilityUnavailableError("Linux guest feature preflight unavailable") from exc
-        errors = wsl_guest_preflight(kernel_release=kernel, config_text=config, mountinfo=mounts)
+        errors = wsl_guest_preflight(
+            kernel_release=kernel, config_text=config, mountinfo=mounts, scoped_worker=scoped_worker
+        )
         if errors:
             raise CapabilityUnavailableError(
                 "WSL2 isolation preflight failed: " + "; ".join(errors)
@@ -244,6 +255,20 @@ class SharedWorkspaceBubblewrapBackend(BubblewrapBackend):
             sandbox = Path(sandbox_root).resolve(strict=True)
         except OSError as exc:
             raise CapabilityUnavailableError("provisioned workspace paths unavailable") from exc
+        if scoped_worker and any(
+            path is not None and Path(path).resolve().is_relative_to(WSL_DRIVER_SHARE)
+            for path in (
+                rootfs,
+                home,
+                self.runtime.model_staging,
+                self.runtime.shared_models,
+                self.runtime.shared_tools,
+                self.runtime.ai_config_dir,
+                self.runtime.ai_history_dir,
+                self.runtime.shared_skills,
+            )
+        ):
+            raise ScopeDeniedError("Workspace assets must remain outside the WSL driver share")
         if (
             not rootfs.is_dir()
             or not home.is_dir()

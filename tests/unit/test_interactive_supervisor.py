@@ -223,14 +223,23 @@ def test_monitored_launch_uses_native_wrapper_without_python_preexec(tmp_path, m
             return SimpleNamespace(argv=argv, pass_fds=(status_fd,), identity="a" * 64)
 
     class FixtureMonitor:
+        launch_fds = ()
+
         def __init__(self, *args, **kwargs):
             pass
 
-        def command(self, argv):
+        def command(self, argv, *, pass_fds):
             return ("/operator/cgroup-join", "/operator/cgroup", "--", *argv)
 
+        def finish(self, *, confirmed_stopped):
+            assert confirmed_stopped
+            return False
+
     config = SimpleNamespace(
-        audit_root=tmp_path / "audit", strace=tmp_path / "strace", cgroup_root=tmp_path / "cgroup"
+        audit_root=tmp_path / "audit",
+        strace=tmp_path / "strace",
+        cgroup_root=tmp_path / "cgroup",
+        scoped_launcher=None,
     )
     spawn = AsyncMock(side_effect=RuntimeError("fixture stops before spawning"))
     monkeypatch.setattr(module, "WorkerMonitorSession", FixtureMonitor)

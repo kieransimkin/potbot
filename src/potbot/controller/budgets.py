@@ -254,8 +254,12 @@ class BudgetLedger:
         context: WorkspaceContext,
         reservation_id: UUID,
         reason: str,
+        *,
+        connection: Any = None,
     ) -> dict[str, Any]:
-        return self._resolve_without_usage(context, reservation_id, "indeterminate", reason)
+        return self._resolve_without_usage(
+            context, reservation_id, "indeterminate", reason, connection=connection
+        )
 
     def release(
         self,

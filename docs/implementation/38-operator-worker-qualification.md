@@ -13,9 +13,15 @@ python scripts/qualify_operator_workers.py \
   --rootfs /PATH/rootfs --home /PATH/workspace-home \
   --model-staging /PATH/staging --shared-models /PATH/models \
   --shared-tools /PATH/tools --image-digest IMAGE_DIGEST \
+  --ai-config /PATH/disposable-ai --ai-past /PATH/disposable-ai-history \
   --qualification-sha256 QUALIFICATION_SHA256 \
   --report /PATH/operator-private/worker-qualification.json
 ```
+
+For an image with `/etc/ai` and `/etc/ai-past`, supply both paths from the
+disposable qualification workspace. The probe opens the normal history
+watcher for those directories during the run. Select directories separate
+from the live operator's mounts. The older image layout can omit both.
 
 This invokes the existing Phase 35 real Bubblewrap/cgroup/fork and audited
 process-tree smoke test, rather than trusting an arbitrary success command.

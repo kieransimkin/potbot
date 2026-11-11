@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from potbot.controller.tasks import json_record
+from potbot.controller.tasks import json_record, lock_episode
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
     ErrorCode,
@@ -26,10 +26,12 @@ from potbot.domain.errors import (
 )
 from potbot.domain.jobs import (
     ACTIVE_JOB_STATES,
+    COG_JOB,
     JOB_TYPES,
     MAX_JOB_OUTPUT_BYTES,
     MAX_OUTPUT_DELTA_BYTES,
     TERMINAL_JOB_STATES,
+    CogJobInput,
     JobLease,
     JobSpec,
     JobState,
@@ -386,12 +388,13 @@ class JobService:
             raise InvalidInputError("Expiry batch size must be between one and 1000.")
         with self.database.transaction(context) as conn:
             rows = conn.execute(
-                "SELECT id FROM jobs WHERE workspace_id=%s "
+                "SELECT id,job_type,episode_id,dispatched_at FROM jobs WHERE workspace_id=%s "
                 "AND state IN ('running','cancelling') AND lease_until<=clock_timestamp() "
                 "ORDER BY lease_until,id FOR UPDATE SKIP LOCKED LIMIT %s",
                 (context.workspace_id, limit),
             ).fetchall()
             for old in rows:
+                self._settle_cog(conn, context, old, JobState.INDETERMINATE)
                 row = conn.execute(
                     "UPDATE jobs SET state='indeterminate',error_code='lease_expired',"
                     "lease_until=NULL,lease_owner=NULL,finished_at=clock_timestamp(),"
@@ -474,13 +477,52 @@ class JobService:
             deadline: datetime = row["lease_until"]
             return deadline
 
-    def mark_dispatched(self, context: WorkspaceContext, lease: JobLease) -> dict[str, Any]:
+    def mark_dispatched(
+        self, context: WorkspaceContext, lease: JobLease, *, cog_max_wall_ms: int | None = None
+    ) -> dict[str, Any]:
         with self.database.transaction(context) as conn:
             old = self._lease_row(conn, context, lease)
             if old["cancellation_requested"]:
                 raise OperationCancelledError("Job cancellation preceded external dispatch.")
             if old["dispatched_at"] is not None:
+                if old["job_type"] == COG_JOB:
+                    raise StateMismatchError("A native Cog dispatch cannot be repeated.")
                 return _public(old)
+            if old["job_type"] == COG_JOB:
+                from potbot.controller.budgets import BudgetLedger
+
+                if type(cog_max_wall_ms) is not int or not 1 <= cog_max_wall_ms <= 300_000:
+                    raise ScopeDeniedError(
+                        "Native Cog dispatch requires an installed wall-time bound."
+                    )
+                spec = CogJobInput.parse(old["input"])
+                episode = lock_episode(conn, context, old["episode_id"])
+                contract = conn.execute(
+                    "SELECT content FROM contract_revisions "
+                    "WHERE workspace_id=%s AND episode_id=%s AND id=%s",
+                    (context.workspace_id, lease.episode_id, lease.contract_revision_id),
+                ).fetchone()
+                repository = conn.execute(
+                    "SELECT 1 FROM repository_states WHERE workspace_id=%s AND id=%s "
+                    "AND repository_id=%s",
+                    (context.workspace_id, spec.repository_state_id, episode["repository_id"]),
+                ).fetchone()
+                if (
+                    episode["status"] != "running"
+                    or episode["active_contract_id"] != lease.contract_revision_id
+                    or contract is None
+                    or "cog.execute:" + spec.operation_ref
+                    not in contract["content"]["capabilities"]
+                    or repository is None
+                ):
+                    raise ScopeDeniedError("The active task does not authorize this native Cog.")
+                BudgetLedger(self.database).reserve_in_transaction(
+                    conn,
+                    context,
+                    lease.episode_id,
+                    {"concurrency": 1, "calls": 1, "tool_ms": cog_max_wall_ms},
+                    f"native-cog-{lease.job_id}",
+                )
             row = _update_leased(
                 conn,
                 context,
@@ -491,6 +533,38 @@ class JobService:
             public = _public(dict(row))
             _event(conn, context, lease.job_id, "job.dispatched", {"job": public})
             return public
+
+    def _settle_cog(
+        self, conn: Any, context: WorkspaceContext, job: dict[str, Any], state: str
+    ) -> None:
+        if job["job_type"] != COG_JOB or job["dispatched_at"] is None:
+            return
+        from potbot.controller.budgets import BudgetLedger
+
+        row = conn.execute(
+            "SELECT id,amounts FROM budget_reservations "
+            "WHERE workspace_id=%s AND episode_id=%s AND reservation_key=%s",
+            (context.workspace_id, job["episode_id"], f"native-cog-{job['id']}"),
+        ).fetchone()
+        if row is None:
+            raise StateMismatchError("Native Cog dispatch lost its task reservation.")
+        ledger = BudgetLedger(self.database)
+        if state == JobState.SUCCEEDED:
+            episode = lock_episode(conn, context, job["episode_id"])
+            if (
+                episode["status"] != "running"
+                or episode["active_contract_id"] != job["contract_revision_id"]
+                or job["cancellation_requested"]
+            ):
+                raise StateMismatchError("The native Cog task changed before completion.")
+            actual = {
+                name: amount for name, amount in row["amounts"].items() if name != "concurrency"
+            }
+            ledger.settle(context, row["id"], actual, "conservative_estimate", connection=conn)
+        else:
+            ledger.mark_indeterminate(
+                context, row["id"], "native_cog_outcome_unconfirmed", connection=conn
+            )
 
     def progress(
         self,
@@ -623,9 +697,10 @@ class JobService:
         with self.database.transaction(context) as conn:
             old = self._lease_row(conn, context, lease)
             if state == JobState.SUCCEEDED and old["dispatched_at"] is None:
-                raise StateMismatchError("Successful model work requires a recorded dispatch.")
+                raise StateMismatchError("Successful work requires a recorded dispatch.")
             if state == JobState.CANCELLED and not old["cancellation_requested"]:
                 raise StateMismatchError("Cancellation completion needs a cancellation request.")
+            self._settle_cog(conn, context, old, state)
             row = _update_leased(
                 conn,
                 context,

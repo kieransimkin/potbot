@@ -29,6 +29,40 @@ from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.worker_telemetry import WorkerMonitorConfig
 
 
+def _launch_diagnostic(stderr: bytes) -> dict[str, str] | None:
+    """Record known setup error categories without publishing subprocess output."""
+    prefixes = {
+        b"bwrap: Can't make symlink": "bubblewrap_symlink",
+        b"bwrap: Can't create symlink": "bubblewrap_symlink",
+        b"bwrap: Can't mkdir": "bubblewrap_directory",
+        b"bwrap: Can't mount": "bubblewrap_mount",
+        b"bwrap: Can't bind mount": "bubblewrap_mount",
+        b"bwrap: Can't find source": "bubblewrap_source",
+        b"bwrap: Can't get type of source": "bubblewrap_source",
+        b"bwrap: execvp": "bubblewrap_exec",
+        b"bwrap: Creating new namespace failed": "bubblewrap_namespace",
+        b"bwrap: No permissions to creating new namespace": "bubblewrap_namespace",
+        b"bwrap:": "bubblewrap_other",
+        b"prlimit:": "resource_limits",
+        b"strace:": "tracer",
+        b"potbot-cgroup-join:": "cgroup_join",
+    }
+    reasons = {
+        b"Permission denied": "permission_denied",
+        b"Operation not permitted": "operation_not_permitted",
+        b"Read-only file system": "read_only",
+        b"File exists": "already_exists",
+        b"No such file or directory": "missing",
+        b"Invalid argument": "invalid_argument",
+    }
+    for line in stderr.splitlines():
+        for prefix, stage in prefixes.items():
+            if line.startswith(prefix):
+                reason = reasons.get(line.rsplit(b": ", 1)[-1], "other")
+                return {"stage": stage, "reason": reason}
+    return None
+
+
 def _case(
     supervisor: ProcessSupervisor,
     *,
@@ -119,6 +153,7 @@ def _case(
         "isolation_identity": result.isolation_identity,
         "stdout_sha256": hashlib.sha256(result.stdout).hexdigest(),
         "stderr_sha256": hashlib.sha256(result.stderr).hexdigest(),
+        "launch_diagnostic": _launch_diagnostic(result.stderr) if not result.dispatched else None,
     }
 
 
