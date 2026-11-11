@@ -227,6 +227,12 @@ retains a separate bounded receipt.
 
 ### Context RPC with official Syn authorization
 
+The existing official-release fixture qualifies native Syn admission and
+worker stdio Context RPC. Its receipt identifies stdio as the transport.
+Production transport qualification follows the
+[Syn RPC cutover](syn-release-dependency-and-node-deployment.md#route-application-rpc-through-syn)
+and requires evidence that the node carried both directions.
+
 Both pinned releases exercise the shipped context client and the real
 PostgreSQL session store. A grant for typed JSON cannot open context RPC. The
 test verifies that this refusal creates neither a context session nor a

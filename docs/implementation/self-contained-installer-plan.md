@@ -435,8 +435,10 @@ operator configuration digest matched across both boots.
 4. **Qualify the live service.** Run the [scoped operator gate](38-operator-worker-qualification.md#qualify-the-installed-scoped-launcher) and require a TASKSTATS record for every traced task. Repeat the PID namespace isolation,
    unprivileged subscription and port reuse checks. Verify cancellation,
    overlapping work, lease renewal and cleanup on the pinned signed image.
-   Verify monitored Cog authorization and context RPC with the pinned official
-   Syn release, then repeat the service checks after restart. Record the
+   Verify monitored Cog authorization and both directions of Context RPC through
+   the pinned official Syn node, then repeat the service checks after restart.
+   Follow the [Syn RPC cutover](syn-release-dependency-and-node-deployment.md#route-application-rpc-through-syn).
+   Record the
    configuration, artifact digests and receipts before enabling workers.
 5. **Roll back on failure.** Fence worker admission, stop the test service,
    and compare the active configuration with the staged hash before restoring
@@ -598,7 +600,7 @@ flowchart LR
     H -->|Require active contract and reserve task budget| H
     H <-->|Native Syn authorization| N[Privileged dispatcher and enrolled Agents]
     H --> S[Scoped TASKSTATS launcher and signed worker image]
-    S <-->|Typed Context RPC| C[Workspace Context service]
+    S <-->|Legacy stdio Context RPC| C[Workspace Context service]
     S -->|Complete audit| R[Result artifact and budget settlement]
     S -->|Collector lost| F[Indeterminate job, budget and workspace lease]
 ```
@@ -625,6 +627,10 @@ reopening retained native custody, their selected keys, assignments and
 configuration hashes matched, and the same dispatcher manifest opened a
 fresh relay session. The installed worker then repeated the two clean
 Context RPC jobs and the collector-loss case on the signed image.
+
+The installed-service results above establish native Syn authorization
+and Context RPC over worker stdio. Repeat the combined installed-service
+test after the node carries the application requests and replies.
 
 The managed WSL qualification passed with the installed worker, the signed
 image, the scoped launcher and pinned Syn 0.8.0. It verified Context RPC

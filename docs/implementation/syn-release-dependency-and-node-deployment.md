@@ -24,6 +24,67 @@ SYN is independently developed and released by its canonical upstream repository
 - **Workers:** worker invocations remain individually accounted for by Potbot's operator, with existing cgroup, filesystem, syscall, resource and provenance controls. Worker heartbeats are operational signals, not identity or custody proofs. Agent SYN service lifetime is distinct from individual Cog lifetime; any per-worker node requirement must be fulfilled by a documented upstream-supported mechanism, not a fabricated local daemon.
 - **Communication:** use upstream authenticated local IPC and supported encrypted P2P. Preserve workspace isolation and operator-mediated capability/side-effect authorization; discovery never grants authority. Keep the default read-only, with explicit operator unlock for write/execute effects. No agent-to-agent network bypass of sandbox policy.
 
+## Route application RPC through Syn
+
+The released Syn node is the transport boundary for RPC between Potbot
+processes, services and Agents. Both request and reply pass through the
+Syn node, including calls to services on the same host. Syn binds the
+calling identity and selected destination to the live session. Potbot
+retains method authorization, typed contracts, budgets, operation receipts
+and PostgreSQL transaction semantics. An external HTTP or MCP adapter
+translates application calls at the boundary and forwards internal RPC
+through Syn. Process supervision, standard log output and database
+storage remain host operations.
+
+~~~mermaid
+sequenceDiagram
+    participant W as Admitted worker
+    participant S as Released Syn node
+    participant C as Selected Context service
+    participant D as PostgreSQL
+    W->>S: Typed request on the run-bound native endpoint
+    S->>C: Authenticated request for the selected service
+    C->>D: Apply session policy and commit operation receipt
+    C-->>S: Correlated result or typed error
+    S-->>W: Authenticated reply for the same request
+~~~
+
+A Syn grant, heartbeat or node status establishes admission or liveness.
+Transport qualification requires evidence of authenticated delivery in
+both directions. The existing Context RPC uses dedicated worker stdio
+after native Syn admission. Its receipts are historical stdio evidence.
+Production cutover requires the Syn transport and forbids a direct
+stdio, HTTP or socket fallback for the application RPC.
+
+### Implementation sequence
+
+1. Define the canonical directed request/reply interface upstream in
+   Syn. Select the service endpoint under operator authority. Bind the
+   caller and service to the workspace and live node session, and the
+   worker to its admitted Agent and invocation. Enforce request and
+   reply correlation, recipient isolation, replay bounds and deadlines.
+   Qualify through a signed official Syn release before consuming it.
+2. Use Context RPC as the first cutover. Preserve request IDs, typed
+   ports, host-only session grants and PostgreSQL operation receipts.
+   Establish supported size limits or bounded transfer in the upstream
+   contract. Current Context RPC permits 2 MiB frames, while official Syn
+   v0.8.1 private pub-sub has an 8 KiB publication limit and routes to
+   the cohort. The Syn HTTP message ledger also exposes all workspace
+   channels to a workspace token holder. Keep private application data on
+   a directed native interface.
+3. Exercise the new route in the installed scoped worker. Prove both
+   deliveries against pinned nodes. Check wrong recipient, workspace,
+   Agent and run rejection, replay and large payloads, node restart or
+   loss before and after commit, and lease fencing on collector loss.
+   Use the original request ID for reconciliation after an uncertain reply.
+4. Inventory the remaining application RPC endpoints, migrate their
+   callers and remove the replaced direct handlers. Treat an unavailable
+   Syn route as a failed admission for that RPC and retain existing
+   transaction evidence. Qualify third-party adapters against the same
+   internal routing requirement.
+
+[Syn v0.8.1 private pub-sub contract](https://github.com/Synsphere/syn/blob/v0.8.1/docs/development/private-pubsub.md) · [Syn communication ledger](https://github.com/Synsphere/syn/blob/v0.8.1/docs/communication.md)
+
 ## Identity and adoption invariants
 
 SYN alone owns entropy, key derivation, private-key custody, enrollment and signing. Preserve operator root `m/6969'/420'`, base `m/6969'/420'/0'/0/0`, installation identifier SHA-256 of raw 32-byte base public key, and hardware-bound inheritance `uint24_be(SHA256(raw signed hardware ID || operator byte)[:3])` with eight candidate paths `m/6969'/420'/inheritance'/{1..8}/0`. Temporary agent keys come from OS CSPRNG; their public hash authenticates signed offers and MUST NOT replace the hardware identifier in inheritance. Verify actual agent-held selected-key possession and qualified OS custody, not merely operator-signed assertions. Potbot stores public receipts and authorization decisions, never private or extended keys. Existing SQLite-based transitional ledgers require a separate authoritative-storage reconciliation with Potbot's PostgreSQL policy before production.
