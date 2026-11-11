@@ -1,0 +1,482 @@
+Subject: [PATCH] taskstats: scope exit listeners to their PID namespace
+
+WSL distributions run in nested PID namespaces. Allow their privileged
+operators to subscribe to task exit statistics and report task IDs relative
+to each recipient. Associate subscriptions with the Generic Netlink socket
+so a recycled port ID cannot receive the previous owner's events.
+
+---
+
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -227,6 +227,8 @@
+ bool netlink_strict_get_check(struct sk_buff *skb);
+ 
+ int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 portid, int nonblock);
++int netlink_unicast_checked(struct sock *ssk, struct sk_buff *skb, u32 portid,
++			   struct sock *expected);
+ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 portid,
+ 		      __u32 group, gfp_t allocation);
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1326,8 +1326,9 @@
+ 	return ret;
+ }
+ 
+-int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
+-		    u32 portid, int nonblock)
++static int netlink_unicast_to(struct sock *ssk, struct sk_buff *skb,
++			      u32 portid, int nonblock,
++			      struct sock *expected)
+ {
+ 	struct sock *sk;
+ 	int err;
+@@ -1342,6 +1343,12 @@
+ 		kfree_skb(skb);
+ 		return PTR_ERR(sk);
+ 	}
++	/* A closed socket's port ID may already belong to another client. */
++	if (expected && sk != expected) {
++		sock_put(sk);
++		kfree_skb(skb);
++		return -ECONNREFUSED;
++	}
+ 	if (netlink_is_kernel(sk))
+ 		return netlink_unicast_kernel(sk, skb, ssk);
+ 
+@@ -1360,7 +1367,19 @@
+ 
+ 	return netlink_sendskb(sk, skb);
+ }
++
++int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
++		    u32 portid, int nonblock)
++{
++	return netlink_unicast_to(ssk, skb, portid, nonblock, NULL);
++}
+ EXPORT_SYMBOL(netlink_unicast);
++
++int netlink_unicast_checked(struct sock *ssk, struct sk_buff *skb, u32 portid,
++			    struct sock *expected)
++{
++	return netlink_unicast_to(ssk, skb, portid, MSG_DONTWAIT, expected);
++}
+ 
+ int netlink_has_listeners(struct sock *sk, unsigned int group)
+ {
+diff --git a/kernel/taskstats.c b/kernel/taskstats.c
+--- a/kernel/taskstats.c
++++ b/kernel/taskstats.c
+@@ -20,6 +20,7 @@
+ #include <linux/file.h>
+ #include <linux/pid_namespace.h>
+ #include <net/genetlink.h>
++#include <net/sock.h>
+ #include <linux/atomic.h>
+ #include <linux/sched/cputime.h>
+ 
+@@ -45,10 +46,18 @@
+ 	[CGROUPSTATS_CMD_ATTR_FD] = { .type = NLA_U32 },
+ };
+ 
++/* Generic Netlink frees this after the owning socket is unlinked. */
++struct listener_socket {
++	struct sock *sk;
++	struct pid_namespace *pid_ns;
++	u32 portid;
++	cpumask_t cpus;
++};
++
+ struct listener {
+ 	struct list_head list;
+-	pid_t pid;
+-	char valid;
++	struct listener_socket *socket;
++	unsigned int cpu;
+ };
+ 
+ struct listener_list {
+@@ -102,56 +111,6 @@
+ 	genlmsg_end(skb, reply);
+ 
+ 	return genlmsg_reply(skb, info);
+-}
+-
+-/*
+- * Send taskstats data in @skb to listeners registered for @cpu's exit data
+- */
+-static void send_cpu_listeners(struct sk_buff *skb,
+-					struct listener_list *listeners)
+-{
+-	struct genlmsghdr *genlhdr = nlmsg_data(nlmsg_hdr(skb));
+-	struct listener *s, *tmp;
+-	struct sk_buff *skb_next, *skb_cur = skb;
+-	void *reply = genlmsg_data(genlhdr);
+-	int delcount = 0;
+-
+-	genlmsg_end(skb, reply);
+-
+-	down_read(&listeners->sem);
+-	list_for_each_entry(s, &listeners->list, list) {
+-		int rc;
+-
+-		skb_next = NULL;
+-		if (!list_is_last(&s->list, &listeners->list)) {
+-			skb_next = skb_clone(skb_cur, GFP_KERNEL);
+-			if (!skb_next)
+-				break;
+-		}
+-		rc = genlmsg_unicast(&init_net, skb_cur, s->pid);
+-		if (rc == -ECONNREFUSED) {
+-			s->valid = 0;
+-			delcount++;
+-		}
+-		skb_cur = skb_next;
+-	}
+-	up_read(&listeners->sem);
+-
+-	if (skb_cur)
+-		nlmsg_free(skb_cur);
+-
+-	if (!delcount)
+-		return;
+-
+-	/* Delete invalidated entries */
+-	down_write(&listeners->sem);
+-	list_for_each_entry_safe(s, tmp, &listeners->list, list) {
+-		if (!s->valid) {
+-			list_del(&s->list);
+-			kfree(s);
+-		}
+-	}
+-	up_write(&listeners->sem);
+ }
+ 
+ static void exe_add_tsk(struct taskstats *stats, struct task_struct *tsk)
+@@ -296,63 +255,96 @@
+ 	return;
+ }
+ 
+-static int add_del_listener(pid_t pid, const struct cpumask *mask, int isadd)
++static void del_listeners(struct listener_socket *socket,
++			  const struct cpumask *mask)
+ {
+ 	struct listener_list *listeners;
+-	struct listener *s, *tmp, *s2;
++	struct listener *entry;
+ 	unsigned int cpu;
+-	int ret = 0;
+-
+-	if (!cpumask_subset(mask, cpu_possible_mask))
+-		return -EINVAL;
+-
+-	if (current_user_ns() != &init_user_ns)
+-		return -EINVAL;
+-
+-	if (task_active_pid_ns(current) != &init_pid_ns)
+-		return -EINVAL;
+-
+-	if (isadd == REGISTER) {
+-		for_each_cpu(cpu, mask) {
+-			s = kmalloc_node(sizeof(struct listener),
+-					GFP_KERNEL, cpu_to_node(cpu));
+-			if (!s) {
+-				ret = -ENOMEM;
+-				goto cleanup;
+-			}
+-			s->pid = pid;
+-			s->valid = 1;
+-
+-			listeners = &per_cpu(listener_array, cpu);
+-			down_write(&listeners->sem);
+-			list_for_each_entry(s2, &listeners->list, list) {
+-				if (s2->pid == pid && s2->valid)
+-					goto exists;
+-			}
+-			list_add(&s->list, &listeners->list);
+-			s = NULL;
+-exists:
+-			up_write(&listeners->sem);
+-			kfree(s); /* nop if NULL */
+-		}
+-		return 0;
+-	}
+-
+-	/* Deregister or cleanup */
+-cleanup:
+-	for_each_cpu(cpu, mask) {
++
++	for_each_cpu_and(cpu, &socket->cpus, mask) {
+ 		listeners = &per_cpu(listener_array, cpu);
+ 		down_write(&listeners->sem);
+-		list_for_each_entry_safe(s, tmp, &listeners->list, list) {
+-			if (s->pid == pid) {
+-				list_del(&s->list);
+-				kfree(s);
++		list_for_each_entry(entry, &listeners->list, list) {
++			if (entry->socket == socket) {
++				list_del(&entry->list);
++				kfree(entry);
+ 				break;
+ 			}
+ 		}
+ 		up_write(&listeners->sem);
+-	}
+-	return ret;
++		cpumask_clear_cpu(cpu, &socket->cpus);
++	}
++}
++
++static void destroy_listener_socket(void *priv)
++{
++	struct listener_socket *socket = priv;
++
++	del_listeners(socket, cpu_possible_mask);
++	if (socket->pid_ns)
++		put_pid_ns(socket->pid_ns);
++}
++
++static int add_del_listener(struct sock *sk, u32 portid,
++			    const struct cpumask *mask, int action)
++{
++	struct pid_namespace *pid_ns = task_active_pid_ns(current);
++	struct listener_socket *socket;
++	struct listener *entry, *tmp;
++	struct listener_list *listeners;
++	unsigned int cpu;
++	LIST_HEAD(pending);
++
++	if (!cpumask_subset(mask, cpu_possible_mask) ||
++	    current_user_ns() != &init_user_ns)
++		return -EINVAL;
++
++	socket = genl_sk_priv_get(&family, sk);
++	if (IS_ERR(socket))
++		return PTR_ERR(socket);
++
++	if (socket->pid_ns && socket->pid_ns != pid_ns)
++		return -EPERM;
++
++	if (action == DEREGISTER) {
++		del_listeners(socket, mask);
++		return 0;
++	}
++
++	/* Allocate the entire change before publishing any CPU subscription. */
++	for_each_cpu(cpu, mask) {
++		if (cpumask_test_cpu(cpu, &socket->cpus))
++			continue;
++		entry = kmalloc_node(sizeof(*entry), GFP_KERNEL, cpu_to_node(cpu));
++		if (!entry)
++			goto free_pending;
++		entry->socket = socket;
++		entry->cpu = cpu;
++		list_add_tail(&entry->list, &pending);
++	}
++
++	if (!socket->pid_ns) {
++		socket->pid_ns = get_pid_ns(pid_ns);
++		socket->sk = sk;
++		socket->portid = portid;
++	}
++
++	list_for_each_entry_safe(entry, tmp, &pending, list) {
++		listeners = &per_cpu(listener_array, entry->cpu);
++		cpumask_set_cpu(entry->cpu, &socket->cpus);
++		down_write(&listeners->sem);
++		list_move(&entry->list, &listeners->list);
++		up_write(&listeners->sem);
++	}
++	return 0;
++
++free_pending:
++	list_for_each_entry_safe(entry, tmp, &pending, list) {
++		list_del(&entry->list);
++		kfree(entry);
++	}
++	return -ENOMEM;
+ }
+ 
+ static int parse(struct nlattr *na, struct cpumask *mask)
+@@ -450,7 +442,7 @@
+ 	return send_reply(rep_skb, info);
+ }
+ 
+-static int cmd_attr_register_cpumask(struct genl_info *info)
++static int cmd_attr_register_cpumask(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	cpumask_var_t mask;
+ 	int rc;
+@@ -460,13 +452,14 @@
+ 	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK], mask);
+ 	if (rc < 0)
+ 		goto out;
+-	rc = add_del_listener(info->snd_portid, mask, REGISTER);
++	rc = add_del_listener(NETLINK_CB(skb).sk, info->snd_portid,
++			      mask, REGISTER);
+ out:
+ 	free_cpumask_var(mask);
+ 	return rc;
+ }
+ 
+-static int cmd_attr_deregister_cpumask(struct genl_info *info)
++static int cmd_attr_deregister_cpumask(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	cpumask_var_t mask;
+ 	int rc;
+@@ -476,7 +469,8 @@
+ 	rc = parse(info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK], mask);
+ 	if (rc < 0)
+ 		goto out;
+-	rc = add_del_listener(info->snd_portid, mask, DEREGISTER);
++	rc = add_del_listener(NETLINK_CB(skb).sk, info->snd_portid,
++			      mask, DEREGISTER);
+ out:
+ 	free_cpumask_var(mask);
+ 	return rc;
+@@ -554,9 +548,9 @@
+ static int taskstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	if (info->attrs[TASKSTATS_CMD_ATTR_REGISTER_CPUMASK])
+-		return cmd_attr_register_cpumask(info);
++		return cmd_attr_register_cpumask(skb, info);
+ 	else if (info->attrs[TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK])
+-		return cmd_attr_deregister_cpumask(info);
++		return cmd_attr_deregister_cpumask(skb, info);
+ 	else if (info->attrs[TASKSTATS_CMD_ATTR_PID])
+ 		return cmd_attr_pid(info);
+ 	else if (info->attrs[TASKSTATS_CMD_ATTR_TGID])
+@@ -597,68 +591,75 @@
+ 	return stats;
+ }
+ 
++static void send_task_exit(struct listener_socket *socket,
++			   struct task_struct *tsk, pid_t pid, int group_dead,
++			   bool send_tgid, size_t size)
++{
++	struct genlmsghdr *genlhdr;
++	struct taskstats *stats;
++	struct sk_buff *skb;
++
++	if (prepare_reply(NULL, TASKSTATS_CMD_NEW, &skb, size) < 0)
++		return;
++
++	stats = mk_reply(skb, TASKSTATS_TYPE_PID, pid);
++	if (!stats)
++		goto err;
++	fill_stats(&init_user_ns, socket->pid_ns, tsk, stats);
++	if (group_dead)
++		stats->ac_flag |= AGROUP;
++
++	if (send_tgid) {
++		stats = mk_reply(skb, TASKSTATS_TYPE_TGID,
++				 task_tgid_nr_ns(tsk, socket->pid_ns));
++		if (!stats)
++			goto err;
++		memcpy(stats, tsk->signal->stats, sizeof(*stats));
++		stats->version = TASKSTATS_VERSION;
++	}
++
++	genlhdr = nlmsg_data(nlmsg_hdr(skb));
++	genlmsg_end(skb, genlmsg_data(genlhdr));
++	netlink_unicast_checked(sock_net(socket->sk)->genl_sock, skb,
++				socket->portid, socket->sk);
++	return;
++err:
++	nlmsg_free(skb);
++}
++
+ /* Send pid data out on exit */
+ void taskstats_exit(struct task_struct *tsk, int group_dead)
+ {
+-	int rc;
+ 	struct listener_list *listeners;
+-	struct taskstats *stats;
+-	struct sk_buff *rep_skb;
++	struct listener *entry;
++	bool send_tgid;
+ 	size_t size;
+-	int is_thread_group;
+ 
+ 	if (!family_registered)
+ 		return;
+ 
+-	/*
+-	 * Size includes space for nested attributes
+-	 */
+-	size = taskstats_packet_size();
+-
+-	is_thread_group = !!taskstats_tgid_alloc(tsk);
+-	if (is_thread_group) {
+-		/* PID + STATS + TGID + STATS */
+-		size = 2 * size;
+-		/* fill the tsk->signal->stats structure */
++	if (taskstats_tgid_alloc(tsk)) {
+ 		fill_tgid_exit(tsk);
++		send_tgid = group_dead;
++	} else {
++		send_tgid = false;
+ 	}
+ 
+ 	listeners = raw_cpu_ptr(&listener_array);
+ 	if (list_empty(&listeners->list))
+ 		return;
+ 
+-	rc = prepare_reply(NULL, TASKSTATS_CMD_NEW, &rep_skb, size);
+-	if (rc < 0)
+-		return;
+-
+-	stats = mk_reply(rep_skb, TASKSTATS_TYPE_PID,
+-			 task_pid_nr_ns(tsk, &init_pid_ns));
+-	if (!stats)
+-		goto err;
+-
+-	fill_stats(&init_user_ns, &init_pid_ns, tsk, stats);
+-	if (group_dead)
+-		stats->ac_flag |= AGROUP;
+-
+-	/*
+-	 * Doesn't matter if tsk is the leader or the last group member leaving
+-	 */
+-	if (!is_thread_group || !group_dead)
+-		goto send;
+-
+-	stats = mk_reply(rep_skb, TASKSTATS_TYPE_TGID,
+-			 task_tgid_nr_ns(tsk, &init_pid_ns));
+-	if (!stats)
+-		goto err;
+-
+-	memcpy(stats, tsk->signal->stats, sizeof(*stats));
+-	stats->version = TASKSTATS_VERSION;
+-
+-send:
+-	send_cpu_listeners(rep_skb, listeners);
+-	return;
+-err:
+-	nlmsg_free(rep_skb);
++	size = taskstats_packet_size() * (send_tgid ? 2 : 1);
++	down_read(&listeners->sem);
++	list_for_each_entry(entry, &listeners->list, list) {
++		struct listener_socket *socket = entry->socket;
++		pid_t pid = task_pid_nr_ns(tsk, socket->pid_ns);
++
++		/* Hide tasks outside the recipient's PID namespace subtree. */
++		if (pid)
++			send_task_exit(socket, tsk, pid, group_dead, send_tgid, size);
++	}
++	up_read(&listeners->sem);
+ }
+ 
+ static const struct genl_ops taskstats_ops[] = {
+@@ -687,6 +688,8 @@
+ 	.n_ops		= ARRAY_SIZE(taskstats_ops),
+ 	.resv_start_op	= CGROUPSTATS_CMD_GET + 1,
+ 	.netnsok	= true,
++	.sock_priv_size = sizeof(struct listener_socket),
++	.sock_priv_destroy = destroy_listener_socket,
+ };
+ 
+ /* Needed early in initialization */
