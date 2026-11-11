@@ -17,8 +17,8 @@ ROOT = f"/home/{OPERATOR_USER}/.local/share/potbot/controllers"
 # Fixed native code, never shell-interpolated. Syn itself still comes only
 # from its independently selected signed official release.
 INSTALL = r"""
-import hashlib, json, os, pathlib, subprocess, sys, venv, zipfile
-wheel, expected, base = sys.argv[1:]
+import hashlib, json, os, pathlib, stat, subprocess, sys, venv, zipfile
+wheel, expected, base, retained = sys.argv[1:]
 path = pathlib.Path(wheel)
 if path.stat().st_size > 50 * 1024 * 1024:
     raise SystemExit("Controller wheel exceeds bound")
@@ -32,22 +32,85 @@ with zipfile.ZipFile(path) as archive:
     if "\nName: potbot\n" not in "\n" + metadata:
         raise SystemExit("Controller distribution identity differs")
 root = pathlib.Path(base) / expected
+if root.parent.resolve() != root.parent:
+    raise SystemExit("Controller base path traverses a link")
+if retained == "retained" and not root.is_dir():
+    raise SystemExit("Selected controller environment is missing")
 root.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-if root.exists():
-    raise SystemExit("Controller path already exists; explicit reconciliation required")
-root.mkdir(mode=0o700)
+root.mkdir(mode=0o700, exist_ok=True)
+for directory in (root.parent, root):
+    info = directory.lstat()
+    if (directory.resolve() != directory or not stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.getuid() or info.st_mode & 0o077):
+        raise SystemExit("Controller directory is not private and operator-owned")
+pending, ready = root / ".installing", root / ".ready"
+marker = (expected + "\n").encode()
+for entry in (pending, ready):
+    if entry.is_symlink() or (entry.exists() and (
+            not entry.is_file() or entry.stat().st_size != len(marker) or entry.read_bytes() != marker)):
+        raise SystemExit("Controller installation marker differs")
 environment = {"PATH": "/usr/bin:/bin", "HOME": str(pathlib.Path.home()), "LANG": "C.UTF-8"}
-venv.EnvBuilder(with_pip=True).create(root / "venv")
 python = root / "venv/bin/python"
-subprocess.run([str(python), "-I", "-B", "-m", "pip", "--isolated", "--disable-pip-version-check",
-                "install", "--no-input", "--only-binary", ":all:", str(path),
-                "cryptography==50.0.2", "uv==0.12.23"], env=environment, check=True,
-               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=240)
+uv = root / "venv/bin/uv"
+if not ready.exists() and retained != "retained":
+    if not pending.exists():
+        if any(root.iterdir()):
+            raise SystemExit("Controller path already exists; explicit reconciliation required")
+        with pending.open("xb") as output:
+            output.write(marker)
+            output.flush()
+            os.fsync(output.fileno())
+    if (root / "venv").resolve() != root / "venv":
+        raise SystemExit("Pending controller venv has an unexpected path")
+    venv.EnvBuilder(with_pip=True).create(root / "venv")
+    subprocess.run([str(python), "-I", "-B", "-m", "pip", "--isolated", "--disable-pip-version-check",
+                    "install", "--force-reinstall", "--no-input", "--only-binary", ":all:", str(path),
+                    "cryptography==50.0.2", "uv==0.12.23"], env=environment, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=240)
+
+verify = '''
+import hashlib, importlib.metadata as meta, pathlib, sys, zipfile
+wheel, expected, root = sys.argv[1:]
+root = pathlib.Path(root)
+if pathlib.Path(sys.prefix) != root / "venv":
+    raise SystemExit("Controller interpreter is outside its selected environment")
+with pathlib.Path(wheel).open("rb") as file:
+    if hashlib.file_digest(file, "sha256").hexdigest() != expected:
+        raise SystemExit("Controller wheel changed")
+    file.seek(0)
+    with zipfile.ZipFile(file) as archive:
+        distribution = meta.distribution("potbot")
+        for item in archive.infolist():
+            if not item.filename.startswith("potbot/") or item.is_dir():
+                continue
+            installed = pathlib.Path(distribution.locate_file(item.filename))
+            if (not installed.is_file() or installed.resolve() != installed
+                    or not installed.is_relative_to(root / "venv")
+                    or installed.read_bytes() != archive.read(item)):
+                raise SystemExit("Installed controller payload differs from the wheel")
+if meta.version("cryptography") != "50.0.2" or meta.version("uv") != "0.12.23":
+    raise SystemExit("Installed controller dependency version differs")
+'''
+subprocess.run([str(python), "-I", "-B", "-c", verify, str(path), expected, str(root)],
+               env=environment, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+if not uv.is_file() or not os.access(uv, os.X_OK):
+    raise SystemExit("Installed controller uv launcher is unavailable")
 subprocess.run([str(python), "-I", "-B", "-m", "potbot", "syn-operator", "--help"],
                env=environment, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+if pending.exists() and not ready.exists():
+    pending.replace(ready)
 print(json.dumps({"profile": "potbot.syn-wsl-controller/1", "wheel_sha256": expected,
-                  "python": str(python), "uv": str(root / "venv/bin/uv")}, sort_keys=True))
+                  "python": str(python), "uv": str(uv)}, sort_keys=True))
 """
+
+
+def _controller_receipt(expected: str) -> dict[str, str]:
+    return {
+        "profile": "potbot.syn-wsl-controller/1",
+        "wheel_sha256": expected,
+        "python": f"{ROOT}/{expected}/venv/bin/python",
+        "uv": f"{ROOT}/{expected}/venv/bin/uv",
+    }
 
 
 def install_controller(manager: WslOperatorHost, wheel: Path, expected: str) -> dict[str, str]:
@@ -61,42 +124,50 @@ def install_controller(manager: WslOperatorHost, wheel: Path, expected: str) -> 
     ):
         raise StateMismatchError("Controller wheel differs from its selected digest")
     manager.setup()
-    native = run_host(manager.command("/usr/bin/wslpath", ["-a", "-u", str(wheel)])).strip()
-    if not native.startswith("/") or "\n" in native:
-        raise StateMismatchError("Controller wheel has no canonical WSL path")
-    result = json.loads(
-        run_host(
-            manager.command(
-                "/usr/bin/python3.12", ["-I", "-B", "-c", INSTALL, native, expected, ROOT]
-            ),
-            timeout=300,
+    desired = _controller_receipt(expected)
+    with manager._setup_lock():
+        record = manager._read_receipt()
+        retained = record.get("controller") == desired
+        native = run_host(manager.command("/usr/bin/wslpath", ["-a", "-u", str(wheel)])).strip()
+        if not native.startswith("/") or "\n" in native:
+            raise StateMismatchError("Controller wheel has no canonical WSL path")
+        result = json.loads(
+            run_host(
+                manager.command(
+                    "/usr/bin/python3.12",
+                    [
+                        "-I",
+                        "-B",
+                        "-c",
+                        INSTALL,
+                        native,
+                        expected,
+                        ROOT,
+                        "retained" if retained else "new",
+                    ],
+                ),
+                timeout=340,
+            )
         )
-    )
-    if (
-        result.get("profile") != "potbot.syn-wsl-controller/1"
-        or result.get("wheel_sha256") != expected
-        or result.get("python") != ROOT + "/" + expected + "/venv/bin/python"
-    ):
-        raise StateMismatchError("Native controller installation receipt differs")
-    record = json.loads(manager.receipt.read_text())
-    record["controller"] = result
-    temporary = manager.receipt.with_suffix(".controller.tmp")
-    with temporary.open("x", encoding="utf-8") as out:
-        out.write(json.dumps(record, sort_keys=True) + "\n")
-    temporary.replace(manager.receipt)
-    return dict(result)
+        if result != desired:
+            raise StateMismatchError("Native controller installation receipt differs")
+        if not retained:
+            manager._write_receipt({**record, "controller": desired})
+    return desired
 
 
 def forward(manager: WslOperatorHost, command: str, arguments: list[str]) -> int:
     import subprocess
 
-    record = json.loads(manager.receipt.read_text())
-    controller = record.get("controller", {})
+    record = manager._read_receipt()
+    controller = record.get("controller")
+    if not isinstance(controller, dict):
+        raise StateMismatchError("Install the exact reviewed native Potbot controller wheel first")
     selected = controller.get("wheel_sha256", "")
     if (
-        controller.get("profile") != "potbot.syn-wsl-controller/1"
+        not isinstance(selected, str)
         or re.fullmatch(r"[0-9a-f]{64}", selected) is None
-        or controller.get("python") != ROOT + "/" + selected + "/venv/bin/python"
+        or controller != _controller_receipt(selected)
     ):
         raise StateMismatchError("Install the exact reviewed native Potbot controller wheel first")
     # Interactive unlock inherits the real terminal; Potbot never captures it.

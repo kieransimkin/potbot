@@ -19,7 +19,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if (
         platform.system() == "Windows"
         and arguments
-        and arguments[0] not in {"host-setup", "--help", "-h"}
+        and arguments[0] not in {"host-setup", "host-status", "--help", "-h"}
     ):
         try:
             from .host import WslOperatorHost
@@ -44,6 +44,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     setup.add_argument("--controller-wheel", type=Path)
     setup.add_argument("--controller-sha256")
+    commands.add_parser("host-status", help="Report managed WSL host and worker prerequisites")
     for name in ("unlock", "bootstrap", "attach", "serve", "install-service", "switch-release"):
         sub = commands.add_parser(name)
         sub.add_argument("--store", type=Path, required=True)
@@ -64,20 +65,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Controller installation requires both --controller-wheel and --controller-sha256"
         )
     try:
-        if args.operation == "host-setup":
-            from .host import native_host_setup
+        if args.operation == "host-status":
+            from .host import WslOperatorHost
 
-            value = native_host_setup()
+            value = WslOperatorHost().status()
+        elif args.operation == "host-setup":
             if args.controller_wheel:
                 from .host import WslOperatorHost
                 from .wsl_controller import install_controller
 
-                value = {
-                    **value,
-                    "controller": install_controller(
-                        WslOperatorHost(), args.controller_wheel, args.controller_sha256
-                    ),
-                }
+                manager = WslOperatorHost()
+                install_controller(manager, args.controller_wheel, args.controller_sha256)
+                value = manager._read_receipt()
+            else:
+                from .host import native_host_setup
+
+                value = native_host_setup()
         else:
             from .contracts import Policy
             from .operator import SynOperatorDeployment

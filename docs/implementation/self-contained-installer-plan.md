@@ -1,6 +1,7 @@
 # Potbot self-contained installer mini-plan
 
-**Status:** Proposed. This plan covers installation and worker activation.
+**Status:** Stock WSL host setup and controller recovery are implemented.
+Automated worker activation and signed kernel distribution remain planned.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -47,6 +48,53 @@ flowchart TD
    WSL and the sandbox. Exercise concurrent workers, cancellation, timeout
    and restart. Missing or ambiguous records must keep affected work fenced.
    Use the patched kernel candidate below for this host’s WSL2 qualification.
+
+## Resume stock WSL setup
+
+Use the same command for a first install, a retry after Windows asks for a
+reboot, and selection of another reviewed controller wheel. Choose the
+wheel digest independently of the file being installed.
+
+~~~powershell
+potbot syn-operator host-setup --controller-wheel C:\Reviewed\potbot.whl --controller-sha256 <selected-sha256>
+potbot syn-operator host-status
+~~~
+
+~~~mermaid
+flowchart LR
+    A[Record registration intent] --> B[Install owned Ubuntu in WSL2]
+    B -->|Reboot required| A
+    B --> C[Verify registered WSL2 identity and path]
+    C --> D[Resume native prerequisites]
+    D --> E[Verify the digest-selected controller]
+    E --> F[Record controller selection]
+    D --> P[Report kernel accounting prerequisites separately]
+~~~
+
+When the WSL platform is missing, setup asks Windows to install WSL
+without the default distro. Rerun the command after any requested reboot
+to register the managed Ubuntu distro.
+
+Setup retries an unfinished registration while the intended directory is
+absent. Once Windows registers the distro, setup records its identity and
+checks it on subsequent runs. An unexpected registration, unclaimed
+storage, or a missing previously registered distro requires reconciliation.
+
+The controller installer keeps each digest in its own environment. A
+retry can finish an interrupted build or verify and reuse a completed
+environment. The selected controller changes after the new wheel and its
+installed payload pass verification. Syn release selection, private
+keystore setup and worker qualification use their separate commands.
+
+Host status reports the current kernel and its accounting options. For
+example, the managed stock WSL host reported that the host was ready and
+accounting was unsupported. Even when the options are available, run the
+[live worker qualification](38-operator-worker-qualification.md) before
+enabling workers. Host status can boot the owned distro to read the kernel
+configuration. The diagram shows the sequence and the headless status
+command supplies the actual observation.
+
+[Microsoft WSL installation and reboot behaviour](https://learn.microsoft.com/en-us/windows/wsl/install)
 
 The first custom Microsoft WSL kernel booted with TASKSTATS enabled and
 matching modules. Potbot’s live subscription still
@@ -132,8 +180,9 @@ in a disposable WSL2 distro. PostgreSQL-backed Context RPC passed with
 official Syn 0.7.0 and 0.8.0, including session revocation after a result,
 lease release after clean exits and fencing after an intentional nonzero
 exit. The signed-image operator gate passed again after reboot. The host
-retained the candidate and verified its stock rollback backup. Installed
-worker service qualification and legacy-state cutover remain open.
+retained the candidate and verified its stock rollback backup. At that
+checkpoint, installed worker service qualification and legacy-state
+cutover remained open.
 
 The follow-on installed-service check corrected two launcher defects. The
 systemd unit now preserves the virtualenv interpreter and emits a valid
@@ -268,16 +317,21 @@ configuration hashes matched, and the same dispatcher manifest opened a
 fresh relay session. The installed worker then repeated the two clean
 Context RPC jobs and the collector-loss case on the signed image.
 
-The remaining SYN-R07 cutover gates cover installation records and the
-review and qualification of the runtime removal candidate.
+The managed WSL qualification passed with the installed worker, the signed
+image, the scoped launcher and pinned Syn 0.8.0. It verified Context RPC
+for two Agents and lease fencing after collector loss. Potbot removed the
+transitional runtime in PR #46. PR #43 added the official Syn 0.7.0 and
+0.8.0 Context RPC checks.
+[Removal](https://github.com/kieransimkin/potbot/pull/46) · [Release checks](https://github.com/kieransimkin/potbot/pull/43)
+
 [systemd socket activation](https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html)
 [WSL configuration](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
 · [Microsoft build instructions](https://raw.githubusercontent.com/microsoft/WSL2-Linux-Kernel/linux-msft-wsl-6.18.54.1/README.md)
 · [Kernel licence](https://raw.githubusercontent.com/microsoft/WSL2-Linux-Kernel/linux-msft-wsl-6.18.54.1/COPYING)
 
-The first installer increment is the stock-WSL setup and the separate worker
-activation gate. Exercise a clean install, a repeat run, an interrupted
-install, and an upgrade that retains identity and enrollment. Verify that an
-unsupported accounting path leaves Syn usable and worker activation disabled,
-and that a qualified host can activate workers. Test kernel rollback if the
-optional bundle is introduced. SYN-R07 still governs removal of `syn-node/`.
+Complete installer acceptance on a clean Windows host. Exercise WSL
+feature installation, a reboot and resume, and an operator upgrade that
+retains identity and enrollment. Verify that unsupported accounting leaves
+Syn usable and blocks local worker admission. Qualify worker activation
+through the installer on a supported host and test kernel rollback if the
+optional bundle is introduced.
