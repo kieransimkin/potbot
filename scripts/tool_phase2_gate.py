@@ -22,13 +22,20 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = {
     "T02.1": ["tests/unit/test_mcp_protocol.py", "tests/unit/test_mcp_stdio.py"],
-    "T02.2": ["tests/unit/test_mcp_http.py", "tests/unit/test_mcp_http_broker.py"],
+    "T02.2": [
+        "tests/unit/test_mcp_http.py",
+        "tests/unit/test_mcp_http_broker.py",
+        "tests/unit/test_mcp_oauth.py",
+    ],
 }
 SOURCES = [
     "src/potbot/tools/mcp_protocol.py",
     "src/potbot/tools/mcp_stdio.py",
     "src/potbot/tools/mcp_http.py",
     "src/potbot/tools/mcp_http_broker.py",
+    "src/potbot/tools/mcp_oauth.py",
+    "src/potbot/credentials.py",
+    "tests/unit/test_mcp_oauth.py",
     "src/potbot/tools/connect_policy.py",
     "tests/unit/test_mcp_http_broker.py",
     "src/potbot/tools/capability_contracts.py",

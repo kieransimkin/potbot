@@ -131,6 +131,26 @@ class _PinnedHttps(httpx.AsyncBaseTransport):
         await self.backend.aclose()
 
 
+async def _pinned_json(method: str, url: str, *, data: dict[str, str] | None = None) -> object:
+    try:
+        async with (
+            asyncio.timeout(15),
+            httpx.AsyncClient(transport=_PinnedHttps(method, url), trust_env=False) as client,
+            client.stream(method, url, data=data, follow_redirects=False) as response,
+        ):
+            kind = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            if response.status_code != 200 or kind != "application/json":
+                raise ScopeDeniedError("MCP issuer returned an unexpected response")
+            body = bytearray()
+            async for piece in response.aiter_bytes(chunk_size=4096):
+                if len(body) + len(piece) > _METADATA_LIMIT:
+                    raise ScopeDeniedError("MCP issuer response exceeds its budget")
+                body.extend(piece)
+            return parse_json_document(bytes(body))
+    except (McpProtocolError, httpx.HTTPError, OSError, TimeoutError):
+        raise ScopeDeniedError("MCP issuer response unavailable") from None
+
+
 class McpHttpBroker:
     """Accepts only policy and credentials supplied by trusted controller code."""
 
@@ -142,7 +162,7 @@ class McpHttpBroker:
         self._authorize = authorize
         self._credentials = credentials
 
-    def _require_consent(self, grant: McpHttpGrant) -> None:
+    def require_consent(self, grant: McpHttpGrant) -> None:
         try:
             approved = self._authorize(grant)
         except Exception:
@@ -169,28 +189,8 @@ class McpHttpBroker:
         return bearer.secret
 
     async def discover_issuer(self, grant: McpHttpGrant) -> dict[str, str]:
-        self._require_consent(grant)
-        try:
-            async with (
-                asyncio.timeout(15),
-                httpx.AsyncClient(
-                    transport=_PinnedHttps("GET", grant.discovery), trust_env=False
-                ) as client,
-                client.stream("GET", grant.discovery, follow_redirects=False) as response,
-            ):
-                if response.status_code != 200 or (
-                    response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-                    != "application/json"
-                ):
-                    raise ScopeDeniedError("MCP issuer metadata unavailable")
-                body = bytearray()
-                async for piece in response.aiter_bytes(chunk_size=4096):
-                    if len(body) + len(piece) > _METADATA_LIMIT:
-                        raise ScopeDeniedError("MCP issuer metadata exceeds its budget")
-                    body.extend(piece)
-                document = parse_json_document(bytes(body))
-        except (McpProtocolError, httpx.HTTPError, OSError, TimeoutError):
-            raise ScopeDeniedError("MCP issuer metadata unavailable") from None
+        self.require_consent(grant)
+        document = await _pinned_json("GET", grant.discovery)
 
         if not isinstance(document, dict) or document.get("issuer") != grant.issuer:
             raise ScopeDeniedError("MCP issuer metadata identity mismatch")
@@ -201,6 +201,11 @@ class McpHttpBroker:
                 raise ScopeDeniedError("MCP issuer endpoint is missing")
             _https_host(url)
             endpoints[name] = url
+        methods = document.get("code_challenge_methods_supported")
+        if isinstance(methods, list) and "S256" in methods:
+            endpoints["code_challenge_method"] = "S256"
+        if document.get("authorization_response_iss_parameter_supported") is True:
+            endpoints["authorization_response_issuer"] = grant.issuer
         return endpoints
 
     @asynccontextmanager
@@ -210,7 +215,7 @@ class McpHttpBroker:
         def authorize(url: str) -> None:
             if url != grant.resource:
                 raise ScopeDeniedError("MCP resource changed")
-            self._require_consent(grant)
+            self.require_consent(grant)
 
         async with httpx.AsyncClient(
             transport=_PinnedHttps("POST", grant.resource, authenticated=True), trust_env=False
