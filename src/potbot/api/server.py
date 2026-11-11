@@ -16,7 +16,7 @@ from functools import partial
 from queue import Empty, Full, Queue
 from threading import Event, Thread
 from time import time
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -57,6 +57,9 @@ from potbot.domain.errors import (
     ScopeDeniedError,
 )
 from potbot.models.profiles import default_model_profiles
+
+if TYPE_CHECKING:
+    from potbot.api.hosted_mcp_oauth import HostedMcpOAuth
 
 
 class JobOperations(Protocol):
@@ -363,6 +366,7 @@ def create_app(
     worker_telemetry_reader: Any | None = None,
     browser_gallery: Any | None = None,
     settings: ServerSettings = _DEFAULT_SETTINGS,
+    mcp_oauth: HostedMcpOAuth | None = None,
 ) -> FastAPI:
     """Create a server with explicitly supplied identity and application services."""
     app = FastAPI(
@@ -421,6 +425,9 @@ def create_app(
     async def health() -> JSONResponse:
         # Liveness only; it deliberately makes no assertion about DB/worker health.
         return _response(success_response(uuid4(), {"status": "listening", "version": __version__}))
+
+    if mcp_oauth is not None:
+        mcp_oauth.install(app, context)
 
     if browser_gallery is not None:
         from potbot.api.browser_gallery import install_gallery_routes

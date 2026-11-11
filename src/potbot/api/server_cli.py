@@ -131,6 +131,15 @@ def application(args: argparse.Namespace) -> FastAPI:
             ArtifactStore(database, LocalArtifactBackend(artifact_root)),
             forbidden_roots=(rootfs, home, staging, tools, artifact_root),
         )
+    oauth_registration = getattr(args, "mcp_oauth_registration", None)
+    mcp_oauth = None
+    if oauth_registration is not None:
+        from potbot.api.hosted_mcp_oauth import read_mcp_oauth_registration
+        from potbot.domain.errors import InvalidInputError
+
+        if args.host not in {"localhost", "127.0.0.1", "::1"}:
+            raise InvalidInputError("Hosted MCP OAuth requires loopback behind its HTTPS proxy")
+        mcp_oauth = read_mcp_oauth_registration(oauth_registration, context, credentials)
     app = create_app(
         task_service=TaskService(database),
         job_service=JobService(database),
@@ -146,6 +155,7 @@ def application(args: argparse.Namespace) -> FastAPI:
         worker_telemetry_reader=monitor_reader,
         browser_gallery=browser_gallery,
         settings=settings,
+        mcp_oauth=mcp_oauth,
     )
     from potbot.api.ui_api_setup import register_api_setup_routes
     from potbot.api.ui_context import register_context_routes
@@ -188,6 +198,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="potbot serve", description=__doc__)
     add_scope_arguments(parser)
     parser.add_argument("--provider-policy", required=True, type=Path)
+    parser.add_argument(
+        "--mcp-oauth-registration",
+        type=Path,
+        help="operator registration for the hosted MCP OAuth callback",
+    )
     parser.add_argument("--host", default="127.0.0.1", help="literal bind IP, default loopback")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument(

@@ -229,12 +229,12 @@
     },
     {
       "path": "docs/implementation/02-mcp-transports.md",
-      "sha256": "6d7fd4ca7926977c59927b2ead54df6aca17292a6ac66eb6e7c45cda5092f67a",
-      "bytes": 11096,
+      "sha256": "2f58128a031dd337cdfc165ff22c76e3983c35ae6c10b4b8f37bcf8a01a0df18",
+      "bytes": 12649,
       "kind": "narrative_text",
-      "text_sha256": "6d7fd4ca7926977c59927b2ead54df6aca17292a6ac66eb6e7c45cda5092f67a",
-      "characters": 11093,
-      "lines": 106,
+      "text_sha256": "2f58128a031dd337cdfc165ff22c76e3983c35ae6c10b4b8f37bcf8a01a0df18",
+      "characters": 12646,
+      "lines": 117,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35309,12 +35309,12 @@
     },
     {
       "path": "src/potbot/api/server.py",
-      "sha256": "958528b1c0901f4174b70e3431015438a1414f734d819f6f24f7e41bbe6b3e4b",
-      "bytes": 54388,
+      "sha256": "4e43bcd51af21a36eab7f9102f3cda20c018826447f9b5b12f8a119b4c7bf846",
+      "bytes": 54597,
       "kind": "narrative_text",
-      "text_sha256": "958528b1c0901f4174b70e3431015438a1414f734d819f6f24f7e41bbe6b3e4b",
-      "characters": 54388,
-      "lines": 1270,
+      "text_sha256": "4e43bcd51af21a36eab7f9102f3cda20c018826447f9b5b12f8a119b4c7bf846",
+      "characters": 54597,
+      "lines": 1277,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "1ad26b169f349a42debe57c9cfcbe0bdf126f899fcf5c4ec3c4b9faf81a59907",
+  "review_sha256": "b83c0c6f34eb1b38f5b20f28db25b1c3a235aa110691baafa2780b0d0b88f9a0",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110059,7 +110059,7 @@
     {
       "source": "docs/implementation/02-mcp-transports.md",
       "locator": "line:8-16",
-      "sha256": "775c1ca880b667fef98417ad27658c4aa322194e949aa9800db906946d3ea2cf",
+      "sha256": "12b1f1c24c44e09366d624e62241962d26e70009a7e099ee30473f784c132b87",
       "excerpt": "## What the increment implements\n\n| Stage | Implementation | Tests | Outstanding |\n|---|---|---|---|\n| T02.1 | Bounded JSON-RPC framing; both lifecycle eras; st",
       "review_families": [
         "mcp"
@@ -110067,8 +110067,8 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:17-64",
-      "sha256": "f12ef81e86bdc306f4fcc83c531b2b82f434d292621a9ac062763018c359a453",
+      "locator": "line:17-65",
+      "sha256": "62e586ab5f8271cb40594107d2d5dcb45705a265405bbf2adef50397d66e6bd6",
       "excerpt": "## Security architecture\n\n- A tool supplied by an MCP server is an **untrusted definition**. `annotations.readOnlyHint` is metadata, not a permission. Only an o",
       "review_families": [
         "mcp"
@@ -110076,8 +110076,17 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:65-90",
-      "sha256": "9f4df5d0cb45e24578661a9dc499b8176a734a802fabe4cf1feb8385219a35ea",
+      "locator": "line:66-75",
+      "sha256": "a063a5dfcbaca443a3010405c7f8f6f39cad6dfd336783367fb567bc900d7c5e",
+      "excerpt": "### Hosted OAuth callback\n\nStart `potbot serve` with `--mcp-oauth-registration` pointing to an operator-owned JSON file. It contains exactly `resource`, `issuer",
+      "review_families": [
+        "mcp"
+      ]
+    },
+    {
+      "source": "docs/implementation/02-mcp-transports.md",
+      "locator": "line:76-101",
+      "sha256": "768c285ef7a90e71e4f3183b03cf329865f3cd6e8264a3145f8a46888edd4b05",
       "excerpt": "## How to run\n\nFrom an existing repository checkout containing this patch:\n\n```bash\nuv sync --locked --extra semantics --extra providers --extra security --dev\n",
       "review_families": [
         "mcp"
@@ -110085,7 +110094,7 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:91-99",
+      "locator": "line:102-110",
       "sha256": "519a723233bfd7fe41859ce41c9ae3897bc9307dbb864ddee3979f7e05b730b7",
       "excerpt": "## Next engineering steps, in order\n\n1. **T02.3.1:** Extend Potbot's production `ProcessSupervisor` to expose a bounded, bidirectional stdio session without byp",
       "review_families": [
@@ -110094,7 +110103,7 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:100-106",
+      "locator": "line:111-117",
       "sha256": "b0d9b24b8b4360d92cd3671efc8fef5950bba99a891426a6c46351148a7aca61",
       "excerpt": "## References\n\n- MCP spec 2026-07-28: https://modelcontextprotocol.io/specification/2026-07-28\n- Discovery spec: https://github.com/modelcontextprotocol/modelco",
       "review_families": [
@@ -122074,6 +122083,12 @@
           "symbol": "McpOAuthProvider",
           "sha256": "50f05e352f5c82844173821bc2ec5ce31fc957f69baa6c0ae8fefcefeef5094f",
           "basis": "Operator-registered authorization-code exchange, signature verification and grant-scoped native vault access."
+        },
+        {
+          "path": "src/potbot/api/hosted_mcp_oauth.py",
+          "symbol": "HostedMcpOAuth",
+          "sha256": "0a702e9bfebc06cd8d5f972c15ec24a5264b097b8038672493148f341ec28e12",
+          "basis": "Controller routes authorize the operator, handle the registered callback, and probe the tool catalogue."
         }
       ],
       "tests": [
@@ -122122,7 +122137,7 @@
         {
           "path": "tests/unit/test_mcp_oauth.py",
           "symbol": "test_pkce_exchange_vault_readback_and_mcp_delivery",
-          "sha256": "4cef955b9621b4325182dbdea57c96de8c94761ed9f1941f82a45f4f1290b503",
+          "sha256": "04fafc1a4e29355ccd45050410982fda0bef77358e58d58e63a658b873fe99e1",
           "basis": "Disposable OAuth issuer fixture verifies the PKCE proof, single-use callback and vault-backed MCP request."
         },
         {
@@ -122130,6 +122145,12 @@
           "symbol": "_verify_protocol",
           "sha256": "2e2f4af96f866e1adfc5fbb4c7e60349325d54228fa667278a9333965a1b91bf",
           "basis": "Pinned upstream SDK probe checks both wire eras over HTTP JSON and SSE."
+        },
+        {
+          "path": "tests/unit/test_mcp_oauth.py",
+          "symbol": "test_hosted_oauth_requires_operator_and_consumes_only_exact_callback",
+          "sha256": "04fafc1a4e29355ccd45050410982fda0bef77358e58d58e63a658b873fe99e1",
+          "basis": "Hosted route regression for operator scope, callback authority and replay refusal."
         }
       ],
       "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",
@@ -122138,7 +122159,7 @@
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries"
       ],
-      "next_action": "Wire the hosted OAuth callback and qualify a registered issuer. Extend the SDK probe as header annotations, multi-round-trip requests and subscriptions are admitted."
+      "next_action": "Qualify the HTTPS proxy and callback on an installed public deployment and extend the official SDK probe as more capabilities are admitted."
     },
     {
       "id": "api",
