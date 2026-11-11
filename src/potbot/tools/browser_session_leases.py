@@ -228,6 +228,13 @@ class BrowserSessionCoordinator:
             if state is not None:
                 state.fenced = True
 
+    def require_inflight(self, lease: BrowserLease) -> None:
+        """Recheck the reservation before using a delayed command or result."""
+        with self._lock:
+            state = self._require(lease.session_id, lease.token, lease.owner_kind, lease.owner_id)
+            if state.lease.generation != lease.generation or state.inflight != 1:
+                raise StateMismatchError("browser reservation changed during the command")
+
     def retired(self, session: str, *, process_stopped: bool) -> None:
         """Reconcile only after the operator observes actual process termination."""
         self._session(session)

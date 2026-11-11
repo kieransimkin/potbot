@@ -59,6 +59,7 @@ def service(*, exited=False):
     supervisor.operator_attachment = None
     supervisor.gui_audit_factory = None
     supervisor.browser_leases = BrowserSessionCoordinator(workspace, principal)
+    supervisor._browser_route = None
     retired = []
     supervisor.agent_displays = SimpleNamespace(
         environment=lambda value: {"DISPLAY": ":477"},

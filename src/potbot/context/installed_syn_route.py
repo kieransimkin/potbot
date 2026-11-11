@@ -10,20 +10,22 @@ import stat
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from potbot.context.rpc_contract import MAX_FRAME_BYTES
-from potbot.context.syn_context_route import METHOD, SynContextRoute
+from potbot.context.syn_context_route import METHOD, SynContextRoute, SynRoundTrip
 from potbot.domain.errors import CapabilityUnavailableError, DomainError, ScopeDeniedError
 from potbot.syn_release.contracts import Policy, canonical, digest, document, fields
 from potbot.syn_release.operator import SynOperatorDeployment
 from potbot.syn_release.store import SynReleaseStore, _sync_directory, _write_new, private_read
 
 PROFILE = "syn.operator-local-rpc/1"
+ROUTE_TABLE_PROFILE = "syn.local-rpc-routes/1"
+BROWSER_METHOD = "browser.command"
+_BROWSER_SOCKET = "browser-rpc.sock"
 _ROUTE_CONFIG = "context-rpc.json"
 _ROUTE_SOCKET = "context-rpc.sock"
 
@@ -43,23 +45,44 @@ sys.stdout.buffer.write(bytes.fromhex(result.receipt["body"]["boot_id"]) + resul
 """
 
 
+def _route_config(deployment: SynOperatorDeployment) -> Path:
+    name = (
+        "application-rpc.json"
+        if ROUTE_TABLE_PROFILE in deployment.policy.value["required_profiles"]
+        else _ROUTE_CONFIG
+    )
+    return deployment.root / name
+
+
 def _route_bytes(deployment: SynOperatorDeployment, workspace_id: UUID) -> bytes:
     if sys.platform != "linux" or os.getuid() == 0:
         raise ScopeDeniedError("Context RPC requires the native Linux service account")
     if PROFILE not in deployment.policy.value["required_profiles"]:
         raise CapabilityUnavailableError("The Syn policy must pin directed local RPC")
-    endpoint = deployment.root / _ROUTE_SOCKET
-    if len(os.fsencode(endpoint)) > 103:
-        raise ScopeDeniedError("Context RPC service socket path is too long")
-    return canonical(
-        {
-            "method": METHOD,
-            "profile": "syn.local-rpc-route/1",
+
+    def destination(method: str, name: str) -> dict[str, str | int]:
+        endpoint = deployment.root / name
+        if len(os.fsencode(endpoint)) > 103:
+            raise ScopeDeniedError("Directed RPC service socket path is too long")
+        return {
+            "method": method,
             "service_socket": str(endpoint),
             "service_uid": os.getuid(),
             "workspace_id": str(workspace_id),
         }
-    )
+
+    context = destination(METHOD, _ROUTE_SOCKET)
+    if ROUTE_TABLE_PROFILE in deployment.policy.value["required_profiles"]:
+        return canonical(
+            {
+                "profile": ROUTE_TABLE_PROFILE,
+                "routes": [
+                    context,
+                    destination(BROWSER_METHOD, _BROWSER_SOCKET),
+                ],
+            }
+        )
+    return canonical({"profile": "syn.local-rpc-route/1", **context})
 
 
 def provision_context_route(deployment: SynOperatorDeployment, workspace_id: UUID) -> Path:
@@ -67,7 +90,7 @@ def provision_context_route(deployment: SynOperatorDeployment, workspace_id: UUI
     raw = _route_bytes(deployment, workspace_id)
     deployment._installation()
     deployment._registered()
-    path = deployment.root / _ROUTE_CONFIG
+    path = _route_config(deployment)
     try:
         _write_new(path, raw)
         _sync_directory(deployment.root)
@@ -79,11 +102,13 @@ def provision_context_route(deployment: SynOperatorDeployment, workspace_id: UUI
 
 def operator_route_path(deployment: SynOperatorDeployment) -> Path:
     """Resolve the path prepared for the explicitly enabled operator service."""
-    path = deployment.root / _ROUTE_CONFIG
+    path = _route_config(deployment)
     raw = private_read(path)
     try:
-        workspace = UUID(document(raw)["workspace_id"])
-    except (KeyError, ValueError, TypeError, AttributeError):
+        config = document(raw)
+        row = config["routes"][0] if config.get("profile") == ROUTE_TABLE_PROFILE else config
+        workspace = UUID(row["workspace_id"])
+    except (KeyError, IndexError, ValueError, TypeError, AttributeError):
         raise ScopeDeniedError("Invalid installed Context route workspace") from None
     if raw != _route_bytes(deployment, workspace):
         raise ScopeDeniedError("Context route does not match the installed operator")
@@ -164,14 +189,25 @@ def _listener(endpoint: Path) -> Iterator[socket.socket]:
         os.close(lock)
 
 
-@contextmanager
-def installed_context_route(
-    selection: dict[str, Any], workspace_id: UUID, *, protected_mounts: tuple[Path, ...]
-) -> Iterator[SynContextRoute]:
+def installed_directed_rpc(
+    selection: dict[str, Any],
+    workspace_id: UUID,
+    *,
+    protected_mounts: tuple[Path, ...],
+    method: str,
+    max_reply: int,
+) -> tuple[Path, str, SynRoundTrip]:
     deployment = _deployment(selection, protected_mounts=protected_mounts)
+    if method not in {METHOD, BROWSER_METHOD}:
+        raise ScopeDeniedError("Unknown installed Syn RPC method")
+    if (
+        method == BROWSER_METHOD
+        and ROUTE_TABLE_PROFILE not in deployment.policy.value["required_profiles"]
+    ):
+        raise CapabilityUnavailableError("Browser RPC requires a pinned Syn route table")
     expected = _route_bytes(deployment, workspace_id)
-    if private_read(deployment.root / _ROUTE_CONFIG) != expected:
-        raise ScopeDeniedError("Configured Syn Context route differs from this workspace")
+    if private_read(_route_config(deployment)) != expected:
+        raise ScopeDeniedError("Configured Syn RPC route differs from this workspace")
     route_sha = hashlib.sha256(expected).hexdigest()
     receipt, python = deployment._installation()
     registered = deployment._registered()
@@ -179,7 +215,10 @@ def installed_context_route(
         raise ScopeDeniedError("Context route installation differs from operator registration")
     deployment._observed_runtime = receipt["observed"]["runtime"]
     status = deployment._status(python, registered)["status"]
-    if PROFILE not in status["runtime"]["api_profiles"]:
+    profiles = status["runtime"]["api_profiles"]
+    if PROFILE not in profiles or (
+        method == BROWSER_METHOD and ROUTE_TABLE_PROFILE not in profiles
+    ):
         raise CapabilityUnavailableError("Installed Syn does not advertise directed local RPC")
     lifecycle = document(private_read(deployment.root / "lifecycle.json"), canonical_only=True)
     if (
@@ -190,7 +229,7 @@ def installed_context_route(
         or lifecycle.get("attestation", {}).get("status", {}).get("boot_id") != status["boot_id"]
     ):
         raise CapabilityUnavailableError("Operator supervisor has no matching active Context route")
-    endpoint = deployment.root / _ROUTE_SOCKET
+    endpoint = deployment.root / (_BROWSER_SOCKET if method == BROWSER_METHOD else _ROUTE_SOCKET)
     uid = os.getuid()
     args = [
         str(python),
@@ -205,13 +244,10 @@ def installed_context_route(
         registered["configuration_sha256"],
         route_sha,
         str(workspace_id),
-        METHOD,
+        method,
     ]
-    stopped = threading.Event()
 
     def round_trip(request_id: UUID, data: bytes) -> tuple[bytes, str]:
-        if stopped.is_set():
-            raise CapabilityUnavailableError("Installed Context RPC endpoint is stopped")
         result = subprocess.run(
             [*args, str(request_id)],
             cwd=deployment.root,
@@ -222,16 +258,18 @@ def installed_context_route(
             timeout=8,
             check=False,
         )
-        if result.returncode or not 17 <= len(result.stdout) <= MAX_FRAME_BYTES + 16:
-            raise CapabilityUnavailableError("Verified Syn client did not return a Context reply")
+        if result.returncode or not 17 <= len(result.stdout) <= max_reply + 16:
+            raise CapabilityUnavailableError(
+                "Verified Syn client did not return a bounded RPC reply"
+            )
         return result.stdout[16:], result.stdout[:16].hex()
 
-    route = SynContextRoute(
-        workspace_id=workspace_id,
-        operator_boot=status["boot_id"],
-        caller_uid=uid,
-        round_trip=round_trip,
-    )
+    return endpoint, status["boot_id"], round_trip
+
+
+@contextmanager
+def serve_directed_rpc(endpoint: Path, serve: Callable[[socket.socket], None]) -> Iterator[None]:
+    stopped = threading.Event()
     with _listener(endpoint) as listener:
 
         def accept() -> None:
@@ -243,16 +281,37 @@ def installed_context_route(
                         continue
                     with conn:
                         try:
-                            route.serve_connection(conn, operator_uid=uid)
+                            serve(conn)
                         except (DomainError, OSError, ValueError):
                             continue
             finally:
                 stopped.set()
 
-        worker = threading.Thread(target=accept, name="potbot-syn-context")
+        worker = threading.Thread(target=accept, name=f"potbot-{endpoint.stem}")
         worker.start()
         try:
-            yield route
+            yield
         finally:
             stopped.set()
             worker.join()
+
+
+@contextmanager
+def installed_context_route(
+    selection: dict[str, Any], workspace_id: UUID, *, protected_mounts: tuple[Path, ...]
+) -> Iterator[SynContextRoute]:
+    from potbot.context.rpc_contract import MAX_FRAME_BYTES
+
+    endpoint, boot, round_trip = installed_directed_rpc(
+        selection,
+        workspace_id,
+        protected_mounts=protected_mounts,
+        method=METHOD,
+        max_reply=MAX_FRAME_BYTES,
+    )
+    uid = os.getuid()
+    route = SynContextRoute(
+        workspace_id=workspace_id, operator_boot=boot, caller_uid=uid, round_trip=round_trip
+    )
+    with serve_directed_rpc(endpoint, lambda conn: route.serve_connection(conn, operator_uid=uid)):
+        yield route

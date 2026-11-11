@@ -19,6 +19,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
+from contextlib import AbstractContextManager, ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,7 @@ from potbot.tools.isolation import IsolationLaunch, _seccomp_fd
 
 if TYPE_CHECKING:
     from potbot.tools.agent_xpra_displays import AgentXpraDisplayPool
+    from potbot.tools.syn_browser_route import SynBrowserRoute
     from potbot.tools.xpra_browser_control import BrowserControlChannel
 
 _KIND = re.compile(r"[a-z][a-z0-9-]{1,31}\Z")
@@ -319,6 +321,7 @@ class XpraApplicationSupervisor:
         popen: Callable[..., subprocess.Popen[bytes]] = subprocess.Popen,
         ai_monitor: Any = None,
         browser_leases: Any = None,
+        browser_rpc: AbstractContextManager[SynBrowserRoute] | None = None,
         agent_displays: AgentXpraDisplayPool | None = None,
         gui_audit_factory: Callable[..., Any] | None = None,
         max_apps: int = 4,
@@ -375,7 +378,21 @@ class XpraApplicationSupervisor:
         self._watcher = threading.Thread(
             target=self._watch, name="potbot-xpra-app-watch", daemon=True
         )
-        self._watcher.start()
+        if browser_rpc is not None and (
+            browser_leases is None or "controlled-browser" not in self.recipes
+        ):
+            raise ScopeDeniedError("Syn browser RPC requires an exclusive browser reservation")
+        self._browser_routes = ExitStack()
+        self._browser_route = None
+        try:
+            if browser_rpc is not None:
+                self._browser_route = self._browser_routes.enter_context(browser_rpc)
+                if self._browser_route.workspace_id != workspace_id:
+                    raise ScopeDeniedError("Syn browser route differs from the workspace")
+            self._watcher.start()
+        except BaseException:
+            self._browser_routes.close()
+            raise
 
     def _settle(self) -> None:
         """Called under lock. Never release lease for an unconfirmed process tree."""
@@ -803,8 +820,33 @@ class XpraApplicationSupervisor:
                 lease_token,
                 owner_kind="agent" if actor_agent_id is not None else "operator",
                 owner_id=actor_agent_id or self.principal_id,
-            ):
-                return channel.call(command)
+            ) as lease:
+                if self._browser_route is None:
+                    return channel.call(command)
+
+                def require_live() -> None:
+                    self.browser_leases.require_inflight(lease)
+                    if self.operator_attachment is not None:
+                        self.operator_attachment.require_healthy()
+                    with self._lock:
+                        if (
+                            self._stop.is_set()
+                            or app.indeterminate
+                            or app.process.poll() is not None
+                            or self._guard is None
+                            or self._guard.fenced
+                        ):
+                            raise StateMismatchError("Browser session ended before Syn dispatch")
+
+                def execute(delivered: object) -> dict[str, Any]:
+                    require_live()
+                    result = channel.call(delivered)
+                    require_live()
+                    return result
+
+                result = self._browser_route.call(command, execute)
+                require_live()
+                return result
         except StateMismatchError:
             with self._lock:
                 app.indeterminate = True
@@ -976,6 +1018,7 @@ class XpraApplicationSupervisor:
 
     def shutdown(self) -> None:
         self._stop.set()
+        self._browser_routes.close()
         with self._lock:
             for app in self._apps.values():
                 self._terminate(app)
@@ -1023,7 +1066,7 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
     try:
         data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
         allowed = {"workspaceId", "principalId", "runtime", "ledger", "recipes"}
-        optional = {"browserLeases", "strictXpraInput", "browserEgress", "agentDisplays"}
+        optional = {"browserLeases", "strictXpraInput", "browserEgress", "agentDisplays", "synRpc"}
         if (
             not isinstance(data, dict)
             or not allowed <= set(data)
@@ -1086,6 +1129,21 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
         if not isinstance(raw, list) or not 1 <= len(raw) <= 12:
             raise ValueError()
         recipes = tuple(AppRecipe(row["kind"], row["title"], tuple(row["argv"])) for row in raw)
+        syn_rpc = data.get("synRpc")
+        if "synRpc" in data and (
+            not strict
+            or not isinstance(syn_rpc, dict)
+            or not any(recipe.kind == "controlled-browser" for recipe in recipes)
+        ):
+            raise ValueError("Syn browser RPC requires a private browser reservation policy")
+        if (
+            syn_rpc is None
+            and os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1"
+            and any(recipe.kind == "controlled-browser" for recipe in recipes)
+        ):
+            raise ScopeDeniedError(
+                "Managed controlled-browser requires the pinned Syn RPC selection"
+            )
         display_spec = data.get("agentDisplays")
         if display_spec is not None:
             if (
@@ -1178,6 +1236,16 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
                 maximum=display_spec["maxDisplays"],
                 gui_audit_factory=gui_audit_factory,
             )
+        browser_rpc = None
+        if syn_rpc is not None:
+            from potbot.tools.syn_browser_route import installed_browser_route
+
+            browser_rpc = installed_browser_route(
+                syn_rpc,
+                server.workspace_id,
+                protected_mounts=tuple(paths.values())
+                + tuple(path for path in (ai_config, ai_past) if path is not None),
+            )
         return XpraApplicationSupervisor(
             workspace_id=server.workspace_id,
             principal_id=principal,
@@ -1185,6 +1253,7 @@ def load_operator_application_policy(path: Path, server: Any) -> XpraApplication
             backend=xbackend,
             ledger=ledger,
             browser_leases=leases,
+            browser_rpc=browser_rpc,
             agent_displays=pool,
             gui_audit_factory=gui_audit_factory,
             ai_monitor=None,

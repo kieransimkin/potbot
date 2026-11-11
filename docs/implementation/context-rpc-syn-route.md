@@ -1,4 +1,4 @@
-# Context RPC through Syn: invocation binding
+# Directed Context and browser RPC through Syn
 
 The monitored Cog dispatcher can take an explicitly selected host-only Syn
 Context route. Once selected, a Context request can reach the handler only
@@ -50,7 +50,12 @@ in-flight work to settle before revoking its Context session.
 Install a signed Syn runtime through the normal release store. The operator
 policy must require `syn.operator-local-rpc/1` and pin the exact release and
 manifest. Run both user services under the same unprivileged Linux account.
-Sandboxed Cogs continue to use their assigned Agent accounts.
+Sandboxed Cogs continue to use their assigned Agent accounts. Use the checked-in
+`scripts/fixtures/syn-0.10.0-context-operator.json` and Agent policy for the
+Syn 0.10.0 qualification. The operator policy also requires
+`syn.local-rpc-routes/1`. With that profile, the configuration command writes
+`application-rpc.json` with a Context destination and a browser destination.
+An older single-route policy still selects its original file.
 
 Run these commands in the native Linux host or managed WSL distribution,
 with the existing operator root and release policy.
@@ -87,3 +92,39 @@ supervisor's route digest before listening on the private service socket.
 The original profile `potbot.hosted-native-cog/1` still selects the historical
 stdio fixture. Qualification of profile 2 requires two installed Agents,
 reply loss before and after commit, and lease fencing after collector loss.
+
+## Route browser commands through the same operator
+
+Add `"synRpc"` to the private Xpra application policy and set it to the same
+four-field object shown above. The application policy must enable
+`browserLeases` and `strictXpraInput` and admit a `controlled-browser` recipe.
+The Xpra application supervisor opens the private browser socket for that
+workspace. With `POTBOT_OPERATOR_REQUIRED=1`, a controlled-browser recipe
+requires this configuration.
+
+```mermaid
+flowchart LR
+    C[Admitted Cog] --> H[Context invocation adapter]
+    B[Browser API or Cog] --> L[Xpra browser reservation]
+    H <-->|Signed context.dispatch| S[Syn 0.10.0 operator]
+    L <-->|Signed browser.command| S
+    S <--> X[Private Context endpoint]
+    S <--> Y[Private browser endpoint]
+    Y --- W[Controlled Chromium worker]
+```
+
+The supervisor submits the typed command to Syn and checks the signed delivery
+acknowledgement. It holds the reservation while Chromium works and asks Syn
+for the result in a second signed exchange. Each exchange has its own two-second
+deadline. A command can take longer within the worker's deadline. The
+process-local worker channel connects the application supervisor to Chromium.
+The supervisor fences and terminates the browser if a signed exchange leaves
+the outcome indeterminate. A subsequent request cannot repeat the action in
+that session.
+
+The managed WSL qualification used the signed Syn 0.10.0 release, a fixture
+Context document, and Chromium on a private Xvfb display. Both routes used the
+same native operator boot. The rendered frame shows the page after a browser
+click over the directed route.
+
+![Chromium fixture showing the click counter at one after a command routed through Syn](media/syn-010-browser-rpc.jpg)

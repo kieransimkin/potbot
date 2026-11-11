@@ -61,6 +61,23 @@ def test_route_provisioning_pins_one_workspace_and_requires_compatible_policy(sh
     assert "--context-rpc" not in supervisor_arguments(deployment, policy)
     assert supervisor_arguments(deployment, policy, context_rpc=True)[-1] == "--context-rpc"
 
+    deployment.policy.value["required_profiles"].append(routes.ROUTE_TABLE_PROFILE)
+    table = routes.provision_context_route(deployment, workspace)
+    assert table != path and json.loads(path.read_bytes()) == raw
+    assert routes.operator_route_path(deployment) == table
+    assert json.loads(table.read_bytes()) == {
+        "profile": routes.ROUTE_TABLE_PROFILE,
+        "routes": [
+            {key: value for key, value in raw.items() if key != "profile"},
+            {
+                "method": "browser.command",
+                "service_socket": str(short_root / "browser-rpc.sock"),
+                "service_uid": os.getuid(),
+                "workspace_id": str(workspace),
+            },
+        ],
+    }
+
 
 def test_private_endpoint_does_not_replace_foreign_entry_and_recovers_stale_socket(short_root):
     endpoint = short_root / "rpc.sock"

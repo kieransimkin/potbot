@@ -1336,13 +1336,13 @@
         {
           "path": "src/potbot/context/syn_context_route.py",
           "symbol": "SynContextRoute",
-          "sha256": "b10b645ece0180ae28fc2e4bb6ee5e09a4f92607592d7ff0dca988b22e80c607",
+          "sha256": "fba04a925cfa3202151b670c47f05224fa26b4c07aff21e8e6d7b26a40890814",
           "basis": "Reviewed one-use delivery acknowledgement and result collection through Syn 0.9.0. Application checks and database work run between the bounded signed exchanges."
         },
         {
           "path": "src/potbot/context/installed_syn_route.py",
           "symbol": "installed_context_route",
-          "sha256": "ddbb68472de3656921c1425ce415f3f7f8a60304e6f2f7e66c391a50739624b6",
+          "sha256": "a76cabfe0cb8b88b003f48b11e0805b2d449cab00b95d336d0d4ec18c08da887",
           "basis": "Reviewed selected installation and private endpoint; official release and managed worker qualification remain open."
         }
       ],
@@ -1374,7 +1374,7 @@
         {
           "path": "tests/unit/test_installed_syn_context_route.py",
           "symbol": "test_managed_unit_restores_previous_bytes_if_route_restart_fails",
-          "sha256": "65a05fc9b511b24169dcb1ecf56a629d4667ca922f89a8ffebdc54146544377a",
+          "sha256": "1bd3df19cbd3ae52d445bd825c1e74889b72b36b9033ecb7523531a72635929e",
           "basis": "Disposable unit and socket fixture with a simulated service manager failure."
         }
       ],
@@ -1477,6 +1477,12 @@
           "symbol": "BrowserWorker",
           "sha256": "bd7a4a9b920106085bc803c8ebd0aeb6cee2792d721748ea4c511373ad59d1f0",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/tools/syn_browser_route.py",
+          "symbol": "SynBrowserRoute",
+          "sha256": "94647259ba2acd8549b27a3e54ffbd4846add36ffdcdabc6364a75f51639a924",
+          "basis": "Reviewed signed delivery and result collection under the selected workspace and operator boot."
         }
       ],
       "tests": [
@@ -1491,6 +1497,12 @@
           "symbol": "test_pointer_and_cdp_reject_nonfinite_or_non_numeric_wheel_deltas",
           "sha256": "d82df3467f643fed76dacda7e6e31bdd60b1c8adc1204afb077a1269924ca038",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/unit/test_syn_browser_route.py",
+          "symbol": "test_browser_executes_only_after_signed_delivery_and_never_retries",
+          "sha256": "55479d0c768ad608fb61b0d76d7242a6fc2055bc83704cfb07752d0eceb9df1b",
+          "basis": "Regression verifies lost acknowledgement prevents execution and lost result does not retry."
         }
       ],
       "assessment": "Visible Xpra Chromium, admitted browser Cogs, private displays, evidence/gallery and bounded capture recovery have implementations. Rendered fixture acceptance and production Xpra/kernel/network/provenance are independent gates.",
@@ -67177,31 +67189,53 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "d8a7359a092c05f46dc0676b0a9268265f71a396bdc4dd9ffcc72a1fa51cb8aa",
+      "sha256": "8fa8a90cbc33584afec067d515023947d742415589baa8a0a1d7a99450f62546",
       "families": [
         "context",
-        "syn-operations"
+        "syn-operations",
+        "browser"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "The installed profile uses signed delivery acknowledgement and result collection through Syn 0.9.0. The hosted worker and collector-loss gates require independent managed evidence.",
+      "assessment": "The installed Syn 0.10.0 policy binds two directed endpoints to one native operator boot. A managed WSL fixture exercised a Context document and Chromium on a private Xvfb display.",
       "narrative": [
         {
           "locator": "line:1-47",
-          "sha256": "4ba8bdf5ad29d624787cb036d9be8706d3da42ca39d590488c127dfba5ef3a78",
+          "sha256": "85bfd54ea1247af75e5bc4702d66bc8c497aa740e7932191c093f2046e3fb16a",
           "families": [
             "context",
-            "syn-operations"
+            "syn-operations",
+            "browser"
           ]
         },
         {
-          "locator": "line:48-89",
-          "sha256": "9dff632510ae0e7bbb26e650e3a687f4a6a7da2ece53cdc0465d3f39011290d2",
+          "locator": "line:48-95",
+          "sha256": "5963a3317f7f9c1bac8f0136a1002fab9c7c12679ecfa6328f6903f2dda4477f",
           "families": [
             "context",
-            "syn-operations"
+            "syn-operations",
+            "browser"
+          ]
+        },
+        {
+          "locator": "line:96-130",
+          "sha256": "e73e473218f513103ff1d1844f615c0a4b694397004a826b187e7ea4b13e482d",
+          "families": [
+            "context",
+            "syn-operations",
+            "browser"
           ]
         }
       ]
+    },
+    {
+      "path": "docs/implementation/media/syn-010-browser-rpc.jpg",
+      "sha256": "f62efc7914e76222465b8f3355e8dd073fdb42a20566e4d47d38a38b163285d4",
+      "families": [
+        "browser"
+      ],
+      "disposition": "retained_media_evidence",
+      "assessment": "A rendered Chromium fixture frame shows the page after one directed browser command on managed WSL.",
+      "narrative": []
     },
     {
       "path": "docs/implementation/cross-agent-compatibility.md",
