@@ -74,18 +74,23 @@ def _bad_constant(value: str) -> Any:
     raise McpProtocolError("Nonfinite number in MCP message")
 
 
-def parse_wire(raw: bytes) -> dict[str, Any]:
-    """Reject malformed or unbounded JSON before inspecting a peer message."""
+def parse_json_document(raw: bytes) -> object:
+    """Decode a bounded UTF-8 document, rejecting duplicate keys and nonfinite constants."""
     if not isinstance(raw, bytes) or not raw or len(raw) > MAX_WIRE_BYTES:
         raise McpProtocolError("Invalid or oversized MCP frame")
     try:
-        document = json.loads(
+        return json.loads(
             raw.decode("utf-8", "strict"),
             object_pairs_hook=_unique_pairs,
             parse_constant=_bad_constant,
         )
     except (UnicodeError, ValueError, RecursionError) as error:
         raise McpProtocolError("Malformed MCP JSON frame") from error
+
+
+def parse_wire(raw: bytes) -> dict[str, Any]:
+    """Validate the envelope after decoding a bounded JSON document."""
+    document = parse_json_document(raw)
     if not isinstance(document, dict) or document.get("jsonrpc") != "2.0":
         raise McpProtocolError("MCP JSON-RPC object is invalid")
     return document

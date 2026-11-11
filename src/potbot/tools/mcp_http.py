@@ -2,10 +2,8 @@
 
 No arbitrary URL fetching or credential acquisition occurs here. The transport
 must be furnished with an HTTP client and a controller-owned, *enforcing*
-network approval hook. Production enforcement requires a qualified egress proxy
-with pinned DNS/IP filtering; syntactic hostname validation is NOT sufficient.
-OAuth discovery/consent is not implemented in T02.2's initial slice: the broker
-must supply a pre-authorized audience-scoped bearer via an ephemeral callback.
+network approval hook. The controller's MCP HTTP broker can supply a bound
+client with DNS/IP pinning, issuer discovery, consent and scoped credentials.
 """
 
 from __future__ import annotations
@@ -32,6 +30,20 @@ from potbot.tools.mcp_protocol import (
     encoded_frame,
     parse_wire,
 )
+
+
+def _contains_secret(document: object, secret: str) -> bool:
+    pending = [document]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, str) and secret in value:
+            return True
+        if isinstance(value, dict):
+            pending.extend(value)
+            pending.extend(value.values())
+        elif isinstance(value, list):
+            pending.extend(value)
+    return False
 
 
 class McpHttpTransport:
@@ -160,6 +172,7 @@ class McpHttpTransport:
             headers["MCP-Protocol-Version"] = self._legacy_version
             if self._session_id is not None:
                 headers["Mcp-Session-Id"] = self._session_id
+        token: str | None = None
         if self.bearer_supplier is not None:
             token = self.bearer_supplier()
             if (
@@ -201,6 +214,8 @@ class McpHttpTransport:
                             raise McpProtocolError("MCP HTTP body exceeds the output budget")
                         chunks.append(piece)
                     body = b"".join(chunks)
+                    if token is not None and token.encode("ascii") in body:
+                        raise ScopeDeniedError("MCP response contains its authorization secret")
                     kind = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
                     if kind == "application/json":
                         document = parse_wire(body)
@@ -210,6 +225,8 @@ class McpHttpTransport:
                         document = self._sse_result(body, message["id"])
                     else:
                         raise McpProtocolError("Unsupported MCP HTTP content type")
+                    if token is not None and _contains_secret(document, token):
+                        raise ScopeDeniedError("MCP response contains its authorization secret")
                     if not expect_reply:
                         raise McpProtocolError("MCP notification should return 202 with no body")
                     if method == "initialize" and status in (200, 201):
@@ -221,17 +238,21 @@ class McpHttpTransport:
                             self._legacy_version = result["protocolVersion"]
                             session = response.headers.get("mcp-session-id")
                             if session is not None:
+                                if token is not None and token in session:
+                                    raise ScopeDeniedError(
+                                        "MCP session contains its authorization secret"
+                                    )
                                 if not 1 <= len(session) <= 256 or any(
                                     ord(x) < 33 or ord(x) > 126 for x in session
                                 ):
                                     raise McpProtocolError("Invalid legacy MCP session identifier")
                                 self._session_id = session
                     return document
-        except TimeoutError as error:
+        except TimeoutError:
             raise IndeterminateExecutionError(
                 "MCP HTTP deadline exceeded; write status unknown"
-            ) from error
-        except (OSError, ConnectionError, httpx.TransportError) as error:
+            ) from None
+        except (OSError, ConnectionError, httpx.TransportError):
             raise IndeterminateExecutionError(
                 "MCP HTTP connection failed; write status unknown"
-            ) from error
+            ) from None
