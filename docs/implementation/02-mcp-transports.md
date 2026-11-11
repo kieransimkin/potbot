@@ -10,7 +10,7 @@
 | Stage | Implementation | Tests | Outstanding |
 |---|---|---|---|
 | T02.1 | Bounded JSON-RPC framing; both lifecycle eras; stdio streams supplied by an already-approved supervisor; duplicate/invalid/remote-schema rejection; paginated `tools/list` with fingerprint; strict argument/result validation; pinned call admission; unverified Phase 1 observations. | Real modern and legacy subprocess fixtures, calculator call, tool-side errors, strict schemas, changed catalog, duplicate names, circular cursor, child crash, overflow, timeout, unsolicited server request, cancellation-safe poisoned stream. | Production interactive child supervision in the qualified workspace sandbox, SDK-wide interop tests, dynamic subscriptions and richer MCP primitives. |
-| T02.2 | Streamable HTTP POST, JSON or bounded SSE, modern per-request metadata and required headers, optional legacy session handshake, bearer supplier callback, no redirects, explicit network approval hook, no automatic replay, 401/403 handling, conservative error classification. | `httpx.MockTransport` end-to-end fixture: modern and legacy, HTTP headers, token handling, SSE, malicious redirect, body cap, schema validation and no-authority denial. | **Production egress proxy/DNS/IP pinning, OAuth authorization+issuer/audience policy, verified TLS client provisioning, session restart recovery, x-mcp-header and MRTR handling.** |
+| T02.2 | Streamable HTTP POST, JSON or bounded SSE, modern per-request metadata and required headers, optional legacy session handshake, bearer supplier callback, no redirects, explicit network approval hook, no automatic replay, 401/403 handling, conservative error classification. | `httpx.MockTransport` end-to-end fixture: modern and legacy, HTTP headers, token handling, SSE, malicious redirect, body cap, schema validation and no-authority denial. | **Deployed broker qualification, OAuth login and verified token acquisition, session restart recovery, x-mcp-header and MRTR handling.** |
 | T02.3 | Not implemented by this increment. | N/A | Extend existing `ProcessSupervisor` with a safely confined *interactive* stdio lifecycle; do not spawn unsandboxed child processes inside application adapters. |
 | T02.4 | Not implemented by this increment. | N/A | General REST/GraphQL/gRPC adapter contracts and live API benchmarks. |
 
@@ -20,7 +20,23 @@
 - No process is launched by `mcp_stdio.py`; it accepts an existing approved stream. The `tests/fixtures/mcp_stdio_server.py` subprocess is solely a controlled local test fixture.
 - A connection and its catalogue do not authorize `tools/call`. `McpClient.call_tool` needs an `admit` callback provided by trusted controller code, plus a matching pinned catalog/tool fingerprint, and validates every request against the server's JSON Schema.
 - HTTP refuses requests without a controller-supplied egress-approval callback, but **mere presence of a callback is not OS-enforced network isolation**. T03.2 must implement qualifying DNS/IP/route enforcement in an egress proxy. The adapter does not fetch arbitrary webpages or permit redirects.
-- Bearer token provision is ephemeral (callback) and is never saved into result objects or raw error messages. Full OAuth issuer/resource/scope validation is separately required under T02.2/T03.3.
+- `McpHttpBroker` binds a controller-approved resource, issuer, workspace, principal and exact scopes. It asks the consent authority before discovery and again on each POST. The credential provider supplies an ephemeral bearer whose resource audience, full grant and expiry match. The protocol rejects a response or legacy session ID that reflects the bearer.
+- Each broker request resolves a public IPv4 destination once. The dial uses that numeric address, while TLS verifies the approved DNS name and HTTP sends the approved host and path. Mixed public/private DNS answers, platform addresses, redirects, environment proxies and cookies are refused or discarded.
+- Issuer discovery is an unauthenticated GET to the approved issuer's well-known URL. The broker validates the returned issuer exactly. The credential provider still owns token acquisition and verification. OAuth login, native credential-provider wiring and deployed worker qualification remain open. [OpenID Connect Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html)
+
+```mermaid
+sequenceDiagram
+    participant C as Controller
+    participant B as MCP HTTP broker
+    participant I as Approved issuer
+    participant R as Approved MCP resource
+    C->>B: Supply consent and bound credential provider
+    B->>I: GET issuer metadata over pinned HTTPS
+    I-->>B: Return exact issuer metadata
+    B->>C: Recheck consent and obtain scoped bearer
+    B->>R: POST to the approved path over pinned HTTPS
+    R-->>B: Return bounded MCP reply
+```
 - The modern MCP revision is stateless: do **not** synthesize session IDs. Legacy session IDs are recognized only after the legacy initialize response.
 - Writes are never automatically replayed after disconnect, timeout, cancellation, ambiguous SSE endings or server crashes. The gateway must persist intent/dispatch/result and reconcile any uncertain side effect before issuing a new action.
 - Modern MRTR `input_required`, tool `x-mcp-header` annotations, dynamic subscriptions and remote JSON Schema references fail explicitly in this subset, rather than silently improvising higher-privilege behavior.
@@ -31,13 +47,14 @@
 From an existing repository checkout containing this patch:
 
 ```bash
-uv sync --locked --extra semantics --extra providers --dev
-uv run --locked --extra semantics --extra providers --dev python -m pytest -q \
-  tests/unit/test_mcp_protocol.py tests/unit/test_mcp_stdio.py tests/unit/test_mcp_http.py
-uv run --locked --extra semantics --extra providers --dev python scripts/tool_phase2_gate.py --mode offline
+uv sync --locked --extra semantics --extra providers --extra security --dev
+uv run --locked --extra semantics --extra providers --extra security --dev python -m pytest -q \
+  tests/unit/test_mcp_protocol.py tests/unit/test_mcp_stdio.py tests/unit/test_mcp_http.py \
+  tests/unit/test_mcp_http_broker.py
+uv run --locked --extra semantics --extra providers --extra security --dev python scripts/tool_phase2_gate.py --mode offline
 ```
 
-The normal `scripts/check.py` CI runner discovers the tests under `tests/unit/`; no competing runner or optional dependency is added to the lock. `httpx` is already the pinned `providers` extra; `jsonschema` is the pinned `semantics` extra.
+The normal `scripts/check.py` CI runner discovers these tests. The existing `providers` and `semantics` extras supply HTTPX and JSON Schema validation. The TLS fixture uses the pinned `security` extra.
 
 The offline report goes to `artifacts/tool-platform-phase2/phase2-gate.json`. It includes SHA-256 source fingerprints, stage-specific test counts and explicit unqualified production gates. `--mode qualified` delegates to the existing PostgreSQL/sandbox/full-wheel runner, **but must still mark this MCP release not fully qualified until the enforcement and end-to-end tests listed above are implemented.**
 

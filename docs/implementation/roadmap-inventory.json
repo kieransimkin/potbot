@@ -229,12 +229,12 @@
     },
     {
       "path": "docs/implementation/02-mcp-transports.md",
-      "sha256": "07c704ba7915ae6ff4c5fd7e29f83ddf3de048e5aaa731541f2de2cca5121d51",
-      "bytes": 7376,
+      "sha256": "aa4faf08f983f99f46c258e6b93a2193ed4cc69762884078b39893f90eaecaf5",
+      "bytes": 8712,
       "kind": "narrative_text",
-      "text_sha256": "07c704ba7915ae6ff4c5fd7e29f83ddf3de048e5aaa731541f2de2cca5121d51",
-      "characters": 7374,
-      "lines": 59,
+      "text_sha256": "aa4faf08f983f99f46c258e6b93a2193ed4cc69762884078b39893f90eaecaf5",
+      "characters": 8710,
+      "lines": 76,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "9024489d1c3d7fd625c41ec1c7590f0e0d6c1f1c5db37edc898314e579bf9c41",
+  "review_sha256": "33c3937e60d608da1c7f8db6a169e614bcc7b672ddca9abc7c9aefc1f66f14fe",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110059,7 +110059,7 @@
     {
       "source": "docs/implementation/02-mcp-transports.md",
       "locator": "line:8-16",
-      "sha256": "191e0c12871d2d4f1dcc2383a4f880120cf9ab98c5c377aff425450128d98c06",
+      "sha256": "e327000ba17d077dda8ec443d4de8d611899c5c8515d53cbee079f18e761bfa6",
       "excerpt": "## What the increment implements\n\n| Stage | Implementation | Tests | Outstanding |\n|---|---|---|---|\n| T02.1 | Bounded JSON-RPC framing; both lifecycle eras; st",
       "review_families": [
         "mcp"
@@ -110067,8 +110067,8 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:17-28",
-      "sha256": "2a2203c7f68daa3d66293a4401ac4e943a16d1bf866d6703b8ae471073bfd8ce",
+      "locator": "line:17-44",
+      "sha256": "a40b15f0f59c6593dd886bf384bb185696049add97cf939e6fe20fd6114e4cef",
       "excerpt": "## Security architecture\n\n- A tool supplied by an MCP server is an **untrusted definition**. `annotations.readOnlyHint` is metadata, not a permission. Only an o",
       "review_families": [
         "mcp"
@@ -110076,16 +110076,16 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:29-43",
-      "sha256": "d19b2acda40a20f754fd905849d492d859194af0283c9b9bc996ce1478f80f4a",
-      "excerpt": "## How to run\n\nFrom an existing repository checkout containing this patch:\n\n```bash\nuv sync --locked --extra semantics --extra providers --dev\nuv run --locked -",
+      "locator": "line:45-60",
+      "sha256": "03535090cddf3888a40733680c534ec58569355257bee677eb0f81bf2e9b1a0a",
+      "excerpt": "## How to run\n\nFrom an existing repository checkout containing this patch:\n\n```bash\nuv sync --locked --extra semantics --extra providers --extra security --dev\n",
       "review_families": [
         "mcp"
       ]
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:44-52",
+      "locator": "line:61-69",
       "sha256": "519a723233bfd7fe41859ce41c9ae3897bc9307dbb864ddee3979f7e05b730b7",
       "excerpt": "## Next engineering steps, in order\n\n1. **T02.3.1:** Extend Potbot's production `ProcessSupervisor` to expose a bounded, bidirectional stdio session without byp",
       "review_families": [
@@ -110094,7 +110094,7 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:53-59",
+      "locator": "line:70-76",
       "sha256": "b0d9b24b8b4360d92cd3671efc8fef5950bba99a891426a6c46351148a7aca61",
       "excerpt": "## References\n\n- MCP spec 2026-07-28: https://modelcontextprotocol.io/specification/2026-07-28\n- Discovery spec: https://github.com/modelcontextprotocol/modelco",
       "review_families": [
@@ -122062,6 +122062,12 @@
           "symbol": "execute_mcp_action",
           "sha256": "974a73b6d1836d0bf6ae7f18978734a6a7bef1ea70590e4b4ce1b5b0437f5703",
           "basis": "Inspected gateway admission for a pinned installation, frozen input, and audited completion."
+        },
+        {
+          "path": "src/potbot/tools/mcp_http_broker.py",
+          "symbol": "McpHttpBroker",
+          "sha256": "4f670819336e4cee0dcb3b05baeed79c6d849f232c6c943988262d5a2513f533",
+          "basis": "Inspected controller transport with numeric IP pinning, issuer discovery, consent and scoped credentials."
         }
       ],
       "tests": [
@@ -122100,6 +122106,12 @@
           "symbol": "test_mcp_crash_and_restart_does_not_repeat_a_write",
           "sha256": "6a72e46a64bf1892b095579274482f1a3e50270d1cb80ad5547342a2455ad033",
           "basis": "Live Linux sandbox fixture with 100 durable synthetic writes, 100 interrupted replies and 100 readback sessions."
+        },
+        {
+          "path": "tests/unit/test_mcp_http_broker.py",
+          "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
+          "sha256": "e6cb22523f88921f848935cf527635ce3224f05baebe2c005611bcd8bf7e065e",
+          "basis": "Local TLS fixture verifies the original DNS identity and refuses a mismatched certificate."
         }
       ],
       "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",
@@ -122108,7 +122120,7 @@
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries"
       ],
-      "next_action": "Qualify the HTTP egress broker and explicit MCP authentication profiles without widening the local read-only route."
+      "next_action": "Wire a trusted OAuth credential provider and qualify installed MCP HTTP egress and consent on a deployed controller."
     },
     {
       "id": "api",
