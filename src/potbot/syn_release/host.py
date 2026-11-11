@@ -26,6 +26,16 @@ DISTRO = "Potbot-SynOperator"
 UBUNTU = "Ubuntu-24.04"
 OPERATOR_USER = "synoperator"
 _PENDING = "registration-pending"
+_HOST_PHASES = {
+    "windows-platform",
+    "wsl-registration",
+    "native-prerequisites",
+    "native-keystore",
+}
+
+
+class WslRestartRequired(CapabilityUnavailableError):
+    """The Windows installer returned an explicit reboot result."""
 
 
 @dataclass(frozen=True)
@@ -160,6 +170,17 @@ def run_host(argv: list[str], *, timeout: int = 30) -> str:
         ) from None
     if len(result.stdout) + len(result.stderr) > 4 * 1024 * 1024:
         raise StateMismatchError("Native setup diagnostics exceeded their bound")
+    # Accept Win32 reboot results and their HRESULT forms without parsing
+    # localized WSL output. A successful process may also print reboot advice.
+    if argv[1:2] == ["--install"] and result.returncode & 0xFFFFFFFF in {
+        1641,
+        3010,
+        0x80070669,
+        0x80070BC2,
+    }:
+        raise WslRestartRequired(
+            "Windows reported a restart is required; restart, then rerun host-setup."
+        )
     if result.returncode != 0:
         raise CapabilityUnavailableError(
             "Native host setup needs local administrator/restart or package-manager attention"
@@ -217,6 +238,17 @@ class WslOperatorHost:
             or record.get("user") != OPERATOR_USER
         ):
             raise StateMismatchError("Managed WSL lifecycle/owner is invalid")
+        phase = record.get("setup_phase")
+        pending = record.get("pending_controller_sha256")
+        if (
+            (phase is not None and (not isinstance(phase, str) or phase not in _HOST_PHASES))
+            or type(record.get("restart_required", False)) is not bool
+            or (
+                pending is not None
+                and (not isinstance(pending, str) or re.fullmatch(r"[0-9a-f]{64}", pending) is None)
+            )
+        ):
+            raise StateMismatchError("Managed WSL setup checkpoint is invalid")
         return record
 
     def _write_receipt(self, record: dict[str, Any]) -> None:
@@ -249,12 +281,33 @@ class WslOperatorHost:
             )
         return registration
 
-    def setup(self) -> dict[str, Any]:
+    @contextmanager
+    def _setup_session(self) -> Iterator[None]:
         create_directory(self.root)
         with self._setup_lock():
+            yield
+
+    def setup(self) -> dict[str, Any]:
+        with self._setup_session():
             return self._setup()
 
-    def _setup(self) -> dict[str, Any]:
+    def _checkpoint(self, record: dict[str, Any], phase: str, **fields: Any) -> dict[str, Any]:
+        updated = {**record, **fields, "setup_phase": phase}
+        updated.pop("restart_required", None)
+        if updated != record:
+            self._write_receipt(updated)
+        return updated
+
+    def _install(self, args: list[str], record: dict[str, Any]) -> None:
+        try:
+            run_host([self.wsl, "--install", *args], timeout=1800)
+        except WslRestartRequired:
+            self._write_receipt({**record, "restart_required": True})
+            raise
+
+    def _setup(
+        self, *, controller_sha256: str | None = None, replace_pending: bool = False
+    ) -> dict[str, Any]:
         registration = _registered_distro()
         if self.receipt.exists() or self.receipt.is_symlink():
             record = self._read_receipt()
@@ -271,6 +324,19 @@ class WslOperatorHost:
                 "location": str(self.location),
             }
             self._write_receipt(record)
+        pending = record.get("pending_controller_sha256")
+        if controller_sha256 is not None:
+            if pending is not None and pending != controller_sha256 and not replace_pending:
+                raise StateMismatchError(
+                    "Resume with the pending controller digest or explicitly replace the pending selection"
+                )
+            selected = record.get("controller")
+            selected_sha256 = selected.get("wheel_sha256") if isinstance(selected, dict) else None
+            if pending != controller_sha256 and (
+                pending is not None or selected_sha256 != controller_sha256
+            ):
+                record = {**record, "pending_controller_sha256": controller_sha256}
+                self._write_receipt(record)
         if registration is None and record["state"] == _PENDING and "registration_id" not in record:
             if self.location.exists() or self.location.is_symlink():
                 raise StateMismatchError("Unregistered managed WSL storage needs reconciliation")
@@ -279,17 +345,15 @@ class WslOperatorHost:
             except CapabilityUnavailableError:
                 versions = ""
             if not re.search(r"\b\d+\.\d+\.\d+(?:\.\d+)?\s*$", versions, re.MULTILINE):
-                run_host(
-                    [self.wsl, "--install", "--no-distribution", "--web-download"], timeout=1800
-                )
+                record = self._checkpoint(record, "windows-platform")
+                self._install(["--no-distribution", "--web-download"], record)
                 raise CapabilityUnavailableError(
                     "WSL platform setup ran. Complete any requested Windows restart, "
                     "then rerun host-setup."
                 )
-            run_host(
+            record = self._checkpoint(record, "wsl-registration")
+            self._install(
                 [
-                    self.wsl,
-                    "--install",
                     "--distribution",
                     UBUNTU,
                     "--name",
@@ -301,7 +365,7 @@ class WslOperatorHost:
                     "--no-launch",
                     "--web-download",
                 ],
-                timeout=1800,
+                record,
             )
             registration = _registered_distro()
             if registration is None:
@@ -310,10 +374,18 @@ class WslOperatorHost:
                     "Windows restart, then rerun host-setup."
                 )
         registration = self._require_registration(registration, record)
-        if record["state"] != "ready" or record.get("prerequisite_revision") != 3:
-            record = {**record, "state": "installing", "registration_id": registration.identifier}
-            self._write_receipt(record)
-            run_host(
+        prerequisites_complete = record.get("prerequisite_revision") == 3 and (
+            record["state"] == "ready"
+            or (record["state"] == "installing" and record.get("setup_phase") == "native-keystore")
+        )
+        if not prerequisites_complete:
+            record = self._checkpoint(
+                record,
+                "native-prerequisites",
+                state="installing",
+                registration_id=registration.identifier,
+            )
+            confirmation = run_host(
                 [
                     self.wsl,
                     "--distribution",
@@ -327,6 +399,9 @@ class WslOperatorHost:
                 ],
                 timeout=1200,
             )
+            if confirmation.splitlines()[-1:] != ["syn-native-prerequisites-ready"]:
+                raise CapabilityUnavailableError("Native prerequisites did not confirm completion")
+            record = self._checkpoint(record, "native-keystore", prerequisite_revision=3)
         self.start_keystore()
         ready = {
             **record,
@@ -337,6 +412,8 @@ class WslOperatorHost:
             "keystore_unlocked": False,
             "operator_identity_created": False,
         }
+        ready.pop("setup_phase", None)
+        ready.pop("restart_required", None)
         if ready != record:
             self._write_receipt(ready)
         return ready
@@ -388,6 +465,16 @@ class WslOperatorHost:
             return result
         record = self._read_receipt()
         result["host_state"] = record["state"]
+        if phase := record.get("setup_phase"):
+            result["setup_phase"] = phase
+        if record.get("restart_required"):
+            result["restart_required"] = True
+        if pending := record.get("pending_controller_sha256"):
+            result["pending_controller_sha256"] = pending
+            if record["state"] == "ready":
+                result["setup_phase"] = "controller-install"
+        if isinstance(selected := record.get("controller"), dict):
+            result["controller_sha256"] = selected.get("wheel_sha256")
         if record["state"] == "ready":
             output = run_host(
                 self.command("/usr/bin/python3.12", ["-I", "-B", "-c", _ACCOUNTING_PROBE])

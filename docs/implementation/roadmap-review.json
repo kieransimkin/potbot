@@ -68271,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "caf1980f6a4f40948771cbdc4df8eb65dbe96bafe2431b345b31391fb6d9b4b0",
+      "sha256": "64e4d6192a32d206cd1090f59985e7d1d9b48e0888c02bcd2af590343695c3c6",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and automated scoped launcher provisioning and the installed service accounting check. Clean Windows reboot acceptance and signed kernel distribution remain separate.",
+      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and scoped launcher provisioning, installed service accounting, and the controller checkpoint across Windows reboot. A clean Windows reboot trial and signed kernel distribution remain separate.",
       "narrative": [
         {
-          "locator": "line:1-52",
-          "sha256": "9ca784951f5625f08a490b14d094e810a6b1728ef2e6f7c19d5a7cefdb656164",
+          "locator": "line:1-53",
+          "sha256": "4ef08a2d1ba203c28b9a5f1c66400d45e1bb78e470b5cb60ce8de6557af8b4cd",
           "families": [
             "accounting",
             "sandbox",
@@ -68290,8 +68290,8 @@
           ]
         },
         {
-          "locator": "line:53-99",
-          "sha256": "53e76397511c9d77eadc9cf2ed33a322935687a83b9c57b1bfd1a387f965f0f4",
+          "locator": "line:54-124",
+          "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
           "families": [
             "accounting",
             "sandbox",
@@ -68299,7 +68299,7 @@
           ]
         },
         {
-          "locator": "line:100-397",
+          "locator": "line:125-422",
           "sha256": "65d3d9c6f894cf080ba5567a282f8f1542b25890fbd68e1f87dad4a3b80344d6",
           "families": [
             "accounting",

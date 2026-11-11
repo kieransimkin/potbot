@@ -113,7 +113,9 @@ def _controller_receipt(expected: str) -> dict[str, str]:
     }
 
 
-def install_controller(manager: WslOperatorHost, wheel: Path, expected: str) -> dict[str, str]:
+def install_controller(
+    manager: WslOperatorHost, wheel: Path, expected: str, *, replace_pending: bool = False
+) -> dict[str, str]:
     if not re.fullmatch(r"[0-9a-f]{64}", expected):
         raise ScopeDeniedError("Controller requires an independently selected wheel SHA-256")
     if not wheel.is_absolute() or wheel.is_symlink() or wheel.suffix != ".whl":
@@ -123,10 +125,9 @@ def install_controller(manager: WslOperatorHost, wheel: Path, expected: str) -> 
         or hashlib.sha256(wheel.read_bytes()).hexdigest() != expected
     ):
         raise StateMismatchError("Controller wheel differs from its selected digest")
-    manager.setup()
     desired = _controller_receipt(expected)
-    with manager._setup_lock():
-        record = manager._read_receipt()
+    with manager._setup_session():
+        record = manager._setup(controller_sha256=expected, replace_pending=replace_pending)
         retained = record.get("controller") == desired
         native = run_host(manager.command("/usr/bin/wslpath", ["-a", "-u", str(wheel)])).strip()
         if not native.startswith("/") or "\n" in native:
@@ -151,8 +152,10 @@ def install_controller(manager: WslOperatorHost, wheel: Path, expected: str) -> 
         )
         if result != desired:
             raise StateMismatchError("Native controller installation receipt differs")
-        if not retained:
-            manager._write_receipt({**record, "controller": desired})
+        if not retained or "pending_controller_sha256" in record:
+            ready = {**record, "controller": desired}
+            ready.pop("pending_controller_sha256", None)
+            manager._write_receipt(ready)
     return desired
 
 

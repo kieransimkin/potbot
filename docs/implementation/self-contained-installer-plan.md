@@ -2,7 +2,8 @@
 
 **Status:** Stock WSL host setup, controller recovery, Linux scoped launcher
 provisioning and the installed service's accounting check are implemented.
-Signed kernel distribution and clean Windows installer acceptance remain planned.
+Windows setup retains the controller selection across an interrupted install.
+Signed kernel distribution and a real clean Windows reboot trial remain open.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -63,10 +64,13 @@ potbot syn-operator host-status
 
 ~~~mermaid
 flowchart LR
-    A[Record registration intent] --> B[Install owned Ubuntu in WSL2]
-    B -->|Reboot required| A
+    A[Record the setup intent and controller digest] --> W[Prepare the Windows WSL platform]
+    W -->|Windows requests restart| R[Restart and rerun with the same digest]
+    R --> W
+    W --> B[Install owned Ubuntu in WSL2]
+    B -->|Windows requests restart| R
     B --> C[Verify registered WSL2 identity and path]
-    C --> D[Resume native prerequisites]
+    C --> D[Complete native packages and start the keystore service]
     D --> E[Verify the digest-selected controller]
     E --> F[Record controller selection]
     D --> P[Report kernel accounting prerequisites separately]
@@ -74,18 +78,39 @@ flowchart LR
 
 When the WSL platform is missing, setup asks Windows to install WSL
 without the default distro. Rerun the command after any requested reboot
-to register the managed Ubuntu distro.
+to register the managed Ubuntu distro. Setup does not initiate a reboot.
+`host-status` reports the last completed or attempted boundary: Windows
+platform setup, distro registration, native prerequisites, native keystore
+startup, or controller installation. It reports `restart_required` when
+the WSL installer returned an explicit restart code. Windows can also
+display its own restart request.
 
 Setup retries an unfinished registration while the intended directory is
 absent. Once Windows registers the distro, setup records its identity and
 checks it on subsequent runs. An unexpected registration, unclaimed
 storage, or a missing previously registered distro requires reconciliation.
 
-The controller installer keeps each digest in its own environment. A
-retry can finish an interrupted build or verify and reuse a completed
-environment. The selected controller changes after the new wheel and its
-installed payload pass verification. Syn release selection, private
-keystore setup and worker qualification use their separate commands.
+The controller installer retains the pending digest before any WSL
+installation. Supply the wheel again after a restart; it can be at a new
+path if its bytes match the same digest. A different digest is refused
+unless the administrator supplies `--replace-pending-controller` with the
+new reviewed wheel and digest. An already selected controller stays
+selected until the pending one passes verification. Setup resumes native
+keystore startup without reinstalling packages if they already confirmed
+completion. Syn release selection, private keystore unlock and worker
+qualification use their separate commands.
+
+For clean Windows acceptance, use a disposable VM or host with
+virtualization available, WSL absent, and no existing Potbot registration.
+Record the preflight and run the command above using the reviewed wheel.
+Record `host-status` if Windows asks for a restart, then restart and rerun
+as the same Windows user. Verify one named WSL2 registration, the same
+installation ID in the private ownership receipt, and the selected digest
+with no pending digest. Verify the signed Syn operator separately, then
+repeat setup and confirm the registration and existing operator identity
+and enrollment stay the same. Record worker qualification separately.
+The automated fixture exercises checkpoint and restart-code handling;
+it does not install Windows features or reboot a machine.
 
 Host status reports the current kernel and its accounting options. For
 example, the managed stock WSL host reported that the host was ready and

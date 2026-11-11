@@ -44,6 +44,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     setup.add_argument("--controller-wheel", type=Path)
     setup.add_argument("--controller-sha256")
+    setup.add_argument(
+        "--replace-pending-controller",
+        action="store_true",
+        help="replace an interrupted controller selection with the supplied reviewed wheel and digest",
+    )
     commands.add_parser("host-status", help="Report managed WSL host and worker prerequisites")
     for name in ("unlock", "bootstrap", "attach", "serve", "install-service", "switch-release"):
         sub = commands.add_parser(name)
@@ -64,6 +69,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(
             "Controller installation requires both --controller-wheel and --controller-sha256"
         )
+    if (
+        args.operation == "host-setup"
+        and args.replace_pending_controller
+        and not args.controller_wheel
+    ):
+        parser.error(
+            "--replace-pending-controller requires an explicit controller wheel and digest"
+        )
     try:
         if args.operation == "host-status":
             from .host import WslOperatorHost
@@ -75,7 +88,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 from .wsl_controller import install_controller
 
                 manager = WslOperatorHost()
-                install_controller(manager, args.controller_wheel, args.controller_sha256)
+                install_controller(
+                    manager,
+                    args.controller_wheel,
+                    args.controller_sha256,
+                    replace_pending=args.replace_pending_controller,
+                )
                 value = manager._read_receipt()
             else:
                 from .host import native_host_setup
