@@ -182,6 +182,26 @@ def test_setup_resumes_same_registration_after_provisioning_interrupts(managed_h
     assert len([argv for argv, _ in calls if "--install" in argv]) == 1
 
 
+def test_ready_prerequisites_survive_an_interrupted_keystore_start(managed_host, monkeypatch):
+    manager, _, calls = managed_host
+    run = host.run_host
+
+    def interrupt_keystore(argv, *, timeout=30):
+        if argv[-1] == "gnome-keyring-daemon.service":
+            raise CapabilityUnavailableError("Interrupted keystore startup")
+        return run(argv, timeout=timeout)
+
+    monkeypatch.setattr(host, "run_host", interrupt_keystore)
+    with pytest.raises(CapabilityUnavailableError, match="Interrupted"):
+        manager.setup()
+    assert manager.status()["setup_phase"] == "native-keystore"
+    checkpoint = manager._read_receipt()
+    resumed = host.WslOperatorHost(manager.root)
+    monkeypatch.setattr(host, "run_host", run)
+    assert resumed.setup()["registration_id"] == checkpoint["registration_id"]
+    assert len([argv for argv, _ in calls if argv[-1] == host.PROVISION_UBUNTU]) == 1
+
+
 @pytest.mark.parametrize("mismatch", ["path", "identifier", "version", "state"])
 def test_setup_refuses_an_unsafe_wsl_registration(managed_host, monkeypatch, mismatch):
     manager, _, calls = managed_host
@@ -469,7 +489,95 @@ def test_wsl_controller_retries_same_pin_and_keeps_previous_selection_on_failure
     with pytest.raises(CapabilityUnavailableError, match="Interrupted"):
         wsl_controller.install_controller(manager, wheel, second)
     assert manager._read_receipt()["controller"] == first_receipt
-    assert native_calls == [(first, "new"), (first, "retained"), (second, "new")]
+    assert manager._read_receipt()["pending_controller_sha256"] == second
+    with pytest.raises(StateMismatchError, match="pending controller digest"):
+        wheel.write_bytes(b"first reviewed wheel")
+        wsl_controller.install_controller(manager, wheel, first)
+    assert (
+        wsl_controller.install_controller(manager, wheel, first, replace_pending=True)
+        == first_receipt
+    )
+    assert "pending_controller_sha256" not in manager._read_receipt()
+    assert native_calls == [
+        (first, "new"),
+        (first, "retained"),
+        (second, "new"),
+        (first, "retained"),
+    ]
+
+
+def test_windows_setup_resumes_the_pinned_controller_after_restart(
+    managed_host, tmp_path, monkeypatch
+):
+    import hashlib
+
+    from potbot.syn_release import wsl_controller
+
+    manager, _, calls = managed_host
+    ready_run = host.run_host
+    wheel = tmp_path / "potbot-0.5.0.dev12-py3-none-any.whl"
+    wheel.write_bytes(b"reviewed controller")
+    pin = hashlib.sha256(wheel.read_bytes()).hexdigest()
+
+    def before_restart(argv, *, timeout=30):
+        if argv[1:] == ["--version"]:
+            return "Older WSL command usage"
+        if "--no-distribution" in argv:
+            assert manager._read_receipt()["pending_controller_sha256"] == pin
+            raise host.WslRestartRequired("Windows reported a restart is required")
+        raise AssertionError("Unexpected WSL call before restart")
+
+    monkeypatch.setattr(host, "run_host", before_restart)
+    with pytest.raises(host.WslRestartRequired):
+        wsl_controller.install_controller(manager, wheel, pin)
+    interrupted = manager._read_receipt()
+    assert manager.status() == {
+        "profile": "potbot.syn-wsl-status/1",
+        "host_state": "registration-pending",
+        "worker_qualification": "required",
+        "setup_phase": "windows-platform",
+        "restart_required": True,
+        "pending_controller_sha256": pin,
+    }
+
+    resumed = host.WslOperatorHost(manager.root)
+    alternate = tmp_path / "other.whl"
+    alternate.write_bytes(b"different reviewed controller")
+    different_pin = hashlib.sha256(alternate.read_bytes()).hexdigest()
+    monkeypatch.setattr(host, "run_host", ready_run)
+    with pytest.raises(StateMismatchError, match="pending controller digest"):
+        wsl_controller.install_controller(resumed, alternate, different_pin)
+    assert not calls
+
+    def install_native(argv, *, timeout=30):
+        if "/usr/bin/wslpath" in argv:
+            return "/mnt/c/reviewed.whl\n"
+        assert argv[-3] == pin and argv[-1] == "new"
+        return json.dumps(wsl_controller._controller_receipt(pin))
+
+    monkeypatch.setattr(wsl_controller, "run_host", install_native)
+    receipt = wsl_controller.install_controller(resumed, wheel, pin)
+    after = resumed._read_receipt()
+    assert after["controller"] == receipt
+    assert after["installation_id"] == interrupted["installation_id"]
+    assert after["state"] == "ready"
+    assert not {"restart_required", "setup_phase", "pending_controller_sha256"} & after.keys()
+    assert len([argv for argv, _ in calls if "--install" in argv]) == 1
+
+
+@pytest.mark.parametrize("code", [3010, 1641, 0x80070BC2, -2147021886])
+def test_windows_restart_codes_are_not_parsed_from_console_text(monkeypatch, code):
+    from subprocess import CompletedProcess
+
+    monkeypatch.setattr(host, "windows_environment", lambda: {})
+    monkeypatch.setattr(
+        host.subprocess, "run", lambda argv, **kwargs: CompletedProcess(argv, code, b"", b"")
+    )
+    with pytest.raises(host.WslRestartRequired):
+        host.run_host(["wsl.exe", "--install", "--no-distribution"])
+    with pytest.raises(CapabilityUnavailableError) as generic:
+        host.run_host(["wsl.exe", "--version"])
+    assert not isinstance(generic.value, host.WslRestartRequired)
 
 
 def test_wsl_controller_cannot_be_redirected_to_another_executable(managed_host):
