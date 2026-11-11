@@ -68271,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "0930e8bf83532427c6dbcef6ed2b43d02152e7e5d58f1dcb4b4836e63c124c28",
+      "sha256": "0e0408500b46e42e900c24b432aa3ab03ac088a2e7114c71d3498d0fcc21793f",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and scoped launcher provisioning, installed service accounting, and the controller checkpoint across Windows reboot. Adds offline verification and reproducible packaging of signed x86-64 kernel bundles. Official builds and clean reboot qualification remain separate.",
+      "assessment": "Records stock WSL registration and recovery, installed worker admission, offline verification, release packaging and a pinned x86-64 CI build recipe. Production signing, publication, and clean reboot qualification remain separate.",
       "narrative": [
         {
-          "locator": "line:1-56",
-          "sha256": "d9d6f0a5d8398ceaabeec9197c538a142e8d11b4719aa600436195984be5ed67",
+          "locator": "line:1-57",
+          "sha256": "ea7033e47be2138e00f3f74a4cf1524fc21115e0c49be30f238f5acbfc494b0a",
           "families": [
             "accounting",
             "sandbox",
@@ -68290,7 +68290,7 @@
           ]
         },
         {
-          "locator": "line:57-127",
+          "locator": "line:58-128",
           "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
           "families": [
             "accounting",
@@ -68299,7 +68299,7 @@
           ]
         },
         {
-          "locator": "line:128-244",
+          "locator": "line:129-245",
           "sha256": "461b030c5871a3f585eea3325a3c95e32772cbc5b7ad104825d82e7d9194479d",
           "families": [
             "accounting",
@@ -68308,8 +68308,17 @@
           ]
         },
         {
-          "locator": "line:245-513",
-          "sha256": "f845a397a5932300e143a82c37773a85712c4bf618555e9858f807e2a0a96fe0",
+          "locator": "line:246-286",
+          "sha256": "b0f72d7cb3f4b8e19b56817ec601fa107d151cc37cf4c07fb052df641d2621d3",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:287-539",
+          "sha256": "71a8a8c0fe1e323c641feaa0280494e820252cd23be84ff752ae85c6fc0f0d8a",
           "families": [
             "accounting",
             "sandbox",
@@ -83034,6 +83043,20 @@
         "at_reviewed_base": false,
         "qualification_limit": "One published linux/amd64 OCI image on disposable hosted Ubuntu. No live target or cutover evidence.",
         "sha256": "88c9d6dff4cfa68c84e1e72ec947bd70698ad7f36a64ee49c08060754125e404"
+      },
+      {
+        "path": ".github/workflows/wsl-kernel-build.yml",
+        "name": "Build reviewed WSL kernel candidate",
+        "state": "active",
+        "scope": [
+          "Verify the pinned Microsoft source archive and reviewed x86-64 build configuration",
+          "Compile the kernel, matching modules, UAPI headers and perf",
+          "Prepare unsigned release assets and retain build provenance"
+        ],
+        "latest_inspected_run": null,
+        "at_reviewed_base": false,
+        "qualification_limit": "Unsigned x86-64 hosted build. Signing, publication, WSL boot and live worker admission require separate evidence.",
+        "sha256": "e2fd22553b623f65574b2916f187a7efcacc3654bee05acaa06c6242fb940b2f"
       }
     ],
     "baseline_checks": {

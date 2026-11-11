@@ -1,0 +1,62 @@
+name: Build reviewed WSL kernel candidate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wsl-kernel-build.yml'
+      - 'sandbox/wsl-kernel/**'
+      - 'scripts/build_wsl_kernel.sh'
+      - 'scripts/prepare_wsl_kernel_release.py'
+      - 'src/potbot/wsl_kernel.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wsl-kernel-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-x86-64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v0.12.23 tool
+        with:
+          version: "0.12.23"
+          python-version: "3.12"
+          enable-cache: false
+      - name: Install Ubuntu kernel build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            bc binutils bison build-essential cpio dwarves e2fsprogs flex gcc-13 kmod \
+            libcap-dev libdw-dev libelf-dev liblzma-dev libssl-dev libzstd-dev \
+            pkg-config qemu-utils rsync zlib1g-dev
+          df -h "$RUNNER_TEMP"
+          printf 'BUILD_DIR=%s/potbot-wsl-kernel\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - name: Build x86-64 kernel and modules and prepare signing input
+        id: build
+        run: bash scripts/build_wsl_kernel.sh "$BUILD_DIR"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unsigned-wsl-kernel-x86_64
+          path: |
+            ${{ env.BUILD_DIR }}/prepared/
+            ${{ env.BUILD_DIR }}/build-identity.txt
+            ${{ env.BUILD_DIR }}/config.diff
+            ${{ env.BUILD_DIR }}/modules-image.json
+            ${{ env.BUILD_DIR }}/preparation.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Record routine build assessment
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          printf 'Blogworthiness: FAIL. Routine unsigned build of reviewed inputs. Evidence is this job and its build outcome (%s).\n' "$BUILD_OUTCOME" >> "$GITHUB_STEP_SUMMARY"

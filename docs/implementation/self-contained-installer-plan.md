@@ -5,8 +5,9 @@ provisioning and the installed service's accounting check are implemented.
 Windows setup retains the controller selection across an interrupted install.
 Offline verification of signed x86-64 kernel bundles is implemented.
 Release packaging can prepare signing input and export reproducible assets
-from reviewed build files. Official builds, signing, and a real clean
-Windows reboot trial remain open.
+from reviewed build files. A separate CI job builds the x86-64 candidate
+from pinned source. Release signing, publication, and a real clean Windows
+reboot trial remain open.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -283,9 +284,34 @@ flowchart LR
     F --> V[Verify the extracted bundle before staging]
 ~~~
 
-The public release still needs an approved build and signing workflow.
-The upstream source describes how to build the kernel and its modules
-image. [Microsoft WSL kernel build instructions](https://github.com/microsoft/WSL2-Linux-Kernel/blob/d504d40ab83839cb61942a812a99d183c42227b9/README.md#build-instructions)
+### Build the candidate in CI
+
+The **Build reviewed WSL kernel candidate** workflow runs on x86-64 Ubuntu
+when a PR changes the build recipe, inputs, or packager. Start it from
+the reviewed revision on `main` when preparing a release. It checks the
+pinned Microsoft source archive before
+extracting it, applies the reviewed patch, and fails if Kconfig changes
+any reviewed settings beyond the recorded toolchain version fields.
+
+The build produces the kernel and matching modules, UAPI headers, and
+`perf`. The modules VHDX uses Microsoft's generator. CI passes the four
+bundle files and source archive to the packager and retains the unsigned
+signing input, tool versions, Potbot commit, and build config difference
+as an Actions artifact. The [pinned Microsoft build instructions](https://github.com/microsoft/WSL2-Linux-Kernel/blob/d504d40ab83839cb61942a812a99d183c42227b9/README.md#build-instructions)
+describe the modules layout.
+
+For a local rehearsal on x86-64 Ubuntu with the same dependencies, use
+a fresh workspace on the Linux filesystem:
+
+~~~bash
+bash scripts/build_wsl_kernel.sh --configure-only /tmp/potbot-wsl-configure /path/to/source.tar.gz
+~~~
+
+Omit `--configure-only` to compile and package, or omit the archive path
+to fetch the pinned archive. The runner image and tool package versions
+can change across runs. Qualify the exact new artifacts before signing
+them, even when their kernel release label matches a previously booted
+candidate.
 
 1. **Verify the deployment inputs.** Record the WSL version, host architecture,
    installed distro versions, current kernel and existing `.wslconfig` hash.

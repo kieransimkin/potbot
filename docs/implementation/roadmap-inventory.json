@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "0930e8bf83532427c6dbcef6ed2b43d02152e7e5d58f1dcb4b4836e63c124c28",
-      "bytes": 29000,
+      "sha256": "0e0408500b46e42e900c24b432aa3ab03ac088a2e7114c71d3498d0fcc21793f",
+      "bytes": 30218,
       "kind": "narrative_text",
-      "text_sha256": "0930e8bf83532427c6dbcef6ed2b43d02152e7e5d58f1dcb4b4836e63c124c28",
-      "characters": 28982,
-      "lines": 513,
+      "text_sha256": "0e0408500b46e42e900c24b432aa3ab03ac088a2e7114c71d3498d0fcc21793f",
+      "characters": 30200,
+      "lines": 539,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35859,6 +35859,16 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": ".github/workflows/wsl-kernel-build.yml",
+      "sha256": "e2fd22553b623f65574b2916f187a7efcacc3654bee05acaa06c6242fb940b2f",
+      "bytes": 2332,
+      "kind": "narrative_text",
+      "text_sha256": "e2fd22553b623f65574b2916f187a7efcacc3654bee05acaa06c6242fb940b2f",
+      "characters": 2332,
+      "lines": 62,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": ".github/workflows/xpra-native-window-acceptance.yml",
       "sha256": "f229a7cdc657a8aa3733b88b04a144e37e7a973d29a520fa494adeb7f000d615",
       "bytes": 5680,
@@ -35969,7 +35979,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "1493b3cb492bf72e14ffd211802f8d8487c588127d674c7120a7b0793401dcae",
+  "review_sha256": "c694c73bf2a6e048e65aea30277b1198e0245961554296228c13456249c7c755",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115780,8 +115790,8 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:1-56",
-      "sha256": "d9d6f0a5d8398ceaabeec9197c538a142e8d11b4719aa600436195984be5ed67",
+      "locator": "line:1-57",
+      "sha256": "ea7033e47be2138e00f3f74a4cf1524fc21115e0c49be30f238f5acbfc494b0a",
       "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup, controller recovery, Linux scoped launcher\nprovisioning and the installed service",
       "review_families": [
         "accounting",
@@ -115791,7 +115801,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:57-127",
+      "locator": "line:58-128",
       "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
       "excerpt": "## Resume stock WSL setup\n\nUse the same command for a first install, a retry after Windows asks for a\nreboot, and selection of another reviewed controller wheel",
       "review_families": [
@@ -115802,7 +115812,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:128-244",
+      "locator": "line:129-245",
       "sha256": "461b030c5871a3f585eea3325a3c95e32772cbc5b7ad104825d82e7d9194479d",
       "excerpt": "## Start an installed scoped worker\n\nRun the Linux administrator provisioning step below, then install the Linux\nservice as the selected service user with its o",
       "review_families": [
@@ -115813,9 +115823,20 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:245-513",
-      "sha256": "f845a397a5932300e143a82c37773a85712c4bf618555e9858f807e2a0a96fe0",
+      "locator": "line:246-286",
+      "sha256": "b0f72d7cb3f4b8e19b56817ec601fa107d151cc37cf4c07fb052df641d2621d3",
       "excerpt": "### Package reviewed build outputs\n\nRun the packaging tool from a Potbot checkout. Provide the four fixed\ncomponent files and the corresponding Microsoft source",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:287-539",
+      "sha256": "71a8a8c0fe1e323c641feaa0280494e820252cd23be84ff752ae85c6fc0f0d8a",
+      "excerpt": "### Build the candidate in CI\n\nThe **Build reviewed WSL kernel candidate** workflow runs on x86-64 Ubuntu\nwhen a PR changes the build recipe, inputs, or package",
       "review_families": [
         "accounting",
         "sandbox",
