@@ -15,14 +15,17 @@ import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
+from potbot.api.hosted_mcp_oauth import HostedMcpOAuth
+from potbot.api.server import create_app
 from potbot.credentials import CredentialStore
+from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import ScopeDeniedError
 from potbot.tools.mcp_http_broker import McpHttpGrant
 from potbot.tools.mcp_oauth import McpOAuthProvider, McpOAuthRegistration
 
 ISSUER = "https://login.fixture.example/tenant"
 RESOURCE = "https://mcp.fixture.example/tools"
-CALLBACK = "https://controller.fixture.example/oauth/callback"
+CALLBACK = "https://controller.fixture.example/v1/mcp/oauth/callback"
 PUBLIC = "93.184.215.14"
 CODE = "one-use-fixture-code"
 
@@ -121,7 +124,13 @@ def rig(monkeypatch, signing_key):
             )
         assert request.url.path == "/tools"
         auth.append(request.headers["authorization"])
-        return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": {"ok": True}})
+        request_body = json.loads(await request.aread())
+        result = {"resultType": "complete", "supportedVersions": ["2026-07-28"]}
+        if request_body["method"] == "tools/list":
+            result = {"resultType": "complete", "tools": []}
+        return httpx.Response(
+            200, json={"jsonrpc": "2.0", "id": request_body["id"], "result": result}
+        )
 
     monkeypatch.setattr(socket, "getaddrinfo", resolve)
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", wire)
@@ -172,7 +181,7 @@ def test_pkce_exchange_vault_readback_and_mcp_delivery(rig):
             result = await transport.exchange(
                 {"jsonrpc": "2.0", "id": 1, "method": "server/discover"}, True
             )
-        assert result == {"jsonrpc": "2.0", "id": 1, "result": {"ok": True}}
+        assert result["result"]["supportedVersions"] == ["2026-07-28"]
         assert auth == ["Bearer " + token.secret]
         assert await reopened.forget()
         assert not vault.values
@@ -272,3 +281,54 @@ def test_vault_lookup_rechecks_consent_and_grant(rig):
     consent[0] = False
     with pytest.raises(ScopeDeniedError, match="explicit consent"):
         provider(provider.grant)
+
+
+def test_hosted_oauth_requires_operator_and_consumes_only_exact_callback(rig):
+    provider, vault, _, _, _, form, auth, _, _, _ = rig
+    actor = WorkspaceContext(provider.grant.workspace_id, provider.grant.principal_id)
+
+    def authenticate(value):
+        if value != "Bearer workspace-fixture":
+            raise ScopeDeniedError("unavailable")
+        return actor
+
+    def setup(value):
+        if value != "fixture-operator":
+            raise ScopeDeniedError("unavailable")
+
+    app = create_app(
+        task_service=object(),
+        job_service=object(),
+        authenticate=authenticate,
+        mcp_oauth=HostedMcpOAuth(provider, setup),
+    )
+    workspace = {"Authorization": "Bearer workspace-fixture"}
+    operator = {**workspace, "X-Potbot-Setup-Token": "fixture-operator"}
+
+    async def scenario():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://controller.fixture.example"
+        ) as client:
+            assert (await client.post("/v1/mcp/oauth/start", headers=workspace)).is_error
+            start = await client.post("/v1/mcp/oauth/start", headers=operator)
+            assert start.status_code == 200 and start.headers["cache-control"] == "no-store"
+            target = callback(start.json()["authorization_url"])
+            wrong = target.replace("controller.fixture.example", "other.fixture.example")
+            refused = await client.get(
+                wrong, headers={"X-Forwarded-Host": "controller.fixture.example"}
+            )
+            assert refused.status_code == 400 and CODE not in refused.text
+            assert form == []
+            done = await client.get(target)
+            assert done.status_code == 200
+            assert done.headers["referrer-policy"] == "no-referrer"
+            assert CODE not in done.text and done.headers["cache-control"] == "no-store"
+            assert (await client.get(target)).status_code == 400
+            assert len(form) == 1
+            assert (await client.post("/v1/mcp/oauth/check", headers=workspace)).is_error
+            checked = await client.post("/v1/mcp/oauth/check", headers=operator)
+            assert checked.status_code == 200 and checked.json()["protocol"] == "2026-07-28"
+            assert checked.json()["tool_count"] == 0
+            assert len(auth) == 2 and len(vault.values) == 1
+
+    asyncio.run(scenario())
