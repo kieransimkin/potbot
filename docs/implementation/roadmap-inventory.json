@@ -1019,12 +1019,12 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "9380e72242cb5150400fd1adbf3bc18564afad7333924080ee5dfa7acbf4b966",
-      "bytes": 10640,
+      "sha256": "27712157aee435c530575a28ed3e059b1c06e190d2bc218edea7c96e555e2daf",
+      "bytes": 12831,
       "kind": "narrative_text",
-      "text_sha256": "9380e72242cb5150400fd1adbf3bc18564afad7333924080ee5dfa7acbf4b966",
-      "characters": 10640,
-      "lines": 213,
+      "text_sha256": "27712157aee435c530575a28ed3e059b1c06e190d2bc218edea7c96e555e2daf",
+      "characters": 12831,
+      "lines": 257,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "f445a74bc58375d33eb0745e7b336810a9e290068ea6990b8bf8df69093c73c0",
+  "review_sha256": "92c160d4616dc808b4ba03f075ec2f93036afca62b3c5d9dc8acac964ff3ee53",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -114860,9 +114860,19 @@
     },
     {
       "source": "docs/implementation/context-rpc-syn-route.md",
-      "locator": "line:170-213",
-      "sha256": "55fe259706bbdd70c7812487bb57fafbeccb8238548c7150a3d1aca4c7eb253d",
+      "locator": "line:170-214",
+      "sha256": "e67b9f02eba538dd7d823c506c81635f73e7b00f2b443e8cf598760226816290",
       "excerpt": "## Sandboxed MCP tool calls\n\nStop the managed Syn operator before adding the MCP endpoint to its pinned\nworkspace route table. With the same store, policy, and ",
+      "review_families": [
+        "mcp",
+        "syn-operations"
+      ]
+    },
+    {
+      "source": "docs/implementation/context-rpc-syn-route.md",
+      "locator": "line:215-257",
+      "sha256": "ef12fd123be3432db80aa4a085496371a29cb6f8d403980393eea2baa4723bf2",
+      "excerpt": "### Durable MCP admission through the tool gateway\n\nRegister the server as a read-only `ToolDefinition` with `protocol=\"mcp\"`,\nfixed arguments and an accepted i",
       "review_families": [
         "mcp",
         "syn-operations"
@@ -121562,7 +121572,7 @@
         {
           "path": "src/potbot/tools/gateway.py",
           "symbol": "ToolGateway",
-          "sha256": "5e0c28c48de0711d51aa99db48ea86178717a50b25aedd7c6769330b7a65b421",
+          "sha256": "456c643848b1a84efe236f0a973a47c09755be83eefbc4cf5854f34f47ffbd2a",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121576,7 +121586,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_actual_compile_and_tests_persist_output_inputs_states_and_events_after_restart",
-          "sha256": "f1cb4af54b6ab4e40aa458e869640f37fc0603316ea608f31f65f86952f79dfe",
+          "sha256": "da16c5f60ed78aa5512bf9b051899e2a9e2f09503bd0028b0f2357cae05cdd88",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -122032,7 +122042,7 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ReadOnlyMcpGrant",
-          "sha256": "24c6c0dc4cc0b3f5328e24746ca83089e93aa62122386bb8e0488ef3b7c0786b",
+          "sha256": "b5ff3a48cc0ce4fb438e0793cce03203881bdd1bf1935c20374dd2113d7753ab",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122044,8 +122054,14 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ManagedMcpScope",
-          "sha256": "24c6c0dc4cc0b3f5328e24746ca83089e93aa62122386bb8e0488ef3b7c0786b",
+          "sha256": "b5ff3a48cc0ce4fb438e0793cce03203881bdd1bf1935c20374dd2113d7753ab",
           "basis": "Managed workspace, image, Agent and run binding for the scoped MCP launcher."
+        },
+        {
+          "path": "src/potbot/tools/mcp_gateway.py",
+          "symbol": "execute_mcp_action",
+          "sha256": "974a73b6d1836d0bf6ae7f18978734a6a7bef1ea70590e4b4ce1b5b0437f5703",
+          "basis": "Inspected gateway admission for a pinned installation, frozen input, and audited completion."
         }
       ],
       "tests": [
@@ -122066,10 +122082,16 @@
           "symbol": "test_managed_tool_uses_signed_delivery_and_never_replays",
           "sha256": "9c8d80a8e5e051fa17af03279f6c4ba379c9f5e0a8cf90fc040eff8cc95b39bc",
           "basis": "Exercises the actual sandbox client, loss on either exchange, and the no-replay boundary."
+        },
+        {
+          "path": "tests/integration/test_execution_gateway.py",
+          "symbol": "test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay",
+          "sha256": "da16c5f60ed78aa5512bf9b051899e2a9e2f09503bd0028b0f2357cae05cdd88",
+          "basis": "Real PostgreSQL regression for admission, lost reply fencing, and saved receipt recovery."
         }
       ],
-      "assessment": "The read-only MCP tool path uses directed Syn RPC and an installed scoped launcher. Managed launch binds the workspace, Agent, image, and run ID. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct future requirements.",
-      "support_scope": "Read-only sandboxed JSON-RPC/stdio tools and the installed Syn route with scoped TASKSTATS on managed WSL. Full external server, authentication, and production gateway qualification remain separate.",
+      "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",
+      "support_scope": "One read-only sandboxed MCP tool per admitted action. The tool gateway pins its installed definition, Agent, workspace and input in PostgreSQL. External server and authentication qualification remain separate.",
       "remaining": [
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries"

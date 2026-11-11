@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import os
@@ -30,6 +31,7 @@ from potbot.persistence.database import Database
 from potbot.persistence.evidence import append_event
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.isolation import runtime_roots
+from potbot.tools.mcp_gateway import InstalledMcpTool, execute_mcp_action
 from potbot.tools.receipts import RunReceiptStore
 from potbot.tools.repository import (
     CandidateWorkspaceManager,
@@ -43,6 +45,7 @@ from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceRuntime,
 )
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
+from potbot.tools.syn_mcp_route import SynMcpRoute
 from potbot.tools.worker_attribution import validate_host_agent_binding, worker_subject
 from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
 from potbot.tools.workspace_supervision import (
@@ -76,6 +79,8 @@ class ToolGateway:
         ai_monitor: AiConfigHistoryMonitor | None = None,
         agent_homes: AgentHomeRegistry | None = None,
         host_agent_id: UUID | None = None,
+        mcp_installations: tuple[InstalledMcpTool, ...] = (),
+        mcp_routes: tuple[SynMcpRoute, ...] = (),
     ) -> None:
         self.database, self.artifacts, self.candidates = database, artifacts, candidates
         self.registry, self.capabilities, self.receipts = registry, capabilities, receipts
@@ -120,6 +125,19 @@ class ToolGateway:
         self.instance_id = uuid4()
         self.store = ExecutionStore(database, registry)
         self.budgets = BudgetLedger(database)
+        self._mcp_installations: dict[tuple[UUID, str], InstalledMcpTool] = {}
+        for binding in mcp_installations:
+            key = (binding.installation.workspace_id, binding.definition.name)
+            if key in self._mcp_installations or (
+                registry.get(binding.definition.name).fingerprint != binding.definition.fingerprint
+            ):
+                raise ScopeDeniedError("MCP installation does not match a unique registered tool")
+            self._mcp_installations[key] = binding
+        self._mcp_routes: dict[UUID, SynMcpRoute] = {}
+        for route in mcp_routes:
+            if not isinstance(route, SynMcpRoute) or route.workspace_id in self._mcp_routes:
+                raise ScopeDeniedError("MCP routes must select a unique installed workspace")
+            self._mcp_routes[route.workspace_id] = route
 
     def _fingerprint(
         self,
@@ -159,7 +177,16 @@ class ToolGateway:
         return cwd
 
     def _admit(
-        self, context: WorkspaceContext, action_id: UUID, lease: Lease, reservation_id: UUID
+        self,
+        context: WorkspaceContext,
+        action_id: UUID,
+        lease: Lease,
+        reservation_id: UUID,
+        *,
+        pin_intent: Callable[
+            [dict[str, Any], dict[str, Any], ToolDefinition, ActionProposal, UUID], dict[str, Any]
+        ]
+        | None = None,
     ) -> tuple[dict[str, Any], ToolDefinition, ActionProposal, dict[str, Any]]:
         candidate = self.candidates.check_lease(context, lease)
         actual = self._fingerprint(context, candidate)
@@ -192,6 +219,8 @@ class ToolGateway:
                 raise StateMismatchError("Candidate contents differ from the expected input state.")
             contract = scoped_row(conn, context, "contract_revisions", view["contract_revision_id"])
             definition = self.registry.get(action["kind"])
+            if (definition.protocol == "mcp") != (pin_intent is not None):
+                raise ScopeDeniedError("MCP tools require durable typed admission")
             proposal = ActionProposal.from_dict(action["proposal"])
             if definition.fingerprint != action["tool_definition_digest"]:
                 raise StateMismatchError(
@@ -231,6 +260,9 @@ class ToolGateway:
             if busy:
                 raise StateMismatchError("Candidate has an active or unresolved operation.")
             run_id = uuid4()
+            intent_details = (
+                pin_intent(action, contract, definition, proposal, run_id) if pin_intent else {}
+            )
             row = conn.execute(
                 "INSERT INTO action_runs(workspace_id,id,episode_id,action_id,candidate_id,contract_revision_id,"
                 "input_state_id,reservation_id,lease_owner,lease_generation,input_fingerprint,owner_instance,status,started_at) "
@@ -257,15 +289,24 @@ class ToolGateway:
                 episode_id=action["episode_id"],
                 run_id=run_id,
                 node_id=node["id"],
+                payload_id=action["stdin_artifact_id"] if pin_intent else None,
                 details={
                     "action_id": str(action_id),
                     "reservation_id": str(reservation_id),
                     "lease_generation": lease.generation,
+                    **intent_details,
                 },
             )
             return dict(row), definition, proposal, candidate
 
-    def _cancelled(self, context: WorkspaceContext, run: dict[str, Any], lease: Lease) -> bool:
+    def _cancelled(
+        self,
+        context: WorkspaceContext,
+        run: dict[str, Any],
+        lease: Lease,
+        *,
+        require_reservation: bool = False,
+    ) -> bool:
         try:
             with self.database.transaction(context) as conn:
                 task = conn.execute(
@@ -280,6 +321,14 @@ class ToolGateway:
                     return True
                 assert_lease(conn, context, lease)
                 current = scoped_row(conn, context, "action_runs", run["id"])
+                if (
+                    require_reservation
+                    and scoped_row(conn, context, "budget_reservations", run["reservation_id"])[
+                        "status"
+                    ]
+                    != "reserved"
+                ):
+                    return True
                 return bool(
                     current["status"] != "running" or current["owner_instance"] != self.instance_id
                 )
@@ -328,6 +377,38 @@ class ToolGateway:
                 if redactor.redact_bytes(data) != data:
                     raise CaptureRedactionError("A result file contains supplied secret material.")
 
+    def _replay(
+        self,
+        context: WorkspaceContext,
+        prior: dict[str, Any],
+        action_id: UUID,
+        lease: Lease,
+        reservation_id: UUID,
+    ) -> dict[str, Any]:
+        if prior["run"]["reservation_id"] != str(reservation_id) or prior["run"][
+            "candidate_id"
+        ] != str(lease.candidate_id):
+            raise StateMismatchError("Replay inputs differ from the original action run.")
+        if prior["completion"] is not None:
+            self._settle_receipt(context, UUID(prior["run"]["id"]))
+            return self.store.inspect(context, action_id)
+        raise IndeterminateExecutionError(
+            "An action attempt exists without a confirmed completion."
+        )
+
+    async def execute_mcp(
+        self,
+        context: WorkspaceContext,
+        action_id: UUID,
+        lease: Lease,
+        reservation_id: UUID,
+        *,
+        after_receipt: Callable[[], None] | None = None,
+    ) -> dict[str, Any]:
+        return await execute_mcp_action(
+            self, context, action_id, lease, reservation_id, after_receipt=after_receipt
+        )
+
     def execute(
         self,
         context: WorkspaceContext,
@@ -340,17 +421,20 @@ class ToolGateway:
         # A completed action is a durable replay, not a second process invocation.
         prior = self.store.inspect(context, action_id)
         if prior["run"] is not None:
-            if prior["run"]["reservation_id"] != str(reservation_id) or prior["run"][
-                "candidate_id"
-            ] != str(lease.candidate_id):
-                raise StateMismatchError("Replay inputs differ from the original action run.")
-            if prior["completion"] is not None:
-                self._settle_receipt(context, UUID(prior["run"]["id"]))
-                return self.store.inspect(context, action_id)
-            raise IndeterminateExecutionError(
-                "An action attempt exists without a confirmed completion."
-            )
+            return self._replay(context, prior, action_id, lease, reservation_id)
         definition = self.registry.get(prior["action"]["kind"])
+        if definition.protocol == "mcp":
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+            else:
+                raise StateMismatchError("Await execute_mcp from an asynchronous controller")
+            return asyncio.run(
+                self.execute_mcp(
+                    context, action_id, lease, reservation_id, after_receipt=after_receipt
+                )
+            )
         stdin_id = prior["action"].get("stdin_artifact_id")
         stdin = b""
         if stdin_id is not None:
@@ -599,6 +683,13 @@ class ToolGateway:
             )
         with self.database.transaction(context) as conn:
             action = scoped_row(conn, context, "actions", run["action_id"])
+            dispatch = conn.execute(
+                "SELECT details->>'mcp_intent_hash' AS mcp_hash FROM evidence_events "
+                "WHERE workspace_id=%s AND run_id=%s AND event_type='tool_dispatch_intent'",
+                (context.workspace_id, run["id"]),
+            ).fetchone()
+            if receipt.get("mcp_intent_hash") != (dispatch["mcp_hash"] if dispatch else None):
+                raise StateMismatchError("Receipt does not match the admitted MCP intent")
             stdin_id = action.get("stdin_artifact_id")
             if stdin_id is not None:
                 artifact = scoped_row(conn, context, "artifacts", stdin_id)
@@ -708,6 +799,8 @@ class ToolGateway:
             details.update(
                 {"recovered": recovered, "publication_lease_generation": lease.generation}
             )
+            if "mcp_intent_hash" in receipt:
+                details["mcp_intent_hash"] = receipt["mcp_intent_hash"]
             conn.execute(
                 "INSERT INTO action_completions(workspace_id,id,episode_id,run_id,outcome,exit_code,elapsed_ms,"
                 "stdout_artifact_id,stderr_artifact_id,result_state_id,result_fingerprint,receipt_digest,details) "
