@@ -1,4 +1,4 @@
-"""Bounded reverse-RPC on a dedicated worker's stdout/stdin pipes.
+"""Bounded worker frames with an explicitly selected Context transport.
 
 Only a host-selected handler has identity. No listener, socket pathname, token,
 SQL credential, shell command, or arbitrary filesystem path is exposed.
@@ -45,13 +45,64 @@ class ChannelResult:
     received_bytes: int
 
 
-def response_bytes(value: dict[str, Any]) -> bytes:
+def _response_payload(value: dict[str, Any]) -> bytes:
     payload = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
         "utf-8"
     )
     if not 1 <= len(payload) <= MAX_FRAME_BYTES:
         raise InvalidInputError("Context response exceeds its frame bound")
+    return payload
+
+
+def response_bytes(value: dict[str, Any]) -> bytes:
+    return _frame(_response_payload(value))
+
+
+def _frame(payload: bytes) -> bytes:
+    if type(payload) is not bytes or not 1 <= len(payload) <= MAX_FRAME_BYTES:
+        raise InvalidInputError("Context response exceeds its frame bound")
     return struct.pack("!I", len(payload)) + payload
+
+
+def evaluate_context_frame(
+    payload: bytes, handler: Callable[[OperationRequest], dict[str, Any]]
+) -> bytes:
+    """Execute at the selected Context endpoint and return the exact reply payload."""
+    request: OperationRequest | None = None
+    try:
+        request = parse_request(payload)
+        response = {
+            "schema": SCHEMA,
+            "request_id": str(request.request_id),
+            "ok": True,
+            "result": handler(request),
+        }
+    except (TimeoutError, ConnectionError, OSError):
+        raise
+    except DomainError as exc:
+        code = exc.code.value
+        response = _error_response(
+            request,
+            code if code in _MESSAGES else "internal_error",
+            _MESSAGES.get(code, "Context operation unavailable"),
+        )
+    except Exception:
+        response = _error_response(request, "internal_error", "Context operation unavailable")
+    try:
+        return _response_payload(response)
+    except (InvalidInputError, ValueError, UnicodeError, TypeError):
+        return _response_payload(
+            _error_response(request, "invalid_input", "Context response exceeds its bound")
+        )
+
+
+def _error_response(request: OperationRequest | None, code: str, message: str) -> dict[str, Any]:
+    return {
+        "schema": SCHEMA,
+        "request_id": str(request.request_id) if request else None,
+        "ok": False,
+        "error": {"code": code, "message": message},
+    }
 
 
 async def _read(reader: asyncio.StreamReader) -> bytes | None:
@@ -70,12 +121,10 @@ async def _read(reader: asyncio.StreamReader) -> bytes | None:
         raise InvalidInputError("Truncated context frame") from None
 
 
-async def _settled_call(
-    handler: Callable[[OperationRequest], dict[str, Any]], request: OperationRequest
-) -> dict[str, Any]:
+async def _settled_call(forward: Callable[[bytes], bytes], payload: bytes) -> bytes:
     # Cancellation cannot undo a synchronous PostgreSQL commit. Keep a strong
     # reference and wait for the bounded DB operation before revoking/closing.
-    task = asyncio.create_task(asyncio.to_thread(handler, request))
+    task = asyncio.create_task(asyncio.to_thread(forward, payload))
     try:
         return await asyncio.shield(task)
     except asyncio.CancelledError:
@@ -95,8 +144,9 @@ async def _settled_call(
 async def serve_context_streams(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
-    handler: Callable[[OperationRequest], dict[str, Any]],
+    handler: Callable[[OperationRequest], dict[str, Any]] | None = None,
     *,
+    forward: Callable[[bytes], bytes] | None = None,
     frame_timeout: float = 15.0,
 ) -> ChannelResult:
     """Serve ONE already-admitted channel; caller must revoke its session in finally.
@@ -111,12 +161,20 @@ async def serve_context_streams(
         or not 0 < frame_timeout <= 60
     ):
         raise InvalidInputError("Invalid context channel deadline")
+    if (handler is None) == (forward is None):
+        raise InvalidInputError("Select exactly one Context channel route")
+    if forward is None:
+        assert handler is not None
+        local = handler
+
+        def local_forward(payload: bytes) -> bytes:
+            return evaluate_context_frame(payload, local)
+
+        forward = local_forward
+
     count = errors = received = sent = 0
     try:
         while count < MAX_CHANNEL_REQUESTS:
-            response: dict[str, Any]
-            request: OperationRequest | None = None
-            fatal = False
             try:
                 async with asyncio.timeout(frame_timeout):
                     payload = await _read(reader)
@@ -125,55 +183,29 @@ async def serve_context_streams(
                 received += len(payload) + 4
                 if received > MAX_CHANNEL_BYTES:
                     raise InvalidInputError("Context channel byte budget exhausted")
-                request = parse_request(payload)
-                count += 1
-                result = await _settled_call(handler, request)
-                response = {
-                    "schema": SCHEMA,
-                    "request_id": str(request.request_id),
-                    "ok": True,
-                    "result": result,
-                }
-            except DomainError as exc:
-                errors += 1
-                code = str(exc.code.value)
-                response = {
-                    "schema": SCHEMA,
-                    "request_id": str(request.request_id) if request else None,
-                    "ok": False,
-                    "error": {
-                        "code": code if code in _MESSAGES else "internal_error",
-                        "message": _MESSAGES.get(code, "Context operation unavailable"),
-                    },
-                }
-                fatal = request is None or code not in {"revision_conflict", "invalid_input"}
             except (TimeoutError, ConnectionError, OSError):
                 break
-            except Exception:
-                errors += 1
-                response = {
-                    "schema": SCHEMA,
-                    "request_id": str(request.request_id) if request else None,
-                    "ok": False,
-                    "error": {"code": "internal_error", "message": "Context operation unavailable"},
-                }
-                fatal = True
-            try:
-                wire = response_bytes(response)
-            except (InvalidInputError, ValueError, UnicodeError):
-                errors += 1
-                fatal = True
-                wire = response_bytes(
-                    {
-                        "schema": SCHEMA,
-                        "request_id": str(request.request_id) if request else None,
-                        "ok": False,
-                        "error": {
-                            "code": "invalid_input",
-                            "message": "Context response exceeds its bound",
-                        },
-                    }
+            except InvalidInputError:
+                reply = _response_payload(
+                    _error_response(None, "invalid_input", "Invalid context request")
                 )
+            else:
+                try:
+                    reply = await _settled_call(forward, payload)
+                except (TimeoutError, ConnectionError, OSError):
+                    break
+            wire = _frame(reply)
+            response = json.loads(reply)
+            request_id = response["request_id"]
+            count += request_id is not None
+            success = response["ok"] is True
+            if not success:
+                errors += 1
+            fatal = not success and (
+                request_id is None
+                or response["error"]["code"] not in {"revision_conflict", "invalid_input"}
+                or response["error"]["message"] == "Context response exceeds its bound"
+            )
             sent += len(wire)
             if sent > MAX_CHANNEL_BYTES:
                 break

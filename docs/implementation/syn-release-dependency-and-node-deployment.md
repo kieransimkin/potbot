@@ -56,6 +56,10 @@ after native Syn admission. Its receipts are historical stdio evidence.
 Production cutover requires the Syn transport and forbids a direct
 stdio, HTTP or socket fallback for the application RPC.
 
+The [Context RPC invocation adapter](context-rpc-syn-route.md) implements the
+host-side binding for the directed route. Installed qualification still needs
+the official signed Syn package and the private service socket.
+
 ### Implementation sequence
 
 1. Define the canonical directed request/reply interface upstream in

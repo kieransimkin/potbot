@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from potbot.context.projection import AgentContextProjection, ContextProjectionM
 from potbot.context.service import WorkspaceContextService
 from potbot.context.sessions import ContextSessionStore
 from potbot.context.skill_projection import _directory
+from potbot.context.syn_context_route import SynContextRoute
 from potbot.context.work_exchange import ContextWorkExchange, bounded_work
 from potbot.context.worker_channel import ContextWorkerChannel, _settle
 from potbot.domain.auth import WorkspaceContext
@@ -209,8 +211,13 @@ async def execute_context_operation(
     agent_id: UUID,
     cancel: threading.Event,
     syn_fault: threading.Event,
+    *,
+    syn_route: SynContextRoute | None = None,
+    syn_agent: Callable[[], tuple[str, str]] | None = None,
 ) -> Any:
     """Typed work and context RPC on one declared protocol; no stdout sniffing."""
+    if (syn_route is None) != (syn_agent is None):
+        raise ScopeDeniedError("Syn Context routing requires a live native Agent pin")
     from potbot.cogs.contracts import TypedCogValue
     from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
     from potbot.tools.supervisor import ProcessRequest
@@ -306,6 +313,8 @@ async def execute_context_operation(
             guard=guard,
             registry=executor.homes,
             check_operator=active,
+            syn_route=syn_route,
+            syn_agent=syn_agent,
             work_exchange=ContextWorkExchange(
                 envelope,
                 op.binding.output_type_ref,
