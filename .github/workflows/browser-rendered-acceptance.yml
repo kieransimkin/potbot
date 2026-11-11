@@ -73,6 +73,7 @@ jobs:
           PY
       - name: Install selected engine browser and isolated test display
         run: |
+          bash scripts/ci_prepare_ubuntu_mirror.sh
           if [[ "$POTBOT_BROWSER_LIVE_PROFILE" == patchright* ]]; then
             .venv/bin/python -m patchright install --with-deps chromium
           else
