@@ -652,7 +652,7 @@
         {
           "path": "src/potbot/tools/inventory.py",
           "symbol": "build_inventory",
-          "sha256": "4a3ec4e4150bcb917809ad83522276d288a727de7dba74457f908325452c7d23",
+          "sha256": "f464b00735a65506fe8645158bfe57431e72393d8c49095de34d3dec3189c411",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
