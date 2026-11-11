@@ -64848,7 +64848,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "4293136ad66268e253914d9252c7f6ff8f4eb37d6dad18ffe784e413377f3ef4",
+      "sha256": "ee70bb24d37d011a38554416be234f97416dd450e176fd52f0f7e354a7112d52",
       "families": [
         "accounting"
       ],
@@ -64870,49 +64870,56 @@
           ]
         },
         {
-          "locator": "line:49-78",
+          "locator": "line:49-70",
+          "sha256": "07cd50aa818f9e61fdc4b2fc7f9e0f7f64e5ef4e07233a6f8515db59d4fcea5c",
+          "families": [
+            "accounting"
+          ]
+        },
+        {
+          "locator": "line:71-100",
           "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:79-119",
+          "locator": "line:101-141",
           "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:120-137",
+          "locator": "line:142-159",
           "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:138-153",
+          "locator": "line:160-175",
           "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:154-178",
+          "locator": "line:176-200",
           "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:179-205",
+          "locator": "line:201-227",
           "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
           "families": [
             "accounting"
           ]
         },
         {
-          "locator": "line:206-235",
+          "locator": "line:228-257",
           "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
           "families": [
             "accounting"
@@ -68271,7 +68278,7 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "d5d742281e9fcfaaf01f1eacc9669b3b54afb1d282385b6314b70366ea5e1678",
+      "sha256": "baae6ec6ecf9eb548a4758dece62d1fc67f0dd13920be4e78653715a25779868",
       "families": [
         "accounting",
         "sandbox",
@@ -68353,8 +68360,8 @@
           ]
         },
         {
-          "locator": "line:415-640",
-          "sha256": "c50e6ffa7baa27ef39444c360ca3113c9be1a4950719c89db7be46e9309d3ed0",
+          "locator": "line:415-646",
+          "sha256": "6597034aa555e8990c30a2aa8f8432daa76cad7f03d028c92edb7ee854466b25",
           "families": [
             "accounting",
             "sandbox",

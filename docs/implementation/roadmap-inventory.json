@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "4293136ad66268e253914d9252c7f6ff8f4eb37d6dad18ffe784e413377f3ef4",
-      "bytes": 11485,
+      "sha256": "ee70bb24d37d011a38554416be234f97416dd450e176fd52f0f7e354a7112d52",
+      "bytes": 12509,
       "kind": "narrative_text",
-      "text_sha256": "4293136ad66268e253914d9252c7f6ff8f4eb37d6dad18ffe784e413377f3ef4",
-      "characters": 11482,
-      "lines": 235,
+      "text_sha256": "ee70bb24d37d011a38554416be234f97416dd450e176fd52f0f7e354a7112d52",
+      "characters": 12506,
+      "lines": 257,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "d5d742281e9fcfaaf01f1eacc9669b3b54afb1d282385b6314b70366ea5e1678",
-      "bytes": 35261,
+      "sha256": "baae6ec6ecf9eb548a4758dece62d1fc67f0dd13920be4e78653715a25779868",
+      "bytes": 35769,
       "kind": "narrative_text",
-      "text_sha256": "d5d742281e9fcfaaf01f1eacc9669b3b54afb1d282385b6314b70366ea5e1678",
-      "characters": 35243,
-      "lines": 640,
+      "text_sha256": "baae6ec6ecf9eb548a4758dece62d1fc67f0dd13920be4e78653715a25779868",
+      "characters": 35751,
+      "lines": 646,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35979,7 +35979,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "08917c31891931cf84282711820d8d291879c8323beb4c3e886f40cc7212e7e8",
+  "review_sha256": "114ae343ca77776c1a7aa3d4e7cc68fd2fe1dcbdb2deb5b9c47e746754a4b95f",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112518,7 +112518,16 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:49-78",
+      "locator": "line:49-70",
+      "sha256": "07cd50aa818f9e61fdc4b2fc7f9e0f7f64e5ef4e07233a6f8515db59d4fcea5c",
+      "excerpt": "### Qualify the installed scoped launcher\n\nRun the same release-gate command as the installed service user with its\nprovisioned monitor environment. Set\n`POTBOT",
+      "review_families": [
+        "accounting"
+      ]
+    },
+    {
+      "source": "docs/implementation/38-operator-worker-qualification.md",
+      "locator": "line:71-100",
       "sha256": "57d7e8b6def46f35cf835368dd67d9f8d5659df2a7a9b42563e13dc19a97b5eb",
       "excerpt": "## U03-Q completion evidence\n\nThe worker tracer keeps the terminal line for each task. A process tree is\ncomplete only when each task has one unambiguous termin",
       "review_families": [
@@ -112527,7 +112536,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:79-119",
+      "locator": "line:101-141",
       "sha256": "3e9dfa4e71a506846cf5a67faa7959e431902968b3581f4ab05d5c38de26fcc3",
       "excerpt": "### Worker PID namespaces\n\nA fork inside Bubblewrap returns a PID from the worker namespace. The audit\ntracer and TASKSTATS identify that child using the operat",
       "review_families": [
@@ -112536,7 +112545,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:120-137",
+      "locator": "line:142-159",
       "sha256": "49ffff9f712c0da125cf1d7dd25906c733eaef89dc24ea9a8867ab0de292aeb1",
       "excerpt": "### Timeout while a second workspace is active\n\nThe concurrent Linux case starts two registered Cogs in separate disposable\nworkspaces. Both reach a live detach",
       "review_families": [
@@ -112545,7 +112554,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:138-153",
+      "locator": "line:160-175",
       "sha256": "1e67e441a26a3464f39b4dc0dea39bb2b03b09fdacf6a1dfbe6c2eacc6351d6d",
       "excerpt": "### Concurrent work across lease renewal\n\nThe Linux renewal case holds two registered Cogs in separate workspaces until\nboth ledgers record a later lease expiry",
       "review_families": [
@@ -112554,7 +112563,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:154-178",
+      "locator": "line:176-200",
       "sha256": "8abf85e87ee0c07fa2e8916d8c083f5b10d1ab13c86f2abb6dba2cc3619ff325",
       "excerpt": "### Context RPC through the monitored worker\n\nThe context acceptance job uses the shipped guest client, a disposable\nPostgreSQL database, Bubblewrap, strace, cg",
       "review_families": [
@@ -112563,7 +112572,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:179-205",
+      "locator": "line:201-227",
       "sha256": "476e0b4bd2cfabb0142a6b161a7cfd55a17e23908a619e1f8f1e86e28b6aebc0",
       "excerpt": "### Authorization with official Syn packages\n\nThe official Syn worker job installs v0.7.0 and v0.8.0 in separate Ubuntu\nfixtures. It pins the source commit, sig",
       "review_families": [
@@ -112572,7 +112581,7 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:206-235",
+      "locator": "line:228-257",
       "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
       "excerpt": "### Context RPC with official Syn authorization\n\nBoth pinned releases exercise the shipped context client and the real\nPostgreSQL session store. A grant for typ",
       "review_families": [
@@ -115878,8 +115887,8 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:415-640",
-      "sha256": "c50e6ffa7baa27ef39444c360ca3113c9be1a4950719c89db7be46e9309d3ed0",
+      "locator": "line:415-646",
+      "sha256": "6597034aa555e8990c30a2aa8f8432daa76cad7f03d028c92edb7ee854466b25",
       "excerpt": "### Qualify the kernel on the target host\n\n1. **Verify the deployment inputs.** Record the WSL version, host architecture,\n   installed distro versions, current",
       "review_families": [
         "accounting",

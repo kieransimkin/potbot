@@ -63,10 +63,24 @@ def qualify(count: int = 12) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--children", type=int, default=12)
+    parser.add_argument(
+        "--children", type=int, default=12, help="child count for direct accounting"
+    )
+    parser.add_argument(
+        "--scoped-worker-launcher",
+        action="store_true",
+        help="verify the installed launcher's collector startup and shutdown",
+    )
     args = parser.parse_args()
     try:
-        result = qualify(args.children)
+        if args.scoped_worker_launcher:
+            from potbot.tools.scoped_launcher import DEFAULT_SOCKET
+            from potbot.tools.worker_telemetry import qualify_scoped_worker
+
+            qualify_scoped_worker(DEFAULT_SOCKET)
+            result = {"schema": 1, "qualified": True, "source": "scoped-launcher-preflight"}
+        else:
+            result = qualify(args.children)
     except Exception as exc:
         # No task PIDs, paths, or syscall arguments emitted on failure.
         print(json.dumps({"schema": 1, "qualified": False, "error": type(exc).__name__}))

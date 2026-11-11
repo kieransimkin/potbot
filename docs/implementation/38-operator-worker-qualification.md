@@ -46,6 +46,28 @@ probe holds worker startup until the service is restarted. This check
 runs without submitting a job. The full image, Cog route and loss
 qualification above still applies. [Installer sequence](self-contained-installer-plan.md#start-an-installed-scoped-worker)
 
+### Qualify the installed scoped launcher
+
+Run the same release-gate command as the installed service user with its
+provisioned monitor environment. Set
+`POTBOT_OPERATOR_SCOPED_LAUNCHER=/run/potbot-scoped-worker.sock` and add
+`--scoped-worker-launcher` to the command above. Use the verified image
+rootfs and fresh disposable workspace and report directories.
+
+~~~mermaid
+flowchart LR
+    E[Read installed monitor pins and delegated cgroup] --> C[Start and stop the scoped collector]
+    C -->|Confirmed| W[Run the signed-image fork probe through the broker]
+    C -->|Refused| F[Report a failed gate]
+    W --> A[Verify per-task exit accounting and cgroup cleanup]
+~~~
+
+The collector check verifies registration, shutdown and the pinned join
+helper before the worker smoke starts. The smoke uses the same broker and
+requires a complete audited process tree on the selected image. The
+summary records the selected collector mode. Keep the registered Cog,
+Context RPC and collector-loss checks as separate release evidence.
+
 ## U03-Q completion evidence
 
 The worker tracer keeps the terminal line for each task. A process tree is

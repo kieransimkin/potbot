@@ -80,6 +80,11 @@ def main() -> int:
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--ai-config")
     parser.add_argument("--ai-past")
+    parser.add_argument(
+        "--scoped-worker-launcher",
+        action="store_true",
+        help="qualify the installed scoped collector and run the worker through that broker",
+    )
     args = parser.parse_args()
     if not 5 <= args.timeout <= 3600:
         parser.error("timeout must be between 5 and 3600 seconds")
@@ -91,10 +96,11 @@ def main() -> int:
         parser.error("report must be outside the sandbox home")
     if not report.parent.is_dir() or report.parent.is_symlink():
         parser.error("report parent must be an existing operator-owned directory")
+    mode_args = ["--scoped-worker-launcher"] if args.scoped_worker_launcher else []
     checks: dict[str, dict[str, object]] = {"host": inspect_host()}
     if checks["host"]["passed"]:
         checks["taskstats"] = run_command(
-            [args.python, "scripts/qualify_worker_exit_accounting.py"],
+            [args.python, "scripts/qualify_worker_exit_accounting.py", *mode_args],
             timeout=args.timeout,
         )
         # Run the integration command only after the kernel gate succeeds.
@@ -120,7 +126,7 @@ def main() -> int:
             if args.ai_config is not None:
                 smoke_args.extend(("--ai-config", args.ai_config, "--ai-past", args.ai_past))
             checks["sandbox_integration"] = run_command(
-                [args.python, "scripts/qualify_phase35_worker.py", *smoke_args],
+                [args.python, "scripts/qualify_phase35_worker.py", *mode_args, *smoke_args],
                 timeout=args.timeout,
                 success_field="qualified_smoke",
             )
@@ -128,6 +134,8 @@ def main() -> int:
         set(checks) == {"host", "taskstats", "sandbox_integration"}
     )
     final = {"schema": 1, "qualified": qualified, "checks": checks}
+    if args.scoped_worker_launcher:
+        final["collector"] = "scoped-launcher"
     # Persist only a summary and refuse unsafe pre-existing paths. A separate
     # Phase 35 full report is written by the existing worker qualification.
     summary = report.with_name(report.stem + ".operator-summary.json")
