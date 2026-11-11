@@ -17,23 +17,33 @@ sequenceDiagram
     Note over Host: Check Agent boot, worker isolation, and workspace lease
     Host->>Syn: Exact payload with a fresh host transport ID
     Syn->>Ctx: Directed dispatch on private Unix socket
-    Note over Ctx: Match the pending call and recheck its invocation
+    Note over Ctx: Match and stage the pending call
+    Ctx-->>Syn: Delivery acknowledgement
+    Syn-->>Host: Signed acknowledgement
+    Note over Host,Ctx: Recheck the invocation and run the admitted operation
+    Host->>Syn: Collect the result with a fresh host transport ID
+    Syn->>Ctx: Collect the result for the acknowledged submission
     Ctx-->>Syn: Exact application reply
     Syn-->>Host: Signed correlated reply
     Host-->>Cog: Reply with original application request ID
 ```
 
-*Sequence of the candidate route. It shows where application bytes and identity
-checks cross boundaries; it does not represent a deployed managed worker.*
+*Sequence of the Context route with the Syn 0.9.0 directed RPC profile.*
 
 The host captures the workspace, registered Agent, invocation, native Agent key
 and boot, process isolation receipt, and lease ID and generation. The Context
 endpoint checks the native operator peer UID, then matches the transport ID and
-payload hash to the pending invocation. Each delivery is accepted once. The
-application's request ID stays inside the payload and remains the key for
-PostgreSQL reconciliation. A failed transport faults that invocation. Potbot
-does not execute locally or resend on an uncertain outcome. Teardown waits
-for any accepted operation to settle before revoking its Context session.
+payload hash to the pending invocation. A verified Syn acknowledgement permits
+the Context service to execute the delivered request once. The service performs
+the live Agent, worker, lease and database checks between the two bounded Syn
+exchanges. This keeps those checks outside Syn 0.9.0's two-second socket deadline.
+
+The reply travels through Syn on a separate one-use collection bound to the
+same submission. The application's request ID stays inside the payload and
+remains the key for PostgreSQL reconciliation. A lost acknowledgement prevents
+execution. A lost result after execution leaves the outcome for reconciliation.
+A failed transport faults the invocation without resending. Teardown waits for
+in-flight work to settle before revoking its Context session.
 
 ## Enable the installed route
 

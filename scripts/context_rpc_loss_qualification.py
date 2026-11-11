@@ -46,8 +46,11 @@ def drop_work_result_reply(
     evidence = ReplyLoss(point, request_id)
     original_accept = route.accept
     original_round_trip = route._round_trip
+    selected_submission: UUID | None = None
 
     def selected(payload: bytes) -> bool:
+        if len(payload) == 16:  # The result collection carries the binary submission UUID.
+            return False
         request = parse_request(payload)
         return (
             isinstance(request, WorkRequest)
@@ -56,15 +59,21 @@ def drop_work_result_reply(
         )
 
     def accept(header: Mapping[str, object], payload: bytes) -> bytes:
+        nonlocal selected_submission
         if selected(payload):
             evidence.dispatches += 1
             if evidence.dispatches != 1 or point == "before_commit":
                 raise ConnectionAbortedError("Qualification closed the Syn service before commit")
+            selected_submission = UUID(str(header["request_id"]))
         return original_accept(header, payload)
 
     def round_trip(transport_id: UUID, payload: bytes) -> tuple[bytes, str]:
         reply = original_round_trip(transport_id, payload)
-        if point == "after_commit" and selected(payload):
+        if (
+            point == "after_commit"
+            and selected_submission is not None
+            and payload == selected_submission.bytes
+        ):
             evidence.signed_reply_observed = True
             raise ConnectionAbortedError("Qualification discarded the verified Syn reply")
         return reply
