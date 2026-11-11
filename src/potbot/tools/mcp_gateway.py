@@ -6,7 +6,7 @@ import base64
 import json
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from time import monotonic
 from typing import TYPE_CHECKING, Any
@@ -28,6 +28,7 @@ from potbot.tools.capability_contracts import (
     ToolInvocationIntent,
 )
 from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
+from potbot.tools.mcp_http_worker import WORKER_ARGS
 from potbot.tools.mcp_protocol import MAX_WIRE_BYTES, McpToolInfo, validate_arguments
 from potbot.tools.mcp_sandbox import ManagedMcpScope, ReadOnlyMcpGrant, SandboxedMcpClient
 from potbot.tools.repository import Lease
@@ -35,16 +36,24 @@ from potbot.workspace_sandbox import WorkspaceSandbox
 
 if TYPE_CHECKING:
     from potbot.tools.gateway import ToolGateway
+    from potbot.tools.mcp_oauth import McpOAuthProvider
 
 
-def mcp_configuration_hash(definition: ToolDefinition, tool: McpToolInfo, executable: str) -> str:
-    return content_hash(
-        {
-            "definition": definition.fingerprint,
-            "tool": tool.fingerprint,
-            "executable_sha256": executable,
-        }
-    )
+def mcp_configuration_hash(
+    definition: ToolDefinition,
+    tool: McpToolInfo,
+    executable: str,
+    *,
+    http_provider: McpOAuthProvider | None = None,
+) -> str:
+    identity = {
+        "definition": definition.fingerprint,
+        "tool": tool.fingerprint,
+        "executable_sha256": executable,
+    }
+    if http_provider is not None:
+        identity["oauth_registration_sha256"] = http_provider.registration_fingerprint
+    return content_hash(identity)
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +66,7 @@ class InstalledMcpTool:
     capability: ToolCapabilityDescriptor
     implementation: ToolImplementationDescriptor
     installation: ToolInstallationDescriptor
+    http_provider: McpOAuthProvider | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if (
@@ -70,10 +80,17 @@ class InstalledMcpTool:
             or re.fullmatch(r"[a-f0-9]{64}", self.executable_sha256) is None
         ):
             raise ScopeDeniedError("MCP installation differs from the operator's tool and scope")
+        if (self.definition.argv_prefix[1:] == WORKER_ARGS) != (self.http_provider is not None):
+            raise ScopeDeniedError("MCP HTTP installation requires its pinned worker and provider")
+        if (
+            self.http_provider is not None
+            and self.http_provider.grant.workspace_id != self.installation.workspace_id
+        ):
+            raise ScopeDeniedError("MCP HTTP installation differs from its registered workspace")
         self.implementation.assert_capability(self.capability)
         self.installation.assert_implementation(self.implementation)
         if self.installation.configuration_hash != mcp_configuration_hash(
-            self.definition, self.tool, self.executable_sha256
+            self.definition, self.tool, self.executable_sha256, http_provider=self.http_provider
         ):
             raise ScopeDeniedError("MCP executable, configuration, or tool identity changed")
 
@@ -125,6 +142,11 @@ async def execute_mcp_action(
         raise ScopeDeniedError(
             "MCP requires an operator installation, Syn route, and managed Agent"
         )
+    if (
+        binding.http_provider is not None
+        and binding.http_provider.grant.principal_id != context.principal_id
+    ):
+        raise ScopeDeniedError("MCP HTTP installation belongs to another principal")
     input_id = prior["action"].get("stdin_artifact_id")
     if input_id is None:
         raise InvalidInputError("MCP action requires a frozen input artifact")
@@ -238,6 +260,7 @@ async def execute_mcp_action(
             cancelled=cancelled,
             syn_route=syn_route,
             workspace_id=context.workspace_id,
+            http_provider=binding.http_provider,
             managed_scope=ManagedMcpScope(
                 context, gateway.host_agent_id, run["id"], gateway.agent_homes
             ),
@@ -246,6 +269,8 @@ async def execute_mcp_action(
             exit_receipt = await client.close()
         if exit_receipt is None or not exit_receipt.processes_stopped or cancelled():
             raise IndeterminateExecutionError("MCP shutdown or controller admission is unconfirmed")
+        if binding.http_provider is not None and exit_receipt.return_code != 0:
+            raise IndeterminateExecutionError("MCP broker relay did not exit successfully")
         if gateway._fingerprint(context, candidate) != run["input_fingerprint"]:
             raise StateMismatchError("Read-only MCP action changed the candidate contents")
         observation = result.to_observation(intent=intent, capability=binding.capability)

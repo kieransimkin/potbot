@@ -18,9 +18,10 @@ import asyncio
 import hashlib
 import os
 from collections.abc import Callable, Mapping
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from potbot.domain.auth import WorkspaceContext
@@ -38,7 +39,8 @@ from potbot.tools.interactive_supervisor import (
     InteractiveProcessSupervisor,
     IsolatedInteractiveProcess,
 )
-from potbot.tools.mcp_protocol import McpCallResult, McpCatalog, McpClient, McpToolInfo
+from potbot.tools.mcp_http_worker import WORKER_ARGS, relay_http_call
+from potbot.tools.mcp_protocol import Exchange, McpCallResult, McpCatalog, McpClient, McpToolInfo
 from potbot.tools.mcp_stdio import McpStdioTransport
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
 from potbot.tools.supervisor import ProcessRequest
@@ -50,6 +52,10 @@ from potbot.tools.workspace_supervision import (
     assert_shared_execution_allowed,
 )
 from potbot.workspace_sandbox import WorkspaceSandbox
+
+if TYPE_CHECKING:
+    from potbot.tools.mcp_oauth import McpOAuthProvider
+
 
 # A function installed by the trusted controller that throws if the selected
 # tool/arguments are not covered by the active task's durable permission grant.
@@ -112,6 +118,7 @@ class SandboxedMcpClient:
         syn_route: SynMcpRoute | None = None,
         workspace_id: UUID | None = None,
         managed_scope: ManagedMcpScope | None = None,
+        http_provider: McpOAuthProvider | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("MCP requires the qualified interactive ProcessSupervisor")
@@ -167,6 +174,9 @@ class SandboxedMcpClient:
         self._cancelled = cancelled
         self._syn_route = syn_route
         self._managed_scope = managed_scope
+        self._http_provider = http_provider
+        self._http_session = AsyncExitStack()
+        self._broker_exchange: Exchange | None = None
         self._lease: WorkspaceLeaseGuard | None = None
         self._call_lock = asyncio.Lock()
         self._process: IsolatedInteractiveProcess | None = None
@@ -337,6 +347,17 @@ class SandboxedMcpClient:
                 raise ScopeDeniedError("Managed MCP execution requires a scoped Agent launch")
         definition = self._registry.get(self._server_kind)
         definition.admit(ActionProposal(kind=self._server_kind))
+        if (definition.argv_prefix[1:] == WORKER_ARGS) != (self._http_provider is not None):
+            raise ScopeDeniedError("HTTP MCP requires its installed relay and provider")
+        if self._http_provider is not None:
+            scope = self._managed_scope
+            http_grant = self._http_provider.grant
+            if (
+                scope is None
+                or http_grant.workspace_id != scope.principal.workspace_id
+                or http_grant.principal_id != scope.principal.principal_id
+            ):
+                raise ScopeDeniedError("MCP HTTP grant does not match the managed Agent")
         self._capabilities.authorize(definition, self._task_contract)
         if definition.secret_refs:
             raise ScopeDeniedError("MCP secret injection awaits a qualified credential broker")
@@ -388,6 +409,12 @@ class SandboxedMcpClient:
         )
         self._client = McpClient(self._exchange, admit=self._admit)
         try:
+            if self._http_provider is not None:
+                async with asyncio.timeout(self._process.remaining_seconds()):
+                    broker = await self._http_session.enter_async_context(
+                        self._http_provider.broker.open(self._http_provider.grant)
+                    )
+                self._broker_exchange = broker.exchange
             await self._client.connect()
             self._catalog = await self._client.refresh_tools()
             # Refuse grants for tools absent from this exact, pinned discovery.
@@ -405,25 +432,46 @@ class SandboxedMcpClient:
             await self.close(force=self._syn_route is None)
             raise
 
-    async def _dispatch(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
-        process, transport = self._process, self._transport
+    async def _live_process(self) -> IsolatedInteractiveProcess:
+        process = self._process
         if (
             process is None
             or process.closed
-            or transport is None
+            or process.process.returncode is not None
             or process.remaining_seconds() <= 0
             or self._cancel_requested()
         ):
             raise IndeterminateExecutionError("MCP process lifetime ended before dispatch")
         if self._lease is not None:
             await asyncio.to_thread(self._lease.ensure_live)
+        return process
+
+    async def _dispatch(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
+        process = await self._live_process()
+        transport = self._transport
+        assert transport is not None
         transport.timeout = min(10.0, process.remaining_seconds())
         return await transport.exchange(message, expect_reply)
 
+    async def _dispatch_http(
+        self, message: dict[str, Any], expect_reply: bool
+    ) -> dict[str, Any] | None:
+        process = await self._live_process()
+        broker = self._broker_exchange
+        assert broker is not None
+        async with asyncio.timeout(process.remaining_seconds()):
+            if message.get("method") != "tools/call":
+                return await broker(message, expect_reply)
+            return await relay_http_call(message, self._dispatch, broker, self._check_live)
+
+    async def _check_live(self) -> None:
+        await self._live_process()
+
     async def _exchange(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
+        dispatch = self._dispatch_http if self._broker_exchange is not None else self._dispatch
         if self._syn_route is not None and message.get("method") == "tools/call":
-            return await self._syn_route.invoke(message, self._dispatch)
-        return await self._dispatch(message, expect_reply)
+            return await self._syn_route.invoke(message, dispatch)
+        return await dispatch(message, expect_reply)
 
     async def call(self, name: str, arguments: dict[str, Any]) -> McpCallResult:
         async with self._call_lock:
@@ -468,7 +516,10 @@ class SandboxedMcpClient:
                 if self._transport is not None:
                     await self._transport.close()
             finally:
-                result = await self._process.close(force=force)
+                try:
+                    result = await self._process.close(force=force)
+                finally:
+                    await self._http_session.aclose()
         finally:
             self._finish_lease(result)
         return result
