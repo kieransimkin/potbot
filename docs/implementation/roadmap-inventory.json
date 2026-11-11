@@ -239,12 +239,12 @@
     },
     {
       "path": "docs/implementation/03-interactive-execution.md",
-      "sha256": "ab302fb0b18fec9f403cc6f82875d67f40729bdd5a9b725fcdc569be3ca27bdd",
-      "bytes": 9700,
+      "sha256": "2d94743be1774f2fdf8d5f2a2dda19608537055762b0de3fbaea644efedb6183",
+      "bytes": 10558,
       "kind": "narrative_text",
-      "text_sha256": "ab302fb0b18fec9f403cc6f82875d67f40729bdd5a9b725fcdc569be3ca27bdd",
-      "characters": 9698,
-      "lines": 89,
+      "text_sha256": "2d94743be1774f2fdf8d5f2a2dda19608537055762b0de3fbaea644efedb6183",
+      "characters": 10556,
+      "lines": 107,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "fcb9ec586e0e1abdd418b66209754b4fa9d23372d4bffa2db90bb8d71e383995",
+  "review_sha256": "9024489d1c3d7fd625c41ec1c7590f0e0d6c1f1c5db37edc898314e579bf9c41",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110104,7 +110104,7 @@
     {
       "source": "docs/implementation/03-interactive-execution.md",
       "locator": "line:1-6",
-      "sha256": "97e8420f55d9457bac6ecb2a4a45b76e09153af574b8c67b961c4a463bd206a8",
+      "sha256": "fea37ab57019dbcd8b0ece52b05fd637c3a92cbab91427f93d7bfd36bbe22561",
       "excerpt": "# Universal tool platform \u2014 T02.3: qualified CLI and interactive MCP stdio\n\n**Programme:** 48-stage universal tool/MCP implementation plan; Phase 02, Stage T02.",
       "review_families": [
         "mcp",
@@ -110124,7 +110124,7 @@
     {
       "source": "docs/implementation/03-interactive-execution.md",
       "locator": "line:13-25",
-      "sha256": "b91207e02bc0b8c11d20fc009f57f971dff3a70586b1b9ecbf5fab37815f4bd5",
+      "sha256": "69bbd56509a9b4805b4351263dad2968ad717b02dad910db528f66c837dbd158",
       "excerpt": "## 2. Delivered code\n\n| Stage | File | Functionality |\n| --- | --- | --- |\n| T02.3 | `src/potbot/tools/interactive_supervisor.py` | Async interactive process li",
       "review_families": [
         "mcp",
@@ -110163,8 +110163,8 @@
     },
     {
       "source": "docs/implementation/03-interactive-execution.md",
-      "locator": "line:66-76",
-      "sha256": "5e1147c913f7e96948509b2be23d3a3df4b294d541ba6205436fde073a5453bb",
+      "locator": "line:66-94",
+      "sha256": "37d18c6ed43c1fa228c9f5e178b80f77a1deaa5a79daf59fbcfe149662f746b0",
       "excerpt": "### Qualified suite (real Linux CI, disposable PostgreSQL and Bubblewrap)\n\n```bash\nuv run --locked python -m pytest -q tests/integration/test_tool_phase2_3_sand",
       "review_families": [
         "mcp",
@@ -110173,7 +110173,7 @@
     },
     {
       "source": "docs/implementation/03-interactive-execution.md",
-      "locator": "line:77-80",
+      "locator": "line:95-98",
       "sha256": "0bf02f1f34f87da1fa1f2a2521fd59e2b357b234cadf833d0ce15897f54755f0",
       "excerpt": "### Machine-readable evidence\n\n`artifacts/tool-platform-t02-3/t02-3-stage-gate.json` includes current source hashes, JUnit counts, mode, full gate state and out",
       "review_families": [
@@ -110183,7 +110183,7 @@
     },
     {
       "source": "docs/implementation/03-interactive-execution.md",
-      "locator": "line:81-89",
+      "locator": "line:99-107",
       "sha256": "e8d6f5e47d0a68b22a19a264ab8ab1de9ec61a320c1a2f14db23a225b62e958f",
       "excerpt": "## 5. Known limitations and next work\n\n- **T02.4:** Add schema-checked REST/OpenAPI/GraphQL/gRPC interface adapters; enforce provider scopes and robust paginati",
       "review_families": [
@@ -122074,7 +122074,7 @@
         {
           "path": "tests/integration/test_tool_phase2_3_sandbox.py",
           "symbol": "test_real_bubblewrap_stdio_mcp",
-          "sha256": "2aa1bdf554336bec737c98363ac1b603d7cbf207d4a61a99c92b04df8c7af5bb",
+          "sha256": "6a72e46a64bf1892b095579274482f1a3e50270d1cb80ad5547342a2455ad033",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -122088,6 +122088,18 @@
           "symbol": "test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay",
           "sha256": "da16c5f60ed78aa5512bf9b051899e2a9e2f09503bd0028b0f2357cae05cdd88",
           "basis": "Real PostgreSQL regression for admission, lost reply fencing, and saved receipt recovery."
+        },
+        {
+          "path": "tests/integration/test_tool_phase2_3_sandbox.py",
+          "symbol": "test_mcp_bounds_stdio_and_closes_oversized_reply",
+          "sha256": "6a72e46a64bf1892b095579274482f1a3e50270d1cb80ad5547342a2455ad033",
+          "basis": "Live Linux sandbox fixture for oversized stdout, bounded stderr metadata and stopped child processes."
+        },
+        {
+          "path": "tests/integration/test_tool_phase2_3_sandbox.py",
+          "symbol": "test_mcp_crash_and_restart_does_not_repeat_a_write",
+          "sha256": "6a72e46a64bf1892b095579274482f1a3e50270d1cb80ad5547342a2455ad033",
+          "basis": "Live Linux sandbox fixture with 100 durable synthetic writes, 100 interrupted replies and 100 readback sessions."
         }
       ],
       "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",
@@ -122096,7 +122108,7 @@
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries"
       ],
-      "next_action": "Rebase/review PR13 against released-Syn admission, then qualify each explicit MCP profile and selected live deployment."
+      "next_action": "Qualify the HTTP egress broker and explicit MCP authentication profiles without widening the local read-only route."
     },
     {
       "id": "api",
