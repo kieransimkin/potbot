@@ -3,7 +3,8 @@
 **Status:** Stock WSL host setup, controller recovery, Linux scoped launcher
 provisioning and the installed service's accounting check are implemented.
 Windows setup retains the controller selection across an interrupted install.
-Signed kernel distribution and a real clean Windows reboot trial remain open.
+Offline verification of signed x86-64 kernel bundles is implemented.
+Official kernel distribution and a real clean Windows reboot trial remain open.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -191,10 +192,53 @@ deployment candidate. It is based on Microsoft source commit
 `CONFIG_TASK_XACCT` and `CONFIG_TASK_IO_ACCOUNTING` enabled and the PID
 namespace patch applied. The retained local bundle is under
 `%LOCALAPPDATA%\Potbot\WSL\6.18.54.1-microsoft-standard-WSL2-potbot-ns-taskstats`.
-Its manifest pins the kernel image, matching modules VHDX, build configuration
-and patch. Offer the kernel as an opt-in installer package after CI builds it
-for each supported architecture and signs the versioned manifest. Retain the
-corresponding source, patch and build configuration with the release record.
+The signed bundle pins the kernel image, modules VHDX, build configuration
+and patch. Retain the corresponding source archive, patch and build
+configuration with the release record. Official release builds and signing
+remain a separate step.
+
+To check a bundle before staging it, install Potbot's `security` extra
+and supply the manifest digest and release public key from trusted
+distribution records.
+
+~~~powershell
+potbot wsl-kernel verify --bundle C:\Reviewed\PotbotKernel --manifest-sha256 $KernelManifestSha256 --public-key $KernelReleasePublicKey
+~~~
+
+The x86-64 bundle uses the `potbot.wsl-kernel-bundle/1` profile.
+`manifest.json` is UTF-8 JSON with sorted keys, compact separators,
+ASCII escaping, and no final newline. Its fields are `profile`,
+`architecture` (the value `x86_64`), `kernel_release`, `source`, and
+`artifacts`. The `source` object gives the Microsoft WSL kernel
+`repository` (`microsoft/WSL2-Linux-Kernel`), exact `commit`, and
+`archive_sha256`. The `artifacts` object gives the byte `size` and
+lowercase `sha256` for each of the four fixed filenames.
+
+- `bzImage`
+- `modules.vhdx`
+- `kernel.config`
+- `wsl-taskstats-pidns.patch`
+
+`manifest.ed25519` contains the lowercase hex Ed25519 signature with no
+newline. The signing input is the ASCII profile followed by one NUL byte
+and the exact manifest bytes. Supply the raw 32-byte public key as
+lowercase hex. The source archive digest links to the release's retained
+source. Offline verification checks the four bundle files, the release in
+the bzImage header, the VHDX header, and the accounting configuration.
+
+~~~mermaid
+flowchart LR
+    P[Reviewed manifest digest and public key] --> M[Verify manifest and signature]
+    F[Local bundle files] --> A[Verify file digests and required headers]
+    M --> A
+    A --> R[Return offline verification receipt]
+    R --> B[Qualify boot and live accounting separately]
+~~~
+
+Use the offline receipt to decide whether to stage the bundle. Module
+compatibility and live TASKSTATS accounting still require a WSL boot and
+worker qualification. The [WSL configuration reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
+describes how the kernel and modules paths apply to the shared VM.
 
 1. **Verify the deployment inputs.** Record the WSL version, host architecture,
    installed distro versions, current kernel and existing `.wslconfig` hash.

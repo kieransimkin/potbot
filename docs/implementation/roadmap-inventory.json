@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "64e4d6192a32d206cd1090f59985e7d1d9b48e0888c02bcd2af590343695c3c6",
-      "bytes": 24775,
+      "sha256": "e2c640fa11fc4cb8de7089f7559a15865c56369dbc2cbaa5e6767b18b1478cd1",
+      "bytes": 26753,
       "kind": "narrative_text",
-      "text_sha256": "64e4d6192a32d206cd1090f59985e7d1d9b48e0888c02bcd2af590343695c3c6",
-      "characters": 24757,
-      "lines": 422,
+      "text_sha256": "e2c640fa11fc4cb8de7089f7559a15865c56369dbc2cbaa5e6767b18b1478cd1",
+      "characters": 26735,
+      "lines": 466,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35670,12 +35670,12 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "847a0955cbf6542cc985ebb7c809f93e07392dd34ac34927a6ea79bb1bb9e114",
-      "bytes": 12819,
+      "sha256": "7b83c8c8d0b8db544d3a8c4a98b6362844a3ac2e71f620adca9bf83beb7c2d85",
+      "bytes": 13372,
       "kind": "narrative_text",
-      "text_sha256": "847a0955cbf6542cc985ebb7c809f93e07392dd34ac34927a6ea79bb1bb9e114",
-      "characters": 12817,
-      "lines": 250,
+      "text_sha256": "7b83c8c8d0b8db544d3a8c4a98b6362844a3ac2e71f620adca9bf83beb7c2d85",
+      "characters": 13370,
+      "lines": 260,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "15016e16baf4a8fec7b47c15a0dacd6b6e060408c6fa6c2232bc40977e7985e8",
+  "review_sha256": "fd43d655cbef74105769feb381ef07c5bc5cc18211691690c7ad3306bdf387cc",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115780,8 +115780,8 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:1-53",
-      "sha256": "4ef08a2d1ba203c28b9a5f1c66400d45e1bb78e470b5cb60ce8de6557af8b4cd",
+      "locator": "line:1-54",
+      "sha256": "be8ee065e2fde94569fc06b6082d14686ad6de27b27b5da9909624d327f1f7b7",
       "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup, controller recovery, Linux scoped launcher\nprovisioning and the installed service",
       "review_families": [
         "accounting",
@@ -115791,7 +115791,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:54-124",
+      "locator": "line:55-125",
       "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
       "excerpt": "## Resume stock WSL setup\n\nUse the same command for a first install, a retry after Windows asks for a\nreboot, and selection of another reviewed controller wheel",
       "review_families": [
@@ -115802,8 +115802,8 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:125-422",
-      "sha256": "65d3d9c6f894cf080ba5567a282f8f1542b25890fbd68e1f87dad4a3b80344d6",
+      "locator": "line:126-466",
+      "sha256": "c99d7d955557e3ca2cbd79453d6141641908e2bd2d59db5d7891a5d752ce471f",
       "excerpt": "## Start an installed scoped worker\n\nRun the Linux administrator provisioning step below, then install the Linux\nservice as the selected service user with its o",
       "review_families": [
         "accounting",

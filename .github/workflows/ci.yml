@@ -52,6 +52,16 @@ jobs:
           enable-cache: true
       - name: Verify Windows temporary files, child readback and cleanup
         run: uv run --locked --extra security --extra semantics python -m pytest -q tests/unit/test_temporary.py tests/unit/test_pytest_temp_isolation.py tests/unit/test_check_runner.py tests/unit/test_syn_export.py tests/unit/test_identity_cli.py tests/unit/test_artifact_ranges.py tests/unit/test_artifact_uploads.py tests/unit/test_syn_operator_deployment.py
+      - name: Verify offline WSL kernel bundles
+        id: wsl-kernel-bundle
+        run: uv run --locked --extra security python -m pytest -q tests/unit/test_wsl_kernel.py
+      - name: Record Windows CI completion assessment
+        if: always()
+        shell: pwsh
+        env:
+          BUNDLE_CHECK_OUTCOME: ${{ steps.wsl-kernel-bundle.outcome }}
+        run: |
+          "Blogworthiness: FAIL. Routine Windows fixture replay. Evidence is this job and the offline WSL kernel check outcome ($env:BUNDLE_CHECK_OUTCOME)." >> $env:GITHUB_STEP_SUMMARY
 
   worker-audit-linux:
     runs-on: ubuntu-24.04
