@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "24be1fa0ee31cb3c275c51994cd46cde318c92b9225dc68adc579330409f8b36",
+  "review_sha256": "18075de16327c766274397ab704a06d5c874acfe337858f0b0f0c45b6dbbdb9f",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -122838,7 +122838,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "ba142f8f6a9286d8d6f595fd4820b8969796a7dd52b3f510f7b2afd18f944545",
+          "sha256": "d3ce7108b935d72c1d86a904a0550ebdddc285891609b406d96d18237d028f2c",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
