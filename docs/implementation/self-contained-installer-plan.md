@@ -258,9 +258,9 @@ uv run --locked --extra security python scripts/prepare_wsl_kernel_release.py pr
 
 Preparation verifies the archive digest and commit directory, checks the
 components, and writes the exact signing input to `manifest.to-sign`.
-Review the returned manifest digest and have the release signing authority
-sign those bytes. Save the detached signature as 128 lowercase hex
-characters with no newline.
+After qualifying the prepared kernel, [review the exact signing input](#review-the-qualified-signing-input)
+and have the release signing authority sign those bytes. The default input format for finalization is 128
+lowercase hex characters with no newline. Raw signatures are also supported.
 
 ~~~powershell
 uv run --locked --extra security python scripts/prepare_wsl_kernel_release.py finalize `
@@ -283,6 +283,38 @@ flowchart LR
     S --> F[Verify signature and package assets]
     F --> V[Verify the extracted bundle before staging]
 ~~~
+
+### Review the qualified signing input
+
+Use the manifest SHA-256 from the retained live qualification receipt.
+Reviewing a prepared directory checks the manifest, all four component
+files, the corresponding source archive, and the exact bytes in
+`manifest.to-sign`. The result includes the SHA-256 and size of the
+message to pass to the signing authority.
+
+~~~powershell
+uv run --locked --extra security python scripts/prepare_wsl_kernel_release.py review `
+  --prepared $PreparedDirectory --manifest-sha256 $QualifiedManifestSha256
+~~~
+
+Give only the reviewed message to the authority approved for the
+release that contains the kernel. Keep the key in its custody system and
+verify the message hash on the signing host. A custodian using an offline
+Ed25519 PEM or an OpenSSL key reference can produce a raw signature.
+[OpenSSL Ed25519 signing options](https://docs.openssl.org/3.0/man1/openssl-pkeyutl/#ed25519-and-ed448-algorithms)
+
+~~~powershell
+openssl pkeyutl -sign -rawin -inkey $OfflineKeyReference -in $SigningInput -out $DetachedRawSignature
+~~~
+
+Use `finalize --signature-format raw` for the 64-byte result, or the
+default format for a lowercase hex signature. Finalization verifies the
+signature with the independently selected public key and stores the
+signature in the same canonical hex form in either case. Keep the
+trusted public key and qualified manifest digest with the release record
+so installers can select both independently of the downloaded bundle.
+Publish the signed ZIP and its matching source archive as assets of the
+Potbot release that uses them.
 
 ### Build the candidate in CI
 
@@ -312,6 +344,8 @@ to fetch the pinned archive. The runner image and tool package versions
 can change across runs. Qualify the exact new artifacts before signing
 them, even when their kernel release label matches a previously booted
 candidate.
+
+### Qualify the kernel on the target host
 
 1. **Verify the deployment inputs.** Record the WSL version, host architecture,
    installed distro versions, current kernel and existing `.wslconfig` hash.
