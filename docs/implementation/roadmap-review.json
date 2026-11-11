@@ -68257,18 +68257,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "4e87174afc6ed2dfa4921204b9fc98855e682aa71aa05431dd90f970e9a2a0fd",
+      "sha256": "7d7feb973f34f47f420ab92574ba61f092518f83aad0c9a711c690c66b565866",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Proposes stock WSL setup and separate worker activation. The recorded custom kernel boot did not qualify local worker accounting. Installer implementation and actual deployment qualification remain open.",
+      "assessment": "Records scoped TASKSTATS qualification and the distinct same-UID fixture, the installed hosted worker native Cog route, and standalone dispatcher recovery with preserved native identities in separate Syn 0.7.0 and 0.8.0 cohorts. Legacy runtime retirement remains gated.",
       "narrative": [
         {
-          "locator": "line:1-74",
-          "sha256": "6fcd52e84a42d95af9b8f957bf4382d21219adc973fa0bcff3572e930de3bf7a",
+          "locator": "line:1-283",
+          "sha256": "25ae047647c5c3496f7abd4d750ce95344dc541fd8f45fea5dc5570ecd28f7e0",
           "families": [
             "accounting",
             "sandbox",
@@ -73493,66 +73493,6 @@
           "locator": "line:144-150",
           "sha256": "52776fc14406e9a119590ff3ba826b4b88dfac971696eca8cce85b1762b44b40",
           "families": [
-            "identity"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "syn-node/README.md",
-      "sha256": "40b0c26fb2fd5270c59a06e5ef486dbc2f85e2b092e26363c8fe9fb07ad9d9a5",
-      "families": [
-        "syn-operations",
-        "identity"
-      ],
-      "disposition": "historical_contract_with_later_normative_boundary",
-      "assessment": "Upgrade/recovery, journal-authority migration and removal of transitional syn-node are not complete. Open PR1 has additional governance/DAG/transaction proposals that are outside current main.; Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts.",
-      "narrative": [
-        {
-          "locator": "line:1-28",
-          "sha256": "e3d37e6e4f0081dbf5ff33dc6a2f9586ae8e08f2b46d4f34a60bc12515c5fc4b",
-          "families": [
-            "syn-operations",
-            "identity"
-          ]
-        },
-        {
-          "locator": "line:29-73",
-          "sha256": "9fb12e14acc75e837d22007c72240b4552b0458c69aa91c729bcc1bd7b880e7b",
-          "families": [
-            "syn-operations",
-            "identity"
-          ]
-        },
-        {
-          "locator": "line:74-91",
-          "sha256": "a7117270f9749dd39fb2f1f094e8601f546d5fc2edb36480ba27ca50ae973cf5",
-          "families": [
-            "syn-operations",
-            "identity"
-          ]
-        },
-        {
-          "locator": "line:92-109",
-          "sha256": "7a6e42af0b4ecf372acfb2c7cc39b78f10ead7952e9aed65f5655232c7e3f9b9",
-          "families": [
-            "syn-operations",
-            "identity"
-          ]
-        },
-        {
-          "locator": "line:110-133",
-          "sha256": "0c4f9f88df9c78e51a1e8cc26fa55ca74039da781b194f016849dafedfd22fc9",
-          "families": [
-            "syn-operations",
-            "identity"
-          ]
-        },
-        {
-          "locator": "line:134-155",
-          "sha256": "de6f78448cbd00986bce0153e7582c29bdff14aaed7b3d661be33c83645618c9",
-          "families": [
-            "syn-operations",
             "identity"
           ]
         }
@@ -82926,14 +82866,10 @@
       },
       {
         "path": ".github/workflows/syn-agent-enrollment.yml",
-        "sha256": "ca5624ae38f315f5a443e892ef8cac1e253c3a41708a9fa9e18c6007120a8d59",
+        "sha256": "e8b809421a572ed96b5488e7d16c4c4cd58575cb6e9463c28406da61caabd8c7",
         "name": "SYN agent enrollment public contracts",
         "state": "active",
-        "scope": [
-          "Install only locked development dependencies",
-          "Verify public handshake, durable anti-replay and source syntax",
-          "Verify signed-message JSON Schema"
-        ],
+        "scope": "Public enrollment and pledge schemas, signed handshake and durable replay checks",
         "latest_inspected_run": {
           "id": 41379292049,
           "html_url": "https://github.com/kieransimkin/potbot/actions/runs/41379292049",
@@ -82943,50 +82879,7 @@
           "event": "push"
         },
         "at_reviewed_base": false,
-        "qualification_limit": "Passing means the selected jobs/steps succeeded at the recorded head only. Conditional live smoke, disabled device profiles, skipped publication and other host gates are not promoted. A workflow with an older head is historical evidence."
-      },
-      {
-        "path": ".github/workflows/syn-inherited-adoption.yml",
-        "sha256": "f0557c8d0ffa3ed2ca4e6307ba4d50e488dfc236deeda1853ae7f43b57c26176",
-        "name": "SYN confidential inherited-key adoption",
-        "state": "active",
-        "scope": [
-          "Offline signatures, real encryption, anti-replay, journal and partial-OS-keystore tests",
-          "Verify native Python HD provider and real inherited-key custody protocol",
-          "Guard SYN independent package and public schema"
-        ],
-        "latest_inspected_run": {
-          "id": 41350871840,
-          "html_url": "https://github.com/kieransimkin/potbot/actions/runs/41350871840",
-          "head_sha": "3f5cd12dd8f857608f6f6493a51a3889d2b342cb",
-          "status": "completed",
-          "conclusion": "success",
-          "event": "push"
-        },
-        "at_reviewed_base": false,
-        "qualification_limit": "Passing means the selected jobs/steps succeeded at the recorded head only. Conditional live smoke, disabled device profiles, skipped publication and other host gates are not promoted. A workflow with an older head is historical evidence."
-      },
-      {
-        "path": ".github/workflows/syn-node-service.yml",
-        "sha256": "a9fd14c097dd15df96503923a6478f9e39905e926e07c12216ed284da91238f5",
-        "name": "SYN independently installable local service",
-        "state": "active",
-        "scope": [
-          "Install locked development and public-signature dependencies",
-          "Compile independent SYN service and Potbot wire client",
-          "Exercise real Unix-socket service and Phase 42 interoperability",
-          "Check no Potbot key broker import in independent SYN runtime"
-        ],
-        "latest_inspected_run": {
-          "id": 41350871991,
-          "html_url": "https://github.com/kieransimkin/potbot/actions/runs/41350871991",
-          "head_sha": "3f5cd12dd8f857608f6f6493a51a3889d2b342cb",
-          "status": "completed",
-          "conclusion": "success",
-          "event": "push"
-        },
-        "at_reviewed_base": false,
-        "qualification_limit": "Passing means the selected jobs/steps succeeded at the recorded head only. Conditional live smoke, disabled device profiles, skipped publication and other host gates are not promoted. A workflow with an older head is historical evidence."
+        "qualification_limit": "Offline contracts. Released Agent lifecycle and legacy archive readback qualify separately."
       },
       {
         "path": ".github/workflows/syn-operator-lifecycle.yml",
@@ -82996,48 +82889,6 @@
           "Verify official upgrade, migration and rollback"
         ],
         "qualification_limit": "Disposable Linux, independently pinned official operator packages and loopback PostgreSQL. No production state or Agent-cohort migration."
-      },
-      {
-        "path": ".github/workflows/syn-p2p-lan.yml",
-        "sha256": "cbe50bfd70a9fa8e0683ff7dae2c91bcc512f1b851e6cfdc0a4a2a08e9d8c201",
-        "name": "SYN encrypted LAN pulses and pledge inbox",
-        "state": "active",
-        "scope": [
-          "Install isolated SYN Python HD provider",
-          "Validate schemas, compile, and enforce standalone boundary",
-          "Real socket discovery, encrypted pledge and anti-replay acceptance"
-        ],
-        "latest_inspected_run": {
-          "id": 41350871903,
-          "html_url": "https://github.com/kieransimkin/potbot/actions/runs/41350871903",
-          "head_sha": "3f5cd12dd8f857608f6f6493a51a3889d2b342cb",
-          "status": "completed",
-          "conclusion": "success",
-          "event": "push"
-        },
-        "at_reviewed_base": false,
-        "qualification_limit": "Passing means the selected jobs/steps succeeded at the recorded head only. Conditional live smoke, disabled device profiles, skipped publication and other host gates are not promoted. A workflow with an older head is historical evidence."
-      },
-      {
-        "path": ".github/workflows/syn-python-hd.yml",
-        "sha256": "64b1d5e5d32564d24261f33707d9f20ed602a754b8a72f97096b3dbaf0c3ef75",
-        "name": "SYN Python Icarus HD provider compatibility",
-        "state": "active",
-        "scope": [
-          "Install pinned Python CIP-3 provider in isolated SYN environment",
-          "Real HD derivation and signature check â€” no skip allowed",
-          "Confirm SYN operator never imports Potbot private broker"
-        ],
-        "latest_inspected_run": {
-          "id": 41350871933,
-          "html_url": "https://github.com/kieransimkin/potbot/actions/runs/41350871933",
-          "head_sha": "3f5cd12dd8f857608f6f6493a51a3889d2b342cb",
-          "status": "completed",
-          "conclusion": "success",
-          "event": "push"
-        },
-        "at_reviewed_base": false,
-        "qualification_limit": "Passing means the selected jobs/steps succeeded at the recorded head only. Conditional live smoke, disabled device profiles, skipped publication and other host gates are not promoted. A workflow with an older head is historical evidence."
       },
       {
         "path": ".github/workflows/syn-release-installation.yml",
