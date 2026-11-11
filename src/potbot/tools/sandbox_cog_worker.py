@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from potbot.context.runtime_integration import ContextExecutionBinding
 
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
+from potbot.context.syn_context_route import SynContextRoute
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
     CapabilityUnavailableError,
@@ -139,6 +140,7 @@ class SandboxedCogExecutor:
         syn_mesh: SynWorkerNodeMesh,
         *,
         development_syn_fixture: bool = False,
+        syn_context_route: SynContextRoute | None = None,
     ) -> None:
         if (
             not isinstance(runtime, SharedWorkspaceRuntime)
@@ -150,6 +152,14 @@ class SandboxedCogExecutor:
             or supervisor.backend.runtime != runtime
             or not isinstance(syn_mesh, SynWorkerNodeMesh)
             or (
+                syn_context_route is not None
+                and (
+                    not isinstance(syn_context_route, SynContextRoute)
+                    or not isinstance(syn_mesh, ReleasedSynWorkerNodeMesh)
+                    or syn_context_route.workspace_id != syn_mesh.transport.workspace_id
+                )
+            )
+            or (
                 not isinstance(syn_mesh, ReleasedSynWorkerNodeMesh)
                 and development_syn_fixture is not True
             )
@@ -158,6 +168,7 @@ class SandboxedCogExecutor:
         self.runtime, self.ledger, self.homes, self.supervisor = runtime, ledger, homes, supervisor
         self.syn_mesh = syn_mesh
         self.development_syn_fixture = development_syn_fixture
+        self._syn_context_route = syn_context_route
         self._context_binding: ContextExecutionBinding | None = None
 
     def syn_probe(self, actor: WorkspaceContext, agent_id: UUID) -> None:
@@ -417,9 +428,32 @@ class SandboxedCogExecutor:
             if op.protocol == "context-rpc/v1":
                 from potbot.context.runtime_integration import execute_context_operation
 
+                def live_native_agent() -> tuple[str, str]:
+                    if (
+                        not node.healthy
+                        or node.workspace_id != actor.workspace_id
+                        or node.agent_id != agent_id
+                        or node.worker_run_id != cog_context.invocation_id
+                    ):
+                        raise ScopeDeniedError("Context RPC invocation lost its native Syn monitor")
+                    pins = self.syn_provenance(actor, agent_id)
+                    if pins is None or pins["agent_id"] != str(agent_id):
+                        raise ScopeDeniedError("Context RPC requires an admitted native Agent")
+                    return str(pins["node"]), str(pins["boot_id"])
+
+                route = getattr(self, "_syn_context_route", None)
                 job = asyncio.create_task(
                     execute_context_operation(
-                        self, op, source, cog_context, actor, agent_id, cancelled, node.fault_event
+                        self,
+                        op,
+                        source,
+                        cog_context,
+                        actor,
+                        agent_id,
+                        cancelled,
+                        node.fault_event,
+                        syn_route=route,
+                        syn_agent=live_native_agent if route is not None else None,
                     )
                 )
             else:

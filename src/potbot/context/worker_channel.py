@@ -19,6 +19,7 @@ from uuid import UUID
 from potbot.context.rpc_contract import OperationRequest, WorkRequest
 from potbot.context.rpc_transport import ChannelResult, serve_context_streams
 from potbot.context.sessions import ContextSession, ContextSessionStore
+from potbot.context.syn_context_route import SynContextInvocation, SynContextRoute, WorkerRpcBinding
 from potbot.context.work_exchange import ContextWorkExchange
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
@@ -65,6 +66,8 @@ class ContextWorkerChannel:
         registry: AgentHomeRegistry,
         check_operator: Callable[[], None],
         work_exchange: ContextWorkExchange | None = None,
+        syn_route: SynContextRoute | None = None,
+        syn_agent: Callable[[], tuple[str, str]] | None = None,
     ) -> None:
         if (
             not isinstance(principal, WorkspaceContext)
@@ -74,6 +77,9 @@ class ContextWorkerChannel:
             raise ScopeDeniedError("Context channel requires trusted host admission")
         if work_exchange is not None and not isinstance(work_exchange, ContextWorkExchange):
             raise ScopeDeniedError("Work exchange must be host-bound")
+        if (syn_route is None) != (syn_agent is None):
+            raise ScopeDeniedError("Syn Context routing requires a live native Agent pin")
+        self.syn_route, self.syn_agent = syn_route, syn_agent
         self.work_exchange = work_exchange
         self.store, self.principal, self.agent_id = store, principal, agent_id
         self.guard, self.registry, self.check_operator = guard, registry, check_operator
@@ -124,6 +130,7 @@ class ContextWorkerChannel:
             raise ScopeDeniedError("Context worker channel cannot be reused")
         self._used = True
         grant: ContextSession | None = None
+        invocation: SynContextInvocation | None = None
         channel_task: asyncio.Task[ChannelResult] | None = None
         heartbeat: asyncio.Task[None] | None = None
         result: ChannelResult | None = None
@@ -132,7 +139,13 @@ class ContextWorkerChannel:
         try:
             run_id = await _settle(lambda: self._validate_process(process))
             await _settle(lambda: self.store.ensure_agent_context(self.principal, self.agent_id))
-            grant = await _settle(lambda: self.store.issue(self.principal, self.agent_id, run_id))
+
+            def issue() -> None:
+                nonlocal grant
+                grant = self.store.issue(self.principal, self.agent_id, run_id)
+
+            await _settle(issue)
+            assert grant is not None
             bound = grant
 
             def execute(request: OperationRequest) -> dict[str, Any]:
@@ -153,14 +166,52 @@ class ContextWorkerChannel:
                     await _settle(self._authorize)
                     await _settle(lambda: self.store.renew(bound))
 
+            if self.syn_route is not None:
+                assert self.syn_agent is not None
+                native_agent = self.syn_agent
+
+                def capture() -> WorkerRpcBinding:
+                    if (
+                        self._validate_process(process) != run_id
+                        or process.remaining_seconds() <= 0
+                    ):
+                        raise ScopeDeniedError("Context worker invocation changed or ended")
+                    lease = self.guard.lease
+                    assert lease is not None
+                    key, boot = native_agent()
+                    return WorkerRpcBinding(
+                        self.principal.workspace_id,
+                        self.agent_id,
+                        run_id,
+                        key,
+                        boot,
+                        process.isolation_identity,
+                        lease.lease_id,
+                        lease.generation,
+                    )
+
+                def still_live(expected: WorkerRpcBinding) -> None:
+                    if capture() != expected:
+                        raise ScopeDeniedError("Context worker, native Agent or lease changed")
+
+                route = self.syn_route
+
+                def bind_invocation() -> None:
+                    nonlocal invocation
+                    invocation = route.bind(capture(), still_live, execute)
+
+                await _settle(bind_invocation)
+
             heartbeat = asyncio.create_task(renew())
-            channel_task = asyncio.create_task(
-                serve_context_streams(
-                    process.reader,
-                    process.writer,
-                    execute,
+            if self.syn_route is None:
+                channel_task = asyncio.create_task(
+                    serve_context_streams(process.reader, process.writer, execute)
                 )
-            )
+            else:
+                assert invocation is not None
+                channel_task = asyncio.create_task(
+                    serve_context_streams(process.reader, process.writer, forward=invocation.call)
+                )
             done, _ = await asyncio.wait(
                 (channel_task, heartbeat), return_when=asyncio.FIRST_COMPLETED
             )
@@ -178,6 +229,13 @@ class ContextWorkerChannel:
                 await asyncio.gather(
                     *(t for t in (heartbeat, channel_task) if t is not None), return_exceptions=True
                 )
+                # A Syn delivery may have reached the destination even after
+                # the originating socket times out. Settle it before revocation.
+                if invocation is not None:
+                    try:
+                        await _settle(invocation.close)
+                    except BaseException as exc:
+                        cleanup.append(exc)
                 # No DB mutation remains detached when we get here.
                 try:
                     self.exit_receipt = await process.close(force=failure is not None)
