@@ -32,7 +32,7 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
     monkeypatch.setattr(service, "resolve_postgres_dsn", lambda *a, **k: "postgresql://fake")
     monkeypatch.setattr(service, "_manager", lambda: "systemd_user")
     installed: list[str] = []
-    monkeypatch.setattr(service, "install_manager", lambda: installed.append("installed"))
+    monkeypatch.setattr(service, "install_manager", lambda **kwargs: installed.append("installed"))
     monkeypatch.setattr(service, "manager_action", installed.append)
     fake_db = SimpleNamespace(transaction=lambda _ctx: _null_context())
     monkeypatch.setattr("potbot.persistence.database.Database", lambda *a, **k: fake_db)
@@ -221,3 +221,11 @@ def test_installed_worker_waits_for_live_scoped_accounting(
     records = (service.service_home() / "supervisor.jsonl").read_text().splitlines()
     events = [json.loads(line)["event"] for line in records]
     assert [event for event in events if event.startswith("service.worker_")] == worker_events
+
+
+def test_systemd_user_service_only_loads_scoped_monitor_settings_when_requested():
+    from potbot.tools.scoped_provision import ENV_FILE
+
+    directive = f"EnvironmentFile=-{ENV_FILE}"
+    assert directive not in service._systemd_unit()
+    assert directive in service._systemd_unit(scoped_worker_launcher=True)

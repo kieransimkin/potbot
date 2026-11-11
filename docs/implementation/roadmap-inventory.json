@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "43977b9b33901c3d3ed073a8d17a72757d2d0567e32e506516d519e067755ac9",
-      "bytes": 21998,
+      "sha256": "caf1980f6a4f40948771cbdc4df8eb65dbe96bafe2431b345b31391fb6d9b4b0",
+      "bytes": 23115,
       "kind": "narrative_text",
-      "text_sha256": "43977b9b33901c3d3ed073a8d17a72757d2d0567e32e506516d519e067755ac9",
-      "characters": 21980,
-      "lines": 369,
+      "text_sha256": "caf1980f6a4f40948771cbdc4df8eb65dbe96bafe2431b345b31391fb6d9b4b0",
+      "characters": 23097,
+      "lines": 397,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "f3956b1311c73485dac058c570706cf755add9d21135d9a9f818fbf338824c7e",
+  "review_sha256": "7482daaa6d8abdd39baeea029ac6ef8000412e10e98cc337356c66900474c8d3",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115781,8 +115781,8 @@
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
       "locator": "line:1-52",
-      "sha256": "db6f6f5b3deca5823f4a88a48c1c24220a955d0ef93bd7fe5cfe7cc4fd112d8e",
-      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup, controller recovery and the installed\nservice's scoped accounting check are imple",
+      "sha256": "9ca784951f5625f08a490b14d094e810a6b1728ef2e6f7c19d5a7cefdb656164",
+      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup, controller recovery, Linux scoped launcher\nprovisioning and the installed service",
       "review_families": [
         "accounting",
         "sandbox",
@@ -115802,9 +115802,9 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:100-369",
-      "sha256": "83c11eb7d3532b5fe31d193e209aa85680c91098c8ecce77e7d48d2a62ce6065",
-      "excerpt": "## Start an installed scoped worker\n\nInstall the Linux service with its operator manifest and\n`--scoped-worker-launcher` after the administrator has provisioned",
+      "locator": "line:100-397",
+      "sha256": "65d3d9c6f894cf080ba5567a282f8f1542b25890fbd68e1f87dad4a3b80344d6",
+      "excerpt": "## Start an installed scoped worker\n\nRun the Linux administrator provisioning step below, then install the Linux\nservice as the selected service user with its o",
       "review_families": [
         "accounting",
         "sandbox",
@@ -122869,7 +122869,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "6e202812f9b9084f5618dd25b74b01b591c35d740f96151b918cfb7d78a6265f",
+          "sha256": "0e54f04244e8f8a284c2c330e2fbd38fd889a6e56fab08f5695b1d3f27f52d33",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
