@@ -187,7 +187,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "71a641b3ff59636e413126fb6258e9a92ed5079af2fd08fb099de01908351a01",
+          "sha256": "9cf053767a1b0f888f9d6aac5ccf157bf4880cb83479c98229eac272ec433eb3",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -823,13 +823,13 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogExecutor",
-          "sha256": "71a641b3ff59636e413126fb6258e9a92ed5079af2fd08fb099de01908351a01",
+          "sha256": "9cf053767a1b0f888f9d6aac5ccf157bf4880cb83479c98229eac272ec433eb3",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
+          "sha256": "a85125243c0eb1a26de7a221c227b95a1ad07acf584927f2bea0b6d59adf43d4",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -1324,7 +1324,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
+          "sha256": "a85125243c0eb1a26de7a221c227b95a1ad07acf584927f2bea0b6d59adf43d4",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -1700,7 +1700,7 @@
         {
           "path": "src/potbot/tools/queue_transport_worker.py",
           "symbol": "target_result",
-          "sha256": "6e6690c82cfbfb4dc5ed96eba7d7480ff85bd95a4c87fcc3987be2cb946570ca",
+          "sha256": "2accc582785609532e97991857deedf385f03989d7c5046af0b1aae14e869d59",
           "basis": "U01-A queue and settlement source."
         }
       ],
@@ -67189,14 +67189,14 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "8fa8a90cbc33584afec067d515023947d742415589baa8a0a1d7a99450f62546",
+      "sha256": "77f44f77333a939383412b1fda769a5b95bf5adeb0c62a0452aefa74782e1fed",
       "families": [
         "context",
         "syn-operations",
         "browser"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "The installed Syn 0.10.0 policy binds two directed endpoints to one native operator boot. A managed WSL fixture exercised a Context document and Chromium on a private Xvfb display.",
+      "assessment": "The installed Syn 0.10.0 policy binds two directed endpoints to one native operator boot. A managed WSL fixture exercised a Context document and Chromium on a private Xvfb display. The opt-in queue worker uses the same route and has a local process recovery test.",
       "narrative": [
         {
           "locator": "line:1-47",
@@ -67217,8 +67217,17 @@
           ]
         },
         {
-          "locator": "line:96-130",
-          "sha256": "e73e473218f513103ff1d1844f615c0a4b694397004a826b187e7ea4b13e482d",
+          "locator": "line:96-131",
+          "sha256": "30b1e8193064b208c620ea097bdd58e46d426abaf9d172fe4353d22011f38e50",
+          "families": [
+            "context",
+            "syn-operations",
+            "browser"
+          ]
+        },
+        {
+          "locator": "line:132-161",
+          "sha256": "f852b3743405f46c5967893ce3adb2a9d9d4bcdc1f6477f2ea4e5aea4405ab80",
           "families": [
             "context",
             "syn-operations",

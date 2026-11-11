@@ -1019,12 +1019,12 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "8fa8a90cbc33584afec067d515023947d742415589baa8a0a1d7a99450f62546",
-      "bytes": 6565,
+      "sha256": "77f44f77333a939383412b1fda769a5b95bf5adeb0c62a0452aefa74782e1fed",
+      "bytes": 7887,
       "kind": "narrative_text",
-      "text_sha256": "8fa8a90cbc33584afec067d515023947d742415589baa8a0a1d7a99450f62546",
-      "characters": 6565,
-      "lines": 130,
+      "text_sha256": "77f44f77333a939383412b1fda769a5b95bf5adeb0c62a0452aefa74782e1fed",
+      "characters": 7887,
+      "lines": 161,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35319,12 +35319,12 @@
     },
     {
       "path": "src/potbot/context/runtime_integration.py",
-      "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
-      "bytes": 15561,
+      "sha256": "a85125243c0eb1a26de7a221c227b95a1ad07acf584927f2bea0b6d59adf43d4",
+      "bytes": 16387,
       "kind": "narrative_text",
-      "text_sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
-      "characters": 15561,
-      "lines": 396,
+      "text_sha256": "a85125243c0eb1a26de7a221c227b95a1ad07acf584927f2bea0b6d59adf43d4",
+      "characters": 16387,
+      "lines": 412,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "0a48cafaee09d23fb3d9aa3a52d0498edde9d5f57d6aae46ec9acea41ac10d96",
+  "review_sha256": "d77ebaf10307e7bc2de1d7ac014d608827f28dbc9fd4e2d173925055c84e96b1",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -114838,9 +114838,20 @@
     },
     {
       "source": "docs/implementation/context-rpc-syn-route.md",
-      "locator": "line:96-130",
-      "sha256": "e73e473218f513103ff1d1844f615c0a4b694397004a826b187e7ea4b13e482d",
+      "locator": "line:96-131",
+      "sha256": "30b1e8193064b208c620ea097bdd58e46d426abaf9d172fe4353d22011f38e50",
       "excerpt": "## Route browser commands through the same operator\n\nAdd `\"synRpc\"` to the private Xpra application policy and set it to the same\nfour-field object shown above.",
+      "review_families": [
+        "context",
+        "syn-operations",
+        "browser"
+      ]
+    },
+    {
+      "source": "docs/implementation/context-rpc-syn-route.md",
+      "locator": "line:132-161",
+      "sha256": "f852b3743405f46c5967893ce3adb2a9d9d4bcdc1f6477f2ea4e5aea4405ab80",
+      "excerpt": "## Local queue effects\n\nThe queue installer can select the directed worker with `directed=True`\nand the executable digest from an image that includes that worke",
       "review_families": [
         "context",
         "syn-operations",
@@ -121636,7 +121647,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "71a641b3ff59636e413126fb6258e9a92ed5079af2fd08fb099de01908351a01",
+          "sha256": "9cf053767a1b0f888f9d6aac5ccf157bf4880cb83479c98229eac272ec433eb3",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122272,13 +122283,13 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogExecutor",
-          "sha256": "71a641b3ff59636e413126fb6258e9a92ed5079af2fd08fb099de01908351a01",
+          "sha256": "9cf053767a1b0f888f9d6aac5ccf157bf4880cb83479c98229eac272ec433eb3",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
+          "sha256": "a85125243c0eb1a26de7a221c227b95a1ad07acf584927f2bea0b6d59adf43d4",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -122773,7 +122784,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
+          "sha256": "a85125243c0eb1a26de7a221c227b95a1ad07acf584927f2bea0b6d59adf43d4",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -123149,7 +123160,7 @@
         {
           "path": "src/potbot/tools/queue_transport_worker.py",
           "symbol": "target_result",
-          "sha256": "6e6690c82cfbfb4dc5ed96eba7d7480ff85bd95a4c87fcc3987be2cb946570ca",
+          "sha256": "2accc582785609532e97991857deedf385f03989d7c5046af0b1aae14e869d59",
           "basis": "U01-A queue and settlement source."
         }
       ],

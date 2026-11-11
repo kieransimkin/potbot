@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Pinned guest executable for the local queue's stdio transport."""
+"""Pinned guest executable for the local queue and its directed work exchange."""
 
 from __future__ import annotations
 
@@ -8,17 +8,19 @@ import json
 import os
 import sqlite3
 import stat
+import struct
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, BinaryIO
-from uuid import UUID
+from uuid import UUID, uuid4
 
 EXECUTABLE = "/usr/local/libexec/potbot-queue-transport"
 DB = ".potbot-transport-queue.sqlite3"
 REQUEST = "syn://type/potbot-local-queue-request-v1"
 RESULT = "syn://type/potbot-local-queue-receipt-v1"
 MAX_FRAME = 8192
+CONTEXT_SCHEMA = "potbot-context-rpc/v1"
 
 
 def encode(value: object) -> bytes:
@@ -113,31 +115,9 @@ def target_result(target: str, mode: str, value: object) -> dict[str, str]:
     }
 
 
-def main() -> int:
+def run_effect(target: str, mode: str, incoming: dict[str, Any]) -> dict[str, Any]:
     from io import BytesIO
 
-    args = sys.argv[1:]
-    if len(args) == 2 and args[0] == "init":
-        provision(args[1])
-        return 0
-    serving = len(args) == 3 and args[0] == "serve"
-    mode, target = args[1:] if serving else args
-    identity(target)
-    if mode not in {"apply", "resolve"}:
-        raise ValueError("unsupported queue operation")
-    incoming = frame(sys.stdin.buffer, newline=serving)
-    if serving:
-        if set(incoming) != {"jsonrpc", "id", "method", "params"} or (
-            incoming["jsonrpc"],
-            incoming["id"],
-            incoming["method"],
-        ) != ("2.0", 1, mode):
-            raise ValueError("invalid queue RPC request")
-        target_receipt = target_result(target, mode, incoming["params"])
-        sys.stdout.buffer.write(
-            encode({"jsonrpc": "2.0", "id": 1, "result": target_receipt}) + b"\n"
-        )
-        return 0
     if (
         set(incoming) != {"schema_version", "operation_ref", "input", "invocation_id"}
         or incoming["schema_version"] != 1
@@ -175,7 +155,82 @@ def main() -> int:
         or result.get("outcome") not in {"applied", "cancelled"}
     ):
         raise ValueError("queue target receipt differs from the request")
-    sys.stdout.buffer.write(encode({"schema_version": 1, "type_ref": RESULT, "value": result}))
+    return {"schema_version": 1, "type_ref": RESULT, "value": result}
+
+
+def context_exchange(
+    source: BinaryIO, sink: BinaryIO, method: str, **fields: Any
+) -> dict[str, Any]:
+    from io import BytesIO
+
+    ident = str(uuid4())
+    outgoing = encode({"schema": CONTEXT_SCHEMA, "request_id": ident, "method": method, **fields})
+    if not 1 <= len(outgoing) <= MAX_FRAME:
+        raise ValueError("queue Context request exceeds its bound")
+    sink.write(struct.pack("!I", len(outgoing)) + outgoing)
+    sink.flush()
+    prefix = source.read(4)
+    if len(prefix) != 4:
+        raise ValueError("queue Context reply was lost")
+    (size,) = struct.unpack("!I", prefix)
+    if not 1 <= size <= MAX_FRAME:
+        raise ValueError("queue Context reply exceeds its bound")
+    raw = source.read(size)
+    if len(raw) != size:
+        raise ValueError("queue Context reply was truncated")
+    reply = frame(BytesIO(raw), newline=False)
+    if (
+        set(reply) != {"schema", "request_id", "ok", "result"}
+        or reply["schema"] != CONTEXT_SCHEMA
+        or reply["request_id"] != ident
+        or reply["ok"] is not True
+        or not isinstance(reply["result"], dict)
+    ):
+        raise ValueError("queue Context reply does not match its request")
+    return reply["result"]
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if len(args) == 2 and args[0] == "init":
+        provision(args[1])
+        return 0
+    entry = args[0] if len(args) == 3 else None
+    if entry is not None and entry not in {"serve", "directed"}:
+        raise ValueError("unsupported queue entry point")
+    mode, target = args[1:] if entry is not None else args
+    identity(target)
+    if mode not in {"apply", "resolve"}:
+        raise ValueError("unsupported queue operation")
+    if entry == "directed":
+        incoming = context_exchange(sys.stdin.buffer, sys.stdout.buffer, "work.input")
+        if (
+            set(incoming) != {"revision", "work"}
+            or type(incoming["revision"]) is not int
+            or incoming["revision"] != 1
+            or not isinstance(incoming["work"], dict)
+        ):
+            raise ValueError("queue Context input has an invalid shape")
+        output = run_effect(target, mode, incoming["work"])
+        receipt = context_exchange(
+            sys.stdin.buffer, sys.stdout.buffer, "work.result", result=output
+        )
+        digest = hashlib.sha256(encode(output)).hexdigest()
+        if receipt != {"revision": 1, "sha256": digest} or type(receipt["revision"]) is not int:
+            raise ValueError("queue Context result receipt does not match")
+        return 0
+    incoming = frame(sys.stdin.buffer, newline=entry == "serve")
+    if entry == "serve":
+        if set(incoming) != {"jsonrpc", "id", "method", "params"} or (
+            incoming["jsonrpc"],
+            incoming["id"],
+            incoming["method"],
+        ) != ("2.0", 1, mode):
+            raise ValueError("invalid queue RPC request")
+        receipt = target_result(target, mode, incoming["params"])
+        sys.stdout.buffer.write(encode({"jsonrpc": "2.0", "id": 1, "result": receipt}) + b"\n")
+    else:
+        sys.stdout.buffer.write(encode(run_effect(target, mode, incoming)))
     return 0
 
 

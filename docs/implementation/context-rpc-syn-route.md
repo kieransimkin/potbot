@@ -128,3 +128,34 @@ same native operator boot. The rendered frame shows the page after a browser
 click over the directed route.
 
 ![Chromium fixture showing the click counter at one after a command routed through Syn](media/syn-010-browser-rpc.jpg)
+
+## Local queue effects
+
+The queue installer can select the directed worker with `directed=True`
+and the executable digest from an image that includes that worker. The
+installed worker uses `work.input` to receive its frozen queue request and
+`work.result` to return the target receipt through Syn. This operation admits
+only those two calls. It requires the verified native Syn route.
+
+```mermaid
+sequenceDiagram
+    participant W as Admitted queue worker
+    participant S as Syn operator
+    participant P as Potbot Context service
+    participant Q as Local queue target
+    W->>S: work.input via the worker channel
+    S->>P: Admit and read the frozen intent
+    P-->>W: Signed correlated input via Syn
+    W->>Q: Apply the pinned effect ID
+    Q-->>W: Durable target receipt
+    W->>S: work.result
+    S->>P: Retain the result
+    P-->>W: Signed result acknowledgement via Syn
+```
+
+A lost result leaves the existing queue attempt and budget for
+reconciliation. After confirmed worker shutdown, a separately admitted
+resolver queries the same target and effect ID and returns the existing
+outcome. An unconfirmed process or failed audit keeps the workspace fenced.
+The local process test exercises effect recovery. Deployment requires a signed
+worker image containing the directed entry point and managed acceptance.
