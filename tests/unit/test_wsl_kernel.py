@@ -10,6 +10,7 @@ from potbot import wsl_kernel
 from potbot.cli import main
 from potbot.domain.errors import ScopeDeniedError
 from potbot.wsl_kernel import OPTIONS, PROFILE, SOURCE_REPOSITORY
+from potbot.wsl_kernel_activation import _stage_bundle
 from scripts.prepare_wsl_kernel_release import main as package_kernel
 
 
@@ -298,3 +299,20 @@ def test_kernel_asset_redirect_accepts_only_github_download_hosts():
         handler.redirect_request(
             request, None, 302, "", {}, "https://release-assets.githubusercontent.com:x/bundle.zip"
         )
+
+
+def test_activation_stages_the_exact_signed_files_and_refuses_a_modified_cache(signed_bundle):
+    root, _, seal, _ = signed_bundle
+    args = seal()
+    cache = root / "owned-kernel-cache"
+    cache.mkdir()
+    manifest = _stage_bundle(root, cache, manifest_sha256=args[-3], public_key=args[-1])
+    staged = cache / args[-3]
+    assert manifest["kernel_release"] == "6.18.54.1-test-wsl"
+    names = {*wsl_kernel.ARTIFACT_LIMITS, wsl_kernel.MANIFEST, wsl_kernel.SIGNATURE}
+    assert {path.name for path in staged.iterdir()} == names
+    for name in names:
+        assert (root / name).read_bytes() == (staged / name).read_bytes()
+    (staged / "modules.vhdx").write_bytes(b"vhdxfile-tESt")
+    with pytest.raises(ScopeDeniedError, match="digest differs for modules.vhdx"):
+        _stage_bundle(root, cache, manifest_sha256=args[-3], public_key=args[-1])

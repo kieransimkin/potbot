@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "b452380db5e32a2f5a2ecf593d58850529a6ee47739cfbef47a7e9f6cbfa8c32",
-      "bytes": 33189,
+      "sha256": "d5d742281e9fcfaaf01f1eacc9669b3b54afb1d282385b6314b70366ea5e1678",
+      "bytes": 35261,
       "kind": "narrative_text",
-      "text_sha256": "b452380db5e32a2f5a2ecf593d58850529a6ee47739cfbef47a7e9f6cbfa8c32",
-      "characters": 33171,
-      "lines": 600,
+      "text_sha256": "d5d742281e9fcfaaf01f1eacc9669b3b54afb1d282385b6314b70366ea5e1678",
+      "characters": 35243,
+      "lines": 640,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35670,11 +35670,11 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "7b83c8c8d0b8db544d3a8c4a98b6362844a3ac2e71f620adca9bf83beb7c2d85",
-      "bytes": 13372,
+      "sha256": "d875346f6eebb1995f32116eea8e42ee9ab4642f92d5c15633c89621bcd3dd7f",
+      "bytes": 13425,
       "kind": "narrative_text",
-      "text_sha256": "7b83c8c8d0b8db544d3a8c4a98b6362844a3ac2e71f620adca9bf83beb7c2d85",
-      "characters": 13370,
+      "text_sha256": "d875346f6eebb1995f32116eea8e42ee9ab4642f92d5c15633c89621bcd3dd7f",
+      "characters": 13423,
       "lines": 260,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -35979,7 +35979,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "a792a08f209c89a96da5912acae9f36f7ae50c1ffba3708afedb3b411fc801f8",
+  "review_sha256": "08917c31891931cf84282711820d8d291879c8323beb4c3e886f40cc7212e7e8",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115790,8 +115790,8 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:1-58",
-      "sha256": "c171d70c839e466aaa3c53741b70a411ebda21a5c9ebc09b99f1fbdf1fe7fd1d",
+      "locator": "line:1-59",
+      "sha256": "2312277bf65b8b8c3b8900b608794aeacaf4587359d82ded3db0087cae9d8caa",
       "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup, controller recovery, Linux scoped launcher\nprovisioning and the installed service",
       "review_families": [
         "accounting",
@@ -115801,7 +115801,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:59-129",
+      "locator": "line:60-130",
       "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
       "excerpt": "## Resume stock WSL setup\n\nUse the same command for a first install, a retry after Windows asks for a\nreboot, and selection of another reviewed controller wheel",
       "review_families": [
@@ -115812,7 +115812,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:130-246",
+      "locator": "line:131-247",
       "sha256": "461b030c5871a3f585eea3325a3c95e32772cbc5b7ad104825d82e7d9194479d",
       "excerpt": "## Start an installed scoped worker\n\nRun the Linux administrator provisioning step below, then install the Linux\nservice as the selected service user with its o",
       "review_families": [
@@ -115823,7 +115823,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:247-272",
+      "locator": "line:248-273",
       "sha256": "b19c0dbee10ffe158e7808e5e6fd8a9eed03e849603ce2a024afeaceecbe5162",
       "excerpt": "### Download the signed kernel from a Potbot release\n\nSelect the Potbot tag, exact kernel release, ZIP SHA-256, manifest SHA-256,\nand trusted raw Ed25519 public",
       "review_families": [
@@ -115834,7 +115834,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:273-313",
+      "locator": "line:274-314",
       "sha256": "959606d3ed0c7d2e680818380bb585d35100e6f6255ac30764751c3384a9ed8b",
       "excerpt": "### Package reviewed build outputs\n\nRun the packaging tool from a Potbot checkout. Provide the four fixed\ncomponent files and the corresponding Microsoft source",
       "review_families": [
@@ -115845,7 +115845,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:314-345",
+      "locator": "line:315-346",
       "sha256": "4780ccf8d3cd6bd6f93260fed1461a378f139da9e4b761bdf81d17284e9dbb78",
       "excerpt": "### Review the qualified signing input\n\nUse the manifest SHA-256 from the retained live qualification receipt.\nReviewing a prepared directory checks the manifes",
       "review_families": [
@@ -115856,7 +115856,7 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:346-374",
+      "locator": "line:347-375",
       "sha256": "47ad3913f5d902dc7872fad0ca50539b4dddbb0e9bcbd5f1254a72732aaafe1c",
       "excerpt": "### Build the candidate in CI\n\nThe **Build reviewed WSL kernel candidate** workflow runs on x86-64 Ubuntu\nwhen a PR changes the build recipe, inputs, or package",
       "review_families": [
@@ -115867,7 +115867,18 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:375-600",
+      "locator": "line:376-414",
+      "sha256": "f23d79722696ab4731c2272ff2515528a61262d577d0a645f9777ae524393097",
+      "excerpt": "### Activate or roll back the verified kernel on Windows\n\nStop running WSL applications and distributions before activation. The\ntwo kernel paths apply to the W",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:415-640",
       "sha256": "c50e6ffa7baa27ef39444c360ca3113c9be1a4950719c89db7be46e9309d3ed0",
       "excerpt": "### Qualify the kernel on the target host\n\n1. **Verify the deployment inputs.** Record the WSL version, host architecture,\n   installed distro versions, current",
       "review_families": [
@@ -121997,7 +122008,7 @@
         {
           "path": "src/potbot/tools/inventory.py",
           "symbol": "build_inventory",
-          "sha256": "f464b00735a65506fe8645158bfe57431e72393d8c49095de34d3dec3189c411",
+          "sha256": "67f3218d14e95a772c65556c6a4acc5408ebe422c026063ac9da70b5f8630ce6",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],

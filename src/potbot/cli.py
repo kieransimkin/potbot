@@ -121,7 +121,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser(
         "syn-release", help="verify and install independently pinned official Syn packages"
     )
-    commands.add_parser("wsl-kernel", help="download and verify optional signed WSL kernel bundles")
+    commands.add_parser(
+        "wsl-kernel", help="download, verify or activate a signed WSL kernel bundle"
+    )
     commands.add_parser(
         "syn-operator", help="provision a native operator host and supervise verified Syn"
     )
