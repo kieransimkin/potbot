@@ -9,8 +9,10 @@ from uuid import uuid4
 import pytest
 
 from potbot import service
+from potbot.credentials import CredentialStore
 from potbot.domain.errors import InvalidInputError
 from potbot.models.hosted_policy import HostedPolicy
+from potbot.service_credentials import ServiceCredentials
 
 
 def test_configuration_round_trip_permissions_and_validation(monkeypatch, tmp_path):
@@ -57,6 +59,25 @@ def test_install_generates_token_once_and_uses_user_manager(monkeypatch, tmp_pat
     assert "safe-key-not-in-config" not in service.config_path().read_text()
     with pytest.raises(InvalidInputError):
         service.install(opts)
+
+
+def test_install_token_is_readable_by_the_selected_service_profile(monkeypatch):
+    values: dict[tuple[str, str], str] = {}
+    vault = SimpleNamespace(
+        get_password=lambda name, account: values.get((name, account)),
+        set_password=lambda name, account, value: values.__setitem__((name, account), value),
+    )
+    monkeypatch.setattr("potbot.credentials.native_backend", lambda: vault)
+    monkeypatch.setenv("POTBOT_CREDENTIAL_PROFILE", "managed-wsl")
+    monkeypatch.delenv("POTBOT_API_TOKEN", raising=False)
+    CredentialStore().set("api.access_token", "existing-default-token-" * 2)
+
+    created, token = service._token_store()
+
+    assert created and token
+    assert ServiceCredentials().resolve("secret://api/access-token") == token
+    assert CredentialStore().get("api.access_token") == "existing-default-token-" * 2
+    assert service._token_store() == (False, None)
 
 
 class _null_context:
