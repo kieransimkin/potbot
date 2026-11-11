@@ -68271,14 +68271,14 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "0e0408500b46e42e900c24b432aa3ab03ac088a2e7114c71d3498d0fcc21793f",
+      "sha256": "28a5bdf46e2b911397167dc441df02deaebacf90daac51bb2b40c82cbfe1dc3a",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records stock WSL registration and recovery, installed worker admission, offline verification, release packaging and a pinned x86-64 CI build recipe. Production signing, publication, and clean reboot qualification remain separate.",
+      "assessment": "Records stock WSL registration and recovery, installed worker admission, offline verification, reproducible packaging, signing input review and the pinned x86-64 CI build recipe. Production signing, publication, and clean reboot qualification remain separate.",
       "narrative": [
         {
           "locator": "line:1-57",
@@ -68309,7 +68309,7 @@
         },
         {
           "locator": "line:246-286",
-          "sha256": "b0f72d7cb3f4b8e19b56817ec601fa107d151cc37cf4c07fb052df641d2621d3",
+          "sha256": "959606d3ed0c7d2e680818380bb585d35100e6f6255ac30764751c3384a9ed8b",
           "families": [
             "accounting",
             "sandbox",
@@ -68317,8 +68317,26 @@
           ]
         },
         {
-          "locator": "line:287-539",
-          "sha256": "71a8a8c0fe1e323c641feaa0280494e820252cd23be84ff752ae85c6fc0f0d8a",
+          "locator": "line:287-318",
+          "sha256": "4780ccf8d3cd6bd6f93260fed1461a378f139da9e4b761bdf81d17284e9dbb78",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:319-347",
+          "sha256": "47ad3913f5d902dc7872fad0ca50539b4dddbb0e9bcbd5f1254a72732aaafe1c",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:348-573",
+          "sha256": "c50e6ffa7baa27ef39444c360ca3113c9be1a4950719c89db7be46e9309d3ed0",
           "families": [
             "accounting",
             "sandbox",

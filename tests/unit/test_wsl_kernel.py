@@ -123,6 +123,24 @@ def test_kernel_packager_preserves_signed_bytes_and_exports_reproducible_assets(
     message = (prepared / "manifest.to-sign").read_bytes()
     assert message == b"potbot.wsl-kernel-bundle/1\0" + raw
     assert unsigned["manifest_sha256"] == hashlib.sha256(raw).hexdigest()
+    review = [
+        "review",
+        "--prepared",
+        str(prepared),
+        "--manifest-sha256",
+        unsigned["manifest_sha256"],
+    ]
+    assert package_kernel(review) == 0
+    preflight = json.loads(capsys.readouterr().out)
+    assert preflight["state"] == "ready_for_external_signing"
+    assert preflight["signing_input_sha256"] == hashlib.sha256(message).hexdigest()
+    assert preflight["signing_input_size"] == len(message)
+    assert package_kernel([*review[:-1], "0" * 64]) == 2
+    assert "independent selection" in capsys.readouterr().out
+    (prepared / "manifest.to-sign").write_bytes(b"x" + message[1:])
+    assert package_kernel(review) == 2
+    assert "Signing input differs" in capsys.readouterr().out
+    (prepared / "manifest.to-sign").write_bytes(message)
 
     signature = root / "external.ed25519"
     signature.write_bytes(signer.sign(message).hex().encode())
@@ -139,10 +157,13 @@ def test_kernel_packager_preserves_signed_bytes_and_exports_reproducible_assets(
         "--output",
     ]
     outputs = [root / "release-one", root / "release-two"]
-    for output in outputs:
-        assert package_kernel([*finalize, str(output)]) == 0
-        json.loads(capsys.readouterr().out)
     first, second = outputs
+    assert package_kernel([*finalize, str(first)]) == 0
+    capsys.readouterr()
+    signature.write_bytes(signer.sign(message))
+    assert package_kernel([*finalize, str(second), "--signature-format", "raw"]) == 0
+    capsys.readouterr()
+    signature.write_bytes(signer.sign(message).hex().encode())
     assets = json.loads((first / "release.json").read_text())["assets"]
     for name, record in assets.items():
         payload = (first / name).read_bytes()

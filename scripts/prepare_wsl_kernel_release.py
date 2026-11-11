@@ -86,15 +86,22 @@ def copy_source(
     source: Path, target: Path, *, commit: str, sha256: str, rollback: ExitStack
 ) -> dict[str, Any]:
     info = copy_asset(source, target, SOURCE_LIMIT, rollback)
+    check_source(target, commit, sha256, info)
+    return info
+
+
+def check_source(path: Path, commit: str, sha256: str, info: dict[str, Any]) -> None:
     if info["sha256"] != sha256:
         raise ScopeDeniedError("Source archive differs from the selected SHA-256")
-    with tarfile.open(target, "r|gz") as archive:
+    with (
+        open_bundle_file(path, SOURCE_LIMIT) as (stream, _),
+        tarfile.open(fileobj=stream, mode="r|gz") as archive,
+    ):
         root = archive.next()
         if root is None or not root.isdir() or root.name != f"WSL2-Linux-Kernel-{commit}":
             raise InvalidInputError(
                 "Source archive root differs from the selected Microsoft commit"
             )
-    return info
 
 
 def prepare(args: argparse.Namespace) -> dict[str, Any]:
@@ -153,13 +160,57 @@ def zip_info(name: str) -> zipfile.ZipInfo:
     return info
 
 
+def review_signing_input(prepared: Path, raw: bytes) -> bytes:
+    expected = signing_message(raw)
+    actual = read_bundle_file(prepared / SIGNING_INPUT, len(expected))
+    if actual != expected:
+        raise ScopeDeniedError("Signing input differs from the reviewed manifest")
+    return actual
+
+
+def review(args: argparse.Namespace) -> dict[str, Any]:
+    bundle = args.prepared / "bundle"
+    raw = read_bundle_file(bundle / MANIFEST, 8192)
+    if re.fullmatch(r"[0-9a-f]{64}", args.manifest_sha256) is None:
+        raise InvalidInputError("Select an exact lowercase manifest SHA-256")
+    if hashlib.sha256(raw).hexdigest() != args.manifest_sha256:
+        raise ScopeDeniedError("Kernel manifest differs from the independent selection")
+    manifest = parse_manifest(raw)
+    message = review_signing_input(args.prepared, raw)
+    verify_artifacts(bundle, manifest)
+    source = args.prepared / SOURCE
+    check_source(
+        source,
+        manifest["source"]["commit"],
+        manifest["source"]["archive_sha256"],
+        stream_asset(source, None, SOURCE_LIMIT),
+    )
+    return {
+        "profile": "potbot.wsl-kernel-signing-review/1",
+        "state": "ready_for_external_signing",
+        "kernel_release": manifest["kernel_release"],
+        "architecture": manifest["architecture"],
+        "manifest_sha256": args.manifest_sha256,
+        "signing_input": SIGNING_INPUT,
+        "signing_input_size": len(message),
+        "signing_input_sha256": hashlib.sha256(message).hexdigest(),
+    }
+
+
 def finalize(args: argparse.Namespace) -> dict[str, Any]:
     bundle = args.prepared / "bundle"
     raw = read_bundle_file(bundle / MANIFEST, 8192)
-    signature = read_bundle_file(args.signature, 128)
+    if args.signature_format == "raw":
+        raw_signature = read_bundle_file(args.signature, 64)
+        if len(raw_signature) != 64:
+            raise InvalidInputError("Expected a 64-byte detached Ed25519 signature")
+        signature = raw_signature.hex().encode("ascii")
+    else:
+        signature = read_bundle_file(args.signature, 128)
     manifest = verify_manifest(
         raw, signature, manifest_sha256=args.manifest_sha256, public_key=args.public_key
     )
+    review_signing_input(args.prepared, raw)
     verify_artifacts(bundle, manifest)
     prefix = f"potbot-wsl-kernel-{manifest['kernel_release']}-x86_64"
     zip_name = f"{prefix}.zip"
@@ -208,14 +259,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         unsigned.add_argument(f"--{option}", type=Path, required=True)
     for option in ("source-commit", "source-sha256", "kernel-release"):
         unsigned.add_argument(f"--{option}", required=True)
+    preflight = actions.add_parser("review", help="check the exact bytes before external signing")
+    preflight.add_argument("--prepared", type=Path, required=True)
+    preflight.add_argument("--manifest-sha256", required=True)
     signed = actions.add_parser("finalize", help="verify an external signature and package assets")
     for option in ("prepared", "signature", "output"):
         signed.add_argument(f"--{option}", type=Path, required=True)
     for option in ("manifest-sha256", "public-key"):
         signed.add_argument(f"--{option}", required=True)
+    signed.add_argument("--signature-format", choices=("hex", "raw"), default="hex")
     args = parser.parse_args(argv)
     try:
-        receipt = prepare(args) if args.action == "prepare" else finalize(args)
+        if args.action == "prepare":
+            receipt = prepare(args)
+        elif args.action == "review":
+            receipt = review(args)
+        else:
+            receipt = finalize(args)
     except DomainError as error:
         print(json.dumps(error.to_dict(), sort_keys=True))
         return 2
