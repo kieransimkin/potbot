@@ -56,9 +56,10 @@ after native Syn admission. Its receipts are historical stdio evidence.
 Production cutover requires the Syn transport and forbids a direct
 stdio, HTTP or socket fallback for the application RPC.
 
-The [Context RPC invocation adapter](context-rpc-syn-route.md) implements the
-host-side binding for the directed route. Installed qualification still needs
-the official signed Syn package and the private service socket.
+The [Context RPC invocation adapter](context-rpc-syn-route.md) binds the
+directed route to the monitored worker. The opt-in installer profile prepares
+the private service socket and verifies the pinned native operator before
+starting the worker. Signed package and managed worker qualification remain open.
 
 ### Implementation sequence
 

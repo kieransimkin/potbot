@@ -20,6 +20,7 @@ from potbot.syn_release.contracts import DOCUMENT_LIMIT, canonical, document
 
 METHOD = "context.dispatch"
 _DISPATCH = "syn.local-rpc-dispatch/1"
+_ACCEPTED = b"potbot.context.accepted/1"
 _DISPATCH_FIELDS = {
     "profile",
     "workspace_id",
@@ -103,8 +104,8 @@ class _Pending:
     owner: SynContextInvocation
     size: int
     digest: bytes
-    claimed: bool = False
-    reply_digest: bytes | None = field(default=None, repr=False)
+    request: bytes | None = field(default=None, repr=False)
+    reply: bytes | None = field(default=None, repr=False)
 
 
 class SynContextRoute:
@@ -140,6 +141,7 @@ class SynContextRoute:
         self._condition = threading.Condition()
         self._invocations: dict[UUID, SynContextInvocation] = {}
         self._pending: dict[UUID, _Pending] = {}
+        self._collections: dict[UUID, UUID] = {}
 
     def bind(
         self,
@@ -161,7 +163,7 @@ class SynContextRoute:
         if type(payload) is not bytes or not 1 <= len(payload) <= MAX_FRAME_BYTES:
             raise ScopeDeniedError("Syn Context frame exceeds its admitted size")
         owner.require_live()
-        transport_id = uuid4()
+        transport_id, collection_id = uuid4(), uuid4()
         slot = _Pending(owner, len(payload), hashlib.sha256(payload).digest())
         with self._condition:
             if (
@@ -174,14 +176,23 @@ class SynContextRoute:
             owner.pending = transport_id
             self._pending[transport_id] = slot
         try:
-            reply, boot = self._round_trip(transport_id, payload)
-            if (
-                type(reply) is not bytes
-                or not 1 <= len(reply) <= MAX_FRAME_BYTES
-                or boot != self.operator_boot
-                or slot.reply_digest != hashlib.sha256(reply).digest()
-            ):
-                raise ScopeDeniedError("Syn reply does not match the invocation's delivery")
+            accepted, boot = self._round_trip(transport_id, payload)
+            if accepted != _ACCEPTED or boot != self.operator_boot:
+                raise ScopeDeniedError("Syn did not acknowledge the Context delivery")
+            result = self._execute_accepted(slot)
+            with self._condition:
+                if owner.closed or owner.faulted:
+                    raise ScopeDeniedError("Syn Context invocation is no longer active")
+                self._collections[collection_id] = transport_id
+            reply, boot = self._round_trip(collection_id, transport_id.bytes)
+            with self._condition:
+                if (
+                    type(reply) is not bytes
+                    or reply != result
+                    or boot != self.operator_boot
+                    or collection_id in self._collections
+                ):
+                    raise ScopeDeniedError("Syn reply does not match the invocation's delivery")
             owner.require_live()
             return reply
         except Exception as exc:
@@ -194,6 +205,28 @@ class SynContextRoute:
             with self._condition:
                 owner.pending = None
                 self._pending.pop(transport_id, None)
+                self._collections.pop(collection_id, None)
+
+    def _execute_accepted(self, slot: _Pending) -> bytes:
+        # Syn 0.9.0 bounds each socket exchange to two seconds. Keep native
+        # Agent checks and database work between the signed exchanges.
+        owner = slot.owner
+        with self._condition:
+            if slot.request is None or owner.closed or owner.faulted or owner.running:
+                raise ScopeDeniedError("Syn did not deliver a live Context request")
+            request = slot.request
+            owner.running = True
+        try:
+            owner.require_live()
+            reply = evaluate_context_frame(request, owner.handler)
+            owner.require_live()
+            with self._condition:
+                slot.reply = reply
+            return reply
+        finally:
+            with self._condition:
+                owner.running = False
+                self._condition.notify_all()
 
     def serve_connection(self, channel: socket.socket, *, operator_uid: int) -> None:
         """Handle one accepted connection on the installer's private service socket."""
@@ -266,10 +299,23 @@ class SynContextRoute:
             raise ScopeDeniedError("Invalid Syn dispatch ID")
         digest = hashlib.sha256(payload).digest()
         with self._condition:
+            submission = self._collections.get(transport_id)
+            if submission is not None:
+                slot = self._pending.get(submission)
+                if (
+                    payload != submission.bytes
+                    or slot is None
+                    or slot.reply is None
+                    or slot.owner.closed
+                    or slot.owner.faulted
+                ):
+                    raise ScopeDeniedError("Syn collection has no matching live Context result")
+                del self._collections[transport_id]
+                return slot.reply
             slot = self._pending.get(transport_id)
             if (
                 slot is None
-                or slot.claimed
+                or slot.request is not None
                 or slot.size != len(payload)
                 or slot.digest != digest
                 or slot.owner.closed
@@ -277,15 +323,5 @@ class SynContextRoute:
                 or slot.owner.running
             ):
                 raise ScopeDeniedError("Syn dispatch has no matching live Context call")
-            slot.claimed = slot.owner.running = True
-        try:
-            slot.owner.require_live()
-            reply = evaluate_context_frame(payload, slot.owner.handler)
-            slot.owner.require_live()
-            with self._condition:
-                slot.reply_digest = hashlib.sha256(reply).digest()
-            return reply
-        finally:
-            with self._condition:
-                slot.owner.running = False
-                self._condition.notify_all()
+            slot.request = payload
+            return _ACCEPTED

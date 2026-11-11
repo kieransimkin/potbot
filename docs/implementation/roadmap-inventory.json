@@ -1019,12 +1019,12 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "21ccfa4a87de5fed2f230314bec853179964accdd8259e7b1f40a173b105d8ea",
-      "bytes": 2378,
+      "sha256": "d8a7359a092c05f46dc0676b0a9268265f71a396bdc4dd9ffcc72a1fa51cb8aa",
+      "bytes": 4447,
       "kind": "narrative_text",
-      "text_sha256": "21ccfa4a87de5fed2f230314bec853179964accdd8259e7b1f40a173b105d8ea",
-      "characters": 2378,
-      "lines": 43,
+      "text_sha256": "d8a7359a092c05f46dc0676b0a9268265f71a396bdc4dd9ffcc72a1fa51cb8aa",
+      "characters": 4447,
+      "lines": 89,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1304,12 +1304,12 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "cb379b194a3a2bcfb69f04b7bf567c65d7d4ba9a9691259a978d1f409a540c20",
-      "bytes": 13335,
+      "sha256": "bfdeac14bfc02b5a4848a27ad9a742b2d147152d21df5a067267523f4852648a",
+      "bytes": 13422,
       "kind": "narrative_text",
-      "text_sha256": "cb379b194a3a2bcfb69f04b7bf567c65d7d4ba9a9691259a978d1f409a540c20",
-      "characters": 13328,
-      "lines": 112,
+      "text_sha256": "bfdeac14bfc02b5a4848a27ad9a742b2d147152d21df5a067267523f4852648a",
+      "characters": 13415,
+      "lines": 113,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -30130,7 +30130,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R01",
       "title": "Upstream inventory",
-      "locator": "line:100",
+      "locator": "line:101",
       "source_claim": "requirements_only",
       "requirement_sha256": "382e979610f234f8a7ec91a62dae6315fb474d2b0fd73ad19b925c734afddf6f",
       "unified_owners": [
@@ -30176,7 +30176,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R02",
       "title": "[Operator release installer](syn-release-installation.md) implemented",
-      "locator": "line:101",
+      "locator": "line:102",
       "source_claim": "requirements_only",
       "requirement_sha256": "9f10ceacabca28d35025c4729f4058317fc41ef5c44c6e0e5112aa4576fe4472",
       "unified_owners": [
@@ -30222,7 +30222,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R03",
       "title": "[Native operator deployment candidate](syn-operator-deployment.md)",
-      "locator": "line:102",
+      "locator": "line:103",
       "source_claim": "requirements_only",
       "requirement_sha256": "519df95b1d3c0a47412fa10b01092e7143567e9c949b23224e4482ce24a1e9a4",
       "unified_owners": [
@@ -30268,7 +30268,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R04",
       "title": "[Agent provisioning and official-package acceptance](syn-agent-deployment.md)",
-      "locator": "line:103",
+      "locator": "line:104",
       "source_claim": "requirements_only",
       "requirement_sha256": "9b33b5506efdc6dee3c9974dbc0ad52ca0ef8d9cb40ef76c31e008c6177e8631",
       "unified_owners": [
@@ -30314,7 +30314,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R05",
       "title": "[Native identity and Cog admission](syn-cog-admission.md) implemented; native boundary qualified",
-      "locator": "line:104",
+      "locator": "line:105",
       "source_claim": "requirements_only",
       "requirement_sha256": "e6a234f23ab50e8b660c3d198f413039ff1df72fb2828a34958aaa7e26f763f5",
       "unified_owners": [
@@ -30361,7 +30361,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R06",
       "title": "[Package staging](syn-release-installation.md#stage-a-runtime-upgrade) and [retained operator switching](syn-operator-deployment.md#switch-the-release-for-an-existing-operator)",
-      "locator": "line:105",
+      "locator": "line:106",
       "source_claim": "requirements_only",
       "requirement_sha256": "52a7eb1f5ccc6e1bd31650992eca02588e3fdc9b7048f3de165a3b411132a877",
       "unified_owners": [
@@ -30407,7 +30407,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R07",
       "title": "[Official-release parity and removal gate](syn-r07-release-parity.md)",
-      "locator": "line:106",
+      "locator": "line:107",
       "source_claim": "requirements_only",
       "requirement_sha256": "b6e9570b746eebce1f108b16316f3eb16c445040db4742654673b2a2abbb6544",
       "unified_owners": [
@@ -35993,7 +35993,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "fe86ea6522e3d2e4b16650581001862b1a625844ef7b7954a972c24a7a11a7d4",
+  "review_sha256": "8027dc7c083ea38c0bbbad3b21cd4b6c938eebcb6d9cf6137a3b227d991c7a0d",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -114809,9 +114809,19 @@
     },
     {
       "source": "docs/implementation/context-rpc-syn-route.md",
-      "locator": "line:1-43",
-      "sha256": "5357dc437ca3e57971173ae0bbd422c96671b3cfe3f30a8685c2a1f29494fd68",
+      "locator": "line:1-47",
+      "sha256": "4ba8bdf5ad29d624787cb036d9be8706d3da42ca39d590488c127dfba5ef3a78",
       "excerpt": "# Context RPC through Syn: invocation binding\n\nThe monitored Cog dispatcher can take an explicitly selected host-only Syn\nContext route. Once selected, a Contex",
+      "review_families": [
+        "context",
+        "syn-operations"
+      ]
+    },
+    {
+      "source": "docs/implementation/context-rpc-syn-route.md",
+      "locator": "line:48-89",
+      "sha256": "9dff632510ae0e7bbb26e650e3a687f4a6a7da2ece53cdc0465d3f39011290d2",
+      "excerpt": "## Enable the installed route\n\nInstall a signed Syn runtime through the normal release store. The operator\npolicy must require `syn.operator-local-rpc/1` and pi",
       "review_families": [
         "context",
         "syn-operations"
@@ -116175,8 +116185,8 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:27-62",
-      "sha256": "39c6bfeaf77d1eae7b598b56cc0ae8f187ab54f478b32f4d002477791c7bd036",
+      "locator": "line:27-63",
+      "sha256": "d1eb6e3ae54fa79977038db4f8afc5d4d47b3130bcbdc9f54fa354fd4ae2aeb0",
       "excerpt": "## Route application RPC through Syn\n\nThe released Syn node is the transport boundary for RPC between Potbot\nprocesses, services and Agents. Both request and re",
       "review_families": [
         "context",
@@ -116185,7 +116195,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:63-91",
+      "locator": "line:64-92",
       "sha256": "92cbc62d31be3112d485439a68f6dd3fb9df4ef551746a313e5e7e84f4e2db02",
       "excerpt": "### Implementation sequence\n\n1. Define the canonical directed request/reply interface upstream in\n   Syn. Select the service endpoint under operator authority. ",
       "review_families": [
@@ -116195,7 +116205,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:92-95",
+      "locator": "line:93-96",
       "sha256": "66d620f4efda4fa9c1cebbc7470ccbe5a9c80b222c3de05998971c12559cdf6b",
       "excerpt": "## Identity and adoption invariants\n\nSYN alone owns entropy, key derivation, private-key custody, enrollment and signing. Preserve operator root `m/6969'/420'`,",
       "review_families": [
@@ -116205,7 +116215,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:96-109",
+      "locator": "line:97-110",
       "sha256": "a7b621ca38fe3eb54137753bb9a564420b7ade5727db7137805259a5944f4792",
       "excerpt": "## Delivery milestones and acceptance gates\n\n| Gate | Deliverable | Proof required |\n| --- | --- | --- |\n| SYN-R01 | Upstream inventory | Canonical repository/r",
       "review_families": [
@@ -116217,7 +116227,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:110-112",
+      "locator": "line:111-113",
       "sha256": "4d8ad187a237084718451a2bff422f34b7fae515cb14bbac6803d3f85b75e2c6",
       "excerpt": "## Integration sequencing\n\nBlock production SYN agent launch until SYN-R01\u2013R04; block production Cog dispatch until SYN-R05; block general rollout until SYN-R06",
       "review_families": [
@@ -121768,7 +121778,7 @@
         {
           "path": "src/potbot/syn_release/operator.py",
           "symbol": "SynOperatorDeployment",
-          "sha256": "00693d2afd474b4c50cb961b547d5b30ab72791af397c65fff24d4f5aa385883",
+          "sha256": "68d627710b605e2742011efd4cd26b799c67fb3fdc9de2bbc84795e492b5a55a",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122755,8 +122765,14 @@
         {
           "path": "src/potbot/context/syn_context_route.py",
           "symbol": "SynContextRoute",
-          "sha256": "63b25a9996a27c0d5e8688c88b65a09dab94d04e963fcc3f48cdeec59361dcc7",
-          "basis": "Reviewed host-only invocation and delivery binding; installer selection and signed-package qualification remain open."
+          "sha256": "b10b645ece0180ae28fc2e4bb6ee5e09a4f92607592d7ff0dca988b22e80c607",
+          "basis": "Reviewed one-use delivery acknowledgement and result collection through Syn 0.9.0. Application checks and database work run between the bounded signed exchanges."
+        },
+        {
+          "path": "src/potbot/context/installed_syn_route.py",
+          "symbol": "installed_context_route",
+          "sha256": "ddbb68472de3656921c1425ce415f3f7f8a60304e6f2f7e66c391a50739624b6",
+          "basis": "Reviewed selected installation and private endpoint; official release and managed worker qualification remain open."
         }
       ],
       "tests": [
@@ -122781,11 +122797,17 @@
         {
           "path": "tests/unit/test_syn_context_route.py",
           "symbol": "test_worker_channel_uses_syn_route_and_rechecks_native_pins",
-          "sha256": "c3c6313af528a98e67e4a7a25ed606d0a4bd0b6302e3daa0a625c761046e371a",
-          "basis": "Focused synthetic worker test covers native Agent and lease fence; not managed worker or signed-release acceptance."
+          "sha256": "3f57084c7a737ef1e0fbffa369abda98e12772d8a9743c5ea8b9b4bead6ace4b",
+          "basis": "Focused synthetic worker tests cover native Agent and lease fencing, loss on each signed exchange and in-flight teardown."
+        },
+        {
+          "path": "tests/unit/test_installed_syn_context_route.py",
+          "symbol": "test_managed_unit_restores_previous_bytes_if_route_restart_fails",
+          "sha256": "65a05fc9b511b24169dcb1ecf56a629d4667ca922f89a8ffebdc54146544377a",
+          "basis": "Disposable unit and socket fixture with a simulated service manager failure."
         }
       ],
-      "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. The optional directed Syn adapter binds delivery to the monitored worker, native Agent and active lease.",
+      "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. The optional directed Syn adapter binds delivery to the monitored worker, native Agent and active lease. The optional managed profile verifies the Syn release and operator route before serving Context requests.",
       "support_scope": "Actual application context owners and final-result/lease atomicity tests; not full universal constructor/protocol adoption.",
       "remaining": [
         "Close remaining constructor/protocol and per-launch snapshot coverage",

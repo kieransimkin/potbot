@@ -250,11 +250,15 @@ class SynOperatorDeployment(SynPublicCommands):
         finally:
             os.close(fd)
 
-    def supervise(self, *, stop: Callable[[], bool] | None = None) -> None:
+    def supervise(
+        self, *, stop: Callable[[], bool] | None = None, context_rpc: bool = False
+    ) -> None:
         with self._supervisor_lock():
-            self._supervise(stop=stop)
+            self._supervise(stop=stop, context_rpc=context_rpc)
 
-    def _supervise(self, *, stop: Callable[[], bool] | None = None) -> None:
+    def _supervise(
+        self, *, stop: Callable[[], bool] | None = None, context_rpc: bool = False
+    ) -> None:
         receipt, python = self._installation()
         record = self._registered()
         if record["installation"] != receipt["directory"]:
@@ -262,6 +266,14 @@ class SynOperatorDeployment(SynPublicCommands):
         self._observed_runtime = receipt["observed"]["runtime"]
         # The upstream process owns the lifetime authority lock. No stale PID
         # file or failed attach can authorize stopping an unrelated process.
+        route_args: list[str] = []
+        context_route_sha256 = None
+        if context_rpc:
+            from potbot.context.installed_syn_route import operator_route_path
+
+            route_path = operator_route_path(self)
+            context_route_sha256 = hashlib.sha256(private_read(route_path)).hexdigest()
+            route_args = ["--rpc-config", str(route_path)]
         process = subprocess.Popen(
             [
                 str(python),
@@ -272,6 +284,7 @@ class SynOperatorDeployment(SynPublicCommands):
                 "serve",
                 "--config",
                 str(self.state_dir / "operator.json"),
+                *route_args,
             ],
             cwd=self.root,
             env=self._environment(),
@@ -289,6 +302,8 @@ class SynOperatorDeployment(SynPublicCommands):
             "state": "starting",
             "agent_activation_authorized": False,
         }
+        if context_route_sha256 is not None:
+            evidence["context_route_sha256"] = context_route_sha256
         self._lifecycle(evidence)
         output_size = 0
         failed = True

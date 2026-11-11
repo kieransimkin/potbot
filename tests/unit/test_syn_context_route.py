@@ -72,7 +72,7 @@ def test_only_matching_dispatch_can_reach_the_bound_agent():
             with pytest.raises(ScopeDeniedError):
                 route.accept(selected | change, payload)
         with pytest.raises(ScopeDeniedError):
-            route.accept(selected, b" " + payload[1:])
+            route.accept(selected, bytes([payload[0] ^ 1]) + payload[1:])
         reply = route.accept(selected, payload)
         with pytest.raises(ScopeDeniedError):
             route.accept(selected, payload)
@@ -100,7 +100,7 @@ def test_only_matching_dispatch_can_reach_the_bound_agent():
         with pytest.raises(ScopeDeniedError):
             lease.call(b"{}")
     assert [agent for agent, _ in seen] == [first.agent_id, second.agent_id]
-    assert len(set(dispatches)) == 2
+    assert len(set(dispatches)) == 4
 
 
 def test_fenced_delivery_does_not_reach_handler():
@@ -128,7 +128,7 @@ def test_fenced_delivery_does_not_reach_handler():
         invocation.close()
 
 
-def test_lost_reply_does_not_detach_an_inflight_effect_or_retry():
+def test_closing_an_invocation_waits_for_its_inflight_effect():
     worker = binding()
     entered, finish, settled, closing = (threading.Event() for _ in range(4))
     applied = []
@@ -143,13 +143,10 @@ def test_lost_reply_does_not_detach_an_inflight_effect_or_retry():
     with ThreadPoolExecutor(max_workers=2) as threads:
 
         def round_trip(transport_id, payload):
-            dispatched.append(
-                threads.submit(
-                    route.accept, header(worker.workspace_id, transport_id, len(payload)), payload
-                )
-            )
-            assert entered.wait(5)
-            raise TimeoutError("reply lost")
+            dispatched.append(transport_id)
+            reply = route.accept(header(worker.workspace_id, transport_id, len(payload)), payload)
+            assert not entered.is_set()
+            return reply, BOOT
 
         route = SynContextRoute(
             workspace_id=worker.workspace_id,
@@ -166,8 +163,8 @@ def test_lost_reply_does_not_detach_an_inflight_effect_or_retry():
             settled.set()
 
         try:
-            with pytest.raises(IndeterminateExecutionError):
-                invocation.call(json.dumps(request).encode())
+            call = threads.submit(invocation.call, json.dumps(request).encode())
+            assert entered.wait(5)
             closer = threads.submit(revoke)
             assert closing.wait(5)
             assert not settled.wait(0.05)
@@ -176,11 +173,44 @@ def test_lost_reply_does_not_detach_an_inflight_effect_or_retry():
         finally:
             finish.set()
         closer.result(5)
-        with pytest.raises(ScopeDeniedError):
-            dispatched[0].result(5)
+        with pytest.raises(IndeterminateExecutionError):
+            call.result(5)
         assert settled.is_set()
     assert [str(x) for x in applied] == [request["request_id"]]
     assert len(dispatched) == 1
+
+
+@pytest.mark.parametrize("lost_exchange", [1, 2])
+def test_lost_signed_delivery_or_result_does_not_retry(lost_exchange):
+    worker = binding()
+    request = message()
+    dispatched = []
+    effects = []
+
+    def round_trip(transport_id, payload):
+        dispatched.append(transport_id)
+        reply = route.accept(header(worker.workspace_id, transport_id, len(payload)), payload)
+        if len(dispatched) == lost_exchange:
+            raise TimeoutError("reply lost")
+        return reply, BOOT
+
+    def execute(operation):
+        effects.append(str(operation.request_id))
+        return {"applied": True}
+
+    route = SynContextRoute(
+        workspace_id=worker.workspace_id, operator_boot=BOOT, caller_uid=1000, round_trip=round_trip
+    )
+    invocation = route.bind(worker, lambda _: None, execute)
+    try:
+        with pytest.raises(IndeterminateExecutionError, match="original request ID"):
+            invocation.call(json.dumps(request).encode())
+        with pytest.raises(ScopeDeniedError):
+            invocation.call(json.dumps(request).encode())
+    finally:
+        invocation.close()
+    assert len(set(dispatched)) == len(dispatched) == lost_exchange
+    assert effects == ([request["request_id"]] if lost_exchange == 2 else [])
 
 
 @pytest.mark.parametrize("fence", [None, "agent", "lease"])

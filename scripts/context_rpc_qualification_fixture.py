@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from potbot.context.service import WorkspaceContextService
+from potbot.context.syn_context_route import SynContextRoute
 from potbot.tools.agent_homes import AgentHomeRegistry
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
 from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
@@ -72,7 +73,7 @@ if "hold" in sys.argv[1:]:
             next_read = time.monotonic() + 3
 
 value = {"invocation_id": work["invocation_id"], "model_revision": model["revision"]}
-request_id = str(uuid4())
+request_id = work["input"]["value"].get("qualification_request_id") or str(uuid4())
 receipt = client.finish_work("syn://type/out", value, request_id=request_id)
 assert client.finish_work("syn://type/out", value, request_id=request_id) == receipt
 try:
@@ -196,6 +197,7 @@ def context_worker_fixture(
     mesh: SynWorkerNodeMesh,
     *,
     development_syn_fixture: bool = False,
+    syn_context_route: SynContextRoute | None = None,
     max_wall_ms: int = 15000,
     build_commit: str = "c" * 40,
     monitor: Callable[
@@ -273,6 +275,7 @@ def context_worker_fixture(
             ),
             mesh,
             development_syn_fixture=development_syn_fixture,
+            syn_context_route=syn_context_route,
         )
         executor.bind_context(app_env.db, actor, (operation,))
         yield ContextWorkerFixture(

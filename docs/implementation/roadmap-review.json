@@ -349,7 +349,7 @@
         {
           "path": "src/potbot/syn_release/operator.py",
           "symbol": "SynOperatorDeployment",
-          "sha256": "00693d2afd474b4c50cb961b547d5b30ab72791af397c65fff24d4f5aa385883",
+          "sha256": "68d627710b605e2742011efd4cd26b799c67fb3fdc9de2bbc84795e492b5a55a",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -1336,8 +1336,14 @@
         {
           "path": "src/potbot/context/syn_context_route.py",
           "symbol": "SynContextRoute",
-          "sha256": "63b25a9996a27c0d5e8688c88b65a09dab94d04e963fcc3f48cdeec59361dcc7",
-          "basis": "Reviewed host-only invocation and delivery binding; installer selection and signed-package qualification remain open."
+          "sha256": "b10b645ece0180ae28fc2e4bb6ee5e09a4f92607592d7ff0dca988b22e80c607",
+          "basis": "Reviewed one-use delivery acknowledgement and result collection through Syn 0.9.0. Application checks and database work run between the bounded signed exchanges."
+        },
+        {
+          "path": "src/potbot/context/installed_syn_route.py",
+          "symbol": "installed_context_route",
+          "sha256": "ddbb68472de3656921c1425ce415f3f7f8a60304e6f2f7e66c391a50739624b6",
+          "basis": "Reviewed selected installation and private endpoint; official release and managed worker qualification remain open."
         }
       ],
       "tests": [
@@ -1362,11 +1368,17 @@
         {
           "path": "tests/unit/test_syn_context_route.py",
           "symbol": "test_worker_channel_uses_syn_route_and_rechecks_native_pins",
-          "sha256": "c3c6313af528a98e67e4a7a25ed606d0a4bd0b6302e3daa0a625c761046e371a",
-          "basis": "Focused synthetic worker test covers native Agent and lease fence; not managed worker or signed-release acceptance."
+          "sha256": "3f57084c7a737ef1e0fbffa369abda98e12772d8a9743c5ea8b9b4bead6ace4b",
+          "basis": "Focused synthetic worker tests cover native Agent and lease fencing, loss on each signed exchange and in-flight teardown."
+        },
+        {
+          "path": "tests/unit/test_installed_syn_context_route.py",
+          "symbol": "test_managed_unit_restores_previous_bytes_if_route_restart_fails",
+          "sha256": "65a05fc9b511b24169dcb1ecf56a629d4667ca922f89a8ffebdc54146544377a",
+          "basis": "Disposable unit and socket fixture with a simulated service manager failure."
         }
       ],
-      "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. The optional directed Syn adapter binds delivery to the monitored worker, native Agent and active lease.",
+      "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. The optional directed Syn adapter binds delivery to the monitored worker, native Agent and active lease. The optional managed profile verifies the Syn release and operator route before serving Context requests.",
       "support_scope": "Actual application context owners and final-result/lease atomicity tests; not full universal constructor/protocol adoption.",
       "remaining": [
         "Close remaining constructor/protocol and per-launch snapshot coverage",
@@ -67165,17 +67177,25 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "21ccfa4a87de5fed2f230314bec853179964accdd8259e7b1f40a173b105d8ea",
+      "sha256": "d8a7359a092c05f46dc0676b0a9268265f71a396bdc4dd9ffcc72a1fa51cb8aa",
       "families": [
         "context",
         "syn-operations"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Candidate same-host Context route uses an explicit invocation binding and signed Syn replies. It is not enabled by the installer.",
+      "assessment": "The installed profile uses signed delivery acknowledgement and result collection through Syn 0.9.0. The hosted worker and collector-loss gates require independent managed evidence.",
       "narrative": [
         {
-          "locator": "line:1-43",
-          "sha256": "5357dc437ca3e57971173ae0bbd422c96671b3cfe3f30a8685c2a1f29494fd68",
+          "locator": "line:1-47",
+          "sha256": "4ba8bdf5ad29d624787cb036d9be8706d3da42ca39d590488c127dfba5ef3a78",
+          "families": [
+            "context",
+            "syn-operations"
+          ]
+        },
+        {
+          "locator": "line:48-89",
+          "sha256": "9dff632510ae0e7bbb26e650e3a687f4a6a7da2ece53cdc0465d3f39011290d2",
           "families": [
             "context",
             "syn-operations"
@@ -68621,7 +68641,7 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "cb379b194a3a2bcfb69f04b7bf567c65d7d4ba9a9691259a978d1f409a540c20",
+      "sha256": "bfdeac14bfc02b5a4848a27ad9a742b2d147152d21df5a067267523f4852648a",
       "families": [
         "syn-release",
         "syn-operations"
@@ -68662,15 +68682,15 @@
           ]
         },
         {
-          "locator": "line:27-62",
-          "sha256": "39c6bfeaf77d1eae7b598b56cc0ae8f187ab54f478b32f4d002477791c7bd036",
+          "locator": "line:27-63",
+          "sha256": "d1eb6e3ae54fa79977038db4f8afc5d4d47b3130bcbdc9f54fa354fd4ae2aeb0",
           "families": [
             "context",
             "syn-operations"
           ]
         },
         {
-          "locator": "line:63-91",
+          "locator": "line:64-92",
           "sha256": "92cbc62d31be3112d485439a68f6dd3fb9df4ef551746a313e5e7e84f4e2db02",
           "families": [
             "syn-release",
@@ -68678,7 +68698,7 @@
           ]
         },
         {
-          "locator": "line:92-95",
+          "locator": "line:93-96",
           "sha256": "66d620f4efda4fa9c1cebbc7470ccbe5a9c80b222c3de05998971c12559cdf6b",
           "families": [
             "syn-release",
@@ -68686,7 +68706,7 @@
           ]
         },
         {
-          "locator": "line:96-109",
+          "locator": "line:97-110",
           "sha256": "a7b621ca38fe3eb54137753bb9a564420b7ade5727db7137805259a5944f4792",
           "families": [
             "identity",
@@ -68696,7 +68716,7 @@
           ]
         },
         {
-          "locator": "line:110-112",
+          "locator": "line:111-113",
           "sha256": "4d8ad187a237084718451a2bff422f34b7fae515cb14bbac6803d3f85b75e2c6",
           "families": [
             "syn-release",

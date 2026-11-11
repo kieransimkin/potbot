@@ -8,12 +8,15 @@ import plistlib
 import stat
 import subprocess
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 from potbot.syn_release.operator import SynOperatorDeployment
-from potbot.syn_release.store import _write_new, private_read
+from potbot.syn_release.store import _sync_directory, _write_new, private_read
 
 
 def user_service_directory(path: Path) -> None:
@@ -60,10 +63,16 @@ def systemd_argument(value: str) -> str:
     )
 
 
-def supervisor_arguments(deployment: SynOperatorDeployment, policy_path: Path) -> list[str]:
+def supervisor_arguments(
+    deployment: SynOperatorDeployment, policy_path: Path, *, context_rpc: bool = False
+) -> list[str]:
     if not policy_path.is_absolute():
         raise ScopeDeniedError("Native service policy requires an absolute private path")
     private_read(policy_path)
+    if context_rpc:
+        from potbot.context.installed_syn_route import operator_route_path
+
+        operator_route_path(deployment)
     return [
         sys.executable,
         "-I",
@@ -78,37 +87,88 @@ def supervisor_arguments(deployment: SynOperatorDeployment, policy_path: Path) -
         str(policy_path),
         "--operator-root",
         str(deployment.root),
+        *(["--context-rpc"] if context_rpc else []),
     ]
 
 
-def install_service(deployment: SynOperatorDeployment, policy_path: Path) -> dict[str, Any]:
+def _linux_unit(argv: list[str], uid: int) -> bytes:
+    runtime = f"/run/user/{uid}"
+    return (
+        "[Unit]\nDescription=Verified Syn operator supervised by Potbot\n"
+        "After=gnome-keyring-daemon.service\nRequires=gnome-keyring-daemon.service\n\n"
+        "[Service]\nType=simple\nExecStart="
+        + " ".join(systemd_argument(x) for x in argv)
+        + "\nEnvironment=XDG_RUNTIME_DIR="
+        + runtime
+        + "\nEnvironment=DBUS_SESSION_BUS_ADDRESS=unix:path="
+        + runtime
+        + "/bus"
+        + "\nRestart=no\nKillMode=control-group\nTimeoutStopSec=15\nUMask=0077\n\n"
+        + "[Install]\nWantedBy=default.target\n"
+    ).encode()
+
+
+@contextmanager
+def _unit_edit_lock(path: Path) -> Iterator[None]:
+    import fcntl
+
+    fd = os.open(
+        path.with_suffix(".lock"),
+        os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+    )
+    try:
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_mode & 0o077
+            or info.st_nlink != 1
+        ):
+            raise ScopeDeniedError("Native user-service lock is unsafe")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _replace_unit(path: Path, raw: bytes) -> None:
+    staged = path.with_name(path.name + "." + uuid4().hex)
+    _write_new(staged, raw)
+    try:
+        os.replace(staged, path)
+        _sync_directory(path.parent)
+    finally:
+        staged.unlink(missing_ok=True)
+
+
+def _run_unit_commands(commands: list[list[str]]) -> None:
+    for command in commands:
+        result = subprocess.run(command, capture_output=True, timeout=30, check=False)
+        if result.returncode:
+            raise StateMismatchError("Native user service did not start")
+
+
+def install_service(
+    deployment: SynOperatorDeployment, policy_path: Path, *, context_rpc: bool = False
+) -> dict[str, Any]:
     import pwd
 
     # A missing/corrupt operator registry is never repaired by installing a unit.
     deployment._registered()
     deployment._installation()
-    argv = supervisor_arguments(deployment, policy_path)
+    argv = supervisor_arguments(deployment, policy_path, context_rpc=context_rpc)
     home = Path(pwd.getpwuid(os.getuid()).pw_dir).resolve()
+    previous_unit: bytes | None = None
     if platform.system() == "Linux":
         parent = home
         for name in (".config", "systemd", "user"):
             parent /= name
             user_service_directory(parent)
         path = parent / "potbot-syn-operator.service"
-        runtime = f"/run/user/{os.getuid()}"
-        raw = (
-            "[Unit]\nDescription=Verified Syn operator supervised by Potbot\n"
-            "After=gnome-keyring-daemon.service\nRequires=gnome-keyring-daemon.service\n\n"
-            "[Service]\nType=simple\nExecStart="
-            + " ".join(systemd_argument(x) for x in argv)
-            + "\nEnvironment=XDG_RUNTIME_DIR="
-            + runtime
-            + "\nEnvironment=DBUS_SESSION_BUS_ADDRESS=unix:path="
-            + runtime
-            + "/bus"
-            + "\nRestart=no\nKillMode=control-group\nTimeoutStopSec=15\nUMask=0077\n\n"
-            + "[Install]\nWantedBy=default.target\n"
-        ).encode()
+        raw = _linux_unit(argv, os.getuid())
+        if context_rpc:
+            previous_unit = _linux_unit(argv[:-1], os.getuid())
         commands = [
             ["/usr/bin/systemctl", "--user", "daemon-reload"],
             ["/usr/bin/systemctl", "--user", "enable", "--now", path.name],
@@ -143,18 +203,29 @@ def install_service(deployment: SynOperatorDeployment, policy_path: Path) -> dic
             "Install the operator user service inside WSL or the native POSIX host"
         )
     if path.exists():
-        if read_user_unit(path) != raw:
-            raise StateMismatchError(
-                "Existing user service differs; explicit lifecycle reconciliation is required"
-            )
+        installed = read_user_unit(path)
+        if installed != raw and installed != previous_unit:
+            raise StateMismatchError("Existing user service differs from the managed unit")
+        if installed != raw:
+            with _unit_edit_lock(path):
+                if read_user_unit(path) != installed:
+                    raise StateMismatchError("Native user service changed during installation")
+                _replace_unit(path, raw)
+                restart = [
+                    ["/usr/bin/systemctl", "--user", "daemon-reload"],
+                    ["/usr/bin/systemctl", "--user", "restart", path.name],
+                ]
+                try:
+                    _run_unit_commands(restart)
+                except (StateMismatchError, OSError, subprocess.TimeoutExpired):
+                    _replace_unit(path, installed)
+                    _run_unit_commands(restart)
+                    raise
+        else:
+            _run_unit_commands(commands)
     else:
         _write_new(path, raw)
-    for command in commands:
-        result = subprocess.run(command, capture_output=True, timeout=30, check=False)
-        if result.returncode:
-            raise StateMismatchError(
-                "Native user service did not start; retained identity is not replaced"
-            )
+        _run_unit_commands(commands)
     return {
         "profile": "potbot.syn-operator-user-service/1",
         "unit": str(path),
