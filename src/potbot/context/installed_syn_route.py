@@ -14,7 +14,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from potbot.context.syn_context_route import METHOD, SynContextRoute, SynRoundTrip
 from potbot.domain.errors import CapabilityUnavailableError, DomainError, ScopeDeniedError
@@ -25,7 +25,9 @@ from potbot.syn_release.store import SynReleaseStore, _sync_directory, _write_ne
 PROFILE = "syn.operator-local-rpc/1"
 ROUTE_TABLE_PROFILE = "syn.local-rpc-routes/1"
 BROWSER_METHOD = "browser.command"
+MCP_METHOD = "mcp.command"
 _BROWSER_SOCKET = "browser-rpc.sock"
+_MCP_SOCKET = "mcp-rpc.sock"
 _ROUTE_CONFIG = "context-rpc.json"
 _ROUTE_SOCKET = "context-rpc.sock"
 
@@ -54,7 +56,9 @@ def _route_config(deployment: SynOperatorDeployment) -> Path:
     return deployment.root / name
 
 
-def _route_bytes(deployment: SynOperatorDeployment, workspace_id: UUID) -> bytes:
+def _route_bytes(
+    deployment: SynOperatorDeployment, workspace_id: UUID, *, include_mcp: bool = False
+) -> bytes:
     if sys.platform != "linux" or os.getuid() == 0:
         raise ScopeDeniedError("Context RPC requires the native Linux service account")
     if PROFILE not in deployment.policy.value["required_profiles"]:
@@ -73,30 +77,59 @@ def _route_bytes(deployment: SynOperatorDeployment, workspace_id: UUID) -> bytes
 
     context = destination(METHOD, _ROUTE_SOCKET)
     if ROUTE_TABLE_PROFILE in deployment.policy.value["required_profiles"]:
-        return canonical(
-            {
-                "profile": ROUTE_TABLE_PROFILE,
-                "routes": [
-                    context,
-                    destination(BROWSER_METHOD, _BROWSER_SOCKET),
-                ],
-            }
-        )
+        routes = [context, destination(BROWSER_METHOD, _BROWSER_SOCKET)]
+        if include_mcp:
+            routes.append(destination(MCP_METHOD, _MCP_SOCKET))
+        return canonical({"profile": ROUTE_TABLE_PROFILE, "routes": routes})
+    if include_mcp:
+        raise CapabilityUnavailableError("MCP RPC requires a pinned Syn route table")
     return canonical({"profile": "syn.local-rpc-route/1", **context})
 
 
-def provision_context_route(deployment: SynOperatorDeployment, workspace_id: UUID) -> Path:
+def _includes_mcp(deployment: SynOperatorDeployment, workspace_id: UUID, raw: bytes) -> bool:
+    if raw == _route_bytes(deployment, workspace_id):
+        return False
+    if ROUTE_TABLE_PROFILE in deployment.policy.value["required_profiles"] and raw == _route_bytes(
+        deployment, workspace_id, include_mcp=True
+    ):
+        return True
+    raise ScopeDeniedError(
+        "Configured Syn RPC route selects another workspace or an unsupported table"
+    )
+
+
+def provision_context_route(
+    deployment: SynOperatorDeployment, workspace_id: UUID, *, include_mcp: bool = False
+) -> Path:
     """Prepare the private Syn route without changing the operator identity."""
-    raw = _route_bytes(deployment, workspace_id)
+    raw = _route_bytes(deployment, workspace_id, include_mcp=include_mcp)
     deployment._installation()
     deployment._registered()
     path = _route_config(deployment)
+    if include_mcp:
+        # The supervisor pins this file for its entire boot. Only extend a known
+        # table while the operator is stopped, under the same lifetime lock.
+        with deployment._supervisor_lock():
+            try:
+                current = private_read(path)
+            except FileNotFoundError:
+                _write_new(path, raw)
+            else:
+                if _includes_mcp(deployment, workspace_id, current):
+                    return path
+                pending = path.with_name(f".{path.name}.{uuid4().hex}")
+                try:
+                    _write_new(pending, raw)
+                    os.replace(pending, path)
+                finally:
+                    pending.unlink(missing_ok=True)
+            _sync_directory(deployment.root)
+        return path
     try:
         _write_new(path, raw)
         _sync_directory(deployment.root)
     except FileExistsError:
-        if private_read(path) != raw:
-            raise ScopeDeniedError("Existing Context RPC route selects another workspace") from None
+        _includes_mcp(deployment, workspace_id, private_read(path))
     return path
 
 
@@ -110,8 +143,7 @@ def operator_route_path(deployment: SynOperatorDeployment) -> Path:
         workspace = UUID(row["workspace_id"])
     except (KeyError, IndexError, ValueError, TypeError, AttributeError):
         raise ScopeDeniedError("Invalid installed Context route workspace") from None
-    if raw != _route_bytes(deployment, workspace):
-        raise ScopeDeniedError("Context route does not match the installed operator")
+    _includes_mcp(deployment, workspace, raw)
     return path
 
 
@@ -198,16 +230,15 @@ def installed_directed_rpc(
     max_reply: int,
 ) -> tuple[Path, str, SynRoundTrip]:
     deployment = _deployment(selection, protected_mounts=protected_mounts)
-    if method not in {METHOD, BROWSER_METHOD}:
+    sockets = {METHOD: _ROUTE_SOCKET, BROWSER_METHOD: _BROWSER_SOCKET, MCP_METHOD: _MCP_SOCKET}
+    if method not in sockets:
         raise ScopeDeniedError("Unknown installed Syn RPC method")
-    if (
-        method == BROWSER_METHOD
-        and ROUTE_TABLE_PROFILE not in deployment.policy.value["required_profiles"]
-    ):
-        raise CapabilityUnavailableError("Browser RPC requires a pinned Syn route table")
-    expected = _route_bytes(deployment, workspace_id)
-    if private_read(_route_config(deployment)) != expected:
-        raise ScopeDeniedError("Configured Syn RPC route differs from this workspace")
+    if method != METHOD and ROUTE_TABLE_PROFILE not in deployment.policy.value["required_profiles"]:
+        raise CapabilityUnavailableError("The requested RPC requires a pinned Syn route table")
+    expected = private_read(_route_config(deployment))
+    has_mcp = _includes_mcp(deployment, workspace_id, expected)
+    if method == MCP_METHOD and not has_mcp:
+        raise CapabilityUnavailableError("The installed Syn route table does not enable MCP RPC")
     route_sha = hashlib.sha256(expected).hexdigest()
     receipt, python = deployment._installation()
     registered = deployment._registered()
@@ -216,9 +247,7 @@ def installed_directed_rpc(
     deployment._observed_runtime = receipt["observed"]["runtime"]
     status = deployment._status(python, registered)["status"]
     profiles = status["runtime"]["api_profiles"]
-    if PROFILE not in profiles or (
-        method == BROWSER_METHOD and ROUTE_TABLE_PROFILE not in profiles
-    ):
+    if PROFILE not in profiles or (method != METHOD and ROUTE_TABLE_PROFILE not in profiles):
         raise CapabilityUnavailableError("Installed Syn does not advertise directed local RPC")
     lifecycle = document(private_read(deployment.root / "lifecycle.json"), canonical_only=True)
     if (
@@ -229,7 +258,7 @@ def installed_directed_rpc(
         or lifecycle.get("attestation", {}).get("status", {}).get("boot_id") != status["boot_id"]
     ):
         raise CapabilityUnavailableError("Operator supervisor has no matching active Context route")
-    endpoint = deployment.root / (_BROWSER_SOCKET if method == BROWSER_METHOD else _ROUTE_SOCKET)
+    endpoint = deployment.root / sockets[method]
     uid = os.getuid()
     args = [
         str(python),

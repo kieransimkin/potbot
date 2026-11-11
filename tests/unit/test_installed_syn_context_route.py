@@ -16,6 +16,7 @@ import pytest
 from potbot.context import installed_syn_route as routes
 from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError, StateMismatchError
 from potbot.syn_release import system_service
+from potbot.syn_release.operator import SynOperatorDeployment
 from potbot.syn_release.system_service import supervisor_arguments
 
 pytestmark = pytest.mark.skipif(
@@ -97,6 +98,40 @@ def test_private_endpoint_does_not_replace_foreign_entry_and_recovers_stale_sock
         assert endpoint.stat().st_mode & 0o777 == 0o600
         assert listener.getsockname() == str(endpoint)
     assert not endpoint.exists()
+
+
+def test_mcp_route_extends_a_stopped_operator_table_for_the_same_workspace(short_root):
+    deployment = SimpleNamespace(
+        root=short_root,
+        policy=SimpleNamespace(
+            value={"required_profiles": [routes.PROFILE, routes.ROUTE_TABLE_PROFILE]}
+        ),
+        _installation=lambda: None,
+        _registered=lambda: None,
+    )
+    deployment._supervisor_lock = lambda: SynOperatorDeployment._supervisor_lock(deployment)
+    workspace = uuid4()
+    path = routes.provision_context_route(deployment, workspace)
+    original = json.loads(path.read_bytes())
+    with deployment._supervisor_lock(), pytest.raises(StateMismatchError, match="owns"):
+        routes.provision_context_route(deployment, workspace, include_mcp=True)
+    assert json.loads(path.read_bytes()) == original
+    assert routes.provision_context_route(deployment, workspace, include_mcp=True) == path
+    updated = json.loads(path.read_bytes())
+    assert updated["routes"] == [
+        *original["routes"],
+        {
+            "method": "mcp.command",
+            "service_socket": str(short_root / "mcp-rpc.sock"),
+            "service_uid": os.getuid(),
+            "workspace_id": str(workspace),
+        },
+    ]
+    assert routes.operator_route_path(deployment) == path
+    assert routes.provision_context_route(deployment, workspace) == path
+    with pytest.raises(ScopeDeniedError, match="another workspace"):
+        routes.provision_context_route(deployment, uuid4(), include_mcp=True)
+    assert json.loads(path.read_bytes()) == updated
 
 
 def test_managed_unit_restores_previous_bytes_if_route_restart_fails(short_root, monkeypatch):

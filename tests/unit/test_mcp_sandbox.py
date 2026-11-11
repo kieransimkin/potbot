@@ -7,6 +7,7 @@ import hashlib
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -15,6 +16,7 @@ from potbot.domain.execution import CapabilityContext, ToolDefinition, ToolRegis
 from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
 from potbot.tools.mcp_protocol import McpProtocolError
 from potbot.tools.mcp_sandbox import ReadOnlyMcpGrant, SandboxedMcpClient
+from potbot.tools.syn_mcp_route import SynMcpRoute
 from potbot.workspace_sandbox import WorkspaceSandbox
 
 SERVER = Path(__file__).resolve().parents[1] / "fixtures" / "mcp_stdio_server.py"
@@ -78,6 +80,71 @@ def test_end_to_end_mcp_sum_inside_approved_lifetime(tmp_path: Path):
             assert len(session.binding_hash or "") == 64
             assert session.isolation_identity == "unit-fixture-NOT-isolation"
             assert (await session.call("add", {"a": 3, "b": 5})).structured_content == {"sum": 8}
+
+    run(scenario())
+
+
+@pytest.mark.parametrize("lost_exchange", [None, 1, 2])
+def test_managed_tool_uses_signed_delivery_and_never_replays(
+    tmp_path: Path, monkeypatch, lost_exchange
+):
+    monkeypatch.setenv("POTBOT_OPERATOR_REQUIRED", "1")
+    workspace, boot, uid = uuid4(), "a" * 32, 1000
+    exchanges, calls = [], []
+
+    def exchange(ident, payload):
+        exchanges.append(ident)
+        reply = route.accept(
+            {
+                "profile": "syn.local-rpc-dispatch/1",
+                "workspace_id": str(workspace),
+                "method": "mcp.command",
+                "request_id": str(ident),
+                "boot_id": boot,
+                "caller_uid": uid,
+                "size": len(payload),
+            },
+            payload,
+        )
+        if len(exchanges) == lost_exchange:
+            raise TimeoutError("Test discarded the signed reply")
+        return reply, boot
+
+    route = SynMcpRoute(workspace, boot, uid, exchange)
+
+    async def scenario():
+        async with SandboxedMcpClient(
+            **kwargs(tmp_path), workspace_id=workspace, syn_route=route
+        ) as session:
+            assert session._transport is not None
+            child_exchange = session._transport.exchange
+
+            async def observe(message, expect_reply):
+                calls.append(message["method"])
+                return await child_exchange(message, expect_reply)
+
+            session._transport.exchange = observe
+            if lost_exchange is None:
+                result = await session.call("add", {"a": 16, "b": 26})
+                assert result.structured_content == {"sum": 42}
+            else:
+                with pytest.raises(IndeterminateExecutionError, match="Syn did not confirm"):
+                    await session.call("add", {"a": 16, "b": 26})
+                with pytest.raises(IndeterminateExecutionError, match="not available"):
+                    await session.call("add", {"a": 16, "b": 26})
+
+    run(scenario())
+    assert calls == ([] if lost_exchange == 1 else ["tools/call"])
+    assert len(exchanges) == len(set(exchanges)) == (lost_exchange or 2)
+
+
+def test_managed_mcp_refuses_unrouted_execution(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("POTBOT_OPERATOR_REQUIRED", "1")
+
+    async def scenario():
+        with pytest.raises(ScopeDeniedError, match="requires its installed Syn route"):
+            async with SandboxedMcpClient(**kwargs(tmp_path)):
+                pytest.fail("Managed MCP started without its Syn route")
 
     run(scenario())
 

@@ -157,5 +157,47 @@ A lost result leaves the existing queue attempt and budget for
 reconciliation. After confirmed worker shutdown, a separately admitted
 resolver queries the same target and effect ID and returns the existing
 outcome. An unconfirmed process or failed audit keeps the workspace fenced.
-The local process test exercises effect recovery. Deployment requires a signed
-worker image containing the directed entry point and managed acceptance.
+
+Managed WSL qualification used the signed Linux amd64 worker from
+[the image build](https://github.com/kieransimkin/potbot/actions/runs/43026119152),
+the installed scoped TASKSTATS launcher, and PostgreSQL over TLS. After the
+verified result reply was dropped, the resolver found the original queue row
+and settled one call. Repeating recovery returned the same receipt. A fresh
+submission with the same effect ID was rejected before dispatch. Both workers
+had four accounted exits, zero missing exits, and released workspace leases.
+This test used a disposable Agent binding and the official Syn 0.10.0 operator.
+
+## Sandboxed MCP tool calls
+
+Stop the managed Syn operator before adding the MCP endpoint to its pinned
+workspace route table. With the same store, policy, and operator root, run
+`potbot syn-operator configure-context-route --include-mcp` with the required
+workspace and installation options shown above, then restart the operator.
+This retains the Context and browser entries. A running operator holds the
+configuration lock until it stops.
+
+~~~mermaid
+sequenceDiagram
+    participant C as Potbot MCP controller
+    participant S as Syn 0.10.0 operator
+    participant M as Sandboxed MCP server
+    C->>C: Check grant and pinned input schema
+    C->>S: Deliver admitted tools/call
+    S-->>C: Confirm delivery to the private MCP endpoint
+    C->>M: Call the selected server using MCP stdio
+    M-->>C: Return the MCP result
+    C->>S: Collect the correlated result
+    S-->>C: Return the signed result
+~~~
+
+The controller opens `installed_mcp_route` for its workspace outside the
+sandbox mounts and passes it to `SandboxedMcpClient`. MCP negotiation, tool
+discovery, and server I/O stay on the external stdio boundary. A tool call
+requires the existing read-only grant and schema checks before dispatch.
+Managed execution refuses a missing Syn route. If Syn cannot confirm delivery
+or return the result, the client closes that MCP session without replay.
+
+A managed WSL test used the official Syn 0.10.0 release and a disposable
+Bubblewrap MCP server. The admitted tool returned 42 through Syn. The test
+discarded the verified result for a second call, then confirmed the session
+closed and refused another call. The server received exactly two tool calls.

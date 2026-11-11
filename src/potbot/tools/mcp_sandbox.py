@@ -14,12 +14,14 @@ pre-approved read-only tool names in this initial adapter.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from potbot.domain.errors import (
     IndeterminateExecutionError,
@@ -37,6 +39,7 @@ from potbot.tools.interactive_supervisor import (
 from potbot.tools.mcp_protocol import McpCallResult, McpCatalog, McpClient, McpToolInfo
 from potbot.tools.mcp_stdio import McpStdioTransport
 from potbot.tools.supervisor import ProcessRequest
+from potbot.tools.syn_mcp_route import SynMcpRoute
 from potbot.workspace_sandbox import WorkspaceSandbox
 
 # A function installed by the trusted controller that throws if the selected
@@ -78,11 +81,19 @@ class SandboxedMcpClient:
         permitted: tuple[ReadOnlyMcpGrant, ...],
         approve_call: CallAdmission,
         cancelled: Callable[[], bool] | None = None,
+        syn_route: SynMcpRoute | None = None,
+        workspace_id: UUID | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("MCP requires the qualified interactive ProcessSupervisor")
         if not isinstance(sandbox, WorkspaceSandbox):
             raise InvalidInputError("MCP requires a registered WorkspaceSandbox")
+        if syn_route is not None and (
+            not isinstance(syn_route, SynMcpRoute)
+            or not isinstance(workspace_id, UUID)
+            or syn_route.workspace_id != workspace_id
+        ):
+            raise ScopeDeniedError("The Syn MCP route must match the controller workspace")
         root = sandbox.confine(candidate_root, area="candidates", must_exist=True)
         if not root.is_dir() or root.parent != sandbox.path("candidates"):
             raise ScopeDeniedError("MCP must run inside one candidate directory")
@@ -112,6 +123,8 @@ class SandboxedMcpClient:
         self._grants = {item.tool_name: item for item in permitted}
         self._approve_call = approve_call
         self._cancelled = cancelled
+        self._syn_route = syn_route
+        self._call_lock = asyncio.Lock()
         self._process: IsolatedInteractiveProcess | None = None
         self._transport: McpStdioTransport | None = None
         self._client: McpClient | None = None
@@ -143,6 +156,8 @@ class SandboxedMcpClient:
     async def __aenter__(self) -> SandboxedMcpClient:
         if self._process is not None:
             raise StateMismatchError("An MCP server lifetime cannot be restarted")
+        if os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1" and self._syn_route is None:
+            raise ScopeDeniedError("Managed MCP execution requires its installed Syn route")
         definition = self._registry.get(self._server_kind)
         definition.admit(ActionProposal(kind=self._server_kind))
         self._capabilities.authorize(definition, self._task_contract)
@@ -187,7 +202,7 @@ class SandboxedMcpClient:
             self._process.writer,
             request_timeout_s=min(10.0, request.timeout_ms / 1000),
         )
-        self._client = McpClient(self._transport.exchange, admit=self._admit)
+        self._client = McpClient(self._exchange, admit=self._admit)
         try:
             await self._client.connect()
             self._catalog = await self._client.refresh_tools()
@@ -206,7 +221,29 @@ class SandboxedMcpClient:
             await self.close(force=True)
             raise
 
+    async def _dispatch(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
+        process, transport = self._process, self._transport
+        if (
+            process is None
+            or process.closed
+            or transport is None
+            or process.remaining_seconds() <= 0
+            or (self._cancelled is not None and self._cancelled())
+        ):
+            raise IndeterminateExecutionError("MCP process lifetime ended before dispatch")
+        transport.timeout = min(10.0, process.remaining_seconds())
+        return await transport.exchange(message, expect_reply)
+
+    async def _exchange(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
+        if self._syn_route is not None and message.get("method") == "tools/call":
+            return await self._syn_route.invoke(message, self._dispatch)
+        return await self._dispatch(message, expect_reply)
+
     async def call(self, name: str, arguments: dict[str, Any]) -> McpCallResult:
+        async with self._call_lock:
+            return await self._call(name, arguments)
+
+    async def _call(self, name: str, arguments: dict[str, Any]) -> McpCallResult:
         if self._process is None or self._process.closed or self._client is None:
             raise IndeterminateExecutionError("MCP process is not available for invocation")
         if self._catalog is None:
@@ -217,8 +254,6 @@ class SandboxedMcpClient:
         tool = self._catalog.tool(name)
         if name not in self._grants:
             raise ScopeDeniedError("MCP tool is not granted to this task")
-        assert self._transport is not None
-        self._transport.timeout = min(10.0, self._process.remaining_seconds())
         try:
             return await self._client.call_tool(
                 name,
