@@ -1,4 +1,4 @@
-"""Download and verify an optional WSL kernel bundle against independent release pins."""
+"""Download, verify, activate or roll back an optional signed WSL kernel bundle."""
 
 from __future__ import annotations
 
@@ -401,7 +401,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     download.add_argument(
         "--output", type=Path, required=True, help="fresh verified bundle directory"
     )
-    for action in (verify, download):
+    activate = actions.add_parser(
+        "activate", help="stage a verified bundle and boot the idle WSL VM"
+    )
+    activate.add_argument("--bundle", type=Path, required=True)
+    rollback = actions.add_parser(
+        "rollback", help="restore and boot the original WSL configuration"
+    )
+    for operation in (activate, rollback):
+        operation.add_argument(
+            "--restart-wsl",
+            required=True,
+            action="store_true",
+            help="authorize an idle WSL VM restart",
+        )
+    for action in (verify, download, activate):
         action.add_argument("--manifest-sha256", required=True)
         action.add_argument(
             "--public-key", required=True, help="independently trusted raw Ed25519 key, in hex"
@@ -412,7 +426,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             receipt = verify_bundle(
                 args.bundle, manifest_sha256=args.manifest_sha256, public_key=args.public_key
             )
-        else:
+        elif args.action == "download":
             receipt = download_bundle(
                 args.output,
                 tag=args.tag,
@@ -421,6 +435,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 manifest_sha256=args.manifest_sha256,
                 public_key=args.public_key,
             )
+        else:
+            from potbot.syn_release.host import WslOperatorHost
+            from potbot.wsl_kernel_activation import WslKernelActivation
+
+            installer = WslKernelActivation(WslOperatorHost())
+            if args.action == "activate":
+                receipt = installer.activate(
+                    args.bundle, manifest_sha256=args.manifest_sha256, public_key=args.public_key
+                )
+            else:
+                receipt = installer.rollback()
     except zipfile.BadZipFile:
         print(json.dumps({"code": "invalid_input", "message": "Invalid kernel ZIP archive"}))
         return 2
@@ -428,11 +453,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(error.to_dict(), sort_keys=True))
         return 2
     except (OSError, RuntimeError):
-        print(
-            json.dumps(
-                {"code": "bundle_unavailable", "message": "Kernel bundle files could not be read"}
-            )
-        )
+        if args.action in {"activate", "rollback"}:
+            result = {
+                "code": "activation_unavailable",
+                "message": "Kernel activation or rollback files could not be accessed",
+            }
+        else:
+            result = {
+                "code": "bundle_unavailable",
+                "message": "Kernel bundle files could not be read",
+            }
+        print(json.dumps(result))
         return 2
     print(json.dumps(receipt, sort_keys=True))
     return 0

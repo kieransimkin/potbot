@@ -7,8 +7,9 @@ Signed x86-64 kernel bundles can be verified offline or downloaded from
 a pinned Potbot release and verified before staging.
 Release packaging can prepare signing input and export reproducible assets
 from reviewed build files. A separate CI job builds the x86-64 candidate
-from pinned source. Release signing, publication, and a real clean Windows
-reboot trial remain open.
+from pinned source. [Potbot v0.5.0.dev13](https://github.com/kieransimkin/potbot/releases/tag/v0.5.0.dev13)
+ships a signed x86-64 kernel and matching source archive. A clean Windows
+trial with WSL initially absent remains open.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -371,6 +372,45 @@ to fetch the pinned archive. The runner image and tool package versions
 can change across runs. Qualify the exact new artifacts before signing
 them, even when their kernel release label matches a previously booted
 candidate.
+
+### Activate or roll back the verified kernel on Windows
+
+Stop running WSL applications and distributions before activation. The
+two kernel paths apply to the Windows user's shared WSL2 VM. Use the
+bundle directory returned by the release download command and the same
+independent manifest and Ed25519 pins.
+[Microsoft WSL configuration reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
+
+~~~powershell
+potbot wsl-kernel activate --bundle $VerifiedBundle --manifest-sha256 $KernelManifestSha256 `
+  --public-key $KernelReleasePublicKey --restart-wsl
+potbot wsl-kernel rollback --restart-wsl
+~~~
+
+~~~mermaid
+flowchart LR
+    A[Verify and stage the pinned kernel and modules] --> B[Record the original config and stock boot]
+    B --> C[Restart the idle WSL VM and probe the owned distro]
+    C -->|Kernel, config and modules match| D[Record the verified boot]
+    C -->|Boot check fails| R[Restore the original config and verify its boot]
+    D -->|Explicit rollback| R
+~~~
+
+The command retains a recovery receipt before changing the global file.
+It preserves the original configuration bytes, including an originally
+absent file, and refuses existing unmanaged kernel settings. If an
+interruption leaves a receipt, run rollback before another activation.
+If another process edited the global configuration, reconcile the edit
+with the retained receipt before retrying. Activation probes the existing
+managed distro and leaves worker qualification required. The managed Syn
+controller, operator registration, enrollment and native keyring remain
+under their existing deployment lifecycle.
+
+The managed Windows qualification used the public dev13 ZIP. The
+installer verified the x86-64 boot, config digest and matching modules.
+Rollback restored the original configuration bytes and verified a new
+boot on the stock kernel. The managed Syn registration, identity pin and
+operator configuration digest matched across both boots.
 
 ### Qualify the kernel on the target host
 
