@@ -35651,12 +35651,12 @@
     },
     {
       "path": ".github/workflows/browser-rendered-acceptance.yml",
-      "sha256": "394356820815851c2563ad323d0773052662727c82405c53e8c414dbfb3a2269",
-      "bytes": 5464,
+      "sha256": "3a73b522f4ac2bba3725c24858272377b0d706825fb41ed8a7399fe73ac2beee",
+      "bytes": 5515,
       "kind": "narrative_text",
-      "text_sha256": "394356820815851c2563ad323d0773052662727c82405c53e8c414dbfb3a2269",
-      "characters": 5464,
-      "lines": 127,
+      "text_sha256": "3a73b522f4ac2bba3725c24858272377b0d706825fb41ed8a7399fe73ac2beee",
+      "characters": 5515,
+      "lines": 128,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35691,22 +35691,22 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "d875346f6eebb1995f32116eea8e42ee9ab4642f92d5c15633c89621bcd3dd7f",
-      "bytes": 13425,
+      "sha256": "2856228278cdae4ec5502b6876e50bad9efce5118c4885eacb908b54c29792d5",
+      "bytes": 13527,
       "kind": "narrative_text",
-      "text_sha256": "d875346f6eebb1995f32116eea8e42ee9ab4642f92d5c15633c89621bcd3dd7f",
-      "characters": 13423,
-      "lines": 260,
+      "text_sha256": "2856228278cdae4ec5502b6876e50bad9efce5118c4885eacb908b54c29792d5",
+      "characters": 13525,
+      "lines": 262,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": ".github/workflows/context-agent-rpc.yml",
-      "sha256": "e16a88a7715e29b364d9f0a48471592dc03ea54a3eef9300f27e8a111a6cfb36",
-      "bytes": 6711,
+      "sha256": "a144012a3525ec736d1a0ea3fda9a7d0d3ef772b4c1b850ec3913e2b6377aa41",
+      "bytes": 6762,
       "kind": "narrative_text",
-      "text_sha256": "e16a88a7715e29b364d9f0a48471592dc03ea54a3eef9300f27e8a111a6cfb36",
-      "characters": 6711,
-      "lines": 133,
+      "text_sha256": "a144012a3525ec736d1a0ea3fda9a7d0d3ef772b4c1b850ec3913e2b6377aa41",
+      "characters": 6762,
+      "lines": 134,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35871,12 +35871,12 @@
     },
     {
       "path": ".github/workflows/syn-release-installation.yml",
-      "sha256": "87fb36d4f98e6e8ba0007e6e09ad1cb2b7e8f8756c16ea9df94225b66b2345e1",
-      "bytes": 3312,
+      "sha256": "18beaf9795761dd4e44701e7f5f330cdf99de3d0a5af18271e454e2707c802e6",
+      "bytes": 3363,
       "kind": "narrative_text",
-      "text_sha256": "87fb36d4f98e6e8ba0007e6e09ad1cb2b7e8f8756c16ea9df94225b66b2345e1",
-      "characters": 3312,
-      "lines": 59,
+      "text_sha256": "18beaf9795761dd4e44701e7f5f330cdf99de3d0a5af18271e454e2707c802e6",
+      "characters": 3363,
+      "lines": 60,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "92c160d4616dc808b4ba03f075ec2f93036afca62b3c5d9dc8acac964ff3ee53",
+  "review_sha256": "4f93639036e4265d4e7cad9378e94cbb939f49e8b51b7077e05cf6ea31ffc357",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {

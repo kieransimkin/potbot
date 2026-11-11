@@ -82688,7 +82688,7 @@
       },
       {
         "path": ".github/workflows/browser-rendered-acceptance.yml",
-        "sha256": "394356820815851c2563ad323d0773052662727c82405c53e8c414dbfb3a2269",
+        "sha256": "3a73b522f4ac2bba3725c24858272377b0d706825fb41ed8a7399fe73ac2beee",
         "name": "Browser rendered worker acceptance",
         "state": "active",
         "scope": [
@@ -82778,7 +82778,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "d875346f6eebb1995f32116eea8e42ee9ab4642f92d5c15633c89621bcd3dd7f",
+        "sha256": "2856228278cdae4ec5502b6876e50bad9efce5118c4885eacb908b54c29792d5",
         "name": "Potbot verification",
         "state": "active",
         "scope": [
@@ -82834,7 +82834,7 @@
       },
       {
         "path": ".github/workflows/context-agent-rpc.yml",
-        "sha256": "e16a88a7715e29b364d9f0a48471592dc03ea54a3eef9300f27e8a111a6cfb36",
+        "sha256": "a144012a3525ec736d1a0ea3fda9a7d0d3ef772b4c1b850ec3913e2b6377aa41",
         "name": "MODEL.md agent RPC and PostgreSQL sessions",
         "state": "active",
         "scope": [
@@ -83153,7 +83153,7 @@
       },
       {
         "path": ".github/workflows/syn-release-installation.yml",
-        "sha256": "87fb36d4f98e6e8ba0007e6e09ad1cb2b7e8f8756c16ea9df94225b66b2345e1",
+        "sha256": "18beaf9795761dd4e44701e7f5f330cdf99de3d0a5af18271e454e2707c802e6",
         "name": "Syn release installation boundaries",
         "state": "active",
         "scope": [
