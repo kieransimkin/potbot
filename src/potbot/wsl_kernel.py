@@ -261,17 +261,25 @@ class _AssetRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(
         self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str
     ) -> Any:
-        target = urllib.parse.urlsplit(newurl)
+        try:
+            target = urllib.parse.urlsplit(newurl)
+            port = target.port
+        except ValueError as error:
+            raise ScopeDeniedError("Untrusted Potbot release asset redirect") from error
         if (
             target.scheme != "https"
             or target.hostname not in _ASSET_HOSTS
             or target.username is not None
             or target.password is not None
-            or target.port not in {None, 443}
+            or port not in {None, 443}
             or target.fragment
         ):
             raise ScopeDeniedError("Untrusted Potbot release asset redirect")
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        redirect = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirect is not None:
+            for header in ("Authorization", "Proxy-authorization", "Cookie"):
+                redirect.remove_header(header)
+        return redirect
 
 
 def _download_archive(url: str, stream: BinaryIO, expected_digest: str) -> None:

@@ -285,8 +285,16 @@ def test_kernel_asset_redirect_accepts_only_github_download_hosts():
     request = wsl_kernel.urllib.request.Request(
         "https://github.com/kieransimkin/potbot/releases/download/v0.5.0.dev13/bundle.zip"
     )
+    request.add_header("Proxy-Authorization", "Basic fixture")
+    request.add_header("Authorization", "Bearer fixture")
+    request.add_header("Cookie", "fixture=1")
     target = "https://release-assets.githubusercontent.com/path?download=example"
     redirected = handler.redirect_request(request, None, 302, "", {}, target)
     assert redirected.full_url == target
+    assert not any(redirected.has_header(name) for name in request.headers)
     with pytest.raises(ScopeDeniedError, match="Untrusted Potbot release asset redirect"):
         handler.redirect_request(request, None, 302, "", {}, "https://example.org/bundle.zip")
+    with pytest.raises(ScopeDeniedError, match="Untrusted Potbot release asset redirect"):
+        handler.redirect_request(
+            request, None, 302, "", {}, "https://release-assets.githubusercontent.com:x/bundle.zip"
+        )
