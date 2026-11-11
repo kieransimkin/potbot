@@ -41,6 +41,7 @@ SERVICE_CREDENTIAL_NAMES = (
     "api.setup_token",
 )
 _NAMES = {"postgres.application", "postgres.admin", *SERVICE_CREDENTIAL_NAMES}
+_MCP_TOKEN_NAME = re.compile(r"mcp\.oauth\.[a-f0-9]{64}\Z")
 _PURPOSE_ENV = {"application": "POTBOT_DSN", "admin": "POTBOT_ADMIN_DSN"}
 _URL_ERROR = "Enter a PostgreSQL URL for one explicit host and database; its value is not logged."
 _CONNECTION_ERROR = (
@@ -111,7 +112,7 @@ class CredentialStore:
         return self._provided_backend
 
     def _account(self, name: str) -> str:
-        if name not in _NAMES:
+        if name not in _NAMES and not _MCP_TOKEN_NAME.fullmatch(name):
             raise InvalidInputError("Unknown credential name.")
         return f"{self.profile}:{name}"
 
