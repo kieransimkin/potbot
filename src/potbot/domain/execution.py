@@ -120,6 +120,7 @@ class ToolDefinition:
     accepts_stdin: bool = False
     memory_bytes: int | None = None
     cpu_seconds: int | None = None
+    protocol: str = "process"
 
     def __post_init__(self) -> None:
         ActionProposal(self.name)
@@ -128,6 +129,14 @@ class ToolDefinition:
             raise InvalidInputError("A tool requires an explicit executable.")
         if not isinstance(self.capability, str) or not self.capability.strip():
             raise InvalidInputError("A tool requires an explicit capability.")
+        if self.protocol not in ("process", "mcp"):
+            raise InvalidInputError("Unknown installed tool protocol.")
+        if self.protocol == "mcp" and (
+            self.mutates or self.allow_arguments or self.secret_refs or not self.accepts_stdin
+        ):
+            raise InvalidInputError(
+                "Managed MCP requires read-only fixed argv and an input artifact."
+            )
         if any(
             type(value) is not bool
             for value in (self.mutates, self.allow_arguments, self.accepts_stdin)
@@ -167,6 +176,8 @@ class ToolDefinition:
         fields = {name: getattr(self, name) for name in self.__dataclass_fields__}
         if not self.accepts_stdin:
             fields.pop("accepts_stdin")  # Preserve every Phase 3 definition identity.
+        if self.protocol == "process":
+            fields.pop("protocol")  # Preserve historical process tool identities.
         for name in ("memory_bytes", "cpu_seconds"):
             if fields[name] is None:
                 fields.pop(name)  # Keep historical definition fingerprints stable.

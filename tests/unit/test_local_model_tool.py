@@ -15,9 +15,15 @@ from potbot.models.local_tool import checked_model, load_request
 def test_old_tool_definition_identity_is_preserved():
     tool = ToolDefinition("inspect.local", "inspect", ("/usr/bin/python3",))
     historical = {
-        k: getattr(tool, k)
-        for k in tool.__dataclass_fields__
-        if k not in {"accepts_stdin", "memory_bytes", "cpu_seconds"}
+        "name": "inspect.local",
+        "capability": "inspect",
+        "argv_prefix": ("/usr/bin/python3",),
+        "mutates": True,
+        "allow_arguments": False,
+        "timeout_ms": 30_000,
+        "max_output_bytes": 1_048_576,
+        "environment": (),
+        "secret_refs": (),
     }
     assert tool.fingerprint == content_hash(historical)
 

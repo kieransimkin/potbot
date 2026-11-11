@@ -23,6 +23,7 @@ from potbot.domain.errors import (
     StateMismatchError,
 )
 from potbot.domain.execution import ActionProposal, CapabilityContext, ToolDefinition, ToolRegistry
+from potbot.domain.serialization import canonical_json, content_hash
 from potbot.domain.tasks import ContractSpec, DeliverableType, Requirement, TaskStatus
 from potbot.evaluation.repository_fixture import (
     create_repository_fixture,
@@ -31,11 +32,24 @@ from potbot.evaluation.repository_fixture import (
 from potbot.models.configuration import EnvironmentManifest, store_environment
 from potbot.persistence.artifacts import ArtifactStore, LocalArtifactBackend
 from potbot.persistence.database import Database, RepositoryStore
+from potbot.tools.agent_homes import AgentHomeRegistry
+from potbot.tools.capability_contracts import (
+    ToolImplementationDescriptor,
+    ToolInstallationDescriptor,
+    ToolInvocationIntent,
+)
 from potbot.tools.gateway import ToolGateway
+from potbot.tools.interactive_supervisor import InteractiveExit
+from potbot.tools.mcp_gateway import InstalledMcpTool, mcp_configuration_hash
+from potbot.tools.mcp_protocol import McpCallResult, McpToolInfo
 from potbot.tools.receipts import RunReceiptStore
 from potbot.tools.repository import CandidateWorkspaceManager, RepositoryStateStore
 from potbot.tools.secrets import SecretReferenceProvider
+from potbot.tools.shared_workspace_isolation import SharedWorkspaceRuntime
 from potbot.tools.supervisor import ProcessSupervisor
+from potbot.tools.syn_mcp_route import SynMcpRoute
+from potbot.tools.workspace_concurrency import WorkspaceLeaseLedger
+from potbot.workspace_sandbox import WorkspaceSandbox
 
 pytestmark = [pytest.mark.postgres, pytest.mark.sandbox]
 PYTHON = "/usr/bin/python3"
@@ -95,6 +109,7 @@ def setup(
     tools: tuple[ToolDefinition, ...] | None = None,
     secret_values=None,
     allowed_secret_refs=(),
+    candidate_root: Path | None = None,
 ):
     fixture = create_repository_fixture(tmp_path / "source")
     repair_repository_fixture(fixture)
@@ -119,7 +134,9 @@ def setup(
     artifacts = ArtifactStore(app_env.db, LocalArtifactBackend(app_env.artifact_root))
     states = RepositoryStateStore(app_env.db, artifacts)
     state = states.capture(app_env.context, app_env.repository_id, fixture.path, environment["id"])
-    candidates = CandidateWorkspaceManager(app_env.db, artifacts, tmp_path / "candidates")
+    candidates = CandidateWorkspaceManager(
+        app_env.db, artifacts, candidate_root or tmp_path / "candidates"
+    )
     candidate = candidates.allocate(app_env.context, state["id"])
     initialized = tasks.transition(
         app_env.context,
@@ -215,6 +232,221 @@ def restarted(rig) -> ToolGateway:
         rig.receipts,
         supervisor=ProcessSupervisor(),
     )
+
+
+@pytest.mark.parametrize("fault", [None, "lost-reply", "after-receipt", "reservation-lost"])
+def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
+    app_env, tmp_path: Path, monkeypatch, fault
+):
+    context = app_env.context
+    home, rootfs = tmp_path / "worker-home", tmp_path / "worker-image"
+    home.mkdir()
+    rootfs.mkdir()
+    shared = SharedWorkspaceRuntime("a" * 64, rootfs, home, "b" * 64)
+    private = tmp_path / "worker-private"
+    private.mkdir(mode=0o700)
+    ledger = WorkspaceLeaseLedger(private / "workspace-leases.sqlite", workspace_home=home)
+    ledger.pin_image(
+        context.workspace_id,
+        digest=shared.image_digest,
+        image_ref="ghcr.io/example/fixture@sha256:" + shared.image_digest,
+        build_commit="c" * 40,
+        platform="linux/amd64",
+        rootfs_path=rootfs,
+        qualification_sha256=shared.qualification_sha256,
+    )
+    agent = uuid4()
+    homes = AgentHomeRegistry(ledger, workspace_name="mcp-fixture")
+    registered = homes.provision(context.workspace_id, agent)
+    sandbox = WorkspaceSandbox.prepare(home / registered.directory)
+    definition = ToolDefinition(
+        "fixture-mcp",
+        "test",
+        (PYTHON,),
+        mutates=False,
+        accepts_stdin=True,
+        protocol="mcp",
+    )
+    rig = setup(app_env, tmp_path, tools=(definition,), candidate_root=sandbox.path("candidates"))
+    tool = McpToolInfo.from_wire(
+        {
+            "name": "add",
+            "description": "Fixture addition",
+            "inputSchema": {
+                "type": "object",
+                "required": ["a", "b"],
+                "additionalProperties": False,
+                "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+            },
+        }
+    )
+    capability = tool.to_capability(server_slug="fixture", effect_class="read_only")
+    implementation = ToolImplementationDescriptor(
+        "syn://thing/fixture-mcp-implementation",
+        capability.fingerprint,
+        "d" * 64,
+        "Fixture publisher",
+        "1.0.0",
+    )
+    binary = "e" * 64
+    installation = ToolInstallationDescriptor(
+        "syn://thing/fixture-mcp-installation",
+        context.workspace_id,
+        implementation.fingerprint,
+        mcp_configuration_hash(definition, tool, binary),
+        "f" * 64,
+        ("test",),
+    )
+    binding = InstalledMcpTool(definition, tool, binary, capability, implementation, installation)
+    route = SynMcpRoute(
+        context.workspace_id, "1" * 32, 1000, lambda *_: pytest.fail("Fixture transport")
+    )
+    gateway = ToolGateway(
+        app_env.db,
+        rig.artifacts,
+        rig.candidates,
+        rig.registry,
+        rig.capabilities,
+        rig.receipts,
+        shared_runtime=shared,
+        shared_leases=ledger,
+        agent_homes=homes,
+        host_agent_id=agent,
+        mcp_installations=(binding,),
+        mcp_routes=(route,),
+    )
+    arguments = {"a": 30, "b": 12}
+    input_view = rig.store.create_inputs(
+        context,
+        rig.episode_id,
+        rig.contract_id,
+        rig.candidate["state_id"],
+        "mcp-inputs",
+    )
+
+    def action(installation_hash, key):
+        artifact = rig.artifacts.put(
+            context,
+            canonical_json(
+                {
+                    "installation_hash": installation_hash,
+                    "arguments": arguments,
+                }
+            ).encode(),
+            "application/json",
+        )
+        proposal = rig.store.propose(
+            context,
+            UUID(input_view["node_id"]),
+            ActionProposal(definition.name),
+            key,
+            stdin_artifact_id=artifact["id"],
+        )
+        return UUID(proposal["id"]), artifact["id"]
+
+    reservation = reserve(rig, definition.name)
+    bad, _ = action("1" * 64, "wrong-installation")
+    with pytest.raises(ScopeDeniedError, match="installed policy"):
+        gateway.execute(context, bad, rig.lease, reservation)
+    assert gateway.store.inspect(context, bad)["run"] is None
+    selected, input_artifact = action(installation.fingerprint, "correct-installation")
+    with pytest.raises(ScopeDeniedError, match="operator installation"):
+        rig.gateway.execute(context, selected, rig.lease, reservation)
+
+    calls = []
+    intents = []
+
+    class FixtureClient:
+        def __init__(self, **config):
+            self.config = config
+
+        async def __aenter__(self):
+            scope = self.config["managed_scope"]
+            assert scope.principal == context and scope.agent_id == agent
+            assert self.config["syn_route"] is route
+            assert self.config["executable_sha256"] == binary
+            with app_env.db.transaction(context) as conn:
+                event = conn.execute(
+                    "SELECT payload_id,details FROM evidence_events "
+                    "WHERE run_id=%s AND event_type='tool_dispatch_intent'",
+                    (scope.run_id,),
+                ).fetchone()
+            assert event["payload_id"] == input_artifact
+            assert event["details"]["mcp_installation"] == installation.to_dict()
+            intent = ToolInvocationIntent.from_dict(event["details"]["mcp_intent"])
+            assert (
+                intent.invocation_id == scope.run_id and intent.task_revision_id == rig.contract_id
+            )
+            assert intent.input_hash == content_hash(arguments)
+            assert intent.fingerprint == event["details"]["mcp_intent_hash"]
+            intents.append(intent)
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def call(self, name, supplied):
+            assert name == "add" and supplied == arguments
+            if fault == "reservation-lost":
+                rig.budgets.mark_indeterminate(
+                    context, reservation, "Fixture reservation is unresolved"
+                )
+            self.config["approve_call"](tool, supplied)
+            calls.append(name)
+            if fault == "lost-reply":
+                raise IndeterminateExecutionError("Fixture lost the signed reply")
+            return McpCallResult.from_wire(name, {"structuredContent": {"sum": 42}})
+
+        async def close(self):
+            return InteractiveExit(0, "a" * 64, 0, False, "b" * 64, False, True)
+
+    monkeypatch.setattr("potbot.tools.mcp_gateway.SandboxedMcpClient", FixtureClient)
+    if fault in {"lost-reply", "reservation-lost"}:
+        error, message = (
+            (IndeterminateExecutionError, "lost the signed reply")
+            if fault == "lost-reply"
+            else (ScopeDeniedError, "live durable admission")
+        )
+        with pytest.raises(error, match=message):
+            gateway.execute(context, selected, rig.lease, reservation)
+        view = gateway.store.inspect(context, selected)
+        assert view["execution_status"] == "indeterminate" and view["completion"] is None
+        budget = rig.budgets.inspect(context, rig.episode_id)
+        assert budget["held"]["calls"] == 1 and budget["used"] == {}
+        with pytest.raises(IndeterminateExecutionError, match="without a confirmed completion"):
+            gateway.execute(context, selected, rig.lease, reservation)
+        unresolved = gateway.reconcile(context, UUID(view["run"]["id"]))
+        assert unresolved["reconciliation"] == "unresolved"
+        assert unresolved["automatic_retry_permitted"] is False
+    else:
+        if fault == "after-receipt":
+
+            def interrupted():
+                raise OSError("Fixture interrupted after the receipt")
+
+            with pytest.raises(OSError, match="interrupted after the receipt"):
+                gateway.execute(
+                    context, selected, rig.lease, reservation, after_receipt=interrupted
+                )
+            view = gateway.store.inspect(context, selected)
+            assert view["execution_status"] == "indeterminate"
+            view = restarted(rig).reconcile(context, UUID(view["run"]["id"]))
+        else:
+            view = gateway.execute(context, selected, rig.lease, reservation)
+        assert view["execution_status"] == "completed"
+        result = json.loads(
+            rig.artifacts.read(context, UUID(view["completion"]["stdout_artifact_id"]))
+        )
+        assert result["structured_content"] == {"sum": 42}
+        assert result["observation"]["invocation_hash"] == intents[0].fingerprint
+        assert view["completion"]["details"]["mcp_intent_hash"] == intents[0].fingerprint
+        assert rig.budgets.inspect(context, rig.episode_id)["used"]["calls"] == 1
+        assert (
+            gateway.execute(context, selected, rig.lease, reservation)["completion"]
+            == view["completion"]
+        )
+    assert calls == ([] if fault == "reservation-lost" else ["add"])
+    assert len(intents) == 1
 
 
 def test_actual_compile_and_tests_persist_output_inputs_states_and_events_after_restart(

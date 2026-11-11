@@ -133,7 +133,11 @@ class SandboxedMcpClient:
         ):
             raise ScopeDeniedError("The Syn MCP route must match the controller workspace")
         root = sandbox.confine(candidate_root, area="candidates", must_exist=True)
-        if not root.is_dir() or root.parent != sandbox.path("candidates"):
+        candidates = sandbox.path("candidates")
+        if not root.is_dir() or (
+            root.parent != candidates
+            and not self._managed_candidate(root, candidates, managed_scope)
+        ):
             raise ScopeDeniedError("MCP must run inside one candidate directory")
         if (
             not isinstance(executable_sha256, str)
@@ -170,6 +174,21 @@ class SandboxedMcpClient:
         self._client: McpClient | None = None
         self._catalog: McpCatalog | None = None
         self._launched_definition_hash: str | None = None
+
+    @staticmethod
+    def _managed_candidate(root: Path, candidates: Path, scope: ManagedMcpScope | None) -> bool:
+        parts = root.relative_to(candidates).parts
+        if (
+            scope is None
+            or len(parts) != 3
+            or parts[0] != str(scope.principal.workspace_id)
+            or parts[2] != "tree"
+        ):
+            return False
+        try:
+            return str(UUID(parts[1])) == parts[1]
+        except ValueError:
+            return False
 
     @property
     def catalog(self) -> McpCatalog:

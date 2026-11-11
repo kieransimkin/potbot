@@ -211,3 +211,47 @@ through Syn. The test discarded the verified result for a second call.
 The guest log recorded exactly two calls. The supervisor confirmed the
 worker stopped and TASKSTATS accounted for all three exits. The workspace
 lease was released, and a new session using the same run ID was refused.
+
+### Durable MCP admission through the tool gateway
+
+Register the server as a read-only `ToolDefinition` with `protocol="mcp"`,
+fixed arguments and an accepted input artifact. The trusted controller
+installs an `InstalledMcpTool` and the live `installed_mcp_route` for the
+workspace on `ToolGateway`. The installation pins the server definition,
+executable digest, discovered tool and schemas, and operator policy revision.
+The candidate manager must use the registered Agent's candidates directory.
+
+Create a canonical JSON input artifact with `installation_hash` and
+`arguments`. Pass its ID to `ExecutionStore.propose` and use the existing
+candidate lease and task budget reservation. `ToolGateway.execute` selects
+the MCP path from the installed definition. Async controllers can await
+`execute_mcp`.
+
+~~~mermaid
+sequenceDiagram
+    participant G as ToolGateway
+    participant P as PostgreSQL
+    participant S as Signed Syn operator
+    participant W as Audited MCP worker
+    G->>P: Commit action run, installation and frozen tool intent
+    G->>S: Deliver the admitted request
+    G->>W: Call the selected MCP tool
+    W-->>G: Return the tool result
+    G->>S: Collect the signed result
+    G->>G: Confirm audited shutdown and write completion receipt
+    G->>P: Publish the observation and settle the reservation
+~~~
+
+The action run and dispatch event commit together before worker launch. The
+event links the frozen artifact and records the installation, task revision,
+policy and invocation fingerprints. The controller checks the same candidate
+lease and active task again at dispatch. A completed action returns the
+existing observation on retry. If the signed result is lost, the candidate
+is quarantined and the reservation stays held. Recovery can use a matching
+durable completion receipt without starting the tool again.
+
+The managed WSL run used the signed Syn 0.10.0 release, the signed amd64
+worker image and a disposable PostgreSQL instance. PostgreSQL retained two
+frozen intents. It settled the call that returned 42 and held the call whose
+signed reply was dropped. A retry started neither worker again. TASKSTATS
+accounted for both workers with zero missing exits.

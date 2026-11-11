@@ -104,6 +104,8 @@ class ApprovedCliAdapter:
         if not isinstance(proposal, ActionProposal):
             raise InvalidInputError("CLI requires a typed ActionProposal")
         tool = self.registry.get(proposal.kind)
+        if tool.protocol != "process":
+            raise ScopeDeniedError("MCP tools require the controller's durable Syn dispatch")
         tool.admit(proposal)
         self.capabilities.authorize(tool, self.task_contract)
         if tool.secret_refs:

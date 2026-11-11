@@ -17,6 +17,7 @@ from potbot.domain.errors import (
     ScopeDeniedError,
     StateMismatchError,
 )
+from potbot.domain.execution import ToolDefinition, ToolRegistry
 from potbot.tools.gateway import ToolGateway
 from potbot.tools.isolation import IsolationLaunch
 from potbot.tools.shared_bash_sessions import SharedBashSessionSupervisor
@@ -207,17 +208,8 @@ def _fake_gateway(identity, *, outcome: str = "success"):  # type: ignore[no-unt
         )
     )
     gateway.capabilities = SimpleNamespace(allowed_secret_refs=())
-    gateway.registry = SimpleNamespace(
-        get=lambda _: SimpleNamespace(
-            secret_refs=(),
-            accepts_stdin=False,
-            argv_prefix=("/bin/bash", "-c", "pwd"),
-            environment=(),
-            timeout_ms=30000,
-            max_output_bytes=10000,
-            memory_bytes=None,
-            cpu_seconds=None,
-        )
+    gateway.registry = ToolRegistry(
+        (ToolDefinition("bash", "test", ("/bin/bash", "-c", "pwd"), max_output_bytes=10_000),)
     )
     gateway.candidates = SimpleNamespace(check_lease=lambda *args: candidate)
     inspected = []
