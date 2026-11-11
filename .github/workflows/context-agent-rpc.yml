@@ -79,6 +79,7 @@ jobs:
           --junitxml=artifacts/context-integration/acceptance.xml
       - name: Exercise context RPC inside a monitored Linux sandbox
         run: |
+          bash scripts/ci_prepare_ubuntu_mirror.sh
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends strace bubblewrap busybox-static
           strace --pidns-translation -o /dev/null -- /usr/bin/true

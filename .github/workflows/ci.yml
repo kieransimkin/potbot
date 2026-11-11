@@ -78,6 +78,7 @@ jobs:
       - run: uv sync --locked --dev
       - name: Install the Linux tracer
         run: |
+          bash scripts/ci_prepare_ubuntu_mirror.sh
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends strace bubblewrap busybox-static
       - name: Verify Linux worker tracing and kernel accounting
@@ -124,6 +125,7 @@ jobs:
         run: uv run --locked python -m pytest -q tests/unit/test_temporary.py tests/unit/test_temporary_cleanup.py tests/unit/test_pytest_temp_isolation.py
       - name: Install required Linux process isolation
         run: |
+          bash scripts/ci_prepare_ubuntu_mirror.sh
           sudo apt-get update
           sudo apt-get install --yes bubblewrap libseccomp2 apparmor-profiles
       - name: Load Ubuntu's Bubblewrap user-namespace profile

@@ -20,6 +20,7 @@ jobs:
         run: uv run --locked python -m pytest -q tests/unit/test_syn_release_installation.py tests/unit/test_syn_operator_deployment.py --junitxml=artifacts/syn-release-boundaries.xml
       - name: Install native Agent sandbox prerequisites
         run: |
+          bash scripts/ci_prepare_ubuntu_mirror.sh
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends bubblewrap uidmap dbus-user-session libseccomp2 busybox-static apparmor-profiles
       - name: Verify persistent Agent logs with two real Linux UIDs and sandbox restarts
