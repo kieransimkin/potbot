@@ -1018,6 +1018,16 @@
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
+      "path": "docs/implementation/context-rpc-syn-route.md",
+      "sha256": "21ccfa4a87de5fed2f230314bec853179964accdd8259e7b1f40a173b105d8ea",
+      "bytes": 2378,
+      "kind": "narrative_text",
+      "text_sha256": "21ccfa4a87de5fed2f230314bec853179964accdd8259e7b1f40a173b105d8ea",
+      "characters": 2378,
+      "lines": 43,
+      "interpretation": "source_content_not_runtime_evidence"
+    },
+    {
       "path": "docs/implementation/cross-agent-compatibility.md",
       "sha256": "9805c017fdd0aa344128a95c1ca31d57954cd904e74f577093d2c3f67afbb68a",
       "bytes": 13997,
@@ -1294,12 +1304,12 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "20c77a451444407c6198b0badf7959de90bf4816f4345b054755fc1517cc89ea",
-      "bytes": 13114,
+      "sha256": "cb379b194a3a2bcfb69f04b7bf567c65d7d4ba9a9691259a978d1f409a540c20",
+      "bytes": 13335,
       "kind": "narrative_text",
-      "text_sha256": "20c77a451444407c6198b0badf7959de90bf4816f4345b054755fc1517cc89ea",
-      "characters": 13107,
-      "lines": 108,
+      "text_sha256": "cb379b194a3a2bcfb69f04b7bf567c65d7d4ba9a9691259a978d1f409a540c20",
+      "characters": 13328,
+      "lines": 112,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -28947,7 +28957,8 @@
         "Close remaining constructor/protocol and per-launch snapshot coverage",
         "Keep AGENTS authority separate from data-only MODEL/MEMORY and untrusted retrieved content",
         "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants",
-        "Qualify deterministic manifests, compaction, semantic meaning and every model/context producer"
+        "Qualify deterministic manifests, compaction, semantic meaning and every model/context producer",
+        "Qualify the installed directed route with signed Syn and worker packages, two Agents and fault fencing."
       ],
       "next_action": "For RD26 (Instruction authority versus state/history data. [Original context contract][ctxplan], [modernization][modern].): Integrate existing context and prompt owners; retain exact input packet/tokenizer and pinned semantic release evidence. Extend Stage 10D rather than importing the standalone prototype as the authoritative application store.",
       "review_families": [
@@ -28992,7 +29003,8 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Close remaining constructor/protocol and per-launch snapshot coverage",
-        "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants"
+        "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants",
+        "Qualify the installed directed route with signed Syn and worker packages, two Agents and fault fencing."
       ],
       "next_action": "For RD27 (PostgreSQL root/per-agent/per-object context, controlled projections, normal worker use and concurrency. [PostgreSQL contract][ctxpg], [Stage 10C][ctx49], [Stage 10D][ctx50].): Extend Stage 10D rather than importing the standalone prototype as the authoritative application store.",
       "review_families": [
@@ -29034,7 +29046,8 @@
         "Close remaining constructor/protocol and per-launch snapshot coverage",
         "Implement one canonical proposal/admission lifecycle with scoped evidence and accepted heads",
         "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants",
-        "Qualify correction, targeted invalidation, delayed defects, forgetting and deletion-safe restore"
+        "Qualify correction, targeted invalidation, delayed defects, forgetting and deletion-safe restore",
+        "Qualify the installed directed route with signed Syn and worker packages, two Agents and fault fencing."
       ],
       "next_action": "For RD28 (Evidence-backed current state, history, disagreements, correction and model-change notifications. [Context stages 4/8][ctxplan], [inspection][ctx45], original P087\u2013P092.): Extend Stage 10D rather than importing the standalone prototype as the authoritative application store. Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority.",
       "review_families": [
@@ -30117,7 +30130,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R01",
       "title": "Upstream inventory",
-      "locator": "line:96",
+      "locator": "line:100",
       "source_claim": "requirements_only",
       "requirement_sha256": "382e979610f234f8a7ec91a62dae6315fb474d2b0fd73ad19b925c734afddf6f",
       "unified_owners": [
@@ -30163,7 +30176,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R02",
       "title": "[Operator release installer](syn-release-installation.md) implemented",
-      "locator": "line:97",
+      "locator": "line:101",
       "source_claim": "requirements_only",
       "requirement_sha256": "9f10ceacabca28d35025c4729f4058317fc41ef5c44c6e0e5112aa4576fe4472",
       "unified_owners": [
@@ -30209,7 +30222,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R03",
       "title": "[Native operator deployment candidate](syn-operator-deployment.md)",
-      "locator": "line:98",
+      "locator": "line:102",
       "source_claim": "requirements_only",
       "requirement_sha256": "519df95b1d3c0a47412fa10b01092e7143567e9c949b23224e4482ce24a1e9a4",
       "unified_owners": [
@@ -30255,7 +30268,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R04",
       "title": "[Agent provisioning and official-package acceptance](syn-agent-deployment.md)",
-      "locator": "line:99",
+      "locator": "line:103",
       "source_claim": "requirements_only",
       "requirement_sha256": "9b33b5506efdc6dee3c9974dbc0ad52ca0ef8d9cb40ef76c31e008c6177e8631",
       "unified_owners": [
@@ -30301,7 +30314,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R05",
       "title": "[Native identity and Cog admission](syn-cog-admission.md) implemented; native boundary qualified",
-      "locator": "line:100",
+      "locator": "line:104",
       "source_claim": "requirements_only",
       "requirement_sha256": "e6a234f23ab50e8b660c3d198f413039ff1df72fb2828a34958aaa7e26f763f5",
       "unified_owners": [
@@ -30348,7 +30361,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R06",
       "title": "[Package staging](syn-release-installation.md#stage-a-runtime-upgrade) and [retained operator switching](syn-operator-deployment.md#switch-the-release-for-an-existing-operator)",
-      "locator": "line:101",
+      "locator": "line:105",
       "source_claim": "requirements_only",
       "requirement_sha256": "52a7eb1f5ccc6e1bd31650992eca02588e3fdc9b7048f3de165a3b411132a877",
       "unified_owners": [
@@ -30394,7 +30407,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R07",
       "title": "[Official-release parity and removal gate](syn-r07-release-parity.md)",
-      "locator": "line:102",
+      "locator": "line:106",
       "source_claim": "requirements_only",
       "requirement_sha256": "b6e9570b746eebce1f108b16316f3eb16c445040db4742654673b2a2abbb6544",
       "unified_owners": [
@@ -33803,7 +33816,8 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Close remaining constructor/protocol and per-launch snapshot coverage",
-        "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants"
+        "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants",
+        "Qualify the installed directed route with signed Syn and worker packages, two Agents and fault fencing."
       ],
       "next_action": "For U09 (Prompt/context and MODEL.md): Extend Stage 10D rather than importing the standalone prototype as the authoritative application store.",
       "review_families": [
@@ -35298,12 +35312,12 @@
     },
     {
       "path": "src/potbot/context/runtime_integration.py",
-      "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
-      "bytes": 15146,
+      "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
+      "bytes": 15561,
       "kind": "narrative_text",
-      "text_sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
-      "characters": 15146,
-      "lines": 387,
+      "text_sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
+      "characters": 15561,
+      "lines": 396,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35979,7 +35993,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "e6a0e7db1efdef11faa04d64b4d3120c4885cd2fb74d39cbb77c7206e6d164eb",
+  "review_sha256": "fe86ea6522e3d2e4b16650581001862b1a625844ef7b7954a972c24a7a11a7d4",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -114794,6 +114808,16 @@
       ]
     },
     {
+      "source": "docs/implementation/context-rpc-syn-route.md",
+      "locator": "line:1-43",
+      "sha256": "5357dc437ca3e57971173ae0bbd422c96671b3cfe3f30a8685c2a1f29494fd68",
+      "excerpt": "# Context RPC through Syn: invocation binding\n\nThe monitored Cog dispatcher can take an explicitly selected host-only Syn\nContext route. Once selected, a Contex",
+      "review_families": [
+        "context",
+        "syn-operations"
+      ]
+    },
+    {
       "source": "docs/implementation/cross-agent-compatibility.md",
       "locator": "line:1-4",
       "sha256": "4b58ebb78ec6ebbd217ed580f2d17b95ab39ebf4788cd53921235bde7813b8af",
@@ -116151,17 +116175,17 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:27-58",
-      "sha256": "a674d39e63bab5ea22d568ee09cca01a53b25f93289489256c1d000ea2521b79",
+      "locator": "line:27-62",
+      "sha256": "39c6bfeaf77d1eae7b598b56cc0ae8f187ab54f478b32f4d002477791c7bd036",
       "excerpt": "## Route application RPC through Syn\n\nThe released Syn node is the transport boundary for RPC between Potbot\nprocesses, services and Agents. Both request and re",
       "review_families": [
-        "syn-release",
+        "context",
         "syn-operations"
       ]
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:59-87",
+      "locator": "line:63-91",
       "sha256": "92cbc62d31be3112d485439a68f6dd3fb9df4ef551746a313e5e7e84f4e2db02",
       "excerpt": "### Implementation sequence\n\n1. Define the canonical directed request/reply interface upstream in\n   Syn. Select the service endpoint under operator authority. ",
       "review_families": [
@@ -116171,7 +116195,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:88-91",
+      "locator": "line:92-95",
       "sha256": "66d620f4efda4fa9c1cebbc7470ccbe5a9c80b222c3de05998971c12559cdf6b",
       "excerpt": "## Identity and adoption invariants\n\nSYN alone owns entropy, key derivation, private-key custody, enrollment and signing. Preserve operator root `m/6969'/420'`,",
       "review_families": [
@@ -116181,7 +116205,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:92-105",
+      "locator": "line:96-109",
       "sha256": "a7b621ca38fe3eb54137753bb9a564420b7ade5727db7137805259a5944f4792",
       "excerpt": "## Delivery milestones and acceptance gates\n\n| Gate | Deliverable | Proof required |\n| --- | --- | --- |\n| SYN-R01 | Upstream inventory | Canonical repository/r",
       "review_families": [
@@ -116193,7 +116217,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:106-108",
+      "locator": "line:110-112",
       "sha256": "4d8ad187a237084718451a2bff422f34b7fae515cb14bbac6803d3f85b75e2c6",
       "excerpt": "## Integration sequencing\n\nBlock production SYN agent launch until SYN-R01\u2013R04; block production Cog dispatch until SYN-R05; block general rollout until SYN-R06",
       "review_families": [
@@ -121582,7 +121606,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "887401e00f60e48086e895ad3d7db33d688b63f62e8f75651ed944d697f422aa",
+          "sha256": "71a641b3ff59636e413126fb6258e9a92ed5079af2fd08fb099de01908351a01",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122218,13 +122242,13 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogExecutor",
-          "sha256": "887401e00f60e48086e895ad3d7db33d688b63f62e8f75651ed944d697f422aa",
+          "sha256": "71a641b3ff59636e413126fb6258e9a92ed5079af2fd08fb099de01908351a01",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
+          "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -122719,7 +122743,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "fb28ad72fef8fb2940069b63d4daee00ce315906ccdf92a3e0e61880d07e3873",
+          "sha256": "5d57530508b1358f79e55a768eaacbfc5e38231537dd7665dd39831638555e4e",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122727,6 +122751,12 @@
           "symbol": "dispatch_context_worker",
           "sha256": "8c08346a8152f0d8dddf988645f1d67ccd7b253c4a92611bd1150d676444b250",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/context/syn_context_route.py",
+          "symbol": "SynContextRoute",
+          "sha256": "63b25a9996a27c0d5e8688c88b65a09dab94d04e963fcc3f48cdeec59361dcc7",
+          "basis": "Reviewed host-only invocation and delivery binding; installer selection and signed-package qualification remain open."
         }
       ],
       "tests": [
@@ -122747,13 +122777,20 @@
           "symbol": "test_registered_context_rpc_result_requires_audited_worker_exit",
           "sha256": "44709dfdd1647965d5c60871eb9e3b06756e60ae324eb81d5b8896c8feeca985",
           "basis": "Reviewed test source. The hosted Linux context job records execution with PostgreSQL and TASKSTATS."
+        },
+        {
+          "path": "tests/unit/test_syn_context_route.py",
+          "symbol": "test_worker_channel_uses_syn_route_and_rechecks_native_pins",
+          "sha256": "c3c6313af528a98e67e4a7a25ed606d0a4bd0b6302e3daa0a625c761046e371a",
+          "basis": "Focused synthetic worker test covers native Agent and lease fence; not managed worker or signed-release acceptance."
         }
       ],
-      "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts.",
+      "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. The optional directed Syn adapter binds delivery to the monitored worker, native Agent and active lease.",
       "support_scope": "Actual application context owners and final-result/lease atomicity tests; not full universal constructor/protocol adoption.",
       "remaining": [
         "Close remaining constructor/protocol and per-launch snapshot coverage",
-        "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants"
+        "Preserve data-only projections, source-backed reconciliation/conflicts and operator-only grants",
+        "Qualify the installed directed route with signed Syn and worker packages, two Agents and fault fencing."
       ],
       "next_action": "Extend Stage 10D rather than importing the standalone prototype as the authoritative application store."
     },
