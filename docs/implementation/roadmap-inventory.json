@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "7d7feb973f34f47f420ab92574ba61f092518f83aad0c9a711c690c66b565866",
-      "bytes": 17851,
+      "sha256": "df5ce376c5e5fdb814525dd8b9709ae1ae27f70039e430318c5e0553a33c9fc6",
+      "bytes": 20374,
       "kind": "narrative_text",
-      "text_sha256": "7d7feb973f34f47f420ab92574ba61f092518f83aad0c9a711c690c66b565866",
-      "characters": 17834,
-      "lines": 283,
+      "text_sha256": "df5ce376c5e5fdb814525dd8b9709ae1ae27f70039e430318c5e0553a33c9fc6",
+      "characters": 20356,
+      "lines": 337,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1274,12 +1274,12 @@
     },
     {
       "path": "docs/implementation/syn-operator-deployment.md",
-      "sha256": "7753546c2776aecb3fd8425c1cb49d8bf54c1175ca183dbf4e0afadfa0dec290",
-      "bytes": 10309,
+      "sha256": "221b985276a734c7ad2691762a82e297ebff50d8974aaa3b9367b88763450bff",
+      "bytes": 10604,
       "kind": "narrative_text",
-      "text_sha256": "7753546c2776aecb3fd8425c1cb49d8bf54c1175ca183dbf4e0afadfa0dec290",
-      "characters": 10303,
-      "lines": 184,
+      "text_sha256": "221b985276a734c7ad2691762a82e297ebff50d8974aaa3b9367b88763450bff",
+      "characters": 10598,
+      "lines": 189,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -30418,7 +30418,7 @@
         "tests/unit/test_tool_capability_contracts.py",
         "tests/unit/test_worker_telemetry.py"
       ],
-      "evidence_state": "reviewed_partial",
+      "evidence_state": "reviewed_qualified_subset",
       "blockers": [
         "Do not automatically upgrade the retained 0.2.1 production operator",
         "Native heartbeat connectivity is neither consensus finality nor general distributed durability",
@@ -30429,7 +30429,7 @@
         "Resolve open PR1 submodule/private-build assumptions against mandatory independent release consumption",
         "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
-      "next_action": "Land the qualified Potbot controller, account for each retained legacy record and caller with its owner, then test a coordinated removal candidate against the pinned official release.",
+      "next_action": "Retain installation evidence and requalify changes to the host, signed image, Syn pin, or worker service before wider deployment.",
       "review_families": [
         "identity",
         "syn-mesh",
@@ -30444,7 +30444,7 @@
         "U06",
         "U16"
       ],
-      "assessment": "Disposable Syn 0.8.0 qualification covers LAN enrollment, native recovery, archival readback and membership revocation. Potbot excludes the transitional runtime from build artifacts while the checkout retains its historical tests."
+      "assessment": "Potbot PR #46 retired the transitional runtime after legacy inventory and managed WSL qualification. The signed worker with official Syn 0.8.0 passed Context RPC and collector-loss fencing. PR #43 qualified both official release pins across typed JSON and Context RPC in CI."
     },
     {
       "key": "tool-cog-contract:C01",
@@ -35969,7 +35969,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "18075de16327c766274397ab704a06d5c874acfe337858f0b0f0c45b6dbbdb9f",
+  "review_sha256": "500ea06e6b45bdc13ff2a72ecad82b0e48984226158f880af90642b4bef35eb0",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -115771,9 +115771,20 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:1-283",
-      "sha256": "25ae047647c5c3496f7abd4d750ce95344dc541fd8f45fea5dc5570ecd28f7e0",
-      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Proposed. This plan covers installation and worker activation.\nThe [Syn release and deployment contract",
+      "locator": "line:1-51",
+      "sha256": "d1aea9b81916ec9bbbc00d4876f000ca32b6ed4bf7e4965d71fd752df19ad63b",
+      "excerpt": "# Potbot self-contained installer mini-plan\n\n**Status:** Stock WSL host setup and controller recovery are implemented.\nAutomated worker activation and signed ke",
+      "review_families": [
+        "accounting",
+        "sandbox",
+        "syn-release"
+      ]
+    },
+    {
+      "source": "docs/implementation/self-contained-installer-plan.md",
+      "locator": "line:52-337",
+      "sha256": "c24961c8aadf188fa9f15974fdbe506402956eb6870260dad96609aa2542896a",
+      "excerpt": "## Resume stock WSL setup\n\nUse the same command for a first install, a retry after Windows asks for a\nreboot, and selection of another reviewed controller wheel",
       "review_families": [
         "accounting",
         "sandbox",
@@ -115908,8 +115919,8 @@
     },
     {
       "source": "docs/implementation/syn-operator-deployment.md",
-      "locator": "line:76-106",
-      "sha256": "1c0668028d0b5df1909c1281a057bc1b73340a6da0d3003dcd3d8a9a257d6afe",
+      "locator": "line:76-111",
+      "sha256": "4c8b0a7b267f1ee53281620689f66a6de60bf9e7340454474c837194e58092d4",
       "excerpt": "## Host preparation\n\n`potbot syn-operator host-setup` installs a dedicated\n`Potbot-SynOperator` WSL2 distribution from official Ubuntu 24.04 on Windows.\nIt reta",
       "review_families": [
         "syn-release"
@@ -115917,7 +115928,7 @@
     },
     {
       "source": "docs/implementation/syn-operator-deployment.md",
-      "locator": "line:107-143",
+      "locator": "line:112-148",
       "sha256": "aa572c34484fc70c3c19628a3091a3164749ba2bfad484ee2cd2594369613e5d",
       "excerpt": "## Deploy the selected release\n\nInstall Potbot's tested controller in the native account, then use the\n[SYN-R02 installer](syn-release-installation.md) with a r",
       "review_families": [
@@ -115926,7 +115937,7 @@
     },
     {
       "source": "docs/implementation/syn-operator-deployment.md",
-      "locator": "line:144-184",
+      "locator": "line:149-189",
       "sha256": "c5f0f78f73353a9ea97e8a0f22d626a89a502000ffc2036c0a732eb114add076",
       "excerpt": "## Ownership and evidence\n\nAttachment authenticates the exact base key, configuration and installed\nruntime with a fresh challenge and native peer UID. An adopt",
       "review_families": [

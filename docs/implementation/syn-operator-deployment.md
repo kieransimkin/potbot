@@ -79,9 +79,11 @@ records the actual observations without exposing terminal or custody data.
 `Potbot-SynOperator` WSL2 distribution from official Ubuntu 24.04 on Windows.
 It retains an ownership receipt and installs Python, build prerequisites and
 GNOME Secret Service under a dedicated non-root `synoperator` account.
-It refuses an existing distribution without its receipt, a missing registered
-distribution, or inconsistent lifecycle state. It never unregisters a distro,
-silently adopts another installation, or replaces a Syn identity.
+Rerun the command after a Windows reboot or interrupted provisioning.
+Setup resumes the intended WSL2 installation and checks its registered
+identity and location. An unrelated registration, an unclaimed distro
+directory or a missing previously registered distribution requires
+reconciliation.
 
 To prepare Windows forwarding, select an exact tested Potbot wheel and its
 independently retained SHA-256:
@@ -96,8 +98,11 @@ environment, verifies its CLI and records its interpreter. Subsequent Windows
 to that controller. Supply native absolute paths for store/policy/state and
 trusted tools. No caller string becomes shell code. Only package acquisition
 may forward the repository read token; it never reaches Syn child processes.
-An unfinished controller installation is not admitted and requires explicit
-reconciliation rather than silent replacement.
+Rerun the same command to resume an interrupted controller build or verify
+an already installed wheel. Changing the selected digest keeps the
+previous controller available until the replacement passes verification.
+On Windows, use `potbot syn-operator host-status` to see the current kernel's
+accounting prerequisites separately from host setup.
 
 Linux uses the native OS and explicit apt prerequisites; other Linux package
 managers require operator preparation. macOS uses native Keychain without a

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
-from potbot.domain.errors import ScopeDeniedError, StateMismatchError
+from potbot.domain.errors import CapabilityUnavailableError, ScopeDeniedError, StateMismatchError
 from potbot.syn_release import host
 from potbot.syn_release.contracts import Policy, canonical
 from potbot.syn_release.operator import SynOperatorDeployment
@@ -74,17 +76,22 @@ def managed_host(monkeypatch, tmp_path):
     monkeypatch.setenv("SystemRoot", str(tmp_path / "windows"))
     current = set()
     calls = []
+    manager = host.WslOperatorHost(tmp_path / "managed")
+    registration = host.WslRegistration(uuid4().hex, manager.location, 2)
 
     def run(argv, *, timeout=30):
         calls.append((argv, timeout))
-        if "--list" in argv:
-            return "\n".join(sorted(current))
-        if "--install" in argv:
+        if argv[1:] == ["--version"]:
+            return "WSL version: 2.6.3.0\n"
+        if "--install" in argv and "--no-distribution" not in argv:
             current.add(host.DISTRO)
         return "syn-native-prerequisites-ready\n"
 
     monkeypatch.setattr(host, "run_host", run)
-    return host.WslOperatorHost(tmp_path / "managed"), current, calls
+    monkeypatch.setattr(
+        host, "_registered_distro", lambda: registration if host.DISTRO in current else None
+    )
+    return manager, current, calls
 
 
 def test_windows_setup_installs_owned_wsl_and_native_service_without_claiming_keys(managed_host):
@@ -93,6 +100,7 @@ def test_windows_setup_installs_owned_wsl_and_native_service_without_claiming_ke
     (install,) = [argv for argv, _ in calls if "--install" in argv]
     assert install[install.index("--distribution") + 1] == "Ubuntu-24.04"
     assert install[install.index("--name") + 1] == host.DISTRO
+    assert install[install.index("--version") + 1] == "2"
     assert "--no-launch" in install and "--web-download" in install
     (provision,) = [argv for argv, _ in calls if "--exec" in argv and "/bin/sh" in argv]
     assert provision[-1] == host.PROVISION_UBUNTU
@@ -104,8 +112,150 @@ def test_windows_setup_installs_owned_wsl_and_native_service_without_claiming_ke
     assert record["state"] == "ready"
     assert record["operator_identity_created"] is False
     assert record["keystore_unlocked"] is False
-    manager.setup()
+    assert manager.setup() == record
     assert len([argv for argv, _ in calls if "--install" in argv]) == 1
+
+
+def test_setup_resumes_after_wsl_defers_registration_for_reboot(managed_host, monkeypatch):
+    manager, current, calls = managed_host
+    run = host.run_host
+
+    def defer_install(argv, *, timeout=30):
+        output = run(argv, timeout=timeout)
+        if "--install" in argv:
+            current.clear()
+        return output
+
+    monkeypatch.setattr(host, "run_host", defer_install)
+    with pytest.raises(CapabilityUnavailableError, match="restart, then rerun"):
+        manager.setup()
+    pending = manager._read_receipt()
+    assert pending["state"] == "registration-pending"
+    assert not any("--exec" in argv for argv, _ in calls)
+
+    monkeypatch.setattr(host, "run_host", run)
+    ready = manager.setup()
+    assert ready["state"] == "ready" and ready["registration_id"]
+    assert ready["installation_id"] == pending["installation_id"]
+
+
+def test_setup_prepares_missing_wsl_platform_without_installing_default_ubuntu(
+    managed_host, monkeypatch
+):
+    manager, _, calls = managed_host
+    run = host.run_host
+
+    def run_before_reboot(argv, *, timeout=30):
+        if argv[1:] == ["--version"]:
+            return "Older WSL command usage"
+        return run(argv, timeout=timeout)
+
+    monkeypatch.setattr(host, "run_host", run_before_reboot)
+    with pytest.raises(CapabilityUnavailableError, match="platform setup ran"):
+        manager.setup()
+    (bootstrap,) = [argv for argv, _ in calls if "--install" in argv]
+    assert bootstrap[1:] == ["--install", "--no-distribution", "--web-download"]
+    pending = manager._read_receipt()
+    assert pending["state"] == "registration-pending"
+
+    monkeypatch.setattr(host, "run_host", run)
+    assert manager.setup()["installation_id"] == pending["installation_id"]
+
+
+def test_setup_resumes_same_registration_after_provisioning_interrupts(managed_host, monkeypatch):
+    manager, _, calls = managed_host
+    run = host.run_host
+
+    def interrupt_provisioning(argv, *, timeout=30):
+        if argv[-1] == host.PROVISION_UBUNTU:
+            raise CapabilityUnavailableError("Interrupted apt setup")
+        return run(argv, timeout=timeout)
+
+    monkeypatch.setattr(host, "run_host", interrupt_provisioning)
+    with pytest.raises(CapabilityUnavailableError, match="Interrupted"):
+        manager.setup()
+    retained = manager._read_receipt()
+    assert retained["state"] == "installing" and retained["registration_id"]
+
+    monkeypatch.setattr(host, "run_host", run)
+    assert manager.setup()["registration_id"] == retained["registration_id"]
+    assert len([argv for argv, _ in calls if "--install" in argv]) == 1
+
+
+@pytest.mark.parametrize("mismatch", ["path", "identifier", "version", "state"])
+def test_setup_refuses_an_unsafe_wsl_registration(managed_host, monkeypatch, mismatch):
+    manager, _, calls = managed_host
+    manager.setup()
+    registered = host._registered_distro()
+    assert registered is not None
+    values = {
+        "path": {"location": manager.root / "other"},
+        "identifier": {"identifier": uuid4().hex},
+        "version": {"version": 1},
+        "state": {"state": 3},
+    }
+    changed = replace(registered, **values[mismatch])
+    monkeypatch.setattr(host, "_registered_distro", lambda: changed)
+    calls.clear()
+    with pytest.raises((StateMismatchError, CapabilityUnavailableError)):
+        manager.setup()
+    assert not calls
+
+
+def test_setup_refuses_unregistered_storage_on_retry(managed_host, monkeypatch):
+    manager, _, calls = managed_host
+    monkeypatch.setattr(host, "_registered_distro", lambda: None)
+    manager.location.mkdir(parents=True)
+    with pytest.raises(StateMismatchError, match="storage needs reconciliation"):
+        manager.setup()
+    assert not calls
+
+
+def test_setup_lock_excludes_concurrent_setup_and_releases_on_exit(managed_host):
+    manager, _, calls = managed_host
+    manager.root.mkdir()
+    with manager._setup_lock():
+        with pytest.raises(StateMismatchError, match="in progress"):
+            manager.setup()
+    assert not calls
+    assert manager.setup()["state"] == "ready"
+
+
+def test_ready_legacy_receipt_binds_existing_registration_without_provisioning(managed_host):
+    manager, _, calls = managed_host
+    ready = manager.setup()
+    old = {key: value for key, value in ready.items() if key != "registration_id"}
+    manager.receipt.write_text(json.dumps(old), encoding="utf-8")
+    calls.clear()
+
+    assert manager.setup() == ready
+    (keystore,) = calls
+    assert keystore[0][-1] == "gnome-keyring-daemon.service"
+
+
+def test_status_separates_host_readiness_from_worker_qualification(managed_host, monkeypatch):
+    manager, _, calls = managed_host
+    assert manager.status()["host_state"] == "absent"
+    assert not calls and not manager.receipt.exists()
+    manager.setup()
+    calls.clear()
+    probe = {
+        "kernel": "stock-wsl",
+        "accounting": "unsupported",
+        "missing_options": ["CONFIG_TASKSTATS"],
+    }
+
+    def run(argv, *, timeout=30):
+        calls.append(argv)
+        return json.dumps(probe)
+
+    monkeypatch.setattr(host, "run_host", run)
+    status = manager.status()
+    assert status["host_state"] == "ready"
+    assert status["worker_prerequisites"] == probe
+    assert status["worker_qualification"] == "required"
+    (command,) = calls
+    assert command[-5:] == ["/usr/bin/python3.12", "-I", "-B", "-c", host._ACCOUNTING_PROBE]
 
 
 def test_unknown_existing_distribution_is_never_adopted_or_reinstalled(managed_host):
@@ -287,6 +437,39 @@ def test_wsl_controller_digest_is_checked_before_native_install(managed_host, tm
     with pytest.raises(StateMismatchError, match="differs"):
         install_controller(manager, wheel, "00" * 32)
     assert calls == []
+
+
+def test_wsl_controller_retries_same_pin_and_keeps_previous_selection_on_failure(
+    managed_host, tmp_path, monkeypatch
+):
+    import hashlib
+
+    from potbot.syn_release import wsl_controller
+
+    manager, _, _ = managed_host
+    wheel = tmp_path / "potbot-0.5.0.dev12-py3-none-any.whl"
+    wheel.write_bytes(b"first reviewed wheel")
+    first = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    native_calls = []
+
+    def run(argv, *, timeout=30):
+        if "/usr/bin/wslpath" in argv:
+            return "/mnt/c/reviewed.whl\n"
+        selected, _, disposition = argv[-3:]
+        native_calls.append((selected, disposition))
+        if selected != first:
+            raise CapabilityUnavailableError("Interrupted controller installation")
+        return json.dumps(wsl_controller._controller_receipt(first))
+
+    monkeypatch.setattr(wsl_controller, "run_host", run)
+    first_receipt = wsl_controller.install_controller(manager, wheel, first)
+    assert wsl_controller.install_controller(manager, wheel, first) == first_receipt
+    wheel.write_bytes(b"next reviewed wheel")
+    second = hashlib.sha256(wheel.read_bytes()).hexdigest()
+    with pytest.raises(CapabilityUnavailableError, match="Interrupted"):
+        wsl_controller.install_controller(manager, wheel, second)
+    assert manager._read_receipt()["controller"] == first_receipt
+    assert native_calls == [(first, "new"), (first, "retained"), (second, "new")]
 
 
 def test_wsl_controller_cannot_be_redirected_to_another_executable(managed_host):

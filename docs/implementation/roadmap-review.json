@@ -68264,18 +68264,27 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "7d7feb973f34f47f420ab92574ba61f092518f83aad0c9a711c690c66b565866",
+      "sha256": "df5ce376c5e5fdb814525dd8b9709ae1ae27f70039e430318c5e0553a33c9fc6",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records scoped TASKSTATS qualification and the distinct same-UID fixture, the installed hosted worker native Cog route, and standalone dispatcher recovery with preserved native identities in separate Syn 0.7.0 and 0.8.0 cohorts. Legacy runtime retirement remains gated.",
+      "assessment": "Records the verified SYN-R07 cutover and the stock WSL registration, controller recovery and kernel prerequisite reporting increment. Clean Windows reboot acceptance, installer worker activation and signed kernel distribution remain separate gates.",
       "narrative": [
         {
-          "locator": "line:1-283",
-          "sha256": "25ae047647c5c3496f7abd4d750ce95344dc541fd8f45fea5dc5570ecd28f7e0",
+          "locator": "line:1-51",
+          "sha256": "d1aea9b81916ec9bbbc00d4876f000ca32b6ed4bf7e4965d71fd752df19ad63b",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:52-337",
+          "sha256": "c24961c8aadf188fa9f15974fdbe506402956eb6870260dad96609aa2542896a",
           "families": [
             "accounting",
             "sandbox",
@@ -68392,12 +68401,12 @@
     },
     {
       "path": "docs/implementation/syn-operator-deployment.md",
-      "sha256": "7753546c2776aecb3fd8425c1cb49d8bf54c1175ca183dbf4e0afadfa0dec290",
+      "sha256": "221b985276a734c7ad2691762a82e297ebff50d8974aaa3b9367b88763450bff",
       "families": [
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "SYN-R01-R04 now have actual signed release acquisition and native operator/Agent deployment paths. Official Syn 0.4.0 consumer acceptance passed at its recorded source; successful package installation alone supplies no Cog execution authority.",
+      "assessment": "Records official native operator deployment, managed WSL registration recovery and verified controller selection. Native custody, authenticated attachment and worker admission retain their independent verification.",
       "narrative": [
         {
           "locator": "line:1-32",
@@ -68414,21 +68423,21 @@
           ]
         },
         {
-          "locator": "line:76-106",
-          "sha256": "1c0668028d0b5df1909c1281a057bc1b73340a6da0d3003dcd3d8a9a257d6afe",
+          "locator": "line:76-111",
+          "sha256": "4c8b0a7b267f1ee53281620689f66a6de60bf9e7340454474c837194e58092d4",
           "families": [
             "syn-release"
           ]
         },
         {
-          "locator": "line:107-143",
+          "locator": "line:112-148",
           "sha256": "aa572c34484fc70c3c19628a3091a3164749ba2bfad484ee2cd2594369613e5d",
           "families": [
             "syn-release"
           ]
         },
         {
-          "locator": "line:144-184",
+          "locator": "line:149-189",
           "sha256": "c5f0f78f73353a9ea97e8a0f22d626a89a502000ffc2036c0a732eb114add076",
           "families": [
             "syn-release"
@@ -79946,9 +79955,9 @@
         "syn-operations",
         "syn-release"
       ],
-      "status": "partial",
-      "assessment": "Disposable Syn 0.8.0 qualification covers LAN enrollment, native recovery, archival readback and membership revocation. Potbot excludes the transitional runtime from build artifacts while the checkout retains its historical tests.",
-      "next_action": "Land the qualified Potbot controller, account for each retained legacy record and caller with its owner, then test a coordinated removal candidate against the pinned official release."
+      "status": "qualified_subset",
+      "assessment": "Potbot PR #46 retired the transitional runtime after legacy inventory and managed WSL qualification. The signed worker with official Syn 0.8.0 passed Context RPC and collector-loss fencing. PR #43 qualified both official release pins across typed JSON and Context RPC in CI.",
+      "next_action": "Retain installation evidence and requalify changes to the host, signed image, Syn pin, or worker service before wider deployment."
     },
     {
       "key": "tool-cog-contract:C01",
