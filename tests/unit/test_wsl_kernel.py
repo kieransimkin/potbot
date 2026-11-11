@@ -1,10 +1,13 @@
 import hashlib
 import json
+import tarfile
+import zipfile
 
 import pytest
 
 from potbot.cli import main
 from potbot.wsl_kernel import OPTIONS, PROFILE, SOURCE_REPOSITORY
+from scripts.prepare_wsl_kernel_release import main as package_kernel
 
 
 @pytest.fixture
@@ -58,11 +61,11 @@ def signed_bundle(tmp_path):
             signer.public_key().public_bytes_raw().hex(),
         ]
 
-    return tmp_path, payloads, seal
+    return tmp_path, payloads, seal, signer
 
 
 def test_wsl_kernel_cli_verifies_only_selected_bundle_bytes(signed_bundle, capsys):
-    root, _, seal = signed_bundle
+    root, _, seal, _ = signed_bundle
     args = seal()
     assert main(args) == 0
     receipt = json.loads(capsys.readouterr().out)
@@ -80,7 +83,101 @@ def test_wsl_kernel_cli_verifies_only_selected_bundle_bytes(signed_bundle, capsy
 
 
 def test_signed_bundle_with_conflicting_taskstats_settings_is_refused(signed_bundle, capsys):
-    _, payloads, seal = signed_bundle
+    _, payloads, seal, _ = signed_bundle
     payloads["kernel.config"] += b"# CONFIG_TASKSTATS is not set\n"
     assert main(seal()) == 2
     assert "must enable CONFIG_TASKSTATS" in capsys.readouterr().out
+
+
+def test_kernel_packager_preserves_signed_bytes_and_exports_reproducible_assets(
+    signed_bundle, capsys
+):
+    root, _, seal, signer = signed_bundle
+    verify = seal()
+    source_commit = "a" * 40
+    source = root / "microsoft.tar.gz"
+    with tarfile.open(source, "w:gz") as archive:
+        directory = tarfile.TarInfo(f"WSL2-Linux-Kernel-{source_commit}")
+        directory.type = tarfile.DIRTYPE
+        archive.addfile(directory)
+    source_sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    prepared = root / "prepared"
+    prepare = [
+        "prepare",
+        "--components",
+        str(root),
+        "--source-archive",
+        str(source),
+        "--source-commit",
+        source_commit,
+        "--source-sha256",
+        source_sha,
+        "--kernel-release",
+        "6.18.54.1-test-wsl",
+        "--output",
+        str(prepared),
+    ]
+    assert package_kernel(prepare) == 0
+    unsigned = json.loads(capsys.readouterr().out)
+    raw = (prepared / "bundle" / "manifest.json").read_bytes()
+    message = (prepared / "manifest.to-sign").read_bytes()
+    assert message == b"potbot.wsl-kernel-bundle/1\0" + raw
+    assert unsigned["manifest_sha256"] == hashlib.sha256(raw).hexdigest()
+
+    signature = root / "external.ed25519"
+    signature.write_bytes(signer.sign(message).hex().encode())
+    finalize = [
+        "finalize",
+        "--prepared",
+        str(prepared),
+        "--signature",
+        str(signature),
+        "--manifest-sha256",
+        unsigned["manifest_sha256"],
+        "--public-key",
+        verify[-1],
+        "--output",
+    ]
+    outputs = [root / "release-one", root / "release-two"]
+    for output in outputs:
+        assert package_kernel([*finalize, str(output)]) == 0
+        json.loads(capsys.readouterr().out)
+    first, second = outputs
+    assets = json.loads((first / "release.json").read_text())["assets"]
+    for name, record in assets.items():
+        payload = (first / name).read_bytes()
+        assert payload == (second / name).read_bytes()
+        assert record == {"size": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+    (exported_source,) = first.glob("*.source.tar.gz")
+    assert exported_source.read_bytes() == source.read_bytes()
+    unpacked = root / "unpacked"
+    unpacked.mkdir()
+    (zip_path,) = first.glob("*.zip")
+    with zipfile.ZipFile(zip_path) as archive:
+        for name in archive.namelist():
+            (unpacked / name).write_bytes(archive.read(name))
+    assert (
+        main(
+            [
+                "wsl-kernel",
+                "verify",
+                "--bundle",
+                str(unpacked),
+                "--manifest-sha256",
+                unsigned["manifest_sha256"],
+                "--public-key",
+                verify[-1],
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    assert package_kernel([*finalize, str(first)]) == 2
+    assert (first / "release.json").is_file()
+    capsys.readouterr()
+    (prepared / "source.tar.gz").write_bytes(b"unrelated archive")
+    failed_output = root / "refused"
+    assert package_kernel([*finalize, str(failed_output)]) == 2
+    assert "Source archive differs" in capsys.readouterr().out
+    assert not failed_output.exists()
