@@ -68,6 +68,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             sub.add_argument("--context-rpc", action="store_true")
         if name == "configure-context-route":
             sub.add_argument("--workspace-id", type=UUID, required=True)
+            sub.add_argument("--include-mcp", action="store_true")
         if name == "switch-release":
             sub.add_argument("--target-policy", type=Path, required=True)
         if name == "bootstrap":
@@ -133,7 +134,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif args.operation == "configure-context-route":
                 from potbot.context.installed_syn_route import provision_context_route
 
-                path = provision_context_route(deployment, args.workspace_id)
+                path = provision_context_route(
+                    deployment, args.workspace_id, include_mcp=args.include_mcp
+                )
                 value = {"workspace_id": str(args.workspace_id), "route": str(path)}
             elif args.operation == "bootstrap":
                 value = deployment.bootstrap(

@@ -562,15 +562,21 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ReadOnlyMcpGrant",
-          "sha256": "261689ab3e595e8c1f0a1f318529dd8b4c86b9f327c63b258566fbd2595cca99",
+          "sha256": "7f8fc5943ec28d5cafb39b501bf82418666c6873cf041232d976c1d9744d918f",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/tools/syn_mcp_route.py",
+          "symbol": "SynMcpRoute",
+          "sha256": "5067222989669fd76a0b8c646580d55f5378c96e5ca218f532e9214888bd65f8",
+          "basis": "Inspected directed MCP tool route. The application protocol is still bounded and read-only."
         }
       ],
       "tests": [
         {
           "path": "tests/unit/test_mcp_sandbox.py",
           "symbol": "test_end_to_end_mcp_sum_inside_approved_lifetime",
-          "sha256": "4a61dbeaf1777e4c64d9c0fd895442d4cd99610a39313ad7385796afe54a864a",
+          "sha256": "ec31e51b3ca1cf8ee5c8d6d6ea87b60772d9450ceee181348e5cb68c4b4f853f",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -578,10 +584,16 @@
           "symbol": "test_real_bubblewrap_stdio_mcp",
           "sha256": "2aa1bdf554336bec737c98363ac1b603d7cbf207d4a61a99c92b04df8c7af5bb",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/unit/test_mcp_sandbox.py",
+          "symbol": "test_managed_tool_uses_signed_delivery_and_never_replays",
+          "sha256": "ec31e51b3ca1cf8ee5c8d6d6ea87b60772d9450ceee181348e5cb68c4b4f853f",
+          "basis": "Exercises the actual sandbox client, loss on either exchange, and the no-replay boundary."
         }
       ],
-      "assessment": "Interactive MCP transport and confinement fixtures exist. Complete modern/legacy protocol profiles, catalog drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct future requirements.",
-      "support_scope": "Current sandboxed JSON-RPC/stdio path and defined transport tests, not full external server or authentication qualification.",
+      "assessment": "The sandboxed read-only MCP tool path routes calls and results through the installed Syn operator. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct future requirements.",
+      "support_scope": "Read-only sandboxed JSON-RPC/stdio tools and the installed Syn route, with a disposable official-release test. Full external server and authentication qualification remain separate.",
       "remaining": [
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries"
@@ -1342,7 +1354,7 @@
         {
           "path": "src/potbot/context/installed_syn_route.py",
           "symbol": "installed_context_route",
-          "sha256": "a76cabfe0cb8b88b003f48b11e0805b2d449cab00b95d336d0d4ec18c08da887",
+          "sha256": "ced0f0a095357fb6fe027a3e5fe08ecc5dc034b437a3439c07b93bb551e6e64c",
           "basis": "Reviewed selected installation and private endpoint; official release and managed worker qualification remain open."
         }
       ],
@@ -1374,7 +1386,7 @@
         {
           "path": "tests/unit/test_installed_syn_context_route.py",
           "symbol": "test_managed_unit_restores_previous_bytes_if_route_restart_fails",
-          "sha256": "1bd3df19cbd3ae52d445bd825c1e74889b72b36b9033ecb7523531a72635929e",
+          "sha256": "ed9b86ced76f15e51244b364454bae424bb0fc8610a5bdcc098f29dc8be9f8a7",
           "basis": "Disposable unit and socket fixture with a simulated service manager failure."
         }
       ],
@@ -1481,7 +1493,7 @@
         {
           "path": "src/potbot/tools/syn_browser_route.py",
           "symbol": "SynBrowserRoute",
-          "sha256": "94647259ba2acd8549b27a3e54ffbd4846add36ffdcdabc6364a75f51639a924",
+          "sha256": "0957709bab895bbbb41c29a202ea3e37474a21793d664180771d952b28f5d3f2",
           "basis": "Reviewed signed delivery and result collection under the selected workspace and operator boot."
         }
       ],
@@ -67189,14 +67201,15 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "77f44f77333a939383412b1fda769a5b95bf5adeb0c62a0452aefa74782e1fed",
+      "sha256": "99bbc344c19f4a36d27b76107719f8c05bd3adab155ad9daea6196b11240c1a1",
       "families": [
         "context",
         "syn-operations",
-        "browser"
+        "browser",
+        "mcp"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "The installed Syn 0.10.0 policy binds two directed endpoints to one native operator boot. A managed WSL fixture exercised a Context document and Chromium on a private Xvfb display. The opt-in queue worker uses the same route and has a local process recovery test.",
+      "assessment": "The signed Syn 0.10.0 route supports Context, browser and opt-in MCP endpoints. Managed WSL verified queue recovery through the installed scoped TASKSTATS launcher and ran read-only MCP through the official Syn operator and a disposable Bubblewrap server.",
       "narrative": [
         {
           "locator": "line:1-47",
@@ -67226,12 +67239,20 @@
           ]
         },
         {
-          "locator": "line:132-161",
-          "sha256": "f852b3743405f46c5967893ce3adb2a9d9d4bcdc1f6477f2ea4e5aea4405ab80",
+          "locator": "line:132-169",
+          "sha256": "a9d5ae31b2eb194170fd78cb37618ccb495be70805ecafe9637f1fbfb9230930",
           "families": [
             "context",
             "syn-operations",
             "browser"
+          ]
+        },
+        {
+          "locator": "line:170-203",
+          "sha256": "56807976b3a969f3fcac7f09e874c65eff83baa4e86fb30e8966c5a5dd3f0e8f",
+          "families": [
+            "mcp",
+            "syn-operations"
           ]
         }
       ]
@@ -74481,8 +74502,8 @@
         "skills"
       ],
       "status": "partial",
-      "assessment": "Requirement: inventory/pin official specifications and sample package fixtures, mapping existing T01\u2013T48 and C00\u2013C09 milestones (no duplicate infrastructure).. C00-C09 and external-skill S00-S10 require pinned behavioral compatibility. Sampled directory entries and outbound model adapters do not supply cross-agent tool/skill compatibility. Managed skill drafts/releases/resources and controlled shared projections exist. Native authoring is not full OpenClaw/Codex/Claude parsing, hooks, aliases, install or portable execution compatibility.",
-      "next_action": "For S00 (inventory/pin official specifications and sample package fixtures, mapping existing T01\u2013T48 and C00\u2013C09 milestones (no duplicate infrastructure).): Map C/S requirements onto T/U owners; start C00/S00 fixtures without a second registry, scheduler or authorization service. Extend the current skill catalogue and canonical Cog tool gateway under C/S milestones; preserve unsupported reports."
+      "assessment": "Requirement: inventory/pin official specifications and sample package fixtures, mapping existing T01–T48 and C00–C09 milestones (no duplicate infrastructure).. C00-C09 and external-skill S00-S10 require pinned behavioral compatibility. Sampled directory entries and outbound model adapters do not supply cross-agent tool/skill compatibility. Managed skill drafts/releases/resources and controlled shared projections exist. Native authoring is not full OpenClaw/Codex/Claude parsing, hooks, aliases, install or portable execution compatibility.",
+      "next_action": "For S00 (inventory/pin official specifications and sample package fixtures, mapping existing T01–T48 and C00–C09 milestones (no duplicate infrastructure).): Map C/S requirements onto T/U owners; start C00/S00 fixtures without a second registry, scheduler or authorization service. Extend the current skill catalogue and canonical Cog tool gateway under C/S milestones; preserve unsupported reports."
     },
     {
       "key": "external-skills:S01",
@@ -79606,8 +79627,8 @@
         "patches"
       ],
       "status": "partial",
-      "assessment": "Requirement: Multiple reasoners, independent coder candidates, settled work before selection, qualified finding reuse, and composed patches verified as new candidates. Original P057\u2013P071; [Phase 6 controller][phase6], [model prompts][prompt18].. Bounded R6 reasoning, PostgreSQL checkpoints/steering and R6.1 task accounting exist. Shared ensemble selection, independent candidates, full temporal scheduling and safe cross-branch composition remain partial. The scripted patch vertical slice applies bounded text patches to isolated exact states and uses separate baseline/candidate verification. Scripted or agent-authored tests do not establish arbitrary coding capability.",
-      "next_action": "For RD06 (Multiple reasoners, independent coder candidates, settled work before selection, qualified finding reuse, and composed patches verified as new candidates. Original P057\u2013P071; [Phase 6 controller][phase6], [model prompts][prompt18].): Extend PostgresReasoningStore, SteeringInbox and current graph; keep independent verifier and task-wide budgets authoritative. Reuse current candidate verification and immutable manifests; never promote application or source evidence to correctness."
+      "assessment": "Requirement: Multiple reasoners, independent coder candidates, settled work before selection, qualified finding reuse, and composed patches verified as new candidates. Original P057–P071; [Phase 6 controller][phase6], [model prompts][prompt18].. Bounded R6 reasoning, PostgreSQL checkpoints/steering and R6.1 task accounting exist. Shared ensemble selection, independent candidates, full temporal scheduling and safe cross-branch composition remain partial. The scripted patch vertical slice applies bounded text patches to isolated exact states and uses separate baseline/candidate verification. Scripted or agent-authored tests do not establish arbitrary coding capability.",
+      "next_action": "For RD06 (Multiple reasoners, independent coder candidates, settled work before selection, qualified finding reuse, and composed patches verified as new candidates. Original P057–P071; [Phase 6 controller][phase6], [model prompts][prompt18].): Extend PostgresReasoningStore, SteeringInbox and current graph; keep independent verifier and task-wide budgets authoritative. Reuse current candidate verification and immutable manifests; never promote application or source evidence to correctness."
     },
     {
       "key": "recent-development:RD07",
@@ -79636,8 +79657,8 @@
         "research"
       ],
       "status": "partial",
-      "assessment": "Requirement: Repository and external research, libraries/tools/internal workflows, reuse/adapt/build, examples and discriminating experiments. [Reasoning policy][policy], [Phase 7][phase7], original P072\u2013P084.. Immutable repository inspection/audit and solve-graph linkage exist. General external source acquisition, evaluated example adaptation and authoritative need resolution still require admitted providers and independent effect evidence.",
-      "next_action": "For RD09 (Repository and external research, libraries/tools/internal workflows, reuse/adapt/build, examples and discriminating experiments. [Reasoning policy][policy], [Phase 7][phase7], original P072\u2013P084.): Extend existing InformationNeed/Research owners and connect evaluated reuse/adapt/build receipts, not empty search placeholders."
+      "assessment": "Requirement: Repository and external research, libraries/tools/internal workflows, reuse/adapt/build, examples and discriminating experiments. [Reasoning policy][policy], [Phase 7][phase7], original P072–P084.. Immutable repository inspection/audit and solve-graph linkage exist. General external source acquisition, evaluated example adaptation and authoritative need resolution still require admitted providers and independent effect evidence.",
+      "next_action": "For RD09 (Repository and external research, libraries/tools/internal workflows, reuse/adapt/build, examples and discriminating experiments. [Reasoning policy][policy], [Phase 7][phase7], original P072–P084.): Extend existing InformationNeed/Research owners and connect evaluated reuse/adapt/build receipts, not empty search placeholders."
     },
     {
       "key": "recent-development:RD10",
@@ -79762,8 +79783,8 @@
         "compatibility"
       ],
       "status": "partial",
-      "assessment": "Requirement: Browser networking sufficient for admitted real workflows and ecosystem compatibility. [S39 egress/input][egress40], [C00\u2013C09][compat].. Visible Xpra Chromium, admitted browser Cogs, private displays, evidence/gallery and bounded capture recovery have implementations. Rendered fixture acceptance and production Xpra/kernel/network/provenance are independent gates. C00-C09 and external-skill S00-S10 require pinned behavioral compatibility. Sampled directory entries and outbound model adapters do not supply cross-agent tool/skill compatibility.",
-      "next_action": "For RD21 (Browser networking sufficient for admitted real workflows and ecosystem compatibility. [S39 egress/input][egress40], [C00\u2013C09][compat].): Use current browser worker/controller and real four-profile rendered checks; preserve qualified host gates for all supported platforms. Map C/S requirements onto T/U owners; start C00/S00 fixtures without a second registry, scheduler or authorization service."
+      "assessment": "Requirement: Browser networking sufficient for admitted real workflows and ecosystem compatibility. [S39 egress/input][egress40], [C00–C09][compat].. Visible Xpra Chromium, admitted browser Cogs, private displays, evidence/gallery and bounded capture recovery have implementations. Rendered fixture acceptance and production Xpra/kernel/network/provenance are independent gates. C00-C09 and external-skill S00-S10 require pinned behavioral compatibility. Sampled directory entries and outbound model adapters do not supply cross-agent tool/skill compatibility.",
+      "next_action": "For RD21 (Browser networking sufficient for admitted real workflows and ecosystem compatibility. [S39 egress/input][egress40], [C00–C09][compat].): Use current browser worker/controller and real four-profile rendered checks; preserve qualified host gates for all supported platforms. Map C/S requirements onto T/U owners; start C00/S00 fixtures without a second registry, scheduler or authorization service."
     },
     {
       "key": "recent-development:RD22",
@@ -79836,8 +79857,8 @@
         "memory-admission"
       ],
       "status": "partial",
-      "assessment": "Requirement: Evidence-backed current state, history, disagreements, correction and model-change notifications. [Context stages 4/8][ctxplan], [inspection][ctx45], original P087\u2013P092.. Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. General immutable memory proposals, accepted-head CAS, bitemporal correction, applicability, feedback/episodes/procedures and deletion-safe lifecycle are retained future requirements. Context triples and vectors do not implement them.",
-      "next_action": "For RD28 (Evidence-backed current state, history, disagreements, correction and model-change notifications. [Context stages 4/8][ctxplan], [inspection][ctx45], original P087\u2013P092.): Extend Stage 10D rather than importing the standalone prototype as the authoritative application store. Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority."
+      "assessment": "Requirement: Evidence-backed current state, history, disagreements, correction and model-change notifications. [Context stages 4/8][ctxplan], [inspection][ctx45], original P087–P092.. Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts. General immutable memory proposals, accepted-head CAS, bitemporal correction, applicability, feedback/episodes/procedures and deletion-safe lifecycle are retained future requirements. Context triples and vectors do not implement them.",
+      "next_action": "For RD28 (Evidence-backed current state, history, disagreements, correction and model-change notifications. [Context stages 4/8][ctxplan], [inspection][ctx45], original P087–P092.): Extend Stage 10D rather than importing the standalone prototype as the authoritative application store. Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority."
     },
     {
       "key": "recent-development:RD29",
@@ -79877,8 +79898,8 @@
         "retrieval"
       ],
       "status": "partial",
-      "assessment": "Requirement: Purpose-specific semantic retrieval and explicit applicability. [Vocabulary registry][profiles], [semantic integration][semantics], original P090\u2013P110.. Pinned native Type catalogs, strict typed validation and exact snapshot lookup exist. Seven question profiles, typed descendants, semantic opposition/guards and all-examples completeness remain broader obligations. Standard local/named embedding and exact vector foundations exist, with supervised encoder and explicit immutable encoding identities. Hybrid memory quality, scoped eligibility, ANN and custom learned spaces are not thereby qualified.",
-      "next_action": "For RD32 (Purpose-specific semantic retrieval and explicit applicability. [Vocabulary registry][profiles], [semantic integration][semantics], original P090\u2013P110.): Extend existing catalog and retrieval contracts with exact coverage manifests and semantic conformance, not another Type root. Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate."
+      "assessment": "Requirement: Purpose-specific semantic retrieval and explicit applicability. [Vocabulary registry][profiles], [semantic integration][semantics], original P090–P110.. Pinned native Type catalogs, strict typed validation and exact snapshot lookup exist. Seven question profiles, typed descendants, semantic opposition/guards and all-examples completeness remain broader obligations. Standard local/named embedding and exact vector foundations exist, with supervised encoder and explicit immutable encoding identities. Hybrid memory quality, scoped eligibility, ANN and custom learned spaces are not thereby qualified.",
+      "next_action": "For RD32 (Purpose-specific semantic retrieval and explicit applicability. [Vocabulary registry][profiles], [semantic integration][semantics], original P090–P110.): Extend existing catalog and retrieval contracts with exact coverage manifests and semantic conformance, not another Type root. Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate."
     },
     {
       "key": "recent-development:RD33",
@@ -79887,8 +79908,8 @@
         "retrieval"
       ],
       "status": "partial",
-      "assessment": "Requirement: Standard local embeddings first, then measured semantic/custom spaces. [Embeddings][embeddings], [named embeddings][named], addendum E01\u2013E09.. Standard local/named embedding and exact vector foundations exist, with supervised encoder and explicit immutable encoding identities. Hybrid memory quality, scoped eligibility, ANN and custom learned spaces are not thereby qualified.",
-      "next_action": "For RD33 (Standard local embeddings first, then measured semantic/custom spaces. [Embeddings][embeddings], [named embeddings][named], addendum E01\u2013E09.): Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate."
+      "assessment": "Requirement: Standard local embeddings first, then measured semantic/custom spaces. [Embeddings][embeddings], [named embeddings][named], addendum E01–E09.. Standard local/named embedding and exact vector foundations exist, with supervised encoder and explicit immutable encoding identities. Hybrid memory quality, scoped eligibility, ANN and custom learned spaces are not thereby qualified.",
+      "next_action": "For RD33 (Standard local embeddings first, then measured semantic/custom spaces. [Embeddings][embeddings], [named embeddings][named], addendum E01–E09.): Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate."
     },
     {
       "key": "recent-development:RD34",
@@ -79897,8 +79918,8 @@
         "memory-admission"
       ],
       "status": "planned",
-      "assessment": "Requirement: Immediate learning and correctable user feedback. Original P111\u2013P117; [memory modernization][modern], [object memory][mg].. General immutable memory proposals, accepted-head CAS, bitemporal correction, applicability, feedback/episodes/procedures and deletion-safe lifecycle are retained future requirements. Context triples and vectors do not implement them.",
-      "next_action": "For RD34 (Immediate learning and correctable user feedback. Original P111\u2013P117; [memory modernization][modern], [object memory][mg].): Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority."
+      "assessment": "Requirement: Immediate learning and correctable user feedback. Original P111–P117; [memory modernization][modern], [object memory][mg].. General immutable memory proposals, accepted-head CAS, bitemporal correction, applicability, feedback/episodes/procedures and deletion-safe lifecycle are retained future requirements. Context triples and vectors do not implement them.",
+      "next_action": "For RD34 (Immediate learning and correctable user feedback. Original P111–P117; [memory modernization][modern], [object memory][mg].): Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority."
     },
     {
       "key": "recent-development:RD35",
@@ -79908,8 +79929,8 @@
         "recovery"
       ],
       "status": "partial",
-      "assessment": "Requirement: Qualified accepted memory, targeted invalidation, forgetting and deletion-safe recovery. Original P085\u2013P094/P143\u2013P144; [MG04/MG06][mg].. General immutable memory proposals, accepted-head CAS, bitemporal correction, applicability, feedback/episodes/procedures and deletion-safe lifecycle are retained future requirements. Context triples and vectors do not implement them. Current launch, migration and package CI foundations are present; source previews are not the qualified operational baseline. Full backup/deletion-journal restore, outages, capacity and upgrade qualification remain required.",
-      "next_action": "For RD35 (Qualified accepted memory, targeted invalidation, forgetting and deletion-safe recovery. Original P085\u2013P094/P143\u2013P144; [MG04/MG06][mg].): Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority. Retain exact release source/manifest and immutable assets; collect real migration/restore/endurance evidence before baseline certification."
+      "assessment": "Requirement: Qualified accepted memory, targeted invalidation, forgetting and deletion-safe recovery. Original P085–P094/P143–P144; [MG04/MG06][mg].. General immutable memory proposals, accepted-head CAS, bitemporal correction, applicability, feedback/episodes/procedures and deletion-safe lifecycle are retained future requirements. Context triples and vectors do not implement them. Current launch, migration and package CI foundations are present; source previews are not the qualified operational baseline. Full backup/deletion-journal restore, outages, capacity and upgrade qualification remain required.",
+      "next_action": "For RD35 (Qualified accepted memory, targeted invalidation, forgetting and deletion-safe recovery. Original P085–P094/P143–P144; [MG04/MG06][mg].): Build the admitted-memory slice on PostgreSQL/context identities and monitored Cogs; no parallel admission authority. Retain exact release source/manifest and immutable assets; collect real migration/restore/endurance evidence before baseline certification."
     },
     {
       "key": "recent-development:RD36",
@@ -79928,8 +79949,8 @@
         "evaluation"
       ],
       "status": "partial",
-      "assessment": "Requirement: Model-role comparisons, independent judges, prompt variants, specialists and model/workflow/assumption monitoring. [R6.6][bench23], [R7][atomic24], [B00\u2013B10][bench], original P126\u2013P137.. R6.6/R7 and deterministic benchmark/monitoring foundations exist. Authored synthetic success@k is not held-out model quality; imported benchmarks need license, independent oracle and exact source/runtime evidence.",
-      "next_action": "For RD37 (Model-role comparisons, independent judges, prompt variants, specialists and model/workflow/assumption monitoring. [R6.6][bench23], [R7][atomic24], [B00\u2013B10][bench], original P126\u2013P137.): Extend existing evaluation authority and B00-B10 adapters; keep synthetic, live, held-out and unsupported results separate."
+      "assessment": "Requirement: Model-role comparisons, independent judges, prompt variants, specialists and model/workflow/assumption monitoring. [R6.6][bench23], [R7][atomic24], [B00–B10][bench], original P126–P137.. R6.6/R7 and deterministic benchmark/monitoring foundations exist. Authored synthetic success@k is not held-out model quality; imported benchmarks need license, independent oracle and exact source/runtime evidence.",
+      "next_action": "For RD37 (Model-role comparisons, independent judges, prompt variants, specialists and model/workflow/assumption monitoring. [R6.6][bench23], [R7][atomic24], [B00–B10][bench], original P126–P137.): Extend existing evaluation authority and B00-B10 adapters; keep synthetic, live, held-out and unsupported results separate."
     },
     {
       "key": "recent-development:RD38",
@@ -79938,8 +79959,8 @@
         "compatibility"
       ],
       "status": "planned",
-      "assessment": "Requirement: OpenClaw/Codex/Claude instructions, skills, tools, hooks/workflows, bidirectional MCP, browser compatibility and external discovery. [C00\u2013C09][compat], [external S00\u2013S10][skills].. C00-C09 and external-skill S00-S10 require pinned behavioral compatibility. Sampled directory entries and outbound model adapters do not supply cross-agent tool/skill compatibility.",
-      "next_action": "For RD38 (OpenClaw/Codex/Claude instructions, skills, tools, hooks/workflows, bidirectional MCP, browser compatibility and external discovery. [C00\u2013C09][compat], [external S00\u2013S10][skills].): Map C/S requirements onto T/U owners; start C00/S00 fixtures without a second registry, scheduler or authorization service."
+      "assessment": "Requirement: OpenClaw/Codex/Claude instructions, skills, tools, hooks/workflows, bidirectional MCP, browser compatibility and external discovery. [C00–C09][compat], [external S00–S10][skills].. C00-C09 and external-skill S00-S10 require pinned behavioral compatibility. Sampled directory entries and outbound model adapters do not supply cross-agent tool/skill compatibility.",
+      "next_action": "For RD38 (OpenClaw/Codex/Claude instructions, skills, tools, hooks/workflows, bidirectional MCP, browser compatibility and external discovery. [C00–C09][compat], [external S00–S10][skills].): Map C/S requirements onto T/U owners; start C00/S00 fixtures without a second registry, scheduler or authorization service."
     },
     {
       "key": "recent-development:RD39",
@@ -79948,8 +79969,8 @@
         "recovery"
       ],
       "status": "partial",
-      "assessment": "Requirement: Complete operational baseline and recoverable release. Original P138\u2013P148/G01\u2013G24; [unified roadmap][unified], [benchmark release gates][bench].. Current launch, migration and package CI foundations are present; source previews are not the qualified operational baseline. Full backup/deletion-journal restore, outages, capacity and upgrade qualification remain required.",
-      "next_action": "For RD39 (Complete operational baseline and recoverable release. Original P138\u2013P148/G01\u2013G24; [unified roadmap][unified], [benchmark release gates][bench].): Retain exact release source/manifest and immutable assets; collect real migration/restore/endurance evidence before baseline certification."
+      "assessment": "Requirement: Complete operational baseline and recoverable release. Original P138–P148/G01–G24; [unified roadmap][unified], [benchmark release gates][bench].. Current launch, migration and package CI foundations are present; source previews are not the qualified operational baseline. Full backup/deletion-journal restore, outages, capacity and upgrade qualification remain required.",
+      "next_action": "For RD39 (Complete operational baseline and recoverable release. Original P138–P148/G01–G24; [unified roadmap][unified], [benchmark release gates][bench].): Retain exact release source/manifest and immutable assets; collect real migration/restore/endurance evidence before baseline certification."
     },
     {
       "key": "semantic-addendum:S01",
