@@ -4,7 +4,9 @@
 provisioning and the installed service's accounting check are implemented.
 Windows setup retains the controller selection across an interrupted install.
 Offline verification of signed x86-64 kernel bundles is implemented.
-Official kernel distribution and a real clean Windows reboot trial remain open.
+Release packaging can prepare signing input and export reproducible assets
+from reviewed build files. Official builds, signing, and a real clean
+Windows reboot trial remain open.
 The [Syn release and deployment contract](syn-release-dependency-and-node-deployment.md)
 and the [worker qualification gate](38-operator-worker-qualification.md)
 remain the sources for their respective acceptance requirements.
@@ -239,6 +241,51 @@ Use the offline receipt to decide whether to stage the bundle. Module
 compatibility and live TASKSTATS accounting still require a WSL boot and
 worker qualification. The [WSL configuration reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
 describes how the kernel and modules paths apply to the shared VM.
+
+### Package reviewed build outputs
+
+Run the packaging tool from a Potbot checkout. Provide the four fixed
+component files and the corresponding Microsoft source archive. Select
+the source commit and archive digest from the build record.
+
+~~~powershell
+uv run --locked --extra security python scripts/prepare_wsl_kernel_release.py prepare `
+  --components $KernelBuildDirectory --source-archive $KernelSourceArchive `
+  --source-commit $KernelSourceCommit --source-sha256 $KernelSourceSha256 `
+  --kernel-release $KernelRelease --output $PreparedDirectory
+~~~
+
+Preparation verifies the archive digest and commit directory, checks the
+components, and writes the exact signing input to `manifest.to-sign`.
+Review the returned manifest digest and have the release signing authority
+sign those bytes. Save the detached signature as 128 lowercase hex
+characters with no newline.
+
+~~~powershell
+uv run --locked --extra security python scripts/prepare_wsl_kernel_release.py finalize `
+  --prepared $PreparedDirectory --signature $DetachedSignature `
+  --manifest-sha256 $ReviewedManifestSha256 --public-key $KernelReleasePublicKey `
+  --output $ReleaseDirectory
+~~~
+
+Both commands require a new output directory. Finalization checks the
+signature and the prepared files again. It writes the versioned ZIP,
+copies the exact source archive alongside it, and records the asset
+hashes in `release.json`. Identical inputs produce identical release
+assets. That comparison covers packaging and leaves kernel compilation
+and live boot qualification as separate tests.
+
+~~~mermaid
+flowchart LR
+    B[Reviewed kernel files and source archive] --> P[Prepare manifest and signing input]
+    P --> S[Release authority signs the reviewed bytes]
+    S --> F[Verify signature and package assets]
+    F --> V[Verify the extracted bundle before staging]
+~~~
+
+The public release still needs an approved build and signing workflow.
+The upstream source describes how to build the kernel and its modules
+image. [Microsoft WSL kernel build instructions](https://github.com/microsoft/WSL2-Linux-Kernel/blob/d504d40ab83839cb61942a812a99d183c42227b9/README.md#build-instructions)
 
 1. **Verify the deployment inputs.** Record the WSL version, host architecture,
    installed distro versions, current kernel and existing `.wslconfig` hash.

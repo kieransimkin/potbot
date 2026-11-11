@@ -48,7 +48,7 @@ def _file_identity(info: os.stat_result) -> tuple[int, int, int, int, int]:
 
 
 @contextmanager
-def _open_artifact(path: Path, limit: int) -> Iterator[tuple[BinaryIO, int]]:
+def open_bundle_file(path: Path, limit: int) -> Iterator[tuple[BinaryIO, int]]:
     before = path.lstat()
     if not stat.S_ISREG(before.st_mode) or _reparse(before) or not 0 < before.st_size <= limit:
         raise ScopeDeniedError(f"Kernel bundle requires a bounded regular file for {path.name}")
@@ -73,20 +73,24 @@ def _open_artifact(path: Path, limit: int) -> Iterator[tuple[BinaryIO, int]]:
             raise StateMismatchError(f"Kernel bundle file changed while reading {path.name}")
 
 
-def _read_small(path: Path, limit: int) -> bytes:
-    with _open_artifact(path, limit) as (source, size):
+def read_bundle_file(path: Path, limit: int) -> bytes:
+    with open_bundle_file(path, limit) as (source, size):
         value = source.read(size + 1)
         if len(value) != size:
             raise StateMismatchError(f"Kernel bundle file size changed for {path.name}")
         return value
 
 
-def _manifest(raw: bytes) -> dict[str, Any]:
+def encode_manifest(value: object) -> bytes:
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+    ).encode("ascii")
+
+
+def parse_manifest(raw: bytes) -> dict[str, Any]:
     try:
         value = json.loads(raw.decode("utf-8"))
-        canonical = json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
-        ).encode("ascii")
+        canonical = encode_manifest(value)
     except (UnicodeError, ValueError, RecursionError) as error:
         raise InvalidInputError("Invalid kernel bundle manifest JSON") from error
     if (
@@ -124,7 +128,17 @@ def _manifest(raw: bytes) -> dict[str, Any]:
     return value
 
 
-def _verify_signature(raw: bytes, signature: bytes, public_key: str) -> None:
+def signing_message(raw: bytes) -> bytes:
+    return PROFILE.encode("ascii") + b"\0" + raw
+
+
+def verify_manifest(
+    raw: bytes, signature: bytes, *, manifest_sha256: str, public_key: str
+) -> dict[str, Any]:
+    if not _hex(manifest_sha256, 64) or not _hex(public_key, 64):
+        raise InvalidInputError("Select an exact manifest SHA-256 and raw Ed25519 public key")
+    if hashlib.sha256(raw).hexdigest() != manifest_sha256:
+        raise ScopeDeniedError("Kernel manifest differs from the independent selection")
     if re.fullmatch(rb"[0-9a-f]{128}", signature) is None:
         raise ScopeDeniedError("Invalid WSL kernel manifest signature encoding")
     try:
@@ -136,15 +150,16 @@ def _verify_signature(raw: bytes, signature: bytes, public_key: str) -> None:
         ) from error
     try:
         Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_key)).verify(
-            bytes.fromhex(signature.decode("ascii")), PROFILE.encode("ascii") + b"\0" + raw
+            bytes.fromhex(signature.decode("ascii")), signing_message(raw)
         )
     except (InvalidSignature, ValueError) as error:
         raise ScopeDeniedError("WSL kernel manifest signature verification failed") from error
+    return parse_manifest(raw)
 
 
 def _verify_artifact(path: Path, record: dict[str, Any], prefix_size: int = 0) -> bytes:
     expected_size = record["size"]
-    with _open_artifact(path, expected_size) as (source, size):
+    with open_bundle_file(path, expected_size) as (source, size):
         if size != expected_size:
             raise ScopeDeniedError(f"Kernel bundle size differs for {path.name}")
         prefix = source.read(prefix_size)
@@ -190,18 +205,7 @@ def _verify_config(config: bytes) -> None:
             raise ScopeDeniedError(f"Kernel config must enable {option}")
 
 
-def verify_bundle(bundle: Path, *, manifest_sha256: str, public_key: str) -> dict[str, Any]:
-    if not _hex(manifest_sha256, 64) or not _hex(public_key, 64):
-        raise InvalidInputError("Select an exact manifest SHA-256 and raw Ed25519 public key")
-    bundle = bundle.absolute()
-    info = bundle.lstat()
-    if not stat.S_ISDIR(info.st_mode) or _reparse(info) or bundle.resolve(strict=True) != bundle:
-        raise ScopeDeniedError("Kernel bundle requires a directory without redirected paths")
-    raw = _read_small(bundle / MANIFEST, 8192)
-    if hashlib.sha256(raw).hexdigest() != manifest_sha256:
-        raise ScopeDeniedError("Kernel manifest differs from the independent selection")
-    _verify_signature(raw, _read_small(bundle / SIGNATURE, 128), public_key)
-    manifest = _manifest(raw)
+def verify_artifacts(bundle: Path, manifest: dict[str, Any]) -> None:
     artifacts = manifest["artifacts"]
     _verify_kernel(
         _verify_artifact(bundle / "bzImage", artifacts["bzImage"], 0x10400),
@@ -215,6 +219,21 @@ def verify_bundle(bundle: Path, *, manifest_sha256: str, public_key: str) -> dic
         )
     )
     _verify_artifact(bundle / "wsl-taskstats-pidns.patch", artifacts["wsl-taskstats-pidns.patch"])
+
+
+def verify_bundle(bundle: Path, *, manifest_sha256: str, public_key: str) -> dict[str, Any]:
+    bundle = bundle.absolute()
+    info = bundle.lstat()
+    if not stat.S_ISDIR(info.st_mode) or _reparse(info) or bundle.resolve(strict=True) != bundle:
+        raise ScopeDeniedError("Kernel bundle requires a directory without redirected paths")
+    raw = read_bundle_file(bundle / MANIFEST, 8192)
+    manifest = verify_manifest(
+        raw,
+        read_bundle_file(bundle / SIGNATURE, 128),
+        manifest_sha256=manifest_sha256,
+        public_key=public_key,
+    )
+    verify_artifacts(bundle, manifest)
     return {
         "profile": "potbot.wsl-kernel-verification/1",
         "bundle_verified": True,

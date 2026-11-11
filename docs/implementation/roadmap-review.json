@@ -68271,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "e2c640fa11fc4cb8de7089f7559a15865c56369dbc2cbaa5e6767b18b1478cd1",
+      "sha256": "0930e8bf83532427c6dbcef6ed2b43d02152e7e5d58f1dcb4b4836e63c124c28",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and scoped launcher provisioning, installed service accounting, and the controller checkpoint across Windows reboot. Adds offline verification of signed x86-64 kernel bundles. Official distribution and a clean reboot trial remain separate.",
+      "assessment": "Records verified SYN-R07 cutover, stock WSL registration, controller recovery, and scoped launcher provisioning, installed service accounting, and the controller checkpoint across Windows reboot. Adds offline verification and reproducible packaging of signed x86-64 kernel bundles. Official builds and clean reboot qualification remain separate.",
       "narrative": [
         {
-          "locator": "line:1-54",
-          "sha256": "be8ee065e2fde94569fc06b6082d14686ad6de27b27b5da9909624d327f1f7b7",
+          "locator": "line:1-56",
+          "sha256": "d9d6f0a5d8398ceaabeec9197c538a142e8d11b4719aa600436195984be5ed67",
           "families": [
             "accounting",
             "sandbox",
@@ -68290,7 +68290,7 @@
           ]
         },
         {
-          "locator": "line:55-125",
+          "locator": "line:57-127",
           "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
           "families": [
             "accounting",
@@ -68299,8 +68299,17 @@
           ]
         },
         {
-          "locator": "line:126-466",
-          "sha256": "c99d7d955557e3ca2cbd79453d6141641908e2bd2d59db5d7891a5d752ce471f",
+          "locator": "line:128-244",
+          "sha256": "461b030c5871a3f585eea3325a3c95e32772cbc5b7ad104825d82e7d9194479d",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:245-513",
+          "sha256": "f845a397a5932300e143a82c37773a85712c4bf618555e9858f807e2a0a96fe0",
           "families": [
             "accounting",
             "sandbox",
