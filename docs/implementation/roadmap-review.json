@@ -1750,7 +1750,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "1ceee9cf7ddff65bac4c60005d4897620a5515b1e3734b647e794eae5aed479c",
+      "sha256": "8e822ffdcf576e1845c83443d3daf17eabffa8ad0b3fdfd9657a4d395fcbf145",
       "families": [
         "audit",
         "foundation"
@@ -1760,7 +1760,7 @@
       "narrative": [
         {
           "locator": "line:1-97",
-          "sha256": "2c9764230f160b07dbdcfc26b28bed07e8505fb04f9db59bd2ee2ef62c753fa1",
+          "sha256": "ceb8513acfd8baa742e08289716031a6e9535c4da2fe5c48b5f5f49bee440f48",
           "families": [
             "audit",
             "foundation"
@@ -68271,18 +68271,18 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "28a5bdf46e2b911397167dc441df02deaebacf90daac51bb2b40c82cbfe1dc3a",
+      "sha256": "b452380db5e32a2f5a2ecf593d58850529a6ee47739cfbef47a7e9f6cbfa8c32",
       "families": [
         "accounting",
         "sandbox",
         "syn-release"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Records stock WSL registration and recovery, installed worker admission, offline verification, reproducible packaging, signing input review and the pinned x86-64 CI build recipe. Production signing, publication, and clean reboot qualification remain separate.",
+      "assessment": "Records stock WSL registration and recovery, installed worker admission, offline verification, pinned release acquisition, signing input review and the x86-64 CI build.",
       "narrative": [
         {
-          "locator": "line:1-57",
-          "sha256": "ea7033e47be2138e00f3f74a4cf1524fc21115e0c49be30f238f5acbfc494b0a",
+          "locator": "line:1-58",
+          "sha256": "c171d70c839e466aaa3c53741b70a411ebda21a5c9ebc09b99f1fbdf1fe7fd1d",
           "families": [
             "accounting",
             "sandbox",
@@ -68290,7 +68290,7 @@
           ]
         },
         {
-          "locator": "line:58-128",
+          "locator": "line:59-129",
           "sha256": "9d80f47d641506ddab9ff8f51bd97734a82251fadf24cda8de346f9405225c87",
           "families": [
             "accounting",
@@ -68299,7 +68299,7 @@
           ]
         },
         {
-          "locator": "line:129-245",
+          "locator": "line:130-246",
           "sha256": "461b030c5871a3f585eea3325a3c95e32772cbc5b7ad104825d82e7d9194479d",
           "families": [
             "accounting",
@@ -68308,7 +68308,16 @@
           ]
         },
         {
-          "locator": "line:246-286",
+          "locator": "line:247-272",
+          "sha256": "b19c0dbee10ffe158e7808e5e6fd8a9eed03e849603ce2a024afeaceecbe5162",
+          "families": [
+            "accounting",
+            "sandbox",
+            "syn-release"
+          ]
+        },
+        {
+          "locator": "line:273-313",
           "sha256": "959606d3ed0c7d2e680818380bb585d35100e6f6255ac30764751c3384a9ed8b",
           "families": [
             "accounting",
@@ -68317,7 +68326,7 @@
           ]
         },
         {
-          "locator": "line:287-318",
+          "locator": "line:314-345",
           "sha256": "4780ccf8d3cd6bd6f93260fed1461a378f139da9e4b761bdf81d17284e9dbb78",
           "families": [
             "accounting",
@@ -68326,7 +68335,7 @@
           ]
         },
         {
-          "locator": "line:319-347",
+          "locator": "line:346-374",
           "sha256": "47ad3913f5d902dc7872fad0ca50539b4dddbb0e9bcbd5f1254a72732aaafe1c",
           "families": [
             "accounting",
@@ -68335,7 +68344,7 @@
           ]
         },
         {
-          "locator": "line:348-573",
+          "locator": "line:375-600",
           "sha256": "c50e6ffa7baa27ef39444c360ca3113c9be1a4950719c89db7be46e9309d3ed0",
           "families": [
             "accounting",

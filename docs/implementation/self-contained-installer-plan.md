@@ -3,7 +3,8 @@
 **Status:** Stock WSL host setup, controller recovery, Linux scoped launcher
 provisioning and the installed service's accounting check are implemented.
 Windows setup retains the controller selection across an interrupted install.
-Offline verification of signed x86-64 kernel bundles is implemented.
+Signed x86-64 kernel bundles can be verified offline or downloaded from
+a pinned Potbot release and verified before staging.
 Release packaging can prepare signing input and export reproducible assets
 from reviewed build files. A separate CI job builds the x86-64 candidate
 from pinned source. Release signing, publication, and a real clean Windows
@@ -242,6 +243,32 @@ Use the offline receipt to decide whether to stage the bundle. Module
 compatibility and live TASKSTATS accounting still require a WSL boot and
 worker qualification. The [WSL configuration reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)
 describes how the kernel and modules paths apply to the shared VM.
+
+### Download the signed kernel from a Potbot release
+
+Select the Potbot tag, exact kernel release, ZIP SHA-256, manifest SHA-256,
+and trusted raw Ed25519 public key before downloading. Obtain these pins
+from the approved release record through your existing trust channel. The
+public ZIP and matching source archive belong to the same Potbot release.
+
+~~~powershell
+potbot wsl-kernel download --tag $PotbotTag --kernel-release $KernelRelease `
+  --archive-sha256 $KernelZipSha256 --manifest-sha256 $KernelManifestSha256 `
+  --public-key $KernelReleasePublicKey --output C:\Reviewed\PotbotKernel
+~~~
+
+~~~mermaid
+flowchart LR
+    P[Exact release tag and independent pins] --> D[Download the versioned ZIP]
+    D --> H[Check the ZIP digest and expected entries]
+    H --> V[Verify the signed manifest and four component files]
+    V --> B[Verified local bundle for host qualification]
+~~~
+
+Use a new output directory beneath an existing trusted parent. A failed
+download or verification removes the files from that attempt. The command
+returns the release tag, archive digest, and kernel verification receipt.
+Kernel activation still follows the target-host procedure below.
 
 ### Package reviewed build outputs
 

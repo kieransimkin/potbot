@@ -1,11 +1,14 @@
 import hashlib
+import io
 import json
 import tarfile
 import zipfile
 
 import pytest
 
+from potbot import wsl_kernel
 from potbot.cli import main
+from potbot.domain.errors import ScopeDeniedError
 from potbot.wsl_kernel import OPTIONS, PROFILE, SOURCE_REPOSITORY
 from scripts.prepare_wsl_kernel_release import main as package_kernel
 
@@ -202,3 +205,88 @@ def test_kernel_packager_preserves_signed_bytes_and_exports_reproducible_assets(
     assert package_kernel([*finalize, str(failed_output)]) == 2
     assert "Source archive differs" in capsys.readouterr().out
     assert not failed_output.exists()
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (None, ""),
+        ("archive", "archive differs from the independent selection"),
+        ("truncated", "ended before its declared size"),
+        ("key", "signature verification failed"),
+        ("layout", "exactly the six bundle files"),
+    ],
+)
+def test_download_checks_pinned_release_before_staging(
+    signed_bundle, monkeypatch, capsys, failure, message
+):
+    root, _, seal, _ = signed_bundle
+    verify = seal()
+    tag = "v0.5.0.dev13"
+    release = "6.18.54.1-test-wsl"
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as zipped:
+        for name in (*wsl_kernel.ARTIFACT_LIMITS, wsl_kernel.MANIFEST, wsl_kernel.SIGNATURE):
+            zipped.write(root / name, name)
+        if failure == "layout":
+            zipped.writestr("../outside", b"unexpected")
+    payload = archive.getvalue()
+
+    class Response(io.BytesIO):
+        status = 200
+        headers = {"Content-Length": str(len(payload) + (failure == "truncated"))}
+
+    class Opener:
+        def open(self, request, *, timeout):
+            assert request.full_url == (
+                "https://github.com/kieransimkin/potbot/releases/download/"
+                "v0.5.0.dev13/potbot-wsl-kernel-6.18.54.1-test-wsl-x86_64.zip"
+            )
+            assert request.get_header("Authorization") is None
+            return Response(payload)
+
+    monkeypatch.setattr(wsl_kernel.urllib.request, "build_opener", lambda *args: Opener())
+    output = root / "staged"
+    digest = "0" * 64 if failure == "archive" else hashlib.sha256(payload).hexdigest()
+    public_key = "0" * 64 if failure == "key" else verify[-1]
+    args = [
+        "wsl-kernel",
+        "download",
+        "--tag",
+        tag,
+        "--kernel-release",
+        release,
+        "--archive-sha256",
+        digest,
+        "--manifest-sha256",
+        verify[-3],
+        "--public-key",
+        public_key,
+        "--output",
+        str(output),
+    ]
+    if failure:
+        assert main(args) == 2
+        assert message in capsys.readouterr().out
+        assert not output.exists()
+        assert not (root / "outside").exists()
+    else:
+        assert main(args) == 0
+        receipt = json.loads(capsys.readouterr().out)
+        assert receipt["bundle_verified"] and receipt["activation"] == "not_attempted"
+        assert receipt["potbot_tag"] == tag
+        assert receipt["archive_sha256"] == digest
+        assert main(args) == 2
+        assert (output / "bzImage").read_bytes() == (root / "bzImage").read_bytes()
+
+
+def test_kernel_asset_redirect_accepts_only_github_download_hosts():
+    handler = wsl_kernel._AssetRedirect()
+    request = wsl_kernel.urllib.request.Request(
+        "https://github.com/kieransimkin/potbot/releases/download/v0.5.0.dev13/bundle.zip"
+    )
+    target = "https://release-assets.githubusercontent.com/path?download=example"
+    redirected = handler.redirect_request(request, None, 302, "", {}, target)
+    assert redirected.full_url == target
+    with pytest.raises(ScopeDeniedError, match="Untrusted Potbot release asset redirect"):
+        handler.redirect_request(request, None, 302, "", {}, "https://example.org/bundle.zip")
