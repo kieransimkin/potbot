@@ -85,10 +85,7 @@ def test_end_to_end_mcp_sum_inside_approved_lifetime(tmp_path: Path):
 
 
 @pytest.mark.parametrize("lost_exchange", [None, 1, 2])
-def test_managed_tool_uses_signed_delivery_and_never_replays(
-    tmp_path: Path, monkeypatch, lost_exchange
-):
-    monkeypatch.setenv("POTBOT_OPERATOR_REQUIRED", "1")
+def test_managed_tool_uses_signed_delivery_and_never_replays(tmp_path: Path, lost_exchange):
     workspace, boot, uid = uuid4(), "a" * 32, 1000
     exchanges, calls = [], []
 
@@ -132,6 +129,9 @@ def test_managed_tool_uses_signed_delivery_and_never_replays(
                     await session.call("add", {"a": 16, "b": 26})
                 with pytest.raises(IndeterminateExecutionError, match="not available"):
                     await session.call("add", {"a": 16, "b": 26})
+                exit_receipt = await session.close()
+                assert exit_receipt is not None and exit_receipt.processes_stopped
+                assert not exit_receipt.forced_termination
 
     run(scenario())
     assert calls == ([] if lost_exchange == 1 else ["tools/call"])
@@ -145,6 +145,21 @@ def test_managed_mcp_refuses_unrouted_execution(tmp_path: Path, monkeypatch):
         with pytest.raises(ScopeDeniedError, match="requires its installed Syn route"):
             async with SandboxedMcpClient(**kwargs(tmp_path)):
                 pytest.fail("Managed MCP started without its Syn route")
+
+    run(scenario())
+
+
+def test_managed_mcp_refuses_unmonitored_launcher_even_with_syn(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("POTBOT_OPERATOR_REQUIRED", "1")
+    workspace = uuid4()
+    route = SynMcpRoute(workspace, "a" * 32, 1000, lambda *_: pytest.fail("Unexpected Syn call"))
+
+    async def scenario():
+        with pytest.raises(ScopeDeniedError, match="requires a scoped Agent launch"):
+            async with SandboxedMcpClient(
+                **kwargs(tmp_path), workspace_id=workspace, syn_route=route
+            ):
+                pytest.fail("Managed MCP started without its scoped launcher")
 
     run(scenario())
 

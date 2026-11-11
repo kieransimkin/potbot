@@ -23,14 +23,16 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
     StateMismatchError,
 )
-from potbot.domain.execution import ActionProposal, CapabilityContext, ToolRegistry
+from potbot.domain.execution import ActionProposal, CapabilityContext, ToolDefinition, ToolRegistry
 from potbot.domain.serialization import content_hash
+from potbot.tools.agent_homes import AgentHomeRegistry
 from potbot.tools.interactive_supervisor import (
     InteractiveExit,
     InteractiveProcessSupervisor,
@@ -38,8 +40,15 @@ from potbot.tools.interactive_supervisor import (
 )
 from potbot.tools.mcp_protocol import McpCallResult, McpCatalog, McpClient, McpToolInfo
 from potbot.tools.mcp_stdio import McpStdioTransport
+from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
 from potbot.tools.supervisor import ProcessRequest
 from potbot.tools.syn_mcp_route import SynMcpRoute
+from potbot.tools.worker_telemetry import WorkerMonitorConfig
+from potbot.tools.workspace_supervision import (
+    WorkspaceExecutorIdentity,
+    WorkspaceLeaseGuard,
+    assert_shared_execution_allowed,
+)
 from potbot.workspace_sandbox import WorkspaceSandbox
 
 # A function installed by the trusted controller that throws if the selected
@@ -64,6 +73,25 @@ class ReadOnlyMcpGrant:
             raise InvalidInputError("MCP pinned tool fingerprint must be SHA-256")
 
 
+@dataclass(frozen=True, slots=True)
+class ManagedMcpScope:
+    """Controller-provided run identity for one installed Agent home."""
+
+    principal: WorkspaceContext
+    agent_id: UUID
+    run_id: UUID
+    homes: AgentHomeRegistry
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.principal, WorkspaceContext)
+            or not isinstance(self.agent_id, UUID)
+            or not isinstance(self.run_id, UUID)
+            or not isinstance(self.homes, AgentHomeRegistry)
+        ):
+            raise ScopeDeniedError("Managed MCP requires a registered controller run")
+
+
 class SandboxedMcpClient:
     """An explicit controller-owned MCP process; no implicit child launches."""
 
@@ -83,11 +111,21 @@ class SandboxedMcpClient:
         cancelled: Callable[[], bool] | None = None,
         syn_route: SynMcpRoute | None = None,
         workspace_id: UUID | None = None,
+        managed_scope: ManagedMcpScope | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("MCP requires the qualified interactive ProcessSupervisor")
         if not isinstance(sandbox, WorkspaceSandbox):
             raise InvalidInputError("MCP requires a registered WorkspaceSandbox")
+        shared = isinstance(supervisor.backend, SharedWorkspaceBubblewrapBackend)
+        if shared != (managed_scope is not None):
+            raise ScopeDeniedError("Shared MCP execution requires a managed Agent scope")
+        if managed_scope is not None and (
+            not isinstance(managed_scope, ManagedMcpScope)
+            or workspace_id != managed_scope.principal.workspace_id
+            or syn_route is None
+        ):
+            raise ScopeDeniedError("Managed MCP requires a Syn route for the admitted workspace")
         if syn_route is not None and (
             not isinstance(syn_route, SynMcpRoute)
             or not isinstance(workspace_id, UUID)
@@ -124,6 +162,8 @@ class SandboxedMcpClient:
         self._approve_call = approve_call
         self._cancelled = cancelled
         self._syn_route = syn_route
+        self._managed_scope = managed_scope
+        self._lease: WorkspaceLeaseGuard | None = None
         self._call_lock = asyncio.Lock()
         self._process: IsolatedInteractiveProcess | None = None
         self._transport: McpStdioTransport | None = None
@@ -153,11 +193,129 @@ class SandboxedMcpClient:
                 "MCP approval callback must fail by raising, not by returning a value"
             )
 
+    def _managed_request(self, definition: ToolDefinition) -> tuple[ProcessRequest, Path]:
+        scope, backend = self._managed_scope, self._supervisor.backend
+        assert scope is not None and isinstance(backend, SharedWorkspaceBubblewrapBackend)
+        config = self._supervisor.monitor_config or WorkerMonitorConfig.from_environment(
+            scoped_worker=True
+        )
+        if (
+            config.scoped_launcher is None
+            or not config.scoped_launcher.is_socket()
+            or backend.tool_write_grant is not None
+        ):
+            raise ScopeDeniedError("Managed MCP requires the read-only scoped launcher profile")
+        runtime, workspace = backend.runtime, scope.principal.workspace_id
+        agent_home = scope.homes.lookup(workspace, scope.agent_id)
+        if agent_home is None or self._sandbox.root != (
+            runtime.home / agent_home.directory
+        ).resolve(strict=True):
+            raise ScopeDeniedError("MCP candidate must belong to the registered Agent home")
+        assert_shared_execution_allowed(
+            runtime=runtime,
+            ledger=scope.homes.ledger,
+            workspace_id=workspace,
+            candidate_path=str(self._root),
+        )
+        entrypoint = definition.argv_prefix[0]
+        if entrypoint.startswith("/usr/local/tools/"):
+            base = runtime.shared_tools
+            relative = entrypoint.removeprefix("/usr/local/tools/")
+            if (
+                base is None
+                or dict(runtime.tool_entrypoints).get(entrypoint) != self._executable_hash
+            ):
+                raise ScopeDeniedError("MCP shared entrypoint is not pinned by the operator")
+        else:
+            base, relative = runtime.rootfs, entrypoint.removeprefix("/")
+        executable = (base / relative).resolve(strict=True)
+        if not executable.is_relative_to(base.resolve(strict=True)):
+            raise ScopeDeniedError("MCP executable escapes the admitted worker image or tool store")
+        request = ProcessRequest(
+            argv=definition.argv_prefix,
+            cwd=self._root,
+            workspace_root=runtime.home,
+            sandbox_root=runtime.home,
+            environment=dict(definition.environment),
+            timeout_ms=definition.timeout_ms,
+            max_output_bytes=definition.max_output_bytes,
+            guest_uid=agent_home.uid,
+            guest_gid=agent_home.gid,
+            telemetry_workspace_id=workspace,
+            telemetry_agent_id=scope.agent_id,
+            telemetry_run_id=scope.run_id,
+            telemetry_identity_kind="agent",
+        )
+        return request, executable
+
+    def _cancel_requested(self) -> bool:
+        return (self._lease is not None and self._lease.fenced) or (
+            self._cancelled is not None and self._cancelled()
+        )
+
+    async def _open_managed(self, request: ProcessRequest) -> None:
+        scope, backend = self._managed_scope, self._supervisor.backend
+        assert scope is not None and isinstance(backend, SharedWorkspaceBubblewrapBackend)
+        guard = WorkspaceLeaseGuard.exclusive_home(
+            scope.homes.ledger,
+            WorkspaceExecutorIdentity(
+                scope.principal.workspace_id,
+                scope.agent_id,
+                backend.runtime.image_digest,
+            ),
+            operation="mcp.sandbox.execute",
+            idempotency_key="mcp-" + scope.run_id.hex,
+        )
+        guard.start()
+        self._lease = guard
+        opening = asyncio.create_task(
+            self._supervisor.open(request, cancelled=self._cancel_requested)
+        )
+        try:
+            self._process = await asyncio.shield(opening)
+        except BaseException:
+            # A cancelled caller still owns any process the launcher creates.
+            while not opening.done():
+                try:
+                    await asyncio.shield(opening)
+                except asyncio.CancelledError:
+                    continue
+                except Exception:
+                    break
+            if not opening.cancelled() and opening.exception() is None:
+                self._process = opening.result()
+                await self.close()
+            else:
+                self._finish_lease(None)
+            raise
+
+    def _finish_lease(self, result: InteractiveExit | None) -> None:
+        guard = self._lease
+        if guard is None:
+            return
+        self._lease = None
+        try:
+            guard.finish(
+                evidence_sha256=content_hash(
+                    {
+                        "isolation": result.isolation_identity if result else None,
+                        "exit_code": result.return_code if result else None,
+                        "status_sha256": result.status_sha256 if result else None,
+                    }
+                ),
+                uncertain=result is None or not result.processes_stopped or guard.fenced,
+            )
+        finally:
+            guard.abandon()
+
     async def __aenter__(self) -> SandboxedMcpClient:
         if self._process is not None:
             raise StateMismatchError("An MCP server lifetime cannot be restarted")
-        if os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1" and self._syn_route is None:
-            raise ScopeDeniedError("Managed MCP execution requires its installed Syn route")
+        if os.environ.get("POTBOT_OPERATOR_REQUIRED") == "1":
+            if self._syn_route is None:
+                raise ScopeDeniedError("Managed MCP execution requires its installed Syn route")
+            if self._managed_scope is None:
+                raise ScopeDeniedError("Managed MCP execution requires a scoped Agent launch")
         definition = self._registry.get(self._server_kind)
         definition.admit(ActionProposal(kind=self._server_kind))
         self._capabilities.authorize(definition, self._task_contract)
@@ -172,31 +330,38 @@ class SandboxedMcpClient:
             raise ScopeDeniedError("MCP server must have fixed argv and approved stdio")
         if definition.mutates:
             raise ScopeDeniedError("MCP Phase 2 permits explicitly read-only server installations")
-        executable = Path(definition.argv_prefix[0])
+        if self._managed_scope is not None:
+            request, executable = self._managed_request(definition)
+        else:
+            executable = Path(definition.argv_prefix[0])
+            request = ProcessRequest(
+                argv=definition.argv_prefix,
+                cwd=self._root,
+                workspace_root=self._root,
+                sandbox_root=self._sandbox.root,
+                environment={**dict(definition.environment), **self._sandbox.runtime_environment()},
+                timeout_ms=definition.timeout_ms,
+                max_output_bytes=definition.max_output_bytes,
+                read_only_roots=tuple(
+                    self._sandbox.path(area) for area in ("models", "tools", "dependencies")
+                ),
+                writable_roots=tuple(
+                    self._sandbox.path(area)
+                    for area in ("tmp", "cache", "environments", "builds", "tests")
+                ),
+            )
         if not executable.is_file() or not os.access(executable, os.X_OK):
             raise ScopeDeniedError("MCP server executable is not installed")
         with executable.open("rb") as source:
             digest = hashlib.file_digest(source, "sha256").hexdigest()
         if digest != self._executable_hash:
             raise StateMismatchError("MCP server executable changed since approval")
-        request = ProcessRequest(
-            argv=definition.argv_prefix,
-            cwd=self._root,
-            workspace_root=self._root,
-            sandbox_root=self._sandbox.root,
-            environment={**dict(definition.environment), **self._sandbox.runtime_environment()},
-            timeout_ms=definition.timeout_ms,
-            max_output_bytes=definition.max_output_bytes,
-            read_only_roots=tuple(
-                self._sandbox.path(area) for area in ("models", "tools", "dependencies")
-            ),
-            writable_roots=tuple(
-                self._sandbox.path(area)
-                for area in ("tmp", "cache", "environments", "builds", "tests")
-            ),
-        )
         self._launched_definition_hash = definition.fingerprint
-        self._process = await self._supervisor.open(request, cancelled=self._cancelled)
+        if self._managed_scope is not None:
+            await self._open_managed(request)
+        else:
+            self._process = await self._supervisor.open(request, cancelled=self._cancelled)
+        assert self._process is not None
         self._transport = McpStdioTransport(
             self._process.reader,
             self._process.writer,
@@ -218,7 +383,7 @@ class SandboxedMcpClient:
                     )
             return self
         except BaseException:
-            await self.close(force=True)
+            await self.close(force=self._syn_route is None)
             raise
 
     async def _dispatch(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
@@ -228,9 +393,11 @@ class SandboxedMcpClient:
             or process.closed
             or transport is None
             or process.remaining_seconds() <= 0
-            or (self._cancelled is not None and self._cancelled())
+            or self._cancel_requested()
         ):
             raise IndeterminateExecutionError("MCP process lifetime ended before dispatch")
+        if self._lease is not None:
+            await asyncio.to_thread(self._lease.ensure_live)
         transport.timeout = min(10.0, process.remaining_seconds())
         return await transport.exchange(message, expect_reply)
 
@@ -255,27 +422,37 @@ class SandboxedMcpClient:
         if name not in self._grants:
             raise ScopeDeniedError("MCP tool is not granted to this task")
         try:
-            return await self._client.call_tool(
+            result = await self._client.call_tool(
                 name,
                 arguments,
                 pinned_catalog_hash=self._catalog.fingerprint,
                 pinned_tool_hash=tool.fingerprint,
             )
+            if self._lease is not None:
+                await asyncio.to_thread(self._lease.ensure_live)
+            return result
         except BaseException:
             # An error after dispatch can be indeterminate. Never silently
             # restart a server or replay a request, even when labelled a read.
-            await self.close(force=True)
+            # Closing stdio fences the session immediately. Give a routed
+            # process the supervisor's bounded exit window so the scoped
+            # launcher can return its TASKSTATS and shutdown evidence.
+            await self.close(force=self._syn_route is None)
             raise
 
     async def close(self, *, force: bool = False) -> InteractiveExit | None:
         if self._process is None:
             return None
-        if self._transport is not None:
+        result = None
+        try:
             try:
-                await self._transport.close()
-            except (OSError, ConnectionError):
-                pass
-        return await self._process.close(force=force)
+                if self._transport is not None:
+                    await self._transport.close()
+            finally:
+                result = await self._process.close(force=force)
+        finally:
+            self._finish_lease(result)
+        return result
 
     async def __aexit__(self, *_: object) -> None:
         await self.close()

@@ -191,13 +191,23 @@ sequenceDiagram
 ~~~
 
 The controller opens `installed_mcp_route` for its workspace outside the
-sandbox mounts and passes it to `SandboxedMcpClient`. MCP negotiation, tool
-discovery, and server I/O stay on the external stdio boundary. A tool call
-requires the existing read-only grant and schema checks before dispatch.
-Managed execution refuses a missing Syn route. If Syn cannot confirm delivery
-or return the result, the client closes that MCP session without replay.
+sandbox mounts and passes it to `SandboxedMcpClient` with a `ManagedMcpScope`.
+The scope binds the authenticated workspace, registered Agent home and run ID
+to the pinned shared worker image. The client verifies the executable digest
+and requires the scoped TASKSTATS launcher. A workspace lease covers the
+process lifetime and stays fenced if shutdown or accounting is unconfirmed.
+The same run ID cannot start a second session.
 
-A managed WSL test used the official Syn 0.10.0 release and a disposable
-Bubblewrap MCP server. The admitted tool returned 42 through Syn. The test
-discarded the verified result for a second call, then confirmed the session
-closed and refused another call. The server received exactly two tool calls.
+MCP negotiation, tool discovery, and server I/O stay on the external stdio
+boundary. Each tool call requires the existing read-only grant and schema
+checks. If Syn cannot confirm delivery or return the result, the client
+closes the MCP stream immediately. The supervisor allows a bounded interval
+for the child to exit and return its accounting receipt before escalating
+termination. The client refuses subsequent calls on that session.
+
+Managed WSL used the official Syn 0.10.0 release, the signed worker image,
+and the installed scoped TASKSTATS launcher. The admitted tool returned 42
+through Syn. The test discarded the verified result for a second call.
+The guest log recorded exactly two calls. The supervisor confirmed the
+worker stopped and TASKSTATS accounted for all three exits. The workspace
+lease was released, and a new session using the same run ID was refused.

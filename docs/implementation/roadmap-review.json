@@ -562,7 +562,7 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ReadOnlyMcpGrant",
-          "sha256": "7f8fc5943ec28d5cafb39b501bf82418666c6873cf041232d976c1d9744d918f",
+          "sha256": "24c6c0dc4cc0b3f5328e24746ca83089e93aa62122386bb8e0488ef3b7c0786b",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -570,13 +570,19 @@
           "symbol": "SynMcpRoute",
           "sha256": "5067222989669fd76a0b8c646580d55f5378c96e5ca218f532e9214888bd65f8",
           "basis": "Inspected directed MCP tool route. The application protocol is still bounded and read-only."
+        },
+        {
+          "path": "src/potbot/tools/mcp_sandbox.py",
+          "symbol": "ManagedMcpScope",
+          "sha256": "24c6c0dc4cc0b3f5328e24746ca83089e93aa62122386bb8e0488ef3b7c0786b",
+          "basis": "Managed workspace, image, Agent and run binding for the scoped MCP launcher."
         }
       ],
       "tests": [
         {
           "path": "tests/unit/test_mcp_sandbox.py",
           "symbol": "test_end_to_end_mcp_sum_inside_approved_lifetime",
-          "sha256": "ec31e51b3ca1cf8ee5c8d6d6ea87b60772d9450ceee181348e5cb68c4b4f853f",
+          "sha256": "9c8d80a8e5e051fa17af03279f6c4ba379c9f5e0a8cf90fc040eff8cc95b39bc",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -588,12 +594,12 @@
         {
           "path": "tests/unit/test_mcp_sandbox.py",
           "symbol": "test_managed_tool_uses_signed_delivery_and_never_replays",
-          "sha256": "ec31e51b3ca1cf8ee5c8d6d6ea87b60772d9450ceee181348e5cb68c4b4f853f",
+          "sha256": "9c8d80a8e5e051fa17af03279f6c4ba379c9f5e0a8cf90fc040eff8cc95b39bc",
           "basis": "Exercises the actual sandbox client, loss on either exchange, and the no-replay boundary."
         }
       ],
-      "assessment": "The sandboxed read-only MCP tool path routes calls and results through the installed Syn operator. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct future requirements.",
-      "support_scope": "Read-only sandboxed JSON-RPC/stdio tools and the installed Syn route, with a disposable official-release test. Full external server and authentication qualification remain separate.",
+      "assessment": "The read-only MCP tool path uses directed Syn RPC and an installed scoped launcher. Managed launch binds the workspace, Agent, image, and run ID. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct future requirements.",
+      "support_scope": "Read-only sandboxed JSON-RPC/stdio tools and the installed Syn route with scoped TASKSTATS on managed WSL. Full external server, authentication, and production gateway qualification remain separate.",
       "remaining": [
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries"
@@ -67201,7 +67207,7 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "99bbc344c19f4a36d27b76107719f8c05bd3adab155ad9daea6196b11240c1a1",
+      "sha256": "9380e72242cb5150400fd1adbf3bc18564afad7333924080ee5dfa7acbf4b966",
       "families": [
         "context",
         "syn-operations",
@@ -67209,7 +67215,7 @@
         "mcp"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "The signed Syn 0.10.0 route supports Context, browser and opt-in MCP endpoints. Managed WSL verified queue recovery through the installed scoped TASKSTATS launcher and ran read-only MCP through the official Syn operator and a disposable Bubblewrap server.",
+      "assessment": "The signed Syn 0.10.0 route supports Context, browser and opt-in MCP endpoints. Managed WSL verified queue recovery and the MCP lost-reply path through the installed scoped TASKSTATS launcher.",
       "narrative": [
         {
           "locator": "line:1-47",
@@ -67248,8 +67254,8 @@
           ]
         },
         {
-          "locator": "line:170-203",
-          "sha256": "56807976b3a969f3fcac7f09e874c65eff83baa4e86fb30e8966c5a5dd3f0e8f",
+          "locator": "line:170-213",
+          "sha256": "55fe259706bbdd70c7812487bb57fafbeccb8238548c7150a3d1aca4c7eb253d",
           "families": [
             "mcp",
             "syn-operations"
