@@ -1336,8 +1336,8 @@
         {
           "path": "src/potbot/context/syn_context_route.py",
           "symbol": "SynContextRoute",
-          "sha256": "63b25a9996a27c0d5e8688c88b65a09dab94d04e963fcc3f48cdeec59361dcc7",
-          "basis": "Reviewed host-only invocation and delivery binding; installer selection and signed-package qualification remain open."
+          "sha256": "b10b645ece0180ae28fc2e4bb6ee5e09a4f92607592d7ff0dca988b22e80c607",
+          "basis": "Reviewed one-use delivery acknowledgement and result collection through Syn 0.9.0. Application checks and database work run between the bounded signed exchanges."
         },
         {
           "path": "src/potbot/context/installed_syn_route.py",
@@ -1368,8 +1368,8 @@
         {
           "path": "tests/unit/test_syn_context_route.py",
           "symbol": "test_worker_channel_uses_syn_route_and_rechecks_native_pins",
-          "sha256": "c3c6313af528a98e67e4a7a25ed606d0a4bd0b6302e3daa0a625c761046e371a",
-          "basis": "Focused synthetic worker test covers native Agent and lease fence; not managed worker or signed-release acceptance."
+          "sha256": "3f57084c7a737ef1e0fbffa369abda98e12772d8a9743c5ea8b9b4bead6ace4b",
+          "basis": "Focused synthetic worker tests cover native Agent and lease fencing, loss on each signed exchange and in-flight teardown."
         },
         {
           "path": "tests/unit/test_installed_syn_context_route.py",
@@ -67177,24 +67177,24 @@
     },
     {
       "path": "docs/implementation/context-rpc-syn-route.md",
-      "sha256": "56d3d653befdb58e387d09f915741d18d7f141f379bf91e221ed2664e6234b67",
+      "sha256": "d8a7359a092c05f46dc0676b0a9268265f71a396bdc4dd9ffcc72a1fa51cb8aa",
       "families": [
         "context",
         "syn-operations"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "The optional hosted profile uses the verified installed client and supervises a private Context endpoint. Official signed package and monitored worker gates remain open.",
+      "assessment": "The installed profile uses signed delivery acknowledgement and result collection through Syn 0.9.0. The hosted worker and collector-loss gates require independent managed evidence.",
       "narrative": [
         {
-          "locator": "line:1-37",
-          "sha256": "f28051aab7eb07a67e7cac76e607c1fb4b738776dddb6f54749cf0827ac0a411",
+          "locator": "line:1-47",
+          "sha256": "4ba8bdf5ad29d624787cb036d9be8706d3da42ca39d590488c127dfba5ef3a78",
           "families": [
             "context",
             "syn-operations"
           ]
         },
         {
-          "locator": "line:38-79",
+          "locator": "line:48-89",
           "sha256": "9dff632510ae0e7bbb26e650e3a687f4a6a7da2ece53cdc0465d3f39011290d2",
           "families": [
             "context",
