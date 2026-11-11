@@ -14,6 +14,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from uuid import uuid4
 
 from potbot.domain.errors import CapabilityUnavailableError
 from potbot.tools.scoped_launcher import DEFAULT_SOCKET
@@ -140,9 +141,8 @@ def _inspect(path: Path, content: str) -> bool:
 
 def _write(path: Path, text: str) -> None:
     # Publish without replacing a file, even if it appeared since preflight.
-    import tempfile
-
-    fd, temporary = tempfile.mkstemp(prefix=".potbot-", dir=path.parent)
+    temporary = path.with_name(f".potbot-{uuid4().hex}")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
         with os.fdopen(fd, "wb") as stream:
             os.fchmod(stream.fileno(), 0o644)
@@ -151,7 +151,7 @@ def _write(path: Path, text: str) -> None:
             os.fsync(stream.fileno())
         os.link(temporary, path, follow_symlinks=False)
     finally:
-        os.unlink(temporary)
+        temporary.unlink()
 
 
 def _audit_directory(uid: int, gid: int) -> bool:
