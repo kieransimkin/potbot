@@ -195,7 +195,7 @@
         {
           "path": "tests/unit/test_shared_execution_s2.py",
           "symbol": "test_guard_renews_and_blocks_other_agents",
-          "sha256": "c3723f4b3b955d011453986e36616f1c67af26633c9245afd57c7a721db15a1d",
+          "sha256": "3aa935d97444a46ccdb12957bf280ee7608e3e3823e241e45fed109ad8d13fd6",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
