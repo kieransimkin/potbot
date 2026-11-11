@@ -8,7 +8,7 @@ and [U00-A source inventory](docs/implementation/u00-roadmap-inventory.md).
 The retained Plan 1.1 contains 204 steps; historical phase summaries below are
 scoped implementation records, not a complete current qualification inventory.
 
-**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev12`).** Tasks, contracts,
+**Implemented: Phases 1–4, the Phase 5 model foundation, and hosted jobs/API (`0.5.0.dev13`).** Tasks, contracts,
 evidence, artifacts, worker jobs, budgets, configuration, environment identities, and
 model invocation records are durable. Potbot can capture a local Git repository,
 materialize isolated candidates, execute registered tools under a qualified Linux
