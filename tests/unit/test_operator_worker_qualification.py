@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "qualify_operator_workers.py"
 _spec = importlib.util.spec_from_file_location("operator_worker_qualification", _SCRIPT)
 assert _spec and _spec.loader
@@ -88,3 +90,44 @@ def test_passes_disposable_ai_mounts_to_live_worker_probe(monkeypatch, tmp_path)
         "--ai-past",
         str(fields["ai-past"]),
     ]
+
+
+@pytest.mark.parametrize("collector_ready", [True, False])
+def test_scoped_qualification_uses_the_broker_at_both_gates(monkeypatch, tmp_path, collector_ready):
+    calls = []
+
+    def record_command(argv, **_):
+        calls.append(argv)
+        return {"passed": collector_ready}
+
+    options = {
+        "rootfs": tmp_path / "rootfs",
+        "home": tmp_path / "home",
+        "model-staging": tmp_path / "staging",
+        "shared-models": tmp_path / "models",
+        "shared-tools": tmp_path / "tools",
+        "image-digest": "1" * 64,
+        "qualification-sha256": "2" * 64,
+        "report": tmp_path / "worker.json",
+    }
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "probe",
+            "--scoped-worker-launcher",
+            *(item for name, value in options.items() for item in (f"--{name}", str(value))),
+        ],
+    )
+    monkeypatch.setattr(_gate, "inspect_host", lambda: {"passed": True})
+    monkeypatch.setattr(_gate, "run_command", record_command)
+    monkeypatch.setattr(_gate.os, "O_NOFOLLOW", getattr(_gate.os, "O_NOFOLLOW", 0), raising=False)
+    assert _gate.main() == (0 if collector_ready else 1)
+    assert len(calls) == (2 if collector_ready else 1)
+    assert all("--scoped-worker-launcher" in call for call in calls)
+    assert calls[0][1] == "scripts/qualify_worker_exit_accounting.py"
+    if collector_ready:
+        assert calls[1][1] == "scripts/qualify_phase35_worker.py"
+    summary = json.loads((tmp_path / "worker.operator-summary.json").read_text())
+    assert summary["collector"] == "scoped-launcher"
+    assert summary["qualified"] is collector_ready

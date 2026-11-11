@@ -60,3 +60,34 @@ def test_qualification_requires_real_taskstats_and_forked_children():
             "trace_integrity": {"unpaired_syscalls": 0},
         },
     )["qualified_smoke"]
+
+
+def test_explicit_scoped_mode_refuses_a_missing_endpoint(monkeypatch, tmp_path, capsys):
+    smoke = _load()
+
+    def config(*, scoped_worker):
+        assert scoped_worker
+        return SimpleNamespace(scoped_launcher=None)
+
+    monkeypatch.setattr(smoke.WorkerMonitorConfig, "from_environment", config)
+    fields = {
+        "rootfs": tmp_path / "rootfs",
+        "home": tmp_path / "home",
+        "model-staging": tmp_path / "staging",
+        "shared-models": tmp_path / "models",
+        "shared-tools": tmp_path / "tools",
+        "image-digest": "1" * 64,
+        "qualification-sha256": "2" * 64,
+        "report": tmp_path / "worker.json",
+    }
+    assert (
+        smoke.main(
+            [
+                "--scoped-worker-launcher",
+                *(item for name, value in fields.items() for item in (f"--{name}", str(value))),
+            ]
+        )
+        == 1
+    )
+    assert "CapabilityUnavailableError" in capsys.readouterr().err
+    assert not (tmp_path / "worker.json").exists()

@@ -14,7 +14,9 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
+from potbot.domain.errors import CapabilityUnavailableError
 from potbot.tools.ai_config_history import AiConfigHistoryMonitor
+from potbot.tools.scoped_launcher import DEFAULT_SOCKET
 from potbot.tools.shared_workspace_isolation import (
     SharedWorkspaceBubblewrapBackend,
     SharedWorkspaceRuntime,
@@ -111,11 +113,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--image-digest", required=True)
     parser.add_argument("--qualification-sha256", required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument(
+        "--scoped-worker-launcher",
+        action="store_true",
+        help="use the installed scoped worker broker",
+    )
     args = parser.parse_args(argv)
     if (args.ai_config is None) != (args.ai_past is None):
         parser.error("--ai-config and --ai-past must be supplied together")
     try:
-        config = WorkerMonitorConfig.from_environment()
+        config = WorkerMonitorConfig.from_environment(scoped_worker=args.scoped_worker_launcher)
+        if args.scoped_worker_launcher and config.scoped_launcher != DEFAULT_SOCKET:
+            raise CapabilityUnavailableError("Select the installed scoped worker launcher endpoint")
         runtime = SharedWorkspaceRuntime(
             args.image_digest,
             args.rootfs,

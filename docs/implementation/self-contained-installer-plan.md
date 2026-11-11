@@ -432,8 +432,7 @@ operator configuration digest matched across both boots.
    `/lib/modules/$(uname -r)`. Start the worker service with its intended
    credentials, private mounts and delegated cgroup. Confirm no 9p or DrvFs
    mounts are visible from that service and check the delegated controllers.
-4. **Qualify the live service.** Run the existing operator gate and require a
-   TASKSTATS record for every traced task. Repeat the PID namespace isolation,
+4. **Qualify the live service.** Run the [scoped operator gate](38-operator-worker-qualification.md#qualify-the-installed-scoped-launcher) and require a TASKSTATS record for every traced task. Repeat the PID namespace isolation,
    unprivileged subscription and port reuse checks. Verify cancellation,
    overlapping work, lease renewal and cleanup on the pinned signed image.
    Verify monitored Cog authorization and context RPC with the pinned official
@@ -445,6 +444,13 @@ operator configuration digest matched across both boots.
    changed independently, reconcile the edits before writing it. Shut WSL down
    again and verify the baseline kernel and distro boot. Keep the failure
    receipt and the worker gate closed.
+
+The installer-selected public dev13 kernel passed the scoped operator gate
+with the published Potbot wheel and the retained signed worker image. The
+stock kernel refused the collector before dispatch. The dev13 kernel
+accounted for every traced task in the fork probe and released the test
+cgroups. The qualification used disposable service and workspace state.
+Rollback verified the stock boot and preserved the managed Syn operator.
 
 The diagram covers the proposed sequence. The recorded qualifications use
 headless probes and structured receipts. The deployment run supplies new
