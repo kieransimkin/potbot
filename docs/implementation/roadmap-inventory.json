@@ -639,12 +639,12 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "ee70bb24d37d011a38554416be234f97416dd450e176fd52f0f7e354a7112d52",
-      "bytes": 12509,
+      "sha256": "32d80c30bf103f3ceaff354ab4c7bb39fa01ccca086039744eb40f491d97506c",
+      "bytes": 12863,
       "kind": "narrative_text",
-      "text_sha256": "ee70bb24d37d011a38554416be234f97416dd450e176fd52f0f7e354a7112d52",
-      "characters": 12506,
-      "lines": 257,
+      "text_sha256": "32d80c30bf103f3ceaff354ab4c7bb39fa01ccca086039744eb40f491d97506c",
+      "characters": 12860,
+      "lines": 263,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -909,12 +909,12 @@
     },
     {
       "path": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "sha256": "e08c57345301a45513025dfe5fc69f1538fc8e2e7636f3aea250d2e54f50dd15",
-      "bytes": 11240,
+      "sha256": "c4eb5a013fe68f4b29401af668c6594077c223d6ec370e3db8d921bdc92dc7b7",
+      "bytes": 11541,
       "kind": "narrative_text",
-      "text_sha256": "e08c57345301a45513025dfe5fc69f1538fc8e2e7636f3aea250d2e54f50dd15",
-      "characters": 11240,
-      "lines": 218,
+      "text_sha256": "c4eb5a013fe68f4b29401af668c6594077c223d6ec370e3db8d921bdc92dc7b7",
+      "characters": 11541,
+      "lines": 223,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1244,12 +1244,12 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "baae6ec6ecf9eb548a4758dece62d1fc67f0dd13920be4e78653715a25779868",
-      "bytes": 35769,
+      "sha256": "422894682cdc30624a6c2732447cf1b8d4af8f924964e3c20312da2ffe6df487",
+      "bytes": 36123,
       "kind": "narrative_text",
-      "text_sha256": "baae6ec6ecf9eb548a4758dece62d1fc67f0dd13920be4e78653715a25779868",
-      "characters": 35751,
-      "lines": 646,
+      "text_sha256": "422894682cdc30624a6c2732447cf1b8d4af8f924964e3c20312da2ffe6df487",
+      "characters": 36105,
+      "lines": 652,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1294,12 +1294,12 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "c204f98903d90d82e577b47db3c026066e59ad202109be489bd69cc603a38334",
-      "bytes": 9738,
+      "sha256": "20c77a451444407c6198b0badf7959de90bf4816f4345b054755fc1517cc89ea",
+      "bytes": 13114,
       "kind": "narrative_text",
-      "text_sha256": "c204f98903d90d82e577b47db3c026066e59ad202109be489bd69cc603a38334",
-      "characters": 9732,
-      "lines": 47,
+      "text_sha256": "20c77a451444407c6198b0badf7959de90bf4816f4345b054755fc1517cc89ea",
+      "characters": 13107,
+      "lines": 108,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1344,12 +1344,12 @@
     },
     {
       "path": "docs/implementation/unified-development-roadmap.md",
-      "sha256": "e1bcb63795f6deaf455fc4e3a5312dd3ac9837add348aaf1d9730c256aa109a5",
-      "bytes": 30408,
+      "sha256": "118038ed94626b0f26f48bacbb07cae3d5951712305ae491f168d47ee1995b15",
+      "bytes": 30844,
       "kind": "narrative_text",
-      "text_sha256": "e1bcb63795f6deaf455fc4e3a5312dd3ac9837add348aaf1d9730c256aa109a5",
-      "characters": 30252,
-      "lines": 216,
+      "text_sha256": "118038ed94626b0f26f48bacbb07cae3d5951712305ae491f168d47ee1995b15",
+      "characters": 30688,
+      "lines": 224,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -30117,7 +30117,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R01",
       "title": "Upstream inventory",
-      "locator": "line:35",
+      "locator": "line:96",
       "source_claim": "requirements_only",
       "requirement_sha256": "382e979610f234f8a7ec91a62dae6315fb474d2b0fd73ad19b925c734afddf6f",
       "unified_owners": [
@@ -30163,7 +30163,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R02",
       "title": "[Operator release installer](syn-release-installation.md) implemented",
-      "locator": "line:36",
+      "locator": "line:97",
       "source_claim": "requirements_only",
       "requirement_sha256": "9f10ceacabca28d35025c4729f4058317fc41ef5c44c6e0e5112aa4576fe4472",
       "unified_owners": [
@@ -30209,7 +30209,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R03",
       "title": "[Native operator deployment candidate](syn-operator-deployment.md)",
-      "locator": "line:37",
+      "locator": "line:98",
       "source_claim": "requirements_only",
       "requirement_sha256": "519df95b1d3c0a47412fa10b01092e7143567e9c949b23224e4482ce24a1e9a4",
       "unified_owners": [
@@ -30255,7 +30255,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R04",
       "title": "[Agent provisioning and official-package acceptance](syn-agent-deployment.md)",
-      "locator": "line:38",
+      "locator": "line:99",
       "source_claim": "requirements_only",
       "requirement_sha256": "9b33b5506efdc6dee3c9974dbc0ad52ca0ef8d9cb40ef76c31e008c6177e8631",
       "unified_owners": [
@@ -30301,7 +30301,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R05",
       "title": "[Native identity and Cog admission](syn-cog-admission.md) implemented; native boundary qualified",
-      "locator": "line:39",
+      "locator": "line:100",
       "source_claim": "requirements_only",
       "requirement_sha256": "e6a234f23ab50e8b660c3d198f413039ff1df72fb2828a34958aaa7e26f763f5",
       "unified_owners": [
@@ -30348,7 +30348,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R06",
       "title": "[Package staging](syn-release-installation.md#stage-a-runtime-upgrade) and [retained operator switching](syn-operator-deployment.md#switch-the-release-for-an-existing-operator)",
-      "locator": "line:40",
+      "locator": "line:101",
       "source_claim": "requirements_only",
       "requirement_sha256": "52a7eb1f5ccc6e1bd31650992eca02588e3fdc9b7048f3de165a3b411132a877",
       "unified_owners": [
@@ -30394,7 +30394,7 @@
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
       "id": "SYN-R07",
       "title": "[Official-release parity and removal gate](syn-r07-release-parity.md)",
-      "locator": "line:41",
+      "locator": "line:102",
       "source_claim": "requirements_only",
       "requirement_sha256": "b6e9570b746eebce1f108b16316f3eb16c445040db4742654673b2a2abbb6544",
       "unified_owners": [
@@ -34041,7 +34041,7 @@
       "title": "CI, release and deployment qualification",
       "locator": "line:83",
       "source_claim": "requirements_only",
-      "requirement_sha256": "93b499f7230e9de65954713f5091a08d07c53316723a1cf1422aecb555ae38e2",
+      "requirement_sha256": "1efa3f555eda945390798b6b2e583143ef7df832a5c29fdbe649faf374701cf5",
       "unified_owners": [
         "U16"
       ],
@@ -35730,12 +35730,12 @@
     },
     {
       "path": ".github/workflows/official-syn-monitored-workers.yml",
-      "sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53",
-      "bytes": 6831,
+      "sha256": "4963fe82599daf384625583653f24020b943b4d2f76b4c7e70eaa5d6653e082f",
+      "bytes": 7325,
       "kind": "narrative_text",
-      "text_sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53",
-      "characters": 6831,
-      "lines": 140,
+      "text_sha256": "4963fe82599daf384625583653f24020b943b4d2f76b4c7e70eaa5d6653e082f",
+      "characters": 7325,
+      "lines": 148,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35979,7 +35979,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "114ae343ca77776c1a7aa3d4e7cc68fd2fe1dcbdb2deb5b9c47e746754a4b95f",
+  "review_sha256": "e6a0e7db1efdef11faa04d64b4d3120c4885cd2fb74d39cbb77c7206e6d164eb",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -112581,9 +112581,9 @@
     },
     {
       "source": "docs/implementation/38-operator-worker-qualification.md",
-      "locator": "line:228-257",
-      "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
-      "excerpt": "### Context RPC with official Syn authorization\n\nBoth pinned releases exercise the shipped context client and the real\nPostgreSQL session store. A grant for typ",
+      "locator": "line:228-263",
+      "sha256": "f637b2e5d75307a75eb6afaa2619e76a70307a1653a001d537f5fd1f312f863e",
+      "excerpt": "### Context RPC with official Syn authorization\n\nThe existing official-release fixture qualifies native Syn admission and\nworker stdio Context RPC. Its receipt ",
       "review_families": [
         "accounting"
       ]
@@ -113995,8 +113995,8 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:1-7",
-      "sha256": "7c29a0d8b635706b84b62a9ac907731ee203ccae4693a5e2cbc718847b4e29aa",
+      "locator": "line:1-12",
+      "sha256": "f9cf6357c7ad851de61d610615103e3690a154f658c632a3022e54e199b50a42",
       "excerpt": "# Stage 10B: agent context RPC and PostgreSQL operation leases\n\nBase: `ed1aae6fa189e6a521ede996c92892aaa41d140f` (after the CI/temporary-cleanup\nfix). This incr",
       "review_families": [
         "context",
@@ -114005,7 +114005,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:8-32",
+      "locator": "line:13-37",
       "sha256": "78ed6eb075e7c0ee9bf2df6be12693eb9c84490ef726b0ea3dcf271fb2052bc8",
       "excerpt": "## Implemented path\n\nA trusted dispatcher admits a registered agent/run under its existing process\nlease and starts its qualified interactive sandbox process. I",
       "review_families": [
@@ -114015,7 +114015,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:33-73",
+      "locator": "line:38-78",
       "sha256": "01179ae09d9463ab5f6f057bb225228f5947915785d05f40036b03f6acfa8022",
       "excerpt": "## Database and atomicity\n\nMigration **31**, `context_session_schema`, introduces:\n\n- `workspace_context_sessions`: principal-owned agent/run bindings, a digest",
       "review_families": [
@@ -114025,7 +114025,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:74-97",
+      "locator": "line:79-102",
       "sha256": "4fe1c4b72c070fc8b1df76e903259fc6f616685bf0b6c1b7b0259abcaa982870",
       "excerpt": "## Bounds and lifecycle\n\nFrames use a four-byte big-endian length followed by UTF-8 JSON. Duplicate keys,\nnonfinite JSON, unknown fields, invalid UUID spelling,",
       "review_families": [
@@ -114035,7 +114035,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:98-149",
+      "locator": "line:103-154",
       "sha256": "dd13196380b36bec0365f94f9d4de2f1a5cd659835c692251bdf40795d1d5ca5",
       "excerpt": "## Host integration\n\n`ContextWorkerChannel` is a host-only adapter, not a public admission API. Use\nit only after the ordinary controller task/budget/image/proc",
       "review_families": [
@@ -114045,7 +114045,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:150-186",
+      "locator": "line:155-191",
       "sha256": "245546bdba33a1c993372b9f7455d36a88094ab0c013b7e66467795626410af8",
       "excerpt": "## Guest client and rollout\n\nThe image includes `/opt/potbot/context_client.py`, a standard-library-only\nclient. Rebuild and qualify the image before using that",
       "review_families": [
@@ -114055,7 +114055,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:187-213",
+      "locator": "line:192-218",
       "sha256": "4bc4b7ea2a9b70357318818b8d04fb9b2fd862433e724889e1f69ab2fafa1a1e",
       "excerpt": "## Tests and outstanding boundaries\n\n`tests/unit/test_context_agent_rpc.py` exercises forged fields, frame bounds,\nreal stream/socketpair and subprocess-pipe ex",
       "review_families": [
@@ -114065,7 +114065,7 @@
     },
     {
       "source": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "locator": "line:214-218",
+      "locator": "line:219-223",
       "sha256": "5c3d2a99290c4815343da19f982376e99fdd318f1977f13bf424b636557bd126",
       "excerpt": "## Design references\n\n- PostgreSQL row locks: https://www.postgresql.org/docs/18/explicit-locking.html\n- Psycopg transaction scopes: https://www.psycopg.org/psy",
       "review_families": [
@@ -115887,8 +115887,8 @@
     },
     {
       "source": "docs/implementation/self-contained-installer-plan.md",
-      "locator": "line:415-646",
-      "sha256": "6597034aa555e8990c30a2aa8f8432daa76cad7f03d028c92edb7ee854466b25",
+      "locator": "line:415-652",
+      "sha256": "2e960f3c87c77a507e7d2519851d93e84f763b108865261fa3e63a9b4dcd7482",
       "excerpt": "### Qualify the kernel on the target host\n\n1. **Verify the deployment inputs.** Record the WSL version, host architecture,\n   installed distro versions, current",
       "review_families": [
         "accounting",
@@ -116151,7 +116151,27 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:27-30",
+      "locator": "line:27-58",
+      "sha256": "a674d39e63bab5ea22d568ee09cca01a53b25f93289489256c1d000ea2521b79",
+      "excerpt": "## Route application RPC through Syn\n\nThe released Syn node is the transport boundary for RPC between Potbot\nprocesses, services and Agents. Both request and re",
+      "review_families": [
+        "syn-release",
+        "syn-operations"
+      ]
+    },
+    {
+      "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
+      "locator": "line:59-87",
+      "sha256": "92cbc62d31be3112d485439a68f6dd3fb9df4ef551746a313e5e7e84f4e2db02",
+      "excerpt": "### Implementation sequence\n\n1. Define the canonical directed request/reply interface upstream in\n   Syn. Select the service endpoint under operator authority. ",
+      "review_families": [
+        "syn-release",
+        "syn-operations"
+      ]
+    },
+    {
+      "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
+      "locator": "line:88-91",
       "sha256": "66d620f4efda4fa9c1cebbc7470ccbe5a9c80b222c3de05998971c12559cdf6b",
       "excerpt": "## Identity and adoption invariants\n\nSYN alone owns entropy, key derivation, private-key custody, enrollment and signing. Preserve operator root `m/6969'/420'`,",
       "review_families": [
@@ -116161,7 +116181,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:31-44",
+      "locator": "line:92-105",
       "sha256": "a7b621ca38fe3eb54137753bb9a564420b7ade5727db7137805259a5944f4792",
       "excerpt": "## Delivery milestones and acceptance gates\n\n| Gate | Deliverable | Proof required |\n| --- | --- | --- |\n| SYN-R01 | Upstream inventory | Canonical repository/r",
       "review_families": [
@@ -116173,7 +116193,7 @@
     },
     {
       "source": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "locator": "line:45-47",
+      "locator": "line:106-108",
       "sha256": "4d8ad187a237084718451a2bff422f34b7fae515cb14bbac6803d3f85b75e2c6",
       "excerpt": "## Integration sequencing\n\nBlock production SYN agent launch until SYN-R01\u2013R04; block production Cog dispatch until SYN-R05; block general rollout until SYN-R06",
       "review_families": [
@@ -116601,7 +116621,17 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:129-152",
+      "locator": "line:129-136",
+      "sha256": "b003d17be8b130279262508d8ce74d558262ad1760056625d2ba42e2b0ce17c5",
+      "excerpt": "### Syn transport for application RPC\n\nUse the [Syn RPC implementation sequence](syn-release-dependency-and-node-deployment.md#route-application-rpc-through-syn",
+      "review_families": [
+        "audit",
+        "transport-recovery"
+      ]
+    },
+    {
+      "source": "docs/implementation/unified-development-roadmap.md",
+      "locator": "line:137-160",
       "sha256": "32b7eab97e7389ba15ce03552db8085933b764e7be0e88f1509f38049e1895a6",
       "excerpt": "## First next milestone\n\n**U01-A: durable side-effect and crash recovery gap closure.** U00-A's\n[reviewed closeout](u00-a-closeout.md) is complete. Preserve the",
       "review_families": [
@@ -116612,7 +116642,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:153-166",
+      "locator": "line:161-174",
       "sha256": "fad8ad3bc0f5c2f2834281f8aaa52d60a6cf39c7bbfccd4fae9aee0a7b60f130",
       "excerpt": "## Required follow-through from the monitoring chat\n\n| Work item | Existing U owner | Deliverable and gate |\n|---|---|---|\n| U03-Q | U03, U02, U16 | Qualify eve",
       "review_families": [
@@ -116627,7 +116657,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:167-185",
+      "locator": "line:175-193",
       "sha256": "e8813cbdbc07b73b8e614df41c1dea7330abebc0152b5bcefd0603bf0353e4e7",
       "excerpt": "## Required follow-through from the other recent development conversations\n\n| Work item | Existing U owner | Deliverable and gate in the recent-development reco",
       "review_families": [
@@ -116642,7 +116672,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:186-197",
+      "locator": "line:194-205",
       "sha256": "8fd9aa45ac7a56661637b71fa0a5607b1b2b45780bdea5c35f0434b61d7925a3",
       "excerpt": "## References\n\n- `docs/implementation/agent-runtime-modernization.md`\n- `docs/implementation/09-tool-plan-gap-audit.md`\n- `docs/implementation/plugin-discovery-",
       "review_families": [
@@ -116651,7 +116681,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:198-202",
+      "locator": "line:206-210",
       "sha256": "c6f1c77f80e48b91c4a197f815afa2760f516f5eff7fc07b87bbbe7ffc5b2197",
       "excerpt": "## Cross-agent ecosystem compatibility (C00\u2013C09)\n\nAdd the companion [cross-agent compatibility plan](cross-agent-compatibility.md) as a required cross-cutting w",
       "review_families": [
@@ -116660,7 +116690,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:203-211",
+      "locator": "line:211-219",
       "sha256": "a3a63964c24da210b3a841a4fa93e2529b30a3e255e67e78853aea0f4d0192ad",
       "excerpt": "## External skill ecosystem discovery and native execution (S00\u2013S10)\n\nThe cross-agent C00\u2013C09 programme is extended by [external skill ecosystem integration](po",
       "review_families": [
@@ -116670,7 +116700,7 @@
     },
     {
       "source": "docs/implementation/unified-development-roadmap.md",
-      "locator": "line:212-216",
+      "locator": "line:220-224",
       "sha256": "28dfd2784d97841df10d40c27bf4c7f21bc278c11ace17b0339a9ee74ece1daa",
       "excerpt": "## Agent benchmarking and testing (B00\u2013B10)\n\nAdd [Potbot agent benchmarking and testing](potbot-agent-benchmarking-plan.md) as the qualification specification f",
       "review_families": [

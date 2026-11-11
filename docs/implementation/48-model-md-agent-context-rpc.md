@@ -5,6 +5,11 @@ fix). This increment leaves those CI fixes intact. It adds an opt-in context
 worker transport; it is not a claim that every existing worker or shared-tool
 lifecycle has automatically acquired this profile.
 
+The [Syn RPC transport decision](syn-release-dependency-and-node-deployment.md#route-application-rpc-through-syn)
+now governs cutover. This stage records the original dedicated stdio
+implementation and its PostgreSQL session guarantees. Its test results
+establish local RPC behavior after admission.
+
 ## Implemented path
 
 A trusted dispatcher admits a registered agent/run under its existing process

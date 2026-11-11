@@ -24,6 +24,8 @@ from potbot.context.rpc_contract import (
 )
 from potbot.domain.errors import DomainError, InvalidInputError
 
+RPC_TRANSPORT = "stdio"
+
 _MESSAGES = {
     "invalid_input": "Invalid context request",
     "scope_denied": "Context operation not authorized",

@@ -104,6 +104,8 @@ jobs:
               assert evidence["workspace_leases_and_worker_cgroups_released"] is True
           else:
               assert evidence["route"] == "context-rpc/v1"
+              assert evidence["rpc_transport"] == "stdio"
+              assert evidence["syn_rpc_transport_verified"] is False
               assert evidence["audited_exit_codes"] == [0, 9]
               for key in (
                   "typed_json_grant_refused_before_dispatch",
@@ -122,6 +124,12 @@ jobs:
           out = Path("artifacts/official-syn-worker")
           out.mkdir(parents=True)
           (out / "summary.json").write_text(json.dumps(evidence, indent=2) + "\n")
+          if evidence.get("rpc_transport") == "stdio":
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write(
+                      "Native Syn admission passed. Context RPC used worker stdio. "
+                      "Syn node request/reply transport remains unqualified.\n"
+                  )
           PY
       - name: Retain the official monitored worker receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

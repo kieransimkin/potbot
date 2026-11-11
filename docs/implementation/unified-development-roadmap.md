@@ -126,6 +126,14 @@ Across these waves, follow the existing MG dependency cut rather than waiting fo
 6. Every patch must include tests, migration/rollback notes and compatibility assessment. Run `python scripts/check_tool_plan.py`, `scripts/check.py` and relevant real-system suites.
 7. Learning and policy optimization require frozen held-out evaluation, independent security regression and explicit promotion.
 
+### Syn transport for application RPC
+
+Use the [Syn RPC implementation sequence](syn-release-dependency-and-node-deployment.md#route-application-rpc-through-syn)
+across the tools, runtime and service workstreams. Qualify Context RPC
+first with a signed upstream release, then migrate the remaining direct
+application RPC paths. Native Cog admission, heartbeats, sandbox
+accounting and request/reply transport retain separate evidence.
+
 ## First next milestone
 
 **U01-A: durable side-effect and crash recovery gap closure.** U00-A's

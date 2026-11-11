@@ -1,4 +1,4 @@
-"""Exercise context RPC using the native grants in the live official Syn fixture."""
+"""Exercise native Syn admission and the legacy stdio Context RPC path."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
+from potbot.context.rpc_transport import RPC_TRANSPORT
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 from potbot.tools.released_syn_nodes import ReleasedSynWorkerNodeMesh
 from potbot.tools.workspace_supervision import WorkspaceExecutorIdentity, WorkspaceLeaseGuard
@@ -138,6 +139,8 @@ async def qualify_released_syn_context(
 
     return {
         "route": "context-rpc/v1",
+        "rpc_transport": RPC_TRANSPORT,
+        "syn_rpc_transport_verified": False,
         "audited_exit_codes": [0, 9],
         "traced_process_counts": counts,
         "native_peer_heartbeat_while_worker_live": True,

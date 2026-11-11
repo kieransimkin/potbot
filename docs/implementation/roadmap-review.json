@@ -64848,7 +64848,7 @@
     },
     {
       "path": "docs/implementation/38-operator-worker-qualification.md",
-      "sha256": "ee70bb24d37d011a38554416be234f97416dd450e176fd52f0f7e354a7112d52",
+      "sha256": "32d80c30bf103f3ceaff354ab4c7bb39fa01ccca086039744eb40f491d97506c",
       "families": [
         "accounting"
       ],
@@ -64919,8 +64919,8 @@
           ]
         },
         {
-          "locator": "line:228-257",
-          "sha256": "3ba1d0ba25b0ec780c9045e37853949495eb29eb5a78b0eeaf684eec8138042a",
+          "locator": "line:228-263",
+          "sha256": "f637b2e5d75307a75eb6afaa2619e76a70307a1653a001d537f5fd1f312f863e",
           "families": [
             "accounting"
           ]
@@ -66371,7 +66371,7 @@
     },
     {
       "path": "docs/implementation/48-model-md-agent-context-rpc.md",
-      "sha256": "e08c57345301a45513025dfe5fc69f1538fc8e2e7636f3aea250d2e54f50dd15",
+      "sha256": "c4eb5a013fe68f4b29401af668c6594077c223d6ec370e3db8d921bdc92dc7b7",
       "families": [
         "context",
         "skills"
@@ -66380,15 +66380,15 @@
       "assessment": "Application context migrations 29-33, registered-object lifecycle, projections, scoped RPC and ordinary worker launch integration exist. Root MODEL/MEMORY and standalone Stage 2 SQLite describe historical development contracts.; Managed skill drafts/releases/resources and controlled shared projections exist. Native authoring is not full OpenClaw/Codex/Claude parsing, hooks, aliases, install or portable execution compatibility.",
       "narrative": [
         {
-          "locator": "line:1-7",
-          "sha256": "7c29a0d8b635706b84b62a9ac907731ee203ccae4693a5e2cbc718847b4e29aa",
+          "locator": "line:1-12",
+          "sha256": "f9cf6357c7ad851de61d610615103e3690a154f658c632a3022e54e199b50a42",
           "families": [
             "context",
             "skills"
           ]
         },
         {
-          "locator": "line:8-32",
+          "locator": "line:13-37",
           "sha256": "78ed6eb075e7c0ee9bf2df6be12693eb9c84490ef726b0ea3dcf271fb2052bc8",
           "families": [
             "context",
@@ -66396,7 +66396,7 @@
           ]
         },
         {
-          "locator": "line:33-73",
+          "locator": "line:38-78",
           "sha256": "01179ae09d9463ab5f6f057bb225228f5947915785d05f40036b03f6acfa8022",
           "families": [
             "context",
@@ -66404,7 +66404,7 @@
           ]
         },
         {
-          "locator": "line:74-97",
+          "locator": "line:79-102",
           "sha256": "4fe1c4b72c070fc8b1df76e903259fc6f616685bf0b6c1b7b0259abcaa982870",
           "families": [
             "context",
@@ -66412,7 +66412,7 @@
           ]
         },
         {
-          "locator": "line:98-149",
+          "locator": "line:103-154",
           "sha256": "dd13196380b36bec0365f94f9d4de2f1a5cd659835c692251bdf40795d1d5ca5",
           "families": [
             "context",
@@ -66420,7 +66420,7 @@
           ]
         },
         {
-          "locator": "line:150-186",
+          "locator": "line:155-191",
           "sha256": "245546bdba33a1c993372b9f7455d36a88094ab0c013b7e66467795626410af8",
           "families": [
             "context",
@@ -66428,7 +66428,7 @@
           ]
         },
         {
-          "locator": "line:187-213",
+          "locator": "line:192-218",
           "sha256": "4bc4b7ea2a9b70357318818b8d04fb9b2fd862433e724889e1f69ab2fafa1a1e",
           "families": [
             "context",
@@ -66436,7 +66436,7 @@
           ]
         },
         {
-          "locator": "line:214-218",
+          "locator": "line:219-223",
           "sha256": "5c3d2a99290c4815343da19f982376e99fdd318f1977f13bf424b636557bd126",
           "families": [
             "context",
@@ -68278,7 +68278,7 @@
     },
     {
       "path": "docs/implementation/self-contained-installer-plan.md",
-      "sha256": "baae6ec6ecf9eb548a4758dece62d1fc67f0dd13920be4e78653715a25779868",
+      "sha256": "422894682cdc30624a6c2732447cf1b8d4af8f924964e3c20312da2ffe6df487",
       "families": [
         "accounting",
         "sandbox",
@@ -68360,8 +68360,8 @@
           ]
         },
         {
-          "locator": "line:415-646",
-          "sha256": "6597034aa555e8990c30a2aa8f8432daa76cad7f03d028c92edb7ee854466b25",
+          "locator": "line:415-652",
+          "sha256": "2e960f3c87c77a507e7d2519851d93e84f763b108865261fa3e63a9b4dcd7482",
           "families": [
             "accounting",
             "sandbox",
@@ -68588,7 +68588,7 @@
     },
     {
       "path": "docs/implementation/syn-release-dependency-and-node-deployment.md",
-      "sha256": "c204f98903d90d82e577b47db3c026066e59ad202109be489bd69cc603a38334",
+      "sha256": "20c77a451444407c6198b0badf7959de90bf4816f4345b054755fc1517cc89ea",
       "families": [
         "syn-release",
         "syn-operations"
@@ -68629,7 +68629,23 @@
           ]
         },
         {
-          "locator": "line:27-30",
+          "locator": "line:27-58",
+          "sha256": "a674d39e63bab5ea22d568ee09cca01a53b25f93289489256c1d000ea2521b79",
+          "families": [
+            "syn-release",
+            "syn-operations"
+          ]
+        },
+        {
+          "locator": "line:59-87",
+          "sha256": "92cbc62d31be3112d485439a68f6dd3fb9df4ef551746a313e5e7e84f4e2db02",
+          "families": [
+            "syn-release",
+            "syn-operations"
+          ]
+        },
+        {
+          "locator": "line:88-91",
           "sha256": "66d620f4efda4fa9c1cebbc7470ccbe5a9c80b222c3de05998971c12559cdf6b",
           "families": [
             "syn-release",
@@ -68637,7 +68653,7 @@
           ]
         },
         {
-          "locator": "line:31-44",
+          "locator": "line:92-105",
           "sha256": "a7b621ca38fe3eb54137753bb9a564420b7ade5727db7137805259a5944f4792",
           "families": [
             "identity",
@@ -68647,7 +68663,7 @@
           ]
         },
         {
-          "locator": "line:45-47",
+          "locator": "line:106-108",
           "sha256": "4d8ad187a237084718451a2bff422f34b7fae515cb14bbac6803d3f85b75e2c6",
           "families": [
             "syn-release",
@@ -68865,7 +68881,7 @@
     },
     {
       "path": "docs/implementation/unified-development-roadmap.md",
-      "sha256": "e1bcb63795f6deaf455fc4e3a5312dd3ac9837add348aaf1d9730c256aa109a5",
+      "sha256": "118038ed94626b0f26f48bacbb07cae3d5951712305ae491f168d47ee1995b15",
       "families": [
         "audit",
         "transport-recovery"
@@ -69072,7 +69088,15 @@
           ]
         },
         {
-          "locator": "line:129-152",
+          "locator": "line:129-136",
+          "sha256": "b003d17be8b130279262508d8ce74d558262ad1760056625d2ba42e2b0ce17c5",
+          "families": [
+            "audit",
+            "transport-recovery"
+          ]
+        },
+        {
+          "locator": "line:137-160",
           "sha256": "32b7eab97e7389ba15ce03552db8085933b764e7be0e88f1509f38049e1895a6",
           "families": [
             "durable",
@@ -69081,7 +69105,7 @@
           ]
         },
         {
-          "locator": "line:153-166",
+          "locator": "line:161-174",
           "sha256": "fad8ad3bc0f5c2f2834281f8aaa52d60a6cf39c7bbfccd4fae9aee0a7b60f130",
           "families": [
             "accounting",
@@ -69094,7 +69118,7 @@
           ]
         },
         {
-          "locator": "line:167-185",
+          "locator": "line:175-193",
           "sha256": "e8813cbdbc07b73b8e614df41c1dea7330abebc0152b5bcefd0603bf0353e4e7",
           "families": [
             "accounting",
@@ -69107,21 +69131,21 @@
           ]
         },
         {
-          "locator": "line:186-197",
+          "locator": "line:194-205",
           "sha256": "8fd9aa45ac7a56661637b71fa0a5607b1b2b45780bdea5c35f0434b61d7925a3",
           "families": [
             "audit"
           ]
         },
         {
-          "locator": "line:198-202",
+          "locator": "line:206-210",
           "sha256": "c6f1c77f80e48b91c4a197f815afa2760f516f5eff7fc07b87bbbe7ffc5b2197",
           "families": [
             "compatibility"
           ]
         },
         {
-          "locator": "line:203-211",
+          "locator": "line:211-219",
           "sha256": "a3a63964c24da210b3a841a4fa93e2529b30a3e255e67e78853aea0f4d0192ad",
           "families": [
             "compatibility",
@@ -69129,7 +69153,7 @@
           ]
         },
         {
-          "locator": "line:212-216",
+          "locator": "line:220-224",
           "sha256": "28dfd2784d97841df10d40c27bf4c7f21bc278c11ace17b0339a9ee74ece1daa",
           "families": [
             "evaluation"
@@ -80981,7 +81005,7 @@
     },
     {
       "key": "unified:U16",
-      "requirement_sha256": "93b499f7230e9de65954713f5091a08d07c53316723a1cf1422aecb555ae38e2",
+      "requirement_sha256": "1efa3f555eda945390798b6b2e583143ef7df832a5c29fdbe649faf374701cf5",
       "families": [
         "recovery"
       ],
@@ -83071,7 +83095,7 @@
         "latest_inspected_run": null,
         "at_reviewed_base": false,
         "qualification_limit": "Pinned official Linux Agent packages with fresh disposable typed JSON and Context RPC Cog workers.",
-        "sha256": "1a6e315b6dde142b19bb52f6dd92999f014676af257f11f2e4b13136be4cdc53"
+        "sha256": "4963fe82599daf384625583653f24020b943b4d2f76b4c7e70eaa5d6653e082f"
       },
       {
         "path": ".github/workflows/signed-worker-image.yml",
