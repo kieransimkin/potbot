@@ -2,7 +2,7 @@
 
 **Programme:** 48-stage universal tool/MCP implementation plan; Phase 02, Stage T02.3.
 **Repository:** `kieransimkin/potbot`; additive patch based on checked `main` at `c2be65f3f45f78684f67afcbe1bd2f2f3ea9ead2` (22 October 2026).
-**Delivery status:** implemented and tested against an offline compatibility fixture. **Live Bubblewrap/seccomp, PostgreSQL, complete wheel and latest-head CI qualification remain outstanding until run on the repository's Linux CI host.**
+**Delivery status:** T02.3.3 exercises live Bubblewrap/seccomp on Linux. The full stage gate also requires the repository's PostgreSQL and packaging checks on the revision under review.
 
 ## 1. Why this increment is needed
 
@@ -20,7 +20,7 @@ The existing `ToolGateway`, `ExecutionStore`, `BudgetLedger`, workspace sandbox 
 | T02.3 | `tests/unit/test_interactive_supervisor.py` | Real child fixture pipes, deadlines, stderr flood, immediate cancellation, broken cancellation checker and fail-closed isolation. |
 | T02.3 | `tests/unit/test_mcp_sandbox.py` | Real JSON-RPC fixture calls, authorization, executable binding and non-replay, denied tools, unexpected replies and cancellation. |
 | T02.3 | `tests/unit/test_cli_adapter.py` | Allowlisted runtime, authority, CWD, shell/argument rejection, denied secrets and mutation, isolation identity and output metadata. |
-| T02.3 | `tests/integration/test_tool_phase2_3_sandbox.py` | Actual Linux Bubblewrap MCP calculator and CLI git/python/failing-process exercises. Uses the **sandbox marker** and must run in qualified CI, not in the simulated suite. |
+| T02.3 | `tests/integration/test_tool_phase2_3_sandbox.py` | Live Linux Bubblewrap calculator, filesystem and network confinement, stdio limits, 100 crash/restart cycles, and CLI exercises. The sandbox suite runs in qualified CI. |
 | T02.3 | `scripts/tool_phase2_3_gate.py` | Reproducible offline-vs-qualified stage gate; JUnit and machine-readable JSON. Qualified mode runs actual sandbox tests and full `scripts/check.py --with-postgres --with-sandbox`. |
 
 ## 3. Execution boundaries
@@ -70,7 +70,25 @@ uv run --locked python -m pytest -q tests/integration/test_tool_phase2_3_sandbox
 uv run --locked python scripts/tool_phase2_3_gate.py --mode qualified
 ```
 
-This checks that the MCP calculator returns `42`, `git status` and `python -V` exit successfully under namespace confinement, the controlled failure exits nonzero without being mistaken for infrastructure failure, and source-bound isolation identity is present. A missing Bubblewrap, missing system runtime or unqualified CI backend **fails** the requested gate; it is not skipped.
+The calculator returns 42 with a recorded isolation identity. The guest cannot read or modify a host canary, inherit a host environment canary, or reach a disposable host loopback listener. An oversized stdout frame closes the session. Stderr flooding leaves a byte count and a truncation flag.
+
+In each of 100 crash/restart trials, the fixture writes one synthetic journal row and exits before replying. The failed session refuses a second call. A fresh session with a read-only receipt grant recovers the row and refuses the original operation. The suite checks the exact 100 journal entries after the last restart.
+
+```mermaid
+sequenceDiagram
+    participant T as Test controller
+    participant W as Sandboxed MCP process
+    participant J as Disposable journal
+    T->>W: Invoke calculator fixture
+    W->>J: Append and sync one synthetic row
+    W--xT: Exit before reply
+    T->>T: Refuse retry on closed session
+    T->>W: Start new session with receipt grant
+    W->>J: Read prior row
+    W-->>T: Return saved result
+```
+
+The journal writes belong to the test fixture. Managed MCP still uses the controller's durable receipt and budget rules. The CLI exercises also check Git, Python, and a controlled nonzero exit. Missing Bubblewrap or an unqualified backend fails the requested gate.
 
 The stage gate additionally demands the project's **full** `scripts/check.py --with-postgres --with-sandbox`: Ruff lint and formatting, mypy, all unit/integration tests, database migrations and RLS, sandbox tests, clean wheel install and existing verification suites.
 

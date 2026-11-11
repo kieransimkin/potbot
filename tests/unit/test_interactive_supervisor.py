@@ -243,10 +243,10 @@ def test_monitored_launch_uses_native_wrapper_without_python_preexec(tmp_path, m
     )
     spawn = AsyncMock(side_effect=RuntimeError("fixture stops before spawning"))
     monkeypatch.setattr(module, "WorkerMonitorSession", FixtureMonitor)
-    monkeypatch.setattr(module.asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(module.asyncio.BaseEventLoop, "subprocess_exec", spawn)
     with pytest.raises(RuntimeError, match="fixture stops before spawning"):
         run(InteractiveProcessSupervisor(FixtureBackend(), monitor_config=config).open(selected))
     assert spawn.await_count == 1
-    assert spawn.await_args.args[:3] == ("/operator/cgroup-join", "/operator/cgroup", "--")
-    assert spawn.await_args.args[3:] == selected.argv
+    assert spawn.await_args.args[1:4] == ("/operator/cgroup-join", "/operator/cgroup", "--")
+    assert spawn.await_args.args[4:] == selected.argv
     assert "preexec_fn" not in spawn.await_args.kwargs

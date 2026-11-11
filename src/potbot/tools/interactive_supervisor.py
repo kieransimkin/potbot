@@ -57,6 +57,8 @@ class IsolatedInteractiveProcess:
         status_fd: int,
         cancelled: Callable[[], bool] | None = None,
         monitor_session: WorkerMonitorSession | None = None,
+        *,
+        stdout_pipe: asyncio.BaseTransport | None = None,
     ) -> None:
         import hashlib
 
@@ -65,6 +67,7 @@ class IsolatedInteractiveProcess:
         self.isolation_identity = isolation_identity
         self._hash_constructor = hashlib.sha256
         self._status_fd = status_fd
+        self._stdout_pipe = stdout_pipe
         self._started_at = time.monotonic()
         self._closed = False
         self._monitor_session = monitor_session
@@ -193,6 +196,10 @@ class IsolatedInteractiveProcess:
                     self.process.stdin.close()
                 if force:
                     self._signal(force=True)
+                # An oversized reply can leave the StreamReader paused. Release
+                # its pipe even when no reader is waiting to consume more output.
+                if self._stdout_pipe is not None:
+                    self._stdout_pipe.close()
                 try:
                     await asyncio.wait_for(self.process.wait(), timeout=_SHUTDOWN_GRACE_S)
                 except TimeoutError:
@@ -314,7 +321,10 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                     identity_kind=request.telemetry_identity_kind,
                     run_id=request.telemetry_run_id,
                 )
-            process = await asyncio.create_subprocess_exec(
+            loop = asyncio.get_running_loop()
+            limit = min(request.max_output_bytes + 2, 2 * 1024 * 1024 + 2)
+            transport, protocol = await loop.subprocess_exec(
+                lambda: asyncio.subprocess.SubprocessStreamProtocol(limit, loop),
                 *(
                     telemetry.command(launch.argv, pass_fds=launch.pass_fds)
                     if telemetry is not None
@@ -330,8 +340,8 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
                     *launch.pass_fds,
                     *(telemetry.launch_fds if telemetry is not None else ()),
                 ),
-                limit=min(request.max_output_bytes + 2, 2 * 1024 * 1024 + 2),
             )
+            process = asyncio.subprocess.Process(transport, protocol, loop)
             if telemetry is not None:
                 try:
                     telemetry.start(process.pid)
@@ -366,4 +376,5 @@ class InteractiveProcessSupervisor(ProcessSupervisor):
             status_read,
             cancelled=cancellation_or_audit_fault if telemetry is not None or cancelled else None,
             monitor_session=telemetry,
+            stdout_pipe=transport.get_pipe_transport(1),
         )

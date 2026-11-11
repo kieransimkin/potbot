@@ -26,6 +26,7 @@ SOURCES = (
     "tests/unit/test_cli_adapter.py",
     "tests/unit/test_interactive_supervisor.py",
     "tests/unit/test_mcp_sandbox.py",
+    "tests/fixtures/mcp_stdio_server.py",
     "tests/integration/test_tool_phase2_3_sandbox.py",
 )
 UNIT_SELECTORS = (
