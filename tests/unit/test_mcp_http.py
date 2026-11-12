@@ -9,10 +9,12 @@ import httpx
 import pytest
 
 from potbot.domain.errors import (
+    CapabilityUnavailableError,
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
 )
+from potbot.tools.mcp_confirmation import McpConfirmation, McpConfirmationPrompt
 from potbot.tools.mcp_headers import InvalidMcpHeaderAnnotation, mirrored_headers
 from potbot.tools.mcp_http import McpHttpTransport
 from potbot.tools.mcp_protocol import MODERN, McpClient, McpProtocolError, McpToolInfo
@@ -454,3 +456,121 @@ def test_mirrored_integer_rejects_unsafe_values(value):
     tool = McpToolInfo.from_wire(definition, allow_http_headers=True)
     with pytest.raises(InvalidInputError):
         mirrored_headers(tool.header_parameters, {"a": value})
+
+
+@pytest.mark.parametrize(
+    ("fault", "failure", "rounds", "prompts"),
+    [
+        (None, None, 2, 1),
+        ("disabled", CapabilityUnavailableError, 1, 0),
+        ("wrong-tool", ScopeDeniedError, 0, 0),
+        ("sampling", ScopeDeniedError, 1, 0),
+        ("decline", ScopeDeniedError, 1, 1),
+        ("wrong-field", ScopeDeniedError, 1, 0),
+        ("url-form", ScopeDeniedError, 1, 0),
+        ("state-type", ScopeDeniedError, 1, 0),
+        ("admission-revoked", ScopeDeniedError, 1, 1),
+        ("another-form", McpProtocolError, 2, 1),
+        ("lost-reply", IndeterminateExecutionError, 2, 1),
+    ],
+)
+def test_http_mcp_confirmation_is_explicit_pinned_and_single_round(fault, failure, rounds, prompts):
+    definition = listed_tool()
+    original = {"a": 19, "b": 23}
+    sent = []
+    asked = []
+    admissions = []
+    state = "opaque: 東京 "
+    field = "other" if fault == "wrong-field" else "confirmed"
+    challenge = {
+        "resultType": "input_required",
+        "requestState": 3 if fault == "state-type" else state,
+        "inputRequests": {
+            "verify": {
+                "method": "sampling/createMessage" if fault == "sampling" else "elicitation/create",
+                "params": {
+                    "mode": "url" if fault == "url-form" else "form",
+                    "message": "Show the computed sum?",
+                    "requestedSchema": {
+                        "type": "object",
+                        "properties": {field: {"type": "boolean", "default": True}},
+                        "required": [field],
+                    },
+                },
+            },
+        },
+    }
+
+    async def peer(request):
+        message = json.loads(request.content)
+        method = message["method"]
+        if method == "server/discover":
+            result = {"supportedVersions": [MODERN]}
+        elif method == "tools/list":
+            result = {"tools": [definition]}
+        else:
+            assert method == "tools/call"
+            sent.append(message)
+            params = message["params"]
+            assert params["arguments"] == {"a": 19, "b": 23}
+            expected = {} if fault == "disabled" else {"elicitation": {"form": {}}}
+            assert params["_meta"]["io.modelcontextprotocol/clientCapabilities"] == expected
+            if len(sent) == 1:
+                assert "requestState" not in params and "inputResponses" not in params
+                result = challenge
+            else:
+                assert params["requestState"] == state
+                assert params["inputResponses"] == {
+                    "verify": {"action": "accept", "content": {"confirmed": True}},
+                }
+                assert sent[0]["id"] != message["id"]
+                if fault == "lost-reply":
+                    raise httpx.ReadTimeout("fixture lost continuation reply")
+                result = (
+                    challenge
+                    if fault == "another-form"
+                    else {"resultType": "complete", "structuredContent": {"sum": 42}}
+                )
+        return respond(request, result)
+
+    async def approve(prompt):
+        asked.append(prompt)
+        assert prompt == McpConfirmationPrompt("add", "confirmed", "Show the computed sum?")
+        original["a"] = 500
+        return fault != "decline"
+
+    def admit(tool, arguments):
+        admissions.append((tool.name, dict(arguments)))
+        if fault == "admission-revoked" and asked:
+            raise ScopeDeniedError("Fixture withdrew tool admission")
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(peer)) as http:
+            transport = McpHttpTransport(URL, http, network_approval=lambda _: None)
+            client = McpClient(transport.exchange, admit=admit, http_transport=transport)
+            catalog = await client.refresh_tools()
+            tool = catalog.tool("add")
+            confirmation = McpConfirmation(
+                "0" * 64 if fault == "wrong-tool" else tool.fingerprint,
+                tool.to_capability(server_slug="fixture", effect_class="read_only"),
+                "confirmed",
+                approve,
+            )
+            call = client.call_tool(
+                "add",
+                original,
+                pinned_catalog_hash=catalog.fingerprint,
+                pinned_tool_hash=tool.fingerprint,
+                confirmation=None if fault == "disabled" else confirmation,
+            )
+            if failure is None:
+                assert (await call).structured_content == {"sum": 42}
+            else:
+                with pytest.raises(failure):
+                    await call
+
+    asyncio.run(scenario())
+    assert len(sent) == rounds
+    assert len(asked) == prompts
+    count = 2 if rounds == 2 or fault == "admission-revoked" else rounds
+    assert admissions == [("add", {"a": 19, "b": 23})] * count

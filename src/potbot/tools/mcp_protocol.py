@@ -6,7 +6,7 @@ requires a trusted admission callback. Server-advertised annotations (including
 readOnlyHint) are never an authorization or effect classification.
 
 The 2026-07-28 era is stateless; older 2025-era peers use initialize/initialized.
-Sampling, elicitation, roots, MRTR and tasks are not implemented in this slice.
+Modern HTTP tools can opt into one explicitly approved boolean form.
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ from potbot.tools.mcp_headers import (
 )
 
 if TYPE_CHECKING:
+    from potbot.tools.mcp_confirmation import McpConfirmation
     from potbot.tools.mcp_http import McpHttpTransport
 
 _LOG = logging.getLogger(__name__)
@@ -375,14 +376,22 @@ class McpClient:
     def catalog(self) -> McpCatalog | None:
         return self._catalog
 
-    async def _rpc(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _rpc(
+        self,
+        method: str,
+        params: dict[str, Any] | None = None,
+        *,
+        form_confirmation: bool = False,
+    ) -> dict[str, Any]:
         self._next_id += 1
         request_id = self._next_id
         fields: dict[str, Any] = {} if params is None else dict(params)
         if self._version == MODERN or (self._version is None and method == "server/discover"):
             meta = {
                 "io.modelcontextprotocol/protocolVersion": MODERN,
-                "io.modelcontextprotocol/clientCapabilities": {},
+                "io.modelcontextprotocol/clientCapabilities": (
+                    {"elicitation": {"form": {}}} if form_confirmation else {}
+                ),
                 "io.modelcontextprotocol/clientInfo": {"name": "potbot", "version": "0.5.0"},
             }
             fields["_meta"] = meta
@@ -476,18 +485,18 @@ class McpClient:
             cursor = next_cursor
         raise McpProtocolError("MCP listing exceeds its pagination budget")
 
-    async def call_tool(
+    def _admit_tool(
         self,
         name: str,
         arguments: dict[str, Any],
-        *,
-        pinned_catalog_hash: str,
-        pinned_tool_hash: str,
-    ) -> McpCallResult:
-        if self._catalog is None or self._catalog.fingerprint != pinned_catalog_hash:
+        catalog_hash: str,
+        tool_hash: str,
+        confirmation: McpConfirmation | None,
+    ) -> McpToolInfo:
+        if self._catalog is None or self._catalog.fingerprint != catalog_hash:
             raise StateMismatchError("MCP catalog is missing or has changed since admission")
         tool = self._catalog.tool(name)
-        if tool.fingerprint != pinned_tool_hash:
+        if tool.fingerprint != tool_hash:
             raise StateMismatchError("MCP tool signature changed since admission")
         validate_arguments(tool, arguments)
         if tool.header_parameters and (
@@ -496,11 +505,57 @@ class McpClient:
             or not self._http_transport.accepts_header_tool(tool)
         ):
             raise ScopeDeniedError("MCP routing headers require the approved HTTP tool definition")
+        if confirmation is not None and (
+            self._version != MODERN
+            or self._http_transport is None
+            or confirmation.tool_fingerprint != tool.fingerprint
+            or confirmation.capability.input_schema_json != tool.input_schema_json
+            or confirmation.capability.output_schema_json
+            != (tool.output_schema_json or canonical_json({"type": "object"}))
+        ):
+            raise ScopeDeniedError("MCP form confirmation requires a pinned modern HTTP tool")
         if self._admit is None:
             raise ScopeDeniedError("No controller-owned MCP dispatch authorization is installed")
         # Must raise on denial. Never accept an affirmative claim in model data.
         self._admit(tool, arguments)
-        outcome = await self._rpc("tools/call", {"name": name, "arguments": arguments})
+        return tool
+
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        *,
+        pinned_catalog_hash: str,
+        pinned_tool_hash: str,
+        confirmation: McpConfirmation | None = None,
+    ) -> McpCallResult:
+        """Allow at most one explicit form confirmation when the controller opts in."""
+        frozen = canonical_json(arguments) if confirmation is not None else None
+        tool = self._admit_tool(
+            name,
+            json.loads(frozen) if frozen is not None else arguments,
+            pinned_catalog_hash,
+            pinned_tool_hash,
+            confirmation,
+        )
+        outcome = await self._rpc(
+            "tools/call",
+            {"name": name, "arguments": json.loads(frozen) if frozen is not None else arguments},
+            form_confirmation=confirmation is not None,
+        )
+        if confirmation is not None and outcome.get("resultType") == "input_required":
+            assert frozen is not None
+            continuation = await confirmation.answer(tool.name, outcome)
+            self._admit_tool(
+                name, json.loads(frozen), pinned_catalog_hash, pinned_tool_hash, confirmation
+            )
+            outcome = await self._rpc(
+                "tools/call",
+                {"name": name, "arguments": json.loads(frozen), **continuation},
+                form_confirmation=True,
+            )
+            if outcome.get("resultType") == "input_required":
+                raise McpProtocolError("MCP tool requested a second confirmation")
         result = McpCallResult.from_wire(name, outcome)
         if tool.output_schema_json is not None and not result.is_error:
             if result.structured_content is None:

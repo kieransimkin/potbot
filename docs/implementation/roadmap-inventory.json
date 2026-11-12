@@ -229,12 +229,12 @@
     },
     {
       "path": "docs/implementation/02-mcp-transports.md",
-      "sha256": "8f320823c9121800ad8e9d0605c86751d61b1a600510aac014c00301f799580f",
-      "bytes": 15182,
+      "sha256": "452a9cbd95c9024accdd2ae5f015231888765ef1ff4501d3fb0d82fb88c55f5b",
+      "bytes": 16757,
       "kind": "narrative_text",
-      "text_sha256": "8f320823c9121800ad8e9d0605c86751d61b1a600510aac014c00301f799580f",
-      "characters": 15179,
-      "lines": 146,
+      "text_sha256": "452a9cbd95c9024accdd2ae5f015231888765ef1ff4501d3fb0d82fb88c55f5b",
+      "characters": 16754,
+      "lines": 167,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "bc84b1b554b889dba1f0f00b297ead41759936a5c94a65ecc927e5fce6a48fc0",
+  "review_sha256": "e112643316e1fbaf98f5c9eab3079feecbc540f5a0f252b0cdfbf48125486e59",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110059,7 +110059,7 @@
     {
       "source": "docs/implementation/02-mcp-transports.md",
       "locator": "line:8-16",
-      "sha256": "eb0734a0e8ad624c2edfb8cd5df0114ae524b9a7f1294308e1fabced2cf30cde",
+      "sha256": "579a1ab36257d36665922b28f1ce114774f05c203b6aab3f64f21fb58408e422",
       "excerpt": "## What the increment implements\n\n| Stage | Implementation | Tests | Outstanding |\n|---|---|---|---|\n| T02.1 | Bounded JSON-RPC framing; both lifecycle eras; st",
       "review_families": [
         "mcp"
@@ -110068,7 +110068,7 @@
     {
       "source": "docs/implementation/02-mcp-transports.md",
       "locator": "line:17-66",
-      "sha256": "8a87581b5a34004127a8ae69868e53d491448770a731050a037fe7e3318b00b7",
+      "sha256": "dd5d60a48e7f6d87118296a785e9e3035b5772c55f2927b5d6719d6ef5ae481a",
       "excerpt": "## Security architecture\n\n- A tool supplied by an MCP server is an **untrusted definition**. `annotations.readOnlyHint` is metadata, not a permission. Only an o",
       "review_families": [
         "mcp"
@@ -110094,8 +110094,17 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:105-130",
-      "sha256": "daf73e48a6fb2132e76df616dfb1d11b70a5d17bee2add96321a53502fd4f43c",
+      "locator": "line:105-125",
+      "sha256": "2bb8401541025fb736074cdacafc217ca92f5dfdc3c744d7ada19664bba78118",
+      "excerpt": "### One confirmation on a modern HTTP call\n\nController code can pass a `McpConfirmation` to `McpClient.call_tool` for a pinned read-only tool. The policy select",
+      "review_families": [
+        "mcp"
+      ]
+    },
+    {
+      "source": "docs/implementation/02-mcp-transports.md",
+      "locator": "line:126-151",
+      "sha256": "bd31fc6165473095a70d253fc95fe04b3ab2327b7f999815851dea3b406dc709",
       "excerpt": "## How to run\n\nFrom an existing repository checkout containing this patch:\n\n```bash\nuv sync --locked --extra semantics --extra providers --extra security --dev\n",
       "review_families": [
         "mcp"
@@ -110103,8 +110112,8 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:131-139",
-      "sha256": "e240d17a190d0403368142bbc698b97746fcf426daa7c1c22a5d6d32a0f9222c",
+      "locator": "line:152-160",
+      "sha256": "fe6e817dedc51c9756dcaa2f9c4b4ea206be8aa3a2542dc6431f1024af5fef79",
       "excerpt": "## Next engineering steps, in order\n\n1. **T02.3.1:** Extend Potbot's production `ProcessSupervisor` to expose a bounded, bidirectional stdio session without byp",
       "review_families": [
         "mcp"
@@ -110112,7 +110121,7 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:140-146",
+      "locator": "line:161-167",
       "sha256": "b0d9b24b8b4360d92cd3671efc8fef5950bba99a891426a6c46351148a7aca61",
       "excerpt": "## References\n\n- MCP spec 2026-07-28: https://modelcontextprotocol.io/specification/2026-07-28\n- Discovery spec: https://github.com/modelcontextprotocol/modelco",
       "review_families": [
@@ -122110,6 +122119,12 @@
           "symbol": "header_parameters",
           "sha256": "39229a74dcc7c1b7a458eb3792399b35b0d7b0c4fcc6d54c0ef4510fe572e566",
           "basis": "Validates modern Streamable HTTP header annotations at exact schema property paths."
+        },
+        {
+          "path": "src/potbot/tools/mcp_confirmation.py",
+          "symbol": "McpConfirmation",
+          "sha256": "cd0fa61d0f42b1bad769f47d6db5a04c1a114c00e013afbff5cb32bbc497d16a",
+          "basis": "Limits a controller-selected continuation to one boolean confirmation on a pinned read-only tool."
         }
       ],
       "tests": [
@@ -122164,7 +122179,7 @@
         {
           "path": "scripts/check_mcp_sdk.py",
           "symbol": "_verify_protocol",
-          "sha256": "258985f92985e8638816785daca1b24234b9745957b1e51eaa3a3a0e01f752e1",
+          "sha256": "4c8838179455faae081dbb957800cd6e220e69da72d1ba6c320e4190517c9734",
           "basis": "Pinned upstream SDK probe checks both wire eras over HTTP JSON and SSE."
         },
         {
@@ -122182,14 +122197,26 @@
         {
           "path": "tests/unit/test_mcp_http.py",
           "symbol": "test_modern_http_mirrors_only_the_installed_tool_schema",
-          "sha256": "cb126ca1f00e08fcb4fefcee3dbaa91600491a0f7faf66f53b5cf477c44e3e87",
+          "sha256": "2a7323e9e4d922e01aa7ac721b83616ff1f29753ce7062ce0b86ea5e57c60ab5",
           "basis": "Tests header and body agreement, encoding, opt-in approval and exclusion of an invalid tool."
         },
         {
           "path": "scripts/check_mcp_sdk.py",
           "symbol": "_verify_header_parameter",
-          "sha256": "258985f92985e8638816785daca1b24234b9745957b1e51eaa3a3a0e01f752e1",
+          "sha256": "4c8838179455faae081dbb957800cd6e220e69da72d1ba6c320e4190517c9734",
           "basis": "Exercises an annotated argument with the pinned official Python SDK server."
+        },
+        {
+          "path": "tests/unit/test_mcp_http.py",
+          "symbol": "test_http_mcp_confirmation_is_explicit_pinned_and_single_round",
+          "sha256": "2a7323e9e4d922e01aa7ac721b83616ff1f29753ce7062ce0b86ea5e57c60ab5",
+          "basis": "Tests approval, argument pinning, refusal, re-admission and loss without replay."
+        },
+        {
+          "path": "scripts/check_mcp_sdk.py",
+          "symbol": "_verify_form_confirmation",
+          "sha256": "4c8838179455faae081dbb957800cd6e220e69da72d1ba6c320e4190517c9734",
+          "basis": "Exercises the bounded confirmation with the pinned official SDK server."
         }
       ],
       "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",

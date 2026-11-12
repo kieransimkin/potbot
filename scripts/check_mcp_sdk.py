@@ -11,11 +11,21 @@ from importlib.metadata import version
 from typing import Annotated, Any
 
 import httpx
-from mcp.server import MCPServer
+from mcp.server import MCPServer, Server
+from mcp.types import (
+    CallToolResult,
+    ElicitRequest,
+    ElicitRequestFormParams,
+    ElicitResult,
+    InputRequiredResult,
+    ListToolsResult,
+    Tool,
+)
 from pydantic import Field
 from starlette.applications import Starlette
 
 from potbot.domain.errors import ScopeDeniedError
+from potbot.tools.mcp_confirmation import McpConfirmation, McpConfirmationPrompt
 from potbot.tools.mcp_http import McpHttpTransport
 from potbot.tools.mcp_protocol import LEGACY, MODERN, McpClient, McpToolInfo
 
@@ -132,6 +142,85 @@ async def _verify_header_parameter() -> None:
             assert observed == ["=?base64?IOadseS6rCA=?="]
 
 
+async def _verify_form_confirmation() -> None:
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+        "required": ["a", "b"],
+    }
+    question = ElicitRequest(
+        params=ElicitRequestFormParams(
+            message="Show the computed sum?",
+            requested_schema={
+                "type": "object",
+                "properties": {"confirmed": {"type": "boolean"}},
+                "required": ["confirmed"],
+            },
+        )
+    )
+    rounds: list[int] = []
+
+    async def list_tools(_ctx, _params):
+        return ListToolsResult(
+            tools=[
+                Tool(name="sum_after_confirmation", description="Add numbers", input_schema=schema)
+            ]
+        )
+
+    async def call_tool(ctx, params):
+        rounds.append(ctx.request_id)
+        assert params.arguments == {"a": 19, "b": 23}
+        if not params.input_responses:
+            return InputRequiredResult(
+                input_requests={"verify": question}, request_state="opaque-v1"
+            )
+        assert params.request_state == "opaque-v1"
+        answer = params.input_responses["verify"]
+        assert isinstance(answer, ElicitResult)
+        assert answer.action == "accept" and answer.content == {"confirmed": True}
+        return CallToolResult(content=[], structured_content={"sum": 42})
+
+    server = Server("Potbot confirmation fixture", on_list_tools=list_tools, on_call_tool=call_tool)
+    app = server.streamable_http_app(json_response=True)
+
+    async def approve(prompt: McpConfirmationPrompt) -> bool:
+        assert prompt == McpConfirmationPrompt(
+            "sum_after_confirmation", "confirmed", "Show the computed sum?"
+        )
+        return True
+
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app)) as http:
+            transport = McpHttpTransport(
+                ENDPOINT,
+                http,
+                network_approval=lambda _: None,
+                allow_test_loopback=True,
+            )
+            client = McpClient(
+                transport.exchange,
+                admit=lambda *_: None,
+                http_transport=transport,
+            )
+            catalog = await client.refresh_tools()
+            tool = catalog.tool("sum_after_confirmation")
+            confirmation = McpConfirmation(
+                tool.fingerprint,
+                tool.to_capability(server_slug="fixture", effect_class="read_only"),
+                "confirmed",
+                approve,
+            )
+            reply = await client.call_tool(
+                tool.name,
+                {"a": 19, "b": 23},
+                pinned_catalog_hash=catalog.fingerprint,
+                pinned_tool_hash=tool.fingerprint,
+                confirmation=confirmation,
+            )
+    assert not reply.is_error and reply.structured_content == {"sum": 42}
+    assert len(rounds) == 2 and rounds[0] != rounds[1]
+
+
 async def check() -> None:
     installed = version("mcp")
     if installed != SDK_VERSION:
@@ -152,9 +241,16 @@ async def check() -> None:
                     {"protocol": protocol, "response": "json" if json_response else "sse"}
                 )
     await _verify_header_parameter()
+    await _verify_form_confirmation()
     print(
         json.dumps(
-            {"sdk_version": installed, "passed": results, "header_parameter": True}, sort_keys=True
+            {
+                "sdk_version": installed,
+                "passed": results,
+                "header_parameter": True,
+                "form_confirmation": True,
+            },
+            sort_keys=True,
         )
     )
 
