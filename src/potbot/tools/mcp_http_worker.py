@@ -1,22 +1,20 @@
-"""One admitted HTTP tool exchange over a monitored worker's existing pipes."""
+"""Admitted HTTP tool exchanges over a monitored worker's existing pipes."""
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from textwrap import indent
 from typing import Any
 
-from potbot.domain.errors import IndeterminateExecutionError
+from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
 from potbot.domain.serialization import content_hash
 from potbot.tools.mcp_protocol import Exchange, decode_reply
 
 # Run from the pinned Python interpreter in the worker image. The definition
 # fingerprint covers these exact arguments. Only the controller opens HTTP.
-WORKER_ARGS = (
-    "-I",
-    "-B",
-    "-c",
-    """import hashlib
+_WORKER_PREFIX = ("-I", "-B", "-c")
+_PREAMBLE = """import hashlib
 import json
 import re
 import sys
@@ -34,7 +32,8 @@ def acknowledge(request, digest):
     print(json.dumps({"jsonrpc": "2.0", "id": request["id"],
                       "result": {"sha256": digest}}), flush=True)
 
-call = receive("tools/call")
+"""
+_EXCHANGE = """call = receive("tools/call")
 canonical = json.dumps(call, sort_keys=True, separators=(",", ":"),
                        ensure_ascii=False, allow_nan=False).encode()
 acknowledge(call, hashlib.sha256(canonical).hexdigest())
@@ -43,10 +42,26 @@ digest = result["params"]["sha256"]
 if result["id"] != call["id"] or re.fullmatch("[0-9a-f]{64}", digest) is None:
     raise SystemExit(1)
 acknowledge(result, digest)
-if sys.stdin.buffer.read(1):
+"""
+_EOF = """if sys.stdin.buffer.read(1):
     raise SystemExit(1)
-""",
+"""
+
+
+# Preserve the original relay bytes and their installation fingerprint.
+WORKER_ARGS = (*_WORKER_PREFIX, _PREAMBLE + _EXCHANGE + _EOF)
+CONFIRMATION_WORKER_ARGS = (
+    *_WORKER_PREFIX,
+    _PREAMBLE + _EXCHANGE + "if sys.stdin.buffer.peek(1):\n" + indent(_EXCHANGE, "    ") + _EOF,
 )
+
+
+def check_http_worker(argv: tuple[str, ...], *, http: bool, confirmation: bool) -> None:
+    worker = CONFIRMATION_WORKER_ARGS if confirmation else WORKER_ARGS
+    if (http and argv != worker) or (
+        not http and (confirmation or argv in (WORKER_ARGS, CONFIRMATION_WORKER_ARGS))
+    ):
+        raise ScopeDeniedError("MCP HTTP requires its pinned relay and provider")
 
 
 async def relay_http_call(
@@ -54,11 +69,16 @@ async def relay_http_call(
     worker: Exchange,
     broker: Exchange,
     check_live: Callable[[], Awaitable[None]],
+    *,
+    digest_only: bool = False,
 ) -> dict[str, Any]:
     """Keep request identity and credential use under controller authority."""
     ident = request["id"]
-    accepted = await worker(request, True)
-    if accepted is None or decode_reply(accepted, ident) != {"sha256": content_hash(request)}:
+    frame = request
+    if digest_only:
+        frame = {**request, "params": {"sha256": content_hash(request)}}
+    accepted = await worker(frame, True)
+    if accepted is None or decode_reply(accepted, ident) != {"sha256": content_hash(frame)}:
         raise IndeterminateExecutionError("MCP worker did not acknowledge the admitted request")
     await check_live()
     pending = asyncio.ensure_future(broker(request, True))

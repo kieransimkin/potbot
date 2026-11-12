@@ -14,6 +14,10 @@ _FIELD = re.compile(r"[A-Za-z0-9_.-]{1,128}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 
 
+class McpConfirmationDeclined(ScopeDeniedError):
+    """The authorized approval callback declined the bounded prompt."""
+
+
 @dataclass(frozen=True, slots=True)
 class McpConfirmationPrompt:
     """Untrusted plain text from the selected tool, with no opaque server state."""
@@ -71,7 +75,7 @@ class McpConfirmation:
         if "requestState" in result and (not isinstance(state, str) or len(state) > 16384):
             raise ScopeDeniedError("MCP confirmation state is outside its bound")
         if await self.approve(McpConfirmationPrompt(tool, self.field, message)) is not True:
-            raise ScopeDeniedError("MCP confirmation was not granted")
+            raise McpConfirmationDeclined("MCP confirmation was not granted")
         continuation: dict[str, Any] = {
             "inputResponses": {key: {"action": "accept", "content": {self.field: True}}}
         }

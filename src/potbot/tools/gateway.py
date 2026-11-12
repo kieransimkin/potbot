@@ -183,6 +183,7 @@ class ToolGateway:
         lease: Lease,
         reservation_id: UUID,
         *,
+        min_calls: int = 1,
         pin_intent: Callable[
             [dict[str, Any], dict[str, Any], ToolDefinition, ActionProposal, UUID], dict[str, Any]
         ]
@@ -238,7 +239,10 @@ class ToolGateway:
             ):
                 raise StateMismatchError("A live task reservation is required before dispatch.")
             amounts = reservation["amounts"]
-            if amounts.get("calls", 0) < 1 or amounts.get("tool_ms", 0) < definition.timeout_ms:
+            if (
+                amounts.get("calls", 0) < min_calls
+                or amounts.get("tool_ms", 0) < definition.timeout_ms
+            ):
                 raise StateMismatchError("Reservation does not cover the tool's call and deadline.")
             if not set(amounts).issubset({"calls", "tool_ms", "concurrency"}):
                 raise InvalidInputError(
@@ -684,12 +688,42 @@ class ToolGateway:
         with self.database.transaction(context) as conn:
             action = scoped_row(conn, context, "actions", run["action_id"])
             dispatch = conn.execute(
-                "SELECT details->>'mcp_intent_hash' AS mcp_hash FROM evidence_events "
+                "SELECT details FROM evidence_events "
                 "WHERE workspace_id=%s AND run_id=%s AND event_type='tool_dispatch_intent'",
                 (context.workspace_id, run["id"]),
             ).fetchone()
-            if receipt.get("mcp_intent_hash") != (dispatch["mcp_hash"] if dispatch else None):
+            details = dispatch["details"] if dispatch else {}
+            if receipt.get("mcp_intent_hash") != details.get("mcp_intent_hash"):
                 raise StateMismatchError("Receipt does not match the admitted MCP intent")
+            if "mcp_confirmation_field" in details:
+                rounds = conn.execute(
+                    "SELECT details FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
+                    "AND event_type='mcp_http_dispatch' ORDER BY (details->>'round')::integer",
+                    (context.workspace_id, run["id"]),
+                ).fetchall()
+                decisions = conn.execute(
+                    "SELECT details FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
+                    "AND event_type='mcp_confirmation_decision'",
+                    (context.workspace_id, run["id"]),
+                ).fetchall()
+                expected_decisions = (
+                    [True]
+                    if len(rounds) == 2
+                    else [False]
+                    if receipt.get("error_code") == "mcp_confirmation_declined"
+                    else []
+                )
+                if (
+                    [row["details"]["approved"] for row in decisions] != expected_decisions
+                    or [row["details"]["round"] for row in rounds] not in ([1], [1, 2])
+                    or type(receipt.get("mcp_http_calls")) is not int
+                    or receipt["mcp_http_calls"] != len(rounds)
+                ):
+                    raise StateMismatchError(
+                        "MCP receipt differs from the recorded HTTP dispatches"
+                    )
+            elif "mcp_http_calls" in receipt:
+                raise StateMismatchError("MCP receipt has no matching confirmation admission")
             stdin_id = action.get("stdin_artifact_id")
             if stdin_id is not None:
                 artifact = scoped_row(conn, context, "artifacts", stdin_id)
@@ -799,8 +833,9 @@ class ToolGateway:
             details.update(
                 {"recovered": recovered, "publication_lease_generation": lease.generation}
             )
-            if "mcp_intent_hash" in receipt:
-                details["mcp_intent_hash"] = receipt["mcp_intent_hash"]
+            for key in ("mcp_intent_hash", "mcp_http_calls"):
+                if key in receipt:
+                    details[key] = receipt[key]
             conn.execute(
                 "INSERT INTO action_completions(workspace_id,id,episode_id,run_id,outcome,exit_code,elapsed_ms,"
                 "stdout_artifact_id,stderr_artifact_id,result_state_id,result_fingerprint,receipt_digest,details) "
@@ -891,7 +926,9 @@ class ToolGateway:
         actual = {
             key: value
             for key, value in {
-                "calls": int(completion["details"]["dispatched"]),
+                "calls": completion["details"].get(
+                    "mcp_http_calls", int(completion["details"]["dispatched"])
+                ),
                 "tool_ms": completion["elapsed_ms"],
             }.items()
             if key in reservation["amounts"]

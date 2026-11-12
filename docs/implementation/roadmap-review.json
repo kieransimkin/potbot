@@ -92,7 +92,7 @@
         {
           "path": "src/potbot/tools/gateway.py",
           "symbol": "ToolGateway",
-          "sha256": "456c643848b1a84efe236f0a973a47c09755be83eefbc4cf5854f34f47ffbd2a",
+          "sha256": "7483844d2b446f9a8d675972e44a9bff3f6ba048779c2e716c10839c92f8187b",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -106,7 +106,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_actual_compile_and_tests_persist_output_inputs_states_and_events_after_restart",
-          "sha256": "da16c5f60ed78aa5512bf9b051899e2a9e2f09503bd0028b0f2357cae05cdd88",
+          "sha256": "ebe72b260e11c956fb905dd60f99f60fdfa194abe554e4c48f7c00b39d5104a3",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -562,7 +562,7 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ReadOnlyMcpGrant",
-          "sha256": "7a4e2174e4828dd7c657d7ea5a330d2d8474152ca7594cc05141de1a4cf57842",
+          "sha256": "331a2873adf680069df7f1731d1982f756ca2ae70d6f90530828aa70ca6037f4",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -574,13 +574,13 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ManagedMcpScope",
-          "sha256": "7a4e2174e4828dd7c657d7ea5a330d2d8474152ca7594cc05141de1a4cf57842",
+          "sha256": "331a2873adf680069df7f1731d1982f756ca2ae70d6f90530828aa70ca6037f4",
           "basis": "Managed workspace, image, Agent and run binding for the scoped MCP launcher."
         },
         {
           "path": "src/potbot/tools/mcp_gateway.py",
           "symbol": "execute_mcp_action",
-          "sha256": "75e92bccee4a6fd65c724cf06c1a5e1e0d27fe0c4f90725ed3fd916d53d808f4",
+          "sha256": "3f086b76cd91a30c9827df0c3e97a4f09835545a00f2d77014a5a44997cdd3e0",
           "basis": "Inspected gateway admission for a pinned installation, frozen input, and audited completion."
         },
         {
@@ -604,7 +604,7 @@
         {
           "path": "src/potbot/tools/mcp_http_worker.py",
           "symbol": "relay_http_call",
-          "sha256": "faad996b1ebf541dce9347ee56b93a67a3cd6b02b93d3d429c244a2288973ef1",
+          "sha256": "0c694d7630587f2c639b1b87705b28b6631a11c080232bb7e747e477d39521b0",
           "basis": "Binds an approved HTTP request and its receipt to one monitored worker lifetime."
         },
         {
@@ -616,8 +616,14 @@
         {
           "path": "src/potbot/tools/mcp_confirmation.py",
           "symbol": "McpConfirmation",
-          "sha256": "cd0fa61d0f42b1bad769f47d6db5a04c1a114c00e013afbff5cb32bbc497d16a",
+          "sha256": "176846c81f73808c786aa1413a7d8dabe40d7c1ef15549fc683d6beaa5d7ddc2",
           "basis": "Limits a controller-selected continuation to one boolean confirmation on a pinned read-only tool."
+        },
+        {
+          "path": "src/potbot/tools/mcp_gateway.py",
+          "symbol": "_record_confirmation_event",
+          "sha256": "3f086b76cd91a30c9827df0c3e97a4f09835545a00f2d77014a5a44997cdd3e0",
+          "basis": "Records the operator decision and each provider dispatch under the same admitted run."
         }
       ],
       "tests": [
@@ -642,7 +648,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay",
-          "sha256": "da16c5f60ed78aa5512bf9b051899e2a9e2f09503bd0028b0f2357cae05cdd88",
+          "sha256": "ebe72b260e11c956fb905dd60f99f60fdfa194abe554e4c48f7c00b39d5104a3",
           "basis": "Real PostgreSQL regression for admission, lost reply fencing, and saved receipt recovery."
         },
         {
@@ -684,7 +690,7 @@
         {
           "path": "tests/unit/test_mcp_http_worker.py",
           "symbol": "test_http_relay_requires_worker_acknowledgement_and_never_replays",
-          "sha256": "4781aae1e3cbb9015b7914875a14da69ad0a41784cf26521c8ba8d3329a87339",
+          "sha256": "00384a04d25e1050319f40e76f12738ecfce26b0d925fb67ddf4bb463061a5d1",
           "basis": "Checks that missing worker acknowledgements cannot create a duplicate provider call."
         },
         {
@@ -710,6 +716,12 @@
           "symbol": "_verify_form_confirmation",
           "sha256": "4c8838179455faae081dbb957800cd6e220e69da72d1ba6c320e4190517c9734",
           "basis": "Exercises the bounded confirmation with the pinned official SDK server."
+        },
+        {
+          "path": "tests/unit/test_mcp_http_worker.py",
+          "symbol": "test_confirmation_worker_acknowledges_digests_and_exits_after_eof",
+          "sha256": "00384a04d25e1050319f40e76f12738ecfce26b0d925fb67ddf4bb463061a5d1",
+          "basis": "Runs the two-round relay and checks one- and two-request shutdown with private continuation data."
         }
       ],
       "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",
@@ -62586,7 +62598,7 @@
     },
     {
       "path": "docs/implementation/02-mcp-transports.md",
-      "sha256": "452a9cbd95c9024accdd2ae5f015231888765ef1ff4501d3fb0d82fb88c55f5b",
+      "sha256": "a245b1fb9c4a456c5d0674203b9dc91eb64d219e10697f12a4e026d1a9c0d4ca",
       "families": [
         "mcp"
       ],
@@ -62629,28 +62641,35 @@
           ]
         },
         {
-          "locator": "line:105-125",
-          "sha256": "2bb8401541025fb736074cdacafc217ca92f5dfdc3c744d7ada19664bba78118",
+          "locator": "line:105-123",
+          "sha256": "7ea443eca50447def3368ec15357f5d955be368a5dc4d854e3367d1cd3cc9eeb",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:126-151",
-          "sha256": "bd31fc6165473095a70d253fc95fe04b3ab2327b7f999815851dea3b406dc709",
+          "locator": "line:124-162",
+          "sha256": "2a35b06be48acc19fdbdb17ad7de50da961456f27d16c0b9ca08290f04abe5a9",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:152-160",
-          "sha256": "fe6e817dedc51c9756dcaa2f9c4b4ea206be8aa3a2542dc6431f1024af5fef79",
+          "locator": "line:163-188",
+          "sha256": "3daa5b266f6c1527712baae8677b468890460913672e989471764b7e42337127",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:161-167",
+          "locator": "line:189-197",
+          "sha256": "16df826d6ffdff956a560539072fe1a5794c6f85ffdbe31615b3bfbd0877222d",
+          "families": [
+            "mcp"
+          ]
+        },
+        {
+          "locator": "line:198-204",
           "sha256": "b0d9b24b8b4360d92cd3671efc8fef5950bba99a891426a6c46351148a7aca61",
           "families": [
             "mcp"

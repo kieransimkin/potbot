@@ -121,7 +121,44 @@ sequenceDiagram
     end
 ```
 
-This is an in-process client profile. The installed TASKSTATS gateway uses the existing single-request path. Managed confirmation requires durable approval and accounting for both requests.
+### Managed worker confirmation
+
+An operator can opt an installed read-only HTTP tool into confirmation by pinning its boolean field and the two-round relay definition. The controller requires a reservation for two tool calls and one worker lifetime. Each round crosses the directed Syn route with its own request ID. The monitored worker acknowledges the request and result digests. The controller holds the OAuth credential and uses the broker to send the continuation state to the registered HTTPS resource. The worker receives neither value.
+
+```mermaid
+sequenceDiagram
+    participant O as Operator
+    participant C as Controller
+    participant J as Durable journal
+    participant S as Directed Syn RPC
+    participant W as TASKSTATS worker
+    participant P as MCP provider
+    C->>J: Reserve two calls
+    C->>S: Open first directed request
+    S->>W: Controller relays request digest
+    W-->>C: Acknowledge digest
+    C->>J: Record first dispatch
+    C->>P: Call pinned read-only tool
+    P-->>C: Return form and continuation state
+    C->>W: Acknowledge result digest
+    C->>S: Collect first signed reply
+    C->>O: Present pinned boolean prompt
+    O-->>C: Return decision
+    C->>J: Record decision and prompt digest
+    opt Approved and still admitted
+        C->>S: Open second directed request
+        S->>W: Controller relays continuation digest
+        W-->>C: Acknowledge digest
+        C->>J: Record second dispatch
+        C->>P: Send approved answer with original arguments
+        P-->>C: Return final result
+        C->>W: Acknowledge result digest
+        C->>S: Collect second signed reply
+    end
+    C->>J: Settle recorded calls after audited exit
+```
+
+A normal result without a form or an explicit decline settles one call. An approved continuation with a confirmed result settles two. The gateway checks the stopped-worker receipt against the journal before publishing or recovering it. If either provider outcome is uncertain, the run remains indeterminate and its reservation stays held for reconciliation. Recovery can publish a saved receipt or report the unresolved run. It never sends the tool request again. The journal stores request and prompt digests, the selected field and the controller's decision.
 
 ## How to run
 
@@ -147,7 +184,7 @@ PYTHONPATH=src uv run --no-project --python 3.12 --with mcp==2.3.0 \
   --with httpx==0.28.1 --with jsonschema==4.26.0 python scripts/check_mcp_sdk.py
 ```
 
-The local probe exercises both protocol eras, an encoded routing argument and an explicitly approved confirmation against the official SDK server. Managed confirmation, subscriptions and public deployment qualification remain open.
+The local probe exercises both protocol eras, an encoded routing argument and an explicitly approved confirmation against the official SDK server. MCP subscriptions and public deployment qualification remain open.
 
 ## Next engineering steps, in order
 
@@ -155,7 +192,7 @@ The local probe exercises both protocol eras, an encoded routing argument and an
 2. **T02.3.2:** Bind the session to a durable `ToolInstallationDescriptor` and `ToolInvocationIntent` retrieved by the existing `ToolGateway` after checked workspace authorization, reservation, policy revision and lease fencing. Model data must never construct or approve the authority callback.
 3. **T02.3.3:** Test a calculator MCP server inside qualified sandbox; no read/write outside workspace, no network, bounded stdout/stderr, 100 crash/restart fixtures without repeated writes.
 4. **T02.2.1:** Add a qualified HTTP egress proxy (DNS rebinding/IP/localhost/metadata controls), exact recipient/audience-scoped credential broker, OIDC discovery/issuer validation and explicit consent. Do not persist access tokens in artifacts.
-5. **T02.2.2:** Adopt or conformance-check the official MCP Python SDK v2 on both protocol eras; extend confirmation into managed execution with durable admission for both requests, then qualify subscriptions.
+5. **T02.2.2:** Adopt or conformance-check the official MCP Python SDK v2 on both protocol eras; qualify subscriptions through the managed worker.
 6. **T02.4:** Add typed, versioned API adapters with no direct service authorization in the advertised metadata.
 
 ## References

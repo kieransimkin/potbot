@@ -40,7 +40,9 @@ from potbot.tools.capability_contracts import (
 )
 from potbot.tools.gateway import ToolGateway
 from potbot.tools.interactive_supervisor import InteractiveExit
+from potbot.tools.mcp_confirmation import McpConfirmation
 from potbot.tools.mcp_gateway import InstalledMcpTool, mcp_configuration_hash
+from potbot.tools.mcp_http_worker import CONFIRMATION_WORKER_ARGS
 from potbot.tools.mcp_protocol import McpCallResult, McpToolInfo
 from potbot.tools.receipts import RunReceiptStore
 from potbot.tools.repository import CandidateWorkspaceManager, RepositoryStateStore
@@ -211,11 +213,11 @@ def propose(
     return UUID(action["id"])
 
 
-def reserve(rig, kind="increment") -> UUID:
+def reserve(rig, kind="increment", *, calls=1) -> UUID:
     reservation = rig.budgets.reserve(
         rig.env.context,
         rig.episode_id,
-        {"calls": 1, "tool_ms": rig.registry.get(kind).timeout_ms},
+        {"calls": calls, "tool_ms": rig.registry.get(kind).timeout_ms},
         "reservation-" + uuid4().hex,
     )
     return UUID(reservation["id"])
@@ -234,9 +236,22 @@ def restarted(rig) -> ToolGateway:
     )
 
 
-@pytest.mark.parametrize("fault", [None, "lost-reply", "after-receipt", "reservation-lost"])
+@pytest.mark.parametrize(
+    ("confirmation_case", "fault"),
+    [
+        (None, None),
+        (None, "lost-reply"),
+        (None, "after-receipt"),
+        (None, "reservation-lost"),
+        ("no-form", None),
+        ("declined", None),
+        ("approved", None),
+        ("approved", "lost-reply"),
+        ("approved", "after-receipt"),
+    ],
+)
 def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
-    app_env, tmp_path: Path, monkeypatch, fault
+    app_env, tmp_path: Path, monkeypatch, confirmation_case, fault
 ):
     context = app_env.context
     home, rootfs = tmp_path / "worker-home", tmp_path / "worker-image"
@@ -262,7 +277,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
     definition = ToolDefinition(
         "fixture-mcp",
         "test",
-        (PYTHON,),
+        (PYTHON, *CONFIRMATION_WORKER_ARGS) if confirmation_case else (PYTHON,),
         mutates=False,
         accepts_stdin=True,
         protocol="mcp",
@@ -289,15 +304,33 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         "1.0.0",
     )
     binary = "e" * 64
+    confirmation = provider = None
+    approvals = []
+
+    async def approve(prompt):
+        approvals.append(prompt)
+        assert (prompt.tool, prompt.field, prompt.message) == ("add", "confirm", "Run addition?")
+        return confirmation_case == "approved"
+
+    if confirmation_case:
+        confirmation = McpConfirmation(tool.fingerprint, capability, "confirm", approve)
+        provider = SimpleNamespace(
+            grant=context,
+            registration_fingerprint="2" * 64,
+        )
     installation = ToolInstallationDescriptor(
         "syn://thing/fixture-mcp-installation",
         context.workspace_id,
         implementation.fingerprint,
-        mcp_configuration_hash(definition, tool, binary),
+        mcp_configuration_hash(
+            definition, tool, binary, http_provider=provider, confirmation=confirmation
+        ),
         "f" * 64,
         ("test",),
     )
-    binding = InstalledMcpTool(definition, tool, binary, capability, implementation, installation)
+    binding = InstalledMcpTool(
+        definition, tool, binary, capability, implementation, installation, provider, confirmation
+    )
     route = SynMcpRoute(
         context.workspace_id, "1" * 32, 1000, lambda *_: pytest.fail("Fixture transport")
     )
@@ -352,6 +385,23 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
     selected, input_artifact = action(installation.fingerprint, "correct-installation")
     with pytest.raises(ScopeDeniedError, match="operator installation"):
         rig.gateway.execute(context, selected, rig.lease, reservation)
+    if confirmation_case:
+        with pytest.raises(StateMismatchError, match="Reservation does not cover"):
+            gateway.execute(context, selected, rig.lease, reservation)
+        assert gateway.store.inspect(context, selected)["run"] is None
+        rig.budgets.release(
+            context, reservation, "Fixture short reservation", confirmed_not_started=True
+        )
+        reservation = reserve(rig, definition.name, calls=2)
+
+    def journal(run_id):
+        with app_env.db.transaction(context) as conn:
+            return conn.execute(
+                "SELECT event_type,details FROM evidence_events WHERE run_id=%s "
+                "AND event_type IN ('mcp_confirmation_decision','mcp_http_dispatch') "
+                "ORDER BY recorded_at",
+                (run_id,),
+            ).fetchall()
 
     calls = []
     intents = []
@@ -392,7 +442,45 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
                     context, reservation, "Fixture reservation is unresolved"
                 )
             self.config["approve_call"](tool, supplied)
+            request = {"id": 1, "params": {"name": name, "arguments": supplied}}
+            if confirmation_case:
+                record_call = self.config["before_http_call"]
+                await record_call(request)
+                evidence = journal(self.config["managed_scope"].run_id)
+                assert [event["event_type"] for event in evidence] == ["mcp_http_dispatch"]
+                assert evidence[0]["details"]["request_sha256"] == content_hash(request)
             calls.append(name)
+            if confirmation_case in {"declined", "approved"}:
+                continuation = await self.config["confirmation"].answer(
+                    name,
+                    {
+                        "inputRequests": {
+                            "form": {
+                                "method": "elicitation/create",
+                                "params": {
+                                    "message": "Run addition?",
+                                    "requestedSchema": {
+                                        "type": "object",
+                                        "properties": {"confirm": {"type": "boolean"}},
+                                    },
+                                },
+                            }
+                        },
+                        "requestState": "private-state",
+                    },
+                )
+                assert continuation["requestState"] == "private-state"
+                self.config["approve_call"](tool, supplied)
+                second = {"id": 2, "params": {**request["params"], **continuation}}
+                await record_call(second)
+                evidence = journal(self.config["managed_scope"].run_id)
+                assert [event["event_type"] for event in evidence] == [
+                    "mcp_http_dispatch",
+                    "mcp_confirmation_decision",
+                    "mcp_http_dispatch",
+                ]
+                assert evidence[2]["details"]["request_sha256"] == content_hash(second)
+                calls.append(name)
             if fault == "lost-reply":
                 raise IndeterminateExecutionError("Fixture lost the signed reply")
             return McpCallResult.from_wire(name, {"structuredContent": {"sum": 42}})
@@ -412,7 +500,8 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         view = gateway.store.inspect(context, selected)
         assert view["execution_status"] == "indeterminate" and view["completion"] is None
         budget = rig.budgets.inspect(context, rig.episode_id)
-        assert budget["held"]["calls"] == 1 and budget["used"] == {}
+        assert budget["held"]["calls"] == (2 if confirmation_case else 1)
+        assert budget["used"] == {}
         with pytest.raises(IndeterminateExecutionError, match="without a confirmed completion"):
             gateway.execute(context, selected, rig.lease, reservation)
         unresolved = gateway.reconcile(context, UUID(view["run"]["id"]))
@@ -433,20 +522,46 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
             view = restarted(rig).reconcile(context, UUID(view["run"]["id"]))
         else:
             view = gateway.execute(context, selected, rig.lease, reservation)
-        assert view["execution_status"] == "completed"
+        declined = confirmation_case == "declined"
+        assert view["execution_status"] == ("inconclusive" if declined else "completed")
         result = json.loads(
             rig.artifacts.read(context, UUID(view["completion"]["stdout_artifact_id"]))
         )
-        assert result["structured_content"] == {"sum": 42}
+        assert result["structured_content"] == (None if declined else {"sum": 42})
+        if declined:
+            assert result["observation"]["error_code"] == "mcp_confirmation_declined"
         assert result["observation"]["invocation_hash"] == intents[0].fingerprint
         assert view["completion"]["details"]["mcp_intent_hash"] == intents[0].fingerprint
-        assert rig.budgets.inspect(context, rig.episode_id)["used"]["calls"] == 1
+        used = 2 if confirmation_case == "approved" else 1
+        budget = rig.budgets.inspect(context, rig.episode_id)
+        assert budget["used"]["calls"] == used and not budget["held"].get("calls", 0)
+        if confirmation_case:
+            assert view["completion"]["details"]["mcp_http_calls"] == used
         assert (
             gateway.execute(context, selected, rig.lease, reservation)["completion"]
             == view["completion"]
         )
-    assert calls == ([] if fault == "reservation-lost" else ["add"])
+    assert calls == (
+        []
+        if fault == "reservation-lost"
+        else ["add"] * (2 if confirmation_case == "approved" else 1)
+    )
     assert len(intents) == 1
+    assert len(approvals) == int(confirmation_case in {"approved", "declined"})
+    if confirmation_case:
+        evidence = journal(UUID(view["run"]["id"]))
+        assert "private-state" not in canonical_json(evidence)
+        assert "Run addition?" not in canonical_json(evidence)
+        rounds = [
+            row["details"]["round"] for row in evidence if row["event_type"] == "mcp_http_dispatch"
+        ]
+        assert rounds == list(range(1, len(calls) + 1))
+        decisions = [
+            row["details"]["approved"]
+            for row in evidence
+            if row["event_type"] == "mcp_confirmation_decision"
+        ]
+        assert decisions == ([] if not approvals else [confirmation_case == "approved"])
 
 
 def test_actual_compile_and_tests_persist_output_inputs_states_and_events_after_restart(
