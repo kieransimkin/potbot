@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import re
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit
@@ -22,11 +21,13 @@ from potbot.domain.errors import (
     InvalidInputError,
     ScopeDeniedError,
 )
+from potbot.tools.mcp_headers import encode_header_value, mirrored_headers
 from potbot.tools.mcp_protocol import (
     MAX_NOTIFICATION_MESSAGES,
     MAX_WIRE_BYTES,
     MODERN,
     McpProtocolError,
+    McpToolInfo,
     encoded_frame,
     parse_wire,
 )
@@ -64,6 +65,7 @@ class McpHttpTransport:
         bearer_supplier: Callable[[], str] | None = None,
         deadline_s: float = 30.0,
         allow_test_loopback: bool = False,
+        header_tool: McpToolInfo | None = None,
     ) -> None:
         try:
             parts = urlsplit(endpoint)
@@ -105,6 +107,10 @@ class McpHttpTransport:
         self.deadline_s = deadline_s
         self._session_id: str | None = None
         self._legacy_version: str | None = None
+        self._header_tool = header_tool
+
+    def accepts_header_tool(self, tool: McpToolInfo) -> bool:
+        return self._header_tool is not None and self._header_tool.fingerprint == tool.fingerprint
 
     @staticmethod
     def _sse_result(body: bytes, request_id: int) -> dict[str, Any]:
@@ -159,15 +165,16 @@ class McpHttpTransport:
             headers["MCP-Protocol-Version"] = MODERN
             headers["Mcp-Method"] = method
             if method == "tools/call":
-                name = message.get("params", {}).get("name")
-                if (
-                    not isinstance(name, str)
-                    or re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", name) is None
-                ):
-                    raise ScopeDeniedError(
-                        "MCP tool header name needs verified header encoding support"
-                    )
-                headers["Mcp-Name"] = name
+                params = message["params"]
+                name = params.get("name")
+                if not isinstance(name, str) or not 1 <= len(name) <= 128:
+                    raise InvalidInputError("MCP tool has no valid name for HTTP routing")
+                headers["Mcp-Name"] = encode_header_value(name)
+                if self._header_tool is not None and self._header_tool.name == name:
+                    arguments = params.get("arguments")
+                    if not isinstance(arguments, dict):
+                        raise InvalidInputError("MCP routing parameters require tool arguments")
+                    headers.update(mirrored_headers(self._header_tool.header_parameters, arguments))
         elif self._legacy_version is not None:
             headers["MCP-Protocol-Version"] = self._legacy_version
             if self._session_id is not None:

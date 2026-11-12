@@ -110,7 +110,7 @@ class HostedMcpOAuth:
         async def check(request: Request) -> JSONResponse:
             await operator(request)
             async with provider.broker.open(provider.grant) as transport:
-                client = McpClient(transport.exchange)
+                client = McpClient(transport.exchange, http_transport=transport)
                 catalog = await client.refresh_tools()
             return JSONResponse(
                 {

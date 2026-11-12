@@ -119,6 +119,7 @@ class SandboxedMcpClient:
         workspace_id: UUID | None = None,
         managed_scope: ManagedMcpScope | None = None,
         http_provider: McpOAuthProvider | None = None,
+        http_header_tool: McpToolInfo | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("MCP requires the qualified interactive ProcessSupervisor")
@@ -175,6 +176,7 @@ class SandboxedMcpClient:
         self._syn_route = syn_route
         self._managed_scope = managed_scope
         self._http_provider = http_provider
+        self._http_header_tool = http_header_tool
         self._http_session = AsyncExitStack()
         self._broker_exchange: Exchange | None = None
         self._lease: WorkspaceLeaseGuard | None = None
@@ -407,14 +409,17 @@ class SandboxedMcpClient:
             self._process.writer,
             request_timeout_s=min(10.0, request.timeout_ms / 1000),
         )
-        self._client = McpClient(self._exchange, admit=self._admit)
         try:
+            broker = None
             if self._http_provider is not None:
                 async with asyncio.timeout(self._process.remaining_seconds()):
                     broker = await self._http_session.enter_async_context(
-                        self._http_provider.broker.open(self._http_provider.grant)
+                        self._http_provider.broker.open(
+                            self._http_provider.grant, header_tool=self._http_header_tool
+                        )
                     )
                 self._broker_exchange = broker.exchange
+            self._client = McpClient(self._exchange, admit=self._admit, http_transport=broker)
             await self._client.connect()
             self._catalog = await self._client.refresh_tools()
             # Refuse grants for tools absent from this exact, pinned discovery.

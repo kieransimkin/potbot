@@ -8,10 +8,11 @@ import json
 import logging
 from collections.abc import Mapping
 from importlib.metadata import version
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 from mcp.server import MCPServer
+from pydantic import Field
 from starlette.applications import Starlette
 
 from potbot.domain.errors import ScopeDeniedError
@@ -79,6 +80,58 @@ async def _verify_protocol(app: Starlette, protocol: str) -> None:
             ]
 
 
+async def _verify_header_parameter() -> None:
+    server = MCPServer("Potbot header conformance fixture")
+
+    @server.tool()
+    def lookup(region: Annotated[str, Field(json_schema_extra={"x-mcp-header": "Region"})]) -> str:
+        return region
+
+    app = server.streamable_http_app(json_response=True)
+    observed: list[str | None] = []
+
+    async def observe(request: httpx.Request) -> None:
+        if request.headers.get("Mcp-Method") == "tools/call":
+            observed.append(request.headers.get("Mcp-Param-Region"))
+
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            event_hooks={"request": [observe]},
+        ) as http:
+            inspect = McpHttpTransport(
+                ENDPOINT,
+                http,
+                network_approval=lambda _: None,
+                allow_test_loopback=True,
+            )
+            discovery = McpClient(inspect.exchange, http_transport=inspect)
+            approval = (await discovery.refresh_tools()).tool("lookup")
+            transport = McpHttpTransport(
+                ENDPOINT,
+                http,
+                network_approval=lambda _: None,
+                allow_test_loopback=True,
+                header_tool=approval,
+            )
+
+            def admit(tool: McpToolInfo, arguments: Mapping[str, Any]) -> None:
+                if tool != approval or arguments != {"region": " 東京 "}:
+                    raise ScopeDeniedError("Unexpected SDK routing fixture dispatch")
+
+            client = McpClient(transport.exchange, admit=admit, http_transport=transport)
+            catalog = await client.refresh_tools()
+            assert client.protocol_version == MODERN
+            reply = await client.call_tool(
+                "lookup",
+                {"region": " 東京 "},
+                pinned_catalog_hash=catalog.fingerprint,
+                pinned_tool_hash=approval.fingerprint,
+            )
+            assert not reply.is_error
+            assert observed == ["=?base64?IOadseS6rCA=?="]
+
+
 async def check() -> None:
     installed = version("mcp")
     if installed != SDK_VERSION:
@@ -98,7 +151,12 @@ async def check() -> None:
                 results.append(
                     {"protocol": protocol, "response": "json" if json_response else "sse"}
                 )
-    print(json.dumps({"sdk_version": installed, "passed": results}, sort_keys=True))
+    await _verify_header_parameter()
+    print(
+        json.dumps(
+            {"sdk_version": installed, "passed": results, "header_parameter": True}, sort_keys=True
+        )
+    )
 
 
 async def main() -> None:
