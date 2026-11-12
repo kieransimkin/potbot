@@ -73,6 +73,32 @@ Bind the controller to loopback behind its HTTPS reverse proxy. Preserve the reg
 2. The issuer redirects to the exact callback. Potbot exchanges the one-time code and saves the verified bearer in its native vault.
 3. The operator posts to `/v1/mcp/oauth/check`. The controller checks discovery and tool listing and returns the protocol, catalog digest and tool count. Tool execution still requires the existing controller admission boundary.
 
+### Managed HTTP tool calls
+
+An operator can bind an installed read-only MCP tool to the provider loaded by the hosted OAuth registration. Set its fixed arguments to the installed image's pinned Python interpreter followed by `mcp_http_worker.WORKER_ARGS`. Supply that same provider to both `mcp_configuration_hash` and `InstalledMcpTool` when configuring the managed `ToolGateway`. Its configuration hash binds the provider registration, executable and approved tool schema. The workspace and principal must match the grant.
+
+```mermaid
+sequenceDiagram
+    participant C as Controller
+    participant S as Directed Syn route
+    participant W as TASKSTATS worker
+    participant B as Controller HTTP broker
+    participant R as Registered MCP resource
+    C->>S: Admitted tool request
+    S->>C: Verify request and invoke the relay
+    C->>W: Exact admitted tool request
+    W-->>C: Acknowledge request digest
+    C->>B: Recheck the worker and lease, then dispatch
+    B->>R: Scoped HTTPS request
+    R-->>B: MCP result
+    C->>W: Result digest
+    W-->>C: Acknowledge result digest
+    C-->>S: Return the verified result
+    S-->>C: Confirm the signed reply
+```
+
+The worker uses its existing bounded pipes and private network namespace. The controller reads the OAuth token from its native vault and attaches it only to the registered HTTPS request. Completion requires the directed Syn reply and an audited worker exit. A lost acknowledgement, fenced lease or unconfirmed result leaves an indeterminate action in the durable gateway. Recovery uses the stored receipt when available and refuses to replay an uncertain call.
+
 ## How to run
 
 From an existing repository checkout containing this patch:

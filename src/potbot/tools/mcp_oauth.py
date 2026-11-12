@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from potbot.credentials import CredentialStore
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
-from potbot.domain.serialization import canonical_json
+from potbot.domain.serialization import canonical_json, content_hash
 from potbot.tools.mcp_http_broker import (
     McpHttpBroker,
     McpHttpGrant,
@@ -114,6 +114,16 @@ class McpOAuthProvider:
             }
         )
         self._account = "mcp.oauth." + hashlib.sha256(binding.encode()).hexdigest()
+        self.registration_fingerprint = content_hash(
+            {
+                "binding": binding,
+                "callback": registration.callback,
+                "authorization_endpoint": registration.authorization_endpoint,
+                "token_endpoint": registration.token_endpoint,
+                "key_id": registration.key_id,
+                "signing_key_sha256": hashlib.sha256(registration.signing_key_pem).hexdigest(),
+            }
+        )
 
     @staticmethod
     def _load_signing_key(pem: bytes) -> rsa.RSAPublicKey:
