@@ -73,6 +73,8 @@ Bind the controller to loopback behind its HTTPS reverse proxy. Preserve the reg
 2. The issuer redirects to the exact callback. Potbot exchanges the one-time code and saves the verified bearer in its native vault.
 3. The operator posts to `/v1/mcp/oauth/check`. The controller checks discovery and tool listing and returns the protocol, catalog digest and tool count. Tool execution still requires the existing controller admission boundary.
 
+To disconnect a registration from Potbot, post to `/v1/mcp/oauth/disconnect` with the same operator credentials. It clears the pending login and deletes the local bearer from the native vault. A subsequent tool call requires a fresh login. The issuer controls the expiry and revocation of tokens it has issued.
+
 ### Managed HTTP tool calls
 
 An operator can bind an installed read-only MCP tool to the provider loaded by the hosted OAuth registration. Set its fixed arguments to the installed image's pinned Python interpreter followed by `mcp_http_worker.WORKER_ARGS`. Supply that same provider to both `mcp_configuration_hash` and `InstalledMcpTool` when configuring the managed `ToolGateway`. Its configuration hash binds the provider registration, executable and approved tool schema. The workspace and principal must match the grant.

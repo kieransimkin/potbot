@@ -331,4 +331,18 @@ def test_hosted_oauth_requires_operator_and_consumes_only_exact_callback(rig):
             assert checked.json()["tool_count"] == 0
             assert len(auth) == 2 and len(vault.values) == 1
 
+            endpoint = "/v1/mcp/oauth/disconnect"
+            assert (await client.post(endpoint, headers=workspace)).is_error
+            assert len(vault.values) == 1
+            retry = await client.post("/v1/mcp/oauth/start", headers=operator)
+            retry_target = callback(retry.json()["authorization_url"])
+            removed = await client.post(endpoint, headers=operator)
+            assert removed.status_code == 204 and removed.content == b""
+            assert removed.headers["cache-control"] == "no-store"
+            assert not vault.values
+            assert (await client.get(retry_target)).status_code == 400
+            assert (await client.post("/v1/mcp/oauth/check", headers=operator)).is_error
+            assert (await client.post(endpoint, headers=operator)).status_code == 204
+            assert len(form) == 1 and len(auth) == 2
+
     asyncio.run(scenario())

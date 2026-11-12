@@ -598,8 +598,8 @@
         {
           "path": "src/potbot/api/hosted_mcp_oauth.py",
           "symbol": "HostedMcpOAuth",
-          "sha256": "0a702e9bfebc06cd8d5f972c15ec24a5264b097b8038672493148f341ec28e12",
-          "basis": "Controller routes authorize the operator, handle the registered callback, and probe the tool catalogue."
+          "sha256": "bff21aa3455f59c0ac1cf63fc41cb1149abf8792d05e4278757066cb73fa0754",
+          "basis": "Controller routes authorize the operator, handle the registered callback, probe the tool catalogue, and disconnect the native grant."
         },
         {
           "path": "src/potbot/tools/mcp_http_worker.py",
@@ -654,7 +654,7 @@
         {
           "path": "tests/unit/test_mcp_oauth.py",
           "symbol": "test_pkce_exchange_vault_readback_and_mcp_delivery",
-          "sha256": "04fafc1a4e29355ccd45050410982fda0bef77358e58d58e63a658b873fe99e1",
+          "sha256": "9733fdee70bd06c8e1b1ed9fcf7ee35547231ddd8381b960d30ed3e1e1f95218",
           "basis": "Disposable OAuth issuer fixture verifies the PKCE proof, single-use callback and vault-backed MCP request."
         },
         {
@@ -666,8 +666,8 @@
         {
           "path": "tests/unit/test_mcp_oauth.py",
           "symbol": "test_hosted_oauth_requires_operator_and_consumes_only_exact_callback",
-          "sha256": "04fafc1a4e29355ccd45050410982fda0bef77358e58d58e63a658b873fe99e1",
-          "basis": "Hosted route regression for operator scope, callback authority and replay refusal."
+          "sha256": "9733fdee70bd06c8e1b1ed9fcf7ee35547231ddd8381b960d30ed3e1e1f95218",
+          "basis": "Verifies operator scope, callback authority, replay refusal, and local disconnect."
         },
         {
           "path": "tests/unit/test_mcp_http_worker.py",
@@ -62550,7 +62550,7 @@
     },
     {
       "path": "docs/implementation/02-mcp-transports.md",
-      "sha256": "5d2f913dea119735e4584105bc8d45e2ae277f1b8b4d8e7e43aa338ec03e0c09",
+      "sha256": "9791ec937a38a21193e99621901df22afdbefb8ba06e5452fd954f3e0da3dd51",
       "families": [
         "mcp"
       ],
@@ -62579,35 +62579,35 @@
           ]
         },
         {
-          "locator": "line:66-75",
-          "sha256": "a063a5dfcbaca443a3010405c7f8f6f39cad6dfd336783367fb567bc900d7c5e",
+          "locator": "line:66-77",
+          "sha256": "57de78c48db9fc8cd01719421876d25b8913889b49c739f63790600c05a51338",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:76-101",
+          "locator": "line:78-103",
           "sha256": "e9866736843dda688404fa5e70325e185c078d4fcad3ad5e5f589d1eff197401",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:102-127",
+          "locator": "line:104-129",
           "sha256": "768c285ef7a90e71e4f3183b03cf329865f3cd6e8264a3145f8a46888edd4b05",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:128-136",
+          "locator": "line:130-138",
           "sha256": "519a723233bfd7fe41859ce41c9ae3897bc9307dbb864ddee3979f7e05b730b7",
           "families": [
             "mcp"
           ]
         },
         {
-          "locator": "line:137-143",
+          "locator": "line:139-145",
           "sha256": "b0d9b24b8b4360d92cd3671efc8fef5950bba99a891426a6c46351148a7aca61",
           "families": [
             "mcp"

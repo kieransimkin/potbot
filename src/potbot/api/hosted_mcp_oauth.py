@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from potbot.api.ui_api_setup import ApiSetupCredentials
@@ -99,6 +99,12 @@ class HostedMcpOAuth:
                 "<p>MCP authorization complete. Return to Potbot.</p>",
                 headers=_HEADERS,
             )
+
+        @app.post("/v1/mcp/oauth/disconnect", status_code=204)
+        async def disconnect(request: Request) -> Response:
+            await operator(request)
+            await provider.forget()
+            return Response(status_code=204, headers=_HEADERS)
 
         @app.post("/v1/mcp/oauth/check")
         async def check(request: Request) -> JSONResponse:
