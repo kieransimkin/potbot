@@ -46,6 +46,8 @@ if TYPE_CHECKING:
 _LOG = logging.getLogger(__name__)
 
 MODERN = "2026-07-28"
+TOOLS_LISTEN = "subscriptions/listen"
+TOOLS_CHANGED = "notifications/tools/list_changed"
 LEGACY = "2025-11-25"
 SUPPORTED_LEGACY = frozenset({LEGACY, "2025-06-18", "2025-03-26"})
 MAX_WIRE_BYTES = 2 * 1024 * 1024
@@ -367,6 +369,7 @@ class McpClient:
         self._next_id = 0
         self._version: str | None = None
         self._catalog: McpCatalog | None = None
+        self._tools_list_changed = False
 
     @property
     def protocol_version(self) -> str | None:
@@ -416,6 +419,9 @@ class McpClient:
             versions = discovered.get("supportedVersions")
             if not isinstance(versions, list) or MODERN not in versions:
                 raise McpProtocolError("Unsupported MCP modern protocol advertisement")
+            capabilities = discovered.get("capabilities")
+            tools = capabilities.get("tools") if isinstance(capabilities, dict) else None
+            self._tools_list_changed = isinstance(tools, dict) and tools.get("listChanged") is True
             self._version = MODERN
             return MODERN
         result = await self._rpc(
@@ -432,6 +438,16 @@ class McpClient:
         await self._notify("notifications/initialized")
         self._version = version
         return version
+
+    async def watch_tool_catalog(self) -> bool:
+        """Observe an admitted subscription and invalidate the local catalogue."""
+        if self._version != MODERN or self._http_transport is None or not self._tools_list_changed:
+            raise ScopeDeniedError("MCP provider has no modern HTTP tool catalogue subscription")
+        self._catalog = None
+        observed = await self._rpc(TOOLS_LISTEN, {"notifications": {"toolsListChanged": True}})
+        if set(observed) != {"changed"} or type(observed["changed"]) is not bool:
+            raise McpProtocolError("Invalid MCP catalogue watch observation")
+        return bool(observed["changed"])
 
     async def refresh_tools(self) -> McpCatalog:
         if self._version is None:

@@ -41,7 +41,13 @@ from potbot.tools.interactive_supervisor import (
 )
 from potbot.tools.mcp_confirmation import McpConfirmation, McpConfirmationDeclined
 from potbot.tools.mcp_http_worker import check_http_worker, relay_http_call
-from potbot.tools.mcp_protocol import Exchange, McpCallResult, McpCatalog, McpClient, McpToolInfo
+from potbot.tools.mcp_protocol import (
+    TOOLS_LISTEN,
+    McpCallResult,
+    McpCatalog,
+    McpClient,
+    McpToolInfo,
+)
 from potbot.tools.mcp_stdio import McpStdioTransport
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
 from potbot.tools.supervisor import ProcessRequest
@@ -55,6 +61,7 @@ from potbot.tools.workspace_supervision import (
 from potbot.workspace_sandbox import WorkspaceSandbox
 
 if TYPE_CHECKING:
+    from potbot.tools.mcp_http import McpHttpTransport
     from potbot.tools.mcp_oauth import McpOAuthProvider
 
 
@@ -122,6 +129,7 @@ class SandboxedMcpClient:
         http_provider: McpOAuthProvider | None = None,
         http_header_tool: McpToolInfo | None = None,
         confirmation: McpConfirmation | None = None,
+        watch_ms: int = 0,
         before_http_call: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
@@ -181,9 +189,11 @@ class SandboxedMcpClient:
         self._http_provider = http_provider
         self._http_header_tool = http_header_tool
         self._confirmation = confirmation
+        self._watch_ms = watch_ms
+        self._watched = False
         self._before_http_call = before_http_call
         self._http_session = AsyncExitStack()
-        self._broker_exchange: Exchange | None = None
+        self._broker: McpHttpTransport | None = None
         self._lease: WorkspaceLeaseGuard | None = None
         self._call_lock = asyncio.Lock()
         self._process: IsolatedInteractiveProcess | None = None
@@ -358,11 +368,13 @@ class SandboxedMcpClient:
             definition.argv_prefix[1:],
             http=self._http_provider is not None,
             confirmation=self._confirmation is not None,
+            watch_ms=self._watch_ms,
         )
-        if (self._confirmation is not None) != (self._before_http_call is not None) or (
-            self._confirmation is not None and self._syn_route is None
+        journaled = self._confirmation is not None or self._watch_ms != 0
+        if journaled != (self._before_http_call is not None) or (
+            journaled and self._syn_route is None
         ):
-            raise ScopeDeniedError("MCP confirmation requires a routed, journaled execution")
+            raise ScopeDeniedError("Managed MCP profiles require routed, journaled execution")
         if self._http_provider is not None:
             scope = self._managed_scope
             http_grant = self._http_provider.grant
@@ -430,7 +442,7 @@ class SandboxedMcpClient:
                             self._http_provider.grant, header_tool=self._http_header_tool
                         )
                     )
-                self._broker_exchange = broker.exchange
+                self._broker = broker
             self._client = McpClient(self._exchange, admit=self._admit, http_transport=broker)
             await self._client.connect()
             self._catalog = await self._client.refresh_tools()
@@ -474,11 +486,14 @@ class SandboxedMcpClient:
         self, message: dict[str, Any], expect_reply: bool
     ) -> dict[str, Any] | None:
         process = await self._live_process()
-        broker = self._broker_exchange
+        broker = self._broker
         assert broker is not None
+        method = message.get("method")
         async with asyncio.timeout(process.remaining_seconds()):
-            if message.get("method") != "tools/call":
-                return await broker(message, expect_reply)
+            if method not in ("tools/call", TOOLS_LISTEN):
+                return await broker.exchange(message, expect_reply)
+            if method == TOOLS_LISTEN and not self._watch_ms:
+                raise ScopeDeniedError("MCP catalogue watch is not installed")
 
             async def dispatch_admitted(
                 request: dict[str, Any], expect: bool
@@ -486,24 +501,38 @@ class SandboxedMcpClient:
                 if self._before_http_call is not None:
                     await self._before_http_call(request)
                 await self._check_live()
-                return await broker(request, expect)
+                if method == TOOLS_LISTEN:
+                    return await broker.listen_tools(request, window_ms=self._watch_ms)
+                return await broker.exchange(request, expect)
 
             return await relay_http_call(
                 message,
                 self._dispatch,
                 dispatch_admitted,
                 self._check_live,
-                digest_only=self._confirmation is not None,
+                digest_only=self._before_http_call is not None,
             )
 
     async def _check_live(self) -> None:
         await self._live_process()
 
     async def _exchange(self, message: dict[str, Any], expect_reply: bool) -> dict[str, Any] | None:
-        dispatch = self._dispatch_http if self._broker_exchange is not None else self._dispatch
-        if self._syn_route is not None and message.get("method") == "tools/call":
+        dispatch = self._dispatch_http if self._broker is not None else self._dispatch
+        if message.get("method") == TOOLS_LISTEN and not self._watch_ms:
+            raise ScopeDeniedError("MCP catalogue watch is not installed")
+        if self._syn_route is not None and message.get("method") in ("tools/call", TOOLS_LISTEN):
             return await self._syn_route.invoke(message, dispatch)
         return await dispatch(message, expect_reply)
+
+    async def watch_tool_catalog(self) -> bool:
+        async with self._call_lock:
+            if not self._watch_ms or self._watched or self._client is None:
+                raise ScopeDeniedError("MCP catalogue watch is unavailable for this worker")
+            self._catalog = None
+            changed = await self._client.watch_tool_catalog()
+            self._catalog = await self._client.refresh_tools()
+            self._watched = True
+            return changed
 
     async def call(self, name: str, arguments: dict[str, Any]) -> McpCallResult:
         async with self._call_lock:
@@ -512,8 +541,8 @@ class SandboxedMcpClient:
     async def _call(self, name: str, arguments: dict[str, Any]) -> McpCallResult:
         if self._process is None or self._process.closed or self._client is None:
             raise IndeterminateExecutionError("MCP process is not available for invocation")
-        if self._catalog is None:
-            raise StateMismatchError("MCP tool catalog must be discovered first")
+        if self._catalog is None or (self._watch_ms and not self._watched):
+            raise StateMismatchError("MCP tool catalog must be discovered and checked first")
         if self._process.remaining_seconds() <= 0:
             await self.close(force=True)
             raise IndeterminateExecutionError("MCP process lifetime expired")

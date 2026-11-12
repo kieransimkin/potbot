@@ -17,7 +17,14 @@ from potbot.domain.errors import (
 from potbot.tools.mcp_confirmation import McpConfirmation, McpConfirmationPrompt
 from potbot.tools.mcp_headers import InvalidMcpHeaderAnnotation, mirrored_headers
 from potbot.tools.mcp_http import McpHttpTransport
-from potbot.tools.mcp_protocol import MODERN, McpClient, McpProtocolError, McpToolInfo
+from potbot.tools.mcp_protocol import (
+    MODERN,
+    TOOLS_CHANGED,
+    TOOLS_LISTEN,
+    McpClient,
+    McpProtocolError,
+    McpToolInfo,
+)
 
 URL = "https://mcp.fixture.example/mcp"
 
@@ -574,3 +581,94 @@ def test_http_mcp_confirmation_is_explicit_pinned_and_single_round(fault, failur
     assert len(asked) == prompts
     count = 2 if rounds == 2 or fault == "admission-revoked" else rounds
     assert admissions == [("add", {"a": 19, "b": 23})] * count
+
+
+@pytest.mark.parametrize(
+    ("fault", "expected"),
+    [
+        ("changed", True),
+        ("graceful", False),
+        ("idle", False),
+        ("wrong-id", McpProtocolError),
+        ("no-ack", McpProtocolError),
+        ("overbroad", McpProtocolError),
+        ("eof", IndeterminateExecutionError),
+        ("redirect", ScopeDeniedError),
+        ("secret", ScopeDeniedError),
+    ],
+)
+def test_http_catalog_watch_bounds_and_correlates_the_stream(fault, expected):
+    calls = []
+    meta = {"io.modelcontextprotocol/subscriptionId": 1}
+    ack = {
+        "jsonrpc": "2.0",
+        "method": "notifications/subscriptions/acknowledged",
+        "params": {"_meta": meta, "notifications": {"toolsListChanged": True}},
+    }
+    event = {"jsonrpc": "2.0", "method": TOOLS_CHANGED, "params": {"_meta": meta}}
+
+    class Stream(httpx.AsyncByteStream):
+        closed = False
+
+        async def __aiter__(self):
+            first = event if fault == "no-ack" else ack
+            if fault == "overbroad":
+                ack["params"]["notifications"]["promptsListChanged"] = True
+            frames = [first]
+            if fault in {"changed", "wrong-id", "secret"}:
+                if fault == "wrong-id":
+                    event["params"] = {"_meta": {"io.modelcontextprotocol/subscriptionId": 2}}
+                if fault == "secret":
+                    event["params"]["hidden"] = "fixture-secret"
+                frames.append(event)
+            if fault == "graceful":
+                frames.append({"jsonrpc": "2.0", "id": 1, "result": {"_meta": meta}})
+            for frame in frames:
+                wire = b"data: " + json.dumps(frame).encode() + b"\r\n\r\n"
+                for cut in range(0, len(wire), 11):
+                    yield wire[cut : cut + 11]
+            if fault == "idle":
+                await asyncio.Future()
+
+        async def aclose(self):
+            self.closed = True
+
+    stream = Stream()
+
+    def serve(request):
+        assert request.headers["Mcp-Method"] == TOOLS_LISTEN
+        assert request.headers["Authorization"] == "Bearer fixture-secret"
+        assert json.loads(request.content)["params"]["notifications"] == {"toolsListChanged": True}
+        calls.append(request.method)
+        return httpx.Response(
+            307 if fault == "redirect" else 200,
+            headers={"Content-Type": "text/event-stream", "Location": "https://other.example/mcp"},
+            stream=stream,
+        )
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(serve)) as http:
+            transport = McpHttpTransport(
+                URL,
+                http,
+                network_approval=lambda url: None,
+                bearer_supplier=lambda: "fixture-secret",
+            )
+            request = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": TOOLS_LISTEN,
+                "params": {
+                    "notifications": {"toolsListChanged": True},
+                    "_meta": {"io.modelcontextprotocol/protocolVersion": MODERN},
+                },
+            }
+            if isinstance(expected, bool):
+                reply = await transport.listen_tools(request, window_ms=250)
+                assert reply["result"] == {"changed": expected}
+            else:
+                with pytest.raises(expected):
+                    await transport.listen_tools(request, window_ms=250)
+        assert calls == ["POST"] and stream.closed
+
+    run(check())
