@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from potbot.domain.errors import (
     CapabilityUnavailableError,
@@ -32,6 +33,16 @@ from potbot.tools.capability_contracts import (
     ToolInvocationIntent,
     ToolObservation,
 )
+from potbot.tools.mcp_headers import (
+    HeaderParameter,
+    InvalidMcpHeaderAnnotation,
+    header_parameters,
+)
+
+if TYPE_CHECKING:
+    from potbot.tools.mcp_http import McpHttpTransport
+
+_LOG = logging.getLogger(__name__)
 
 MODERN = "2026-07-28"
 LEGACY = "2025-11-25"
@@ -128,7 +139,7 @@ def decode_reply(document: Mapping[str, Any], request_id: int) -> dict[str, Any]
     return result
 
 
-def _local_references_only(document: Any) -> None:
+def _local_references_only(document: Any, *, allow_http_headers: bool = False) -> None:
     """Refuse remote schema loads or unbounded schema graphs in controller space."""
     stack: list[tuple[Any, int]] = [(document, 0)]
     inspected = 0
@@ -144,9 +155,7 @@ def _local_references_only(document: Any) -> None:
                         raise McpProtocolError(
                             "Remote or unbounded MCP schema references are forbidden"
                         )
-                if key == "x-mcp-header":
-                    # Header-mirrored schemas require v2's protocol-level verified
-                    # encoding and annotation location checks; fail closed here.
+                if key == "x-mcp-header" and not allow_http_headers:
                     raise CapabilityUnavailableError(
                         "MCP header-mirrored tool inputs are not enabled"
                     )
@@ -155,7 +164,7 @@ def _local_references_only(document: Any) -> None:
             stack.extend((child, depth + 1) for child in node)
 
 
-def _schema(record: object, label: str) -> str:
+def _schema(record: object, label: str, *, allow_http_headers: bool = False) -> str:
     if not isinstance(record, dict) or record.get("type") != "object":
         raise McpProtocolError(f"{label} must be an object JSON Schema")
     try:
@@ -164,7 +173,9 @@ def _schema(record: object, label: str) -> str:
         raise McpProtocolError(f"{label} is not finite JSON") from error
     if len(output.encode("utf-8")) > _MAX_SCHEMA_BYTES:
         raise McpProtocolError("MCP tool schema too large")
-    _local_references_only(record)
+    _local_references_only(record, allow_http_headers=allow_http_headers)
+    if allow_http_headers:
+        header_parameters(record)
     try:
         from jsonschema.validators import validator_for
     except ImportError as error:
@@ -191,7 +202,7 @@ def validate_arguments(tool: McpToolInfo, arguments: object) -> None:
             "MCP schema checking needs the Potbot semantics extra"
         ) from error
     schema = json.loads(tool.input_schema_json)
-    _local_references_only(schema)
+    _local_references_only(schema, allow_http_headers=True)
     try:
         validator_for(schema)(schema).validate(arguments)
     except Exception as error:
@@ -206,7 +217,7 @@ class McpToolInfo:
     output_schema_json: str | None = None
 
     @classmethod
-    def from_wire(cls, document: object) -> McpToolInfo:
+    def from_wire(cls, document: object, *, allow_http_headers: bool = False) -> McpToolInfo:
         if not isinstance(document, dict):
             raise McpProtocolError("Malformed MCP tool definition")
         name = document.get("name")
@@ -219,11 +230,17 @@ class McpToolInfo:
             or any(ord(x) < 32 and x not in "\n\t" for x in description)
         ):
             raise McpProtocolError("MCP tool has an invalid description")
-        input_schema = _schema(document.get("inputSchema"), "MCP input")
+        input_schema = _schema(
+            document.get("inputSchema"), "MCP input", allow_http_headers=allow_http_headers
+        )
         output_schema = document.get("outputSchema")
         if output_schema is not None:
             output_schema = _schema(output_schema, "MCP output")
         return cls(name, description, input_schema, output_schema)
+
+    @property
+    def header_parameters(self) -> tuple[HeaderParameter, ...]:
+        return header_parameters(json.loads(self.input_schema_json))
 
     @property
     def fingerprint(self) -> str:
@@ -336,9 +353,16 @@ class McpClient:
     both its transport and each side-effecting tool call via ``admit``.
     """
 
-    def __init__(self, exchange: Exchange, *, admit: Admission | None = None) -> None:
+    def __init__(
+        self,
+        exchange: Exchange,
+        *,
+        admit: Admission | None = None,
+        http_transport: McpHttpTransport | None = None,
+    ) -> None:
         self._exchange = exchange
         self._admit = admit
+        self._http_transport = http_transport
         self._next_id = 0
         self._version: str | None = None
         self._catalog: McpCatalog | None = None
@@ -407,6 +431,7 @@ class McpClient:
         seen: set[str] = set()
         names: set[str] = set()
         tools: list[McpToolInfo] = []
+        modern_http = self._version == MODERN and self._http_transport is not None
         for _ in range(MAX_PAGES):
             params = {} if cursor is None else {"cursor": cursor}
             page = await self._rpc("tools/list", params)
@@ -414,13 +439,23 @@ class McpClient:
             if not isinstance(listed, list):
                 raise McpProtocolError("MCP tools/list returned no valid tools array")
             for item in listed:
-                tool = McpToolInfo.from_wire(item)
-                if tool.name in names:
+                try:
+                    discovered = McpToolInfo.from_wire(item, allow_http_headers=modern_http)
+                except InvalidMcpHeaderAnnotation:
+                    # from_wire checks the name before parsing the schema.
+                    name = item["name"]
+                    _LOG.warning("Excluded MCP tool %r with invalid routing annotation", name)
+                    tool = None
+                else:
+                    tool = discovered
+                    name = discovered.name
+                if name in names:
                     raise McpProtocolError("Duplicate MCP tool name across list pages")
-                names.add(tool.name)
-                tools.append(tool)
-                if len(tools) > MAX_TOOLS:
+                names.add(name)
+                if len(names) > MAX_TOOLS:
                     raise McpProtocolError("MCP tool count exceeds the discovery budget")
+                if tool is not None:
+                    tools.append(tool)
             next_cursor = page.get("nextCursor")
             if next_cursor is None:
                 catalog = McpCatalog(
@@ -455,6 +490,12 @@ class McpClient:
         if tool.fingerprint != pinned_tool_hash:
             raise StateMismatchError("MCP tool signature changed since admission")
         validate_arguments(tool, arguments)
+        if tool.header_parameters and (
+            self._version != MODERN
+            or self._http_transport is None
+            or not self._http_transport.accepts_header_tool(tool)
+        ):
+            raise ScopeDeniedError("MCP routing headers require the approved HTTP tool definition")
         if self._admit is None:
             raise ScopeDeniedError("No controller-owned MCP dispatch authorization is installed")
         # Must raise on denial. Never accept an affirmative claim in model data.

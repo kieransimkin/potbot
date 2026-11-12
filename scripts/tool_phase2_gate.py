@@ -32,6 +32,7 @@ SOURCES = [
     "src/potbot/tools/mcp_protocol.py",
     "src/potbot/tools/mcp_stdio.py",
     "src/potbot/tools/mcp_http.py",
+    "src/potbot/tools/mcp_headers.py",
     "src/potbot/tools/mcp_http_broker.py",
     "src/potbot/tools/mcp_oauth.py",
     "src/potbot/credentials.py",

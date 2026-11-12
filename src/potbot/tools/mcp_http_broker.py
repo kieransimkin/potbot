@@ -18,7 +18,7 @@ import httpx
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
 from potbot.tools.connect_policy import ConnectPolicy, checked_host
 from potbot.tools.mcp_http import McpHttpTransport
-from potbot.tools.mcp_protocol import McpProtocolError, parse_json_document
+from potbot.tools.mcp_protocol import McpProtocolError, McpToolInfo, parse_json_document
 
 _METADATA_LIMIT = 64 * 1024
 _BEARER = re.compile(r"[A-Za-z0-9._~+/-]+=*")
@@ -209,7 +209,9 @@ class McpHttpBroker:
         return endpoints
 
     @asynccontextmanager
-    async def open(self, grant: McpHttpGrant) -> AsyncIterator[McpHttpTransport]:
+    async def open(
+        self, grant: McpHttpGrant, *, header_tool: McpToolInfo | None = None
+    ) -> AsyncIterator[McpHttpTransport]:
         await self.discover_issuer(grant)
 
         def authorize(url: str) -> None:
@@ -225,4 +227,5 @@ class McpHttpBroker:
                 client,
                 network_approval=authorize,
                 bearer_supplier=lambda: self._bearer(grant),
+                header_tool=header_tool,
             )

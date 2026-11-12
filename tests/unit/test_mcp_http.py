@@ -13,8 +13,9 @@ from potbot.domain.errors import (
     InvalidInputError,
     ScopeDeniedError,
 )
+from potbot.tools.mcp_headers import InvalidMcpHeaderAnnotation, mirrored_headers
 from potbot.tools.mcp_http import McpHttpTransport
-from potbot.tools.mcp_protocol import McpClient, McpProtocolError
+from potbot.tools.mcp_protocol import MODERN, McpClient, McpProtocolError, McpToolInfo
 
 URL = "https://mcp.fixture.example/mcp"
 
@@ -346,3 +347,110 @@ def test_no_secret_in_errors_or_redirect_and_no_retries():
 
     run(scenario())
     assert len(attempts) == 1
+
+
+def test_modern_http_mirrors_only_the_installed_tool_schema():
+    definition = listed_tool("sum café")
+    definition["inputSchema"] = {
+        "type": "object",
+        "properties": {
+            "route": {
+                "type": "object",
+                "properties": {
+                    "region": {"type": "string", "x-mcp-header": "Region"},
+                    "active": {"type": "boolean", "x-mcp-header": "Active"},
+                    "partition": {"type": "integer", "x-mcp-header": "Partition"},
+                    "optional": {"type": ["string", "null"], "x-mcp-header": "Optional"},
+                },
+            }
+        },
+    }
+    rejected = listed_tool("invalid-routing")
+    rejected["inputSchema"] = {
+        "type": "object",
+        "properties": {
+            "values": {
+                "type": "array",
+                "items": {"type": "string", "x-mcp-header": "Item"},
+            },
+        },
+    }
+    approved = McpToolInfo.from_wire(definition, allow_http_headers=True)
+    different_schema = McpToolInfo.from_wire(
+        {**definition, "inputSchema": {"type": "object"}}, allow_http_headers=True
+    )
+    calls = []
+    arguments = {"route": {"region": " 東京 ", "active": False, "partition": -7, "optional": None}}
+
+    async def handler(request):
+        message = json.loads(request.content)
+        method = message["method"]
+        if method == "server/discover":
+            result = {"supportedVersions": [MODERN]}
+        elif method == "tools/list":
+            result = {"tools": [rejected, definition, listed_tool()]}
+        else:
+            calls.append(message["params"]["arguments"])
+            assert message["params"]["arguments"] == arguments
+            assert request.headers["mcp-name"] == "=?base64?c3VtIGNhZsOp?="
+            assert request.headers["mcp-param-region"] == "=?base64?IOadseS6rCA=?="
+            assert request.headers["mcp-param-active"] == "false"
+            assert request.headers["mcp-param-partition"] == "-7"
+            assert "mcp-param-optional" not in request.headers
+            assert request.headers["authorization"] == "Bearer fixture-token"
+            result = {"resultType": "complete", "structuredContent": {"sum": 42}}
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": message["id"], "result": result})
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            for installed in (None, different_schema, approved):
+                transport = McpHttpTransport(
+                    URL,
+                    http,
+                    network_approval=lambda _: None,
+                    bearer_supplier=lambda: "fixture-token",
+                    header_tool=installed,
+                )
+                client = McpClient(
+                    transport.exchange,
+                    admit=lambda *_: None,
+                    http_transport=transport,
+                )
+                catalog = await client.refresh_tools()
+                assert [tool.name for tool in catalog.tools] == ["sum café", "add"]
+                if installed != approved:
+                    with pytest.raises(ScopeDeniedError):
+                        await client.call_tool(
+                            approved.name,
+                            arguments,
+                            pinned_catalog_hash=catalog.fingerprint,
+                            pinned_tool_hash=approved.fingerprint,
+                        )
+                else:
+                    result = await client.call_tool(
+                        approved.name,
+                        arguments,
+                        pinned_catalog_hash=catalog.fingerprint,
+                        pinned_tool_hash=approved.fingerprint,
+                    )
+                    assert result.structured_content == {"sum": 42}
+
+    asyncio.run(scenario())
+    assert calls == [arguments]
+
+
+def test_mirrored_header_names_are_unique_case_insensitively():
+    definition = listed_tool()
+    for prop, header in (("a", "Partition"), ("b", "partition")):
+        definition["inputSchema"]["properties"][prop]["x-mcp-header"] = header
+    with pytest.raises(InvalidMcpHeaderAnnotation):
+        McpToolInfo.from_wire(definition, allow_http_headers=True)
+
+
+@pytest.mark.parametrize("value", [1 << 53, True])
+def test_mirrored_integer_rejects_unsafe_values(value):
+    definition = listed_tool()
+    definition["inputSchema"]["properties"]["a"]["x-mcp-header"] = "Partition"
+    tool = McpToolInfo.from_wire(definition, allow_http_headers=True)
+    with pytest.raises(InvalidInputError):
+        mirrored_headers(tool.header_parameters, {"a": value})

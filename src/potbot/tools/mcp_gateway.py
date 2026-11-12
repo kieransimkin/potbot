@@ -80,6 +80,8 @@ class InstalledMcpTool:
             or re.fullmatch(r"[a-f0-9]{64}", self.executable_sha256) is None
         ):
             raise ScopeDeniedError("MCP installation differs from the operator's tool and scope")
+        if self.tool.header_parameters and self.http_provider is None:
+            raise ScopeDeniedError("MCP header parameters require an approved HTTP installation")
         if (self.definition.argv_prefix[1:] == WORKER_ARGS) != (self.http_provider is not None):
             raise ScopeDeniedError("MCP HTTP installation requires its pinned worker and provider")
         if (
@@ -261,6 +263,7 @@ async def execute_mcp_action(
             syn_route=syn_route,
             workspace_id=context.workspace_id,
             http_provider=binding.http_provider,
+            http_header_tool=binding.tool if binding.tool.header_parameters else None,
             managed_scope=ManagedMcpScope(
                 context, gateway.host_agent_id, run["id"], gateway.agent_homes
             ),
