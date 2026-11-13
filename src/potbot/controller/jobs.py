@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -478,7 +479,12 @@ class JobService:
             return deadline
 
     def mark_dispatched(
-        self, context: WorkspaceContext, lease: JobLease, *, cog_max_wall_ms: int | None = None
+        self,
+        context: WorkspaceContext,
+        lease: JobLease,
+        *,
+        cog_max_wall_ms: int | None = None,
+        check_cog_grant: Callable[[Any], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         with self.database.transaction(context) as conn:
             old = self._lease_row(conn, context, lease)
@@ -488,6 +494,7 @@ class JobService:
                 if old["job_type"] == COG_JOB:
                     raise StateMismatchError("A native Cog dispatch cannot be repeated.")
                 return _public(old)
+            decision = None
             if old["job_type"] == COG_JOB:
                 from potbot.controller.budgets import BudgetLedger
 
@@ -516,6 +523,8 @@ class JobService:
                     or repository is None
                 ):
                     raise ScopeDeniedError("The active task does not authorize this native Cog.")
+                if check_cog_grant is not None:
+                    decision = check_cog_grant(conn)
                 BudgetLedger(self.database).reserve_in_transaction(
                     conn,
                     context,
@@ -531,7 +540,10 @@ class JobService:
                 "update_token=update_token+1,progress=jsonb_build_object('stage','dispatching')",
             )
             public = _public(dict(row))
-            _event(conn, context, lease.job_id, "job.dispatched", {"job": public})
+            evidence = {"job": public}
+            if decision is not None:
+                evidence["capability_policy"] = decision
+            _event(conn, context, lease.job_id, "job.dispatched", evidence)
             return public
 
     def _settle_cog(

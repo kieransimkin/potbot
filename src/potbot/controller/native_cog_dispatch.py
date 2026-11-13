@@ -15,6 +15,8 @@ from uuid import UUID
 
 from potbot.cogs.contracts import CogRunContext, TypedCogValue
 from potbot.context.installed_syn_route import installed_context_route
+from potbot.controller.cog_capability_policy import CogPolicyDenied, Denial
+from potbot.controller.cog_grant_store import current_cog_policy
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
     IndeterminateExecutionError,
@@ -29,7 +31,7 @@ from potbot.syn_release.contracts import DOCUMENT_LIMIT, document, fields
 from potbot.syn_release.mesh_endpoint import NativeMeshClient, root_path
 from potbot.tools.agent_homes import AgentHomeRegistry
 from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding, digest, identifier
-from potbot.tools.operator_cli import parse_manifest
+from potbot.tools.operator_cli import OperatorPaths, parse_manifest
 from potbot.tools.released_syn_nodes import ReleasedSynWorkerNodeMesh
 from potbot.tools.sandbox_cog_worker import SandboxedCogExecutor, SandboxedCogOperation
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
@@ -50,7 +52,11 @@ def read_profile(path: Path) -> tuple[dict[str, Any], str]:
         data = reader.read(DOCUMENT_LIMIT + 1)
     raw = document(data)
     version = raw.get("profile")
-    if version not in ("potbot.hosted-native-cog/1", "potbot.hosted-native-cog/2"):
+    if version not in (
+        "potbot.hosted-native-cog/1",
+        "potbot.hosted-native-cog/2",
+        "potbot.hosted-native-cog/3",
+    ):
         raise ScopeDeniedError("Unknown native Cog job profile.")
     profile = fields(
         raw,
@@ -68,9 +74,9 @@ def read_profile(path: Path) -> tuple[dict[str, Any], str]:
             "image_digest",
             "qualification_sha256",
         }
-        | ({"context_rpc"} if version == "potbot.hosted-native-cog/2" else set()),
+        | ({"context_rpc"} if version != "potbot.hosted-native-cog/1" else set()),
     )
-    if version == "potbot.hosted-native-cog/2":
+    if version != "potbot.hosted-native-cog/1":
         fields(profile["context_rpc"], {"store", "operator_root", "policy", "policy_sha256"})
     return profile, hashlib.sha256(data).hexdigest()
 
@@ -82,12 +88,15 @@ class NativeCogDispatcher:
         operations: tuple[SandboxedCogOperation, ...],
         agents: frozenset[UUID],
         profile_hash: str,
+        *,
+        persistent_cog_grants: bool = False,
     ) -> None:
         self.executor = executor
         self.operations = {op.binding.operation_ref: op for op in operations}
         if not self.operations or len(self.operations) != len(operations):
             raise ScopeDeniedError("Native Cog installation requires distinct operations.")
         self.agents, self.profile_hash = agents, profile_hash
+        self.persistent_cog_grants = persistent_cog_grants
 
     def run(
         self, jobs: JobService, actor: WorkspaceContext, lease: JobLease, abort: threading.Event
@@ -114,12 +123,46 @@ class NativeCogDispatcher:
         )
         if abort.is_set() or jobs.cancelled(actor, lease):
             raise OperationCancelledError("Native Cog was cancelled before admission.")
+        native = (
+            self.executor.syn_provenance(actor, request.agent_id)
+            if self.persistent_cog_grants
+            else None
+        )
+        generation: int | None = None
+
+        def check_cog_grant(connection: Any) -> dict[str, Any]:
+            current = current_cog_policy(
+                connection, actor, request.agent_id, for_dispatch=generation is not None
+            )
+            if current is None:
+                raise CogPolicyDenied(Denial.INSTALLATION)
+            if generation is not None and current.generation != generation:
+                raise CogPolicyDenied(Denial.REPLACED)
+            selected = current.policy.select(
+                actor, request.agent_id, native, operation, parent=None
+            )
+            current.policy.require_active_task(connection, invocation, selected)
+            return {
+                "generation": current.generation,
+                "sha256": current.policy.fingerprint,
+                "capabilities": sorted(cap.value for cap in selected.capabilities),
+                "decision": "allow",
+            }
+
+        if self.persistent_cog_grants:
+            with jobs.database.transaction(actor) as connection:
+                generation = check_cog_grant(connection)["generation"]
         grant = self.executor.authorize_syn(operation, value, invocation, actor, request.agent_id)
         if grant is None:
             raise ScopeDeniedError("Native Cog dispatch requires a released Syn grant.")
         if abort.is_set() or jobs.cancelled(actor, lease):
             raise OperationCancelledError("Native Cog was cancelled before dispatch.")
-        jobs.mark_dispatched(actor, lease, cog_max_wall_ms=operation.binding.policy.max_wall_ms)
+        jobs.mark_dispatched(
+            actor,
+            lease,
+            cog_max_wall_ms=operation.binding.policy.max_wall_ms,
+            check_cog_grant=check_cog_grant if self.persistent_cog_grants else None,
+        )
 
         async def execute() -> TypedCogValue:
             pending = asyncio.create_task(
@@ -155,53 +198,17 @@ class NativeCogDispatcher:
         return {"artifact_id": str(artifact["id"]), "operation_id": str(lease.job_id)}
 
 
-@contextmanager
-def configured_native_cogs(
-    db: Database, actor: WorkspaceContext
-) -> Iterator[NativeCogDispatcher | None]:
-    selected = os.environ.get("POTBOT_NATIVE_COG_CONFIG")
-    if selected is None:
-        yield None
-        return
-    if os.environ.get("POTBOT_OPERATOR_REQUIRED") != "1" or not os.environ.get(
-        "POTBOT_OPERATOR_SCOPED_LAUNCHER"
-    ):
-        raise ScopeDeniedError("Native Cog jobs require the installed scoped worker service.")
-    profile, fingerprint = read_profile(Path(selected))
-    paths = parse_manifest(Path(os.environ["POTBOT_OPERATOR_MANIFEST"]))
+def installed_cog_operations(
+    profile: dict[str, Any], fingerprint: str, paths: OperatorPaths
+) -> tuple[SandboxedCogOperation, ...]:
     if (
-        identifier(profile["workspace_id"]) != actor.workspace_id
-        or paths.workspace_id != actor.workspace_id
+        identifier(profile["workspace_id"]) != paths.workspace_id
         or paths.image_digest != profile["image_digest"]
         or paths.qualification_sha256 != profile["qualification_sha256"]
     ):
         raise ScopeDeniedError("Native Cog profile differs from the installed workspace or image.")
-    endpoint = Path(profile["socket"])
-    if any(
-        private_path.is_relative_to(mount)
-        for private_path in (endpoint, Path(selected))
-        for mount in (
-            paths.rootfs,
-            paths.home,
-            paths.model_staging,
-            paths.shared_models,
-            paths.shared_tools,
-            paths.ai_config_dir,
-            paths.ai_history_dir,
-        )
-    ):
-        raise ScopeDeniedError("Native Syn dispatcher cannot be mounted inside a worker.")
-    if not isinstance(profile["agents"], list) or not 1 <= len(profile["agents"]) <= 8:
-        raise ScopeDeniedError("Native Cog profile requires a bounded Agent cohort.")
-    agents = frozenset(identifier(agent) for agent in profile["agents"])
-    if (
-        len(agents) != len(profile["agents"])
-        or type(profile["group_epoch"]) is not int
-        or profile["group_epoch"] <= 0
-        or not isinstance(profile["operations"], list)
-        or not 1 <= len(profile["operations"]) <= 32
-    ):
-        raise ScopeDeniedError("Native Cog profile has invalid Agent or operation bounds.")
+    if not isinstance(profile["operations"], list) or not 1 <= len(profile["operations"]) <= 32:
+        raise ScopeDeniedError("Native Cog profile has invalid operation bounds.")
     operations = []
     for raw in profile["operations"]:
         op = fields(
@@ -246,6 +253,50 @@ def configured_native_cogs(
                 protocol="context-rpc/v1",
             )
         )
+    return tuple(operations)
+
+
+@contextmanager
+def configured_native_cogs(
+    db: Database, actor: WorkspaceContext
+) -> Iterator[NativeCogDispatcher | None]:
+    selected = os.environ.get("POTBOT_NATIVE_COG_CONFIG")
+    if selected is None:
+        yield None
+        return
+    if os.environ.get("POTBOT_OPERATOR_REQUIRED") != "1" or not os.environ.get(
+        "POTBOT_OPERATOR_SCOPED_LAUNCHER"
+    ):
+        raise ScopeDeniedError("Native Cog jobs require the installed scoped worker service.")
+    profile, fingerprint = read_profile(Path(selected))
+    paths = parse_manifest(Path(os.environ["POTBOT_OPERATOR_MANIFEST"]))
+    if paths.workspace_id != actor.workspace_id:
+        raise ScopeDeniedError("Native Cog profile differs from the installed workspace or image.")
+    operations = installed_cog_operations(profile, fingerprint, paths)
+    endpoint = Path(profile["socket"])
+    if any(
+        private_path.is_relative_to(mount)
+        for private_path in (endpoint, Path(selected))
+        for mount in (
+            paths.rootfs,
+            paths.home,
+            paths.model_staging,
+            paths.shared_models,
+            paths.shared_tools,
+            paths.ai_config_dir,
+            paths.ai_history_dir,
+        )
+    ):
+        raise ScopeDeniedError("Native Syn dispatcher cannot be mounted inside a worker.")
+    if not isinstance(profile["agents"], list) or not 1 <= len(profile["agents"]) <= 8:
+        raise ScopeDeniedError("Native Cog profile requires a bounded Agent cohort.")
+    agents = frozenset(identifier(agent) for agent in profile["agents"])
+    if (
+        len(agents) != len(profile["agents"])
+        or type(profile["group_epoch"]) is not int
+        or profile["group_epoch"] <= 0
+    ):
+        raise ScopeDeniedError("Native Cog profile has invalid Agent bounds.")
     runtime = paths.runtime()
     ledger = WorkspaceLeaseLedger(paths.controller_ledger, workspace_home=paths.home)
     homes = AgentHomeRegistry(ledger, workspace_name=profile["workspace_name"])
@@ -285,14 +336,20 @@ def configured_native_cogs(
                     if path is not None
                 ),
             )
-            if profile["profile"] == "potbot.hosted-native-cog/2"
+            if profile["profile"] != "potbot.hosted-native-cog/1"
             else nullcontext(None)
         )
         with route_context as route, workers.running():
             executor = SandboxedCogExecutor(
                 runtime, ledger, homes, ProcessSupervisor(backend), workers, syn_context_route=route
             )
-            executor.bind_context(db, actor, tuple(operations))
-            yield NativeCogDispatcher(executor, tuple(operations), agents, fingerprint)
+            executor.bind_context(db, actor, operations)
+            yield NativeCogDispatcher(
+                executor,
+                operations,
+                agents,
+                fingerprint,
+                persistent_cog_grants=profile["profile"] == "potbot.hosted-native-cog/3",
+            )
     finally:
         transport.close()

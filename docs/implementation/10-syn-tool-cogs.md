@@ -62,9 +62,26 @@ flowchart TD
     Provider -->|Denied| Release["Record denial and release unused provider reservation"]
 ```
 
-The execution journal records the policy digest and effective capabilities on admission. A denial records a fixed reason code. Invocation data remains in the existing scoped artifact store. Existing callers can continue using their configured authorizer. This milestone covers the installed sandbox Cog path, with the existing native Syn identity check. It leaves durable operator grant management, wallet delegation, device grants and broader gateway rollout to later stages.
+The execution journal records the policy digest and effective capabilities on admission. A denial records a fixed reason code. Invocation data remains in the existing scoped artifact store. Wallet delegation, device grants and broader gateway rollout remain separate stages.
 
 The managed WSL fixture exercised the policy using the signed Syn 0.10.0 release, the signed worker image and two disposable enrolled Agents. The granted gRPC operation reached the provider and settled in disposable PostgreSQL. The same installation with an empty grant list recorded a denial and sent zero requests. Repeated recovery after a dropped reply also sent zero requests. The PostgreSQL regression additionally covers parent capability limits and a grant that expires before provider dispatch.
+
+### Persistent grants for installed Cogs
+
+Apply the application migration with `potbot admin migrate`. Run `potbot admin cog-grants-show` with `--workspace-id`, `--principal-id` and `--agent-id` to read the active generation. Publish the complete grant set with `potbot admin cog-grants-publish` and the same scope, plus `--expected-generation`, `--node-sha256`, `--revision-sha256` and `--grants-file`. These commands use the installation's administrative PostgreSQL credential. The runtime login can read only its own principal's policies and cannot publish or change them.
+
+The grant file is a JSON array. Each entry has `installation_sha256`, a `capabilities` array such as `["read"]`, and an integer `expires_at` in UTC epoch seconds. Run `potbot admin cog-installations --profile <path> --operator-manifest <path>` to read the hosted profile revision and exact installation hashes. For other controller installations use `installation_hash(operation)` and the operation's pinned policy revision. Use the enrolled native node's public fingerprint. Generation `0` is the starting point. To revoke one grant, publish a replacement without that entry. An empty array revokes every grant for that Agent scope. Each replacement records the authenticated database publisher and time and preserves all earlier generations. If publication is interrupted, read the generation before choosing whether to repeat the request.
+
+Enable PostgreSQL enforcement with `persistent_cog_grants=True` in the installed `ExecutionCogRuntime` or with the administrator-owned `potbot.hosted-native-cog/3` profile in the hosted worker. The hosted profile uses the same fields as `/2`. Update the task to permit the exact hosted operation and its capability categories. Missing, revoked, expired and mismatched grants deny dispatch. The controller pins the admitted generation through nested work and rechecks it before worker or directed API dispatch. The hosted worker records the active generation in the same transaction as its dispatch and budget reservation. A later publication governs later admissions and provider checks. A call that already crossed its dispatch boundary follows the existing observation and reconciliation rules.
+
+```mermaid
+flowchart LR
+    Operator["Operator publishes a complete grant set"] --> Store["PostgreSQL retains each generation"]
+    Install["Installed Cog and enrolled Syn Agent"] --> Check{"Current generation permits dispatch?"}
+    Store --> Check
+    Check -->|Yes| Route["Dispatch through the Syn worker"]
+    Check -->|No| Refuse["Refuse dispatch and leave budget uncharged"]
+```
 
 ## Stateful debugger, terminal and device Cogs
 

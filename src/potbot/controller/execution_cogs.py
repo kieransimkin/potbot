@@ -22,6 +22,7 @@ from potbot.controller.cog_capability_policy import (
     CogPolicyDenied,
     Denial,
 )
+from potbot.controller.cog_grant_store import current_cog_policy
 from potbot.controller.cog_work import CogWorkMonitor, CogWorkRun
 from potbot.controller.execution_journal import (
     TRANSPORT_DISPATCH_PHASE,
@@ -75,10 +76,12 @@ class ExecutionCall:
         work: CogWorkRun,
         depth: int,
         capability_grant: CogCapabilityGrant | None = None,
+        grant_generation: int | None = None,
     ) -> None:
         self.runtime, self.work, self.depth = runtime, work, depth
         self.owner = asyncio.current_task()
         self.capability_grant = capability_grant
+        self.grant_generation = grant_generation
 
     def _check(self) -> None:
         if (
@@ -144,6 +147,7 @@ class ExecutionCall:
             links=links,
             depth=self.depth + 1,
             parent_grant=self.capability_grant,
+            parent_grant_generation=self.grant_generation,
         )
         self.work.child_runs.append(
             {
@@ -182,6 +186,7 @@ class ExecutionCogRuntime:
         graphql_read: InstalledGraphqlRead | None = None,
         grpc_read: InstalledGrpcRead | None = None,
         capability_policy: CogCapabilityPolicy | None = None,
+        persistent_cog_grants: bool = False,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -270,6 +275,13 @@ class ExecutionCogRuntime:
                 "Cog capability policy differs from the installed controller scope"
             )
         self.capability_policy = capability_policy
+        if type(persistent_cog_grants) is not bool or (
+            persistent_cog_grants and (capability_policy is not None or not operations)
+        ):
+            raise ScopeDeniedError(
+                "Persistent Cog grants require their own installed controller profile"
+            )
+        self.persistent_cog_grants = persistent_cog_grants
         if browser_service is not None and (
             artifact_ranges is not None or artifact_uploads is not None
         ):
@@ -448,6 +460,7 @@ class ExecutionCogRuntime:
         links: tuple[UUID, ...] = (),
         depth: int = 0,
         parent_grant: CogCapabilityGrant | None = None,
+        parent_grant_generation: int | None = None,
     ) -> CogOutcome:
         if (
             signature not in (*EXECUTION_COGS, *self._direct_operations)
@@ -518,11 +531,20 @@ class ExecutionCogRuntime:
         capability_policy = (
             self.capability_policy if isinstance(op, SandboxedCogOperation) else None
         )
+        persistent_grants = isinstance(op, SandboxedCogOperation) and self.persistent_cog_grants
         capability_grant: CogCapabilityGrant | None = None
+        grant_generation: int | None = None
 
         def check_capability(connection: Any) -> None:
             if capability_policy is not None:
                 assert capability_grant is not None
+                if persistent_grants:
+                    assert self.sandbox_agent_id is not None and grant_generation is not None
+                    current = current_cog_policy(
+                        connection, self.actor, self.sandbox_agent_id, for_dispatch=True
+                    )
+                    if current is None or current.generation != grant_generation:
+                        raise CogPolicyDenied(Denial.REPLACED)
                 capability_policy.require_active_task(connection, context, capability_grant)
 
         read_attempt = None
@@ -544,7 +566,9 @@ class ExecutionCogRuntime:
                 read,
                 typed,
                 context,
-                check_policy=check_capability if capability_policy is not None else None,
+                check_policy=check_capability
+                if capability_policy is not None or persistent_grants
+                else None,
             )
         journal = PinnedExecutionJournal(
             self.db,
@@ -565,6 +589,16 @@ class ExecutionCogRuntime:
         original_hash = source.fingerprint
         self._seen.add(context.invocation_id)
         try:
+            if persistent_grants:
+                assert self.sandbox_agent_id is not None
+                with self.db.transaction(self.actor) as connection:
+                    published = current_cog_policy(connection, self.actor, self.sandbox_agent_id)
+                if published is None:
+                    raise CogPolicyDenied(Denial.INSTALLATION)
+                capability_policy = published.policy
+                grant_generation = published.generation
+                if parent_event_id is not None and grant_generation != parent_grant_generation:
+                    raise CogPolicyDenied(Denial.REPLACED)
             if capability_policy is not None:
                 assert self.sandbox_executor is not None and self.sandbox_agent_id is not None
                 assert isinstance(op, SandboxedCogOperation)
@@ -609,6 +643,8 @@ class ExecutionCogRuntime:
                     ),
                     "decision": "allow",
                 }
+                if grant_generation is not None:
+                    implementation["capability_policy"]["generation"] = grant_generation
             work = monitor.begin(signature, source, context, implementation=implementation)
         except Exception:
             self._poisoned = True
@@ -620,7 +656,7 @@ class ExecutionCogRuntime:
             if source.fingerprint != original_hash:
                 raise StateMismatchError("Work input changed before dispatch")
             dispatched = not transport_effect
-            call = ExecutionCall(self, work, depth, capability_grant)
+            call = ExecutionCall(self, work, depth, capability_grant, grant_generation)
             if op:
                 # The timeout task owns callbacks; no detached task inherits its grant.
                 async def run() -> TypedCogValue:

@@ -21,6 +21,7 @@ from potbot.controller.cog_capability_policy import (
     Denial,
     installation_hash,
 )
+from potbot.controller.cog_grant_store import publish_cog_policy
 from potbot.controller.execution_cogs import ExecutionCogRuntime
 from potbot.controller.tasks import TaskService
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
@@ -48,8 +49,11 @@ from tests.integration.test_tool_phase2_4_local_services import pinned_grpc_prov
 pytestmark = pytest.mark.postgres
 
 
-@pytest.mark.parametrize("protocol", ["rest", "graphql", "grpc"])
+@pytest.mark.parametrize("protocol", ["rest", "graphql", "grpc", "grpc-persistent"])
 def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, request, protocol):
+    persistent = protocol == "grpc-persistent"
+    if persistent:
+        protocol = "grpc"
     graphql = protocol == "graphql"
     grpc = protocol == "grpc"
     _, artifacts, _, _, state, _ = setup(app_env, tmp_path)
@@ -170,6 +174,7 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
     invocations = []
     lose_provider_response = False
     expire_before_provider = False
+    revoke_before_provider = False
     clock = [1000]
     monkeypatch.setattr("potbot.controller.cog_capability_policy.time", lambda: clock[0])
 
@@ -222,6 +227,10 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
             invocations.append(cog.invocation_id)
             if expire_before_provider:
                 clock[0] = 1200
+            if revoke_before_provider:
+                publish_cog_policy(
+                    app_env.admin_dsn, app_env.schema, replace(capability_policy, grants=()), 1
+                )
             response = await asyncio.to_thread(api_read)
             if self.lose:
                 raise IndeterminateExecutionError("Fixture lost the reply after settlement")
@@ -241,6 +250,8 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
             ),
         ),
     )
+    if persistent:
+        publish_cog_policy(app_env.admin_dsn, app_env.schema, capability_policy, 0)
 
     def controller(lose):
         return ExecutionCogRuntime(
@@ -256,7 +267,8 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
             admit=lambda *_: None,
             sandbox_executor=ReplyLossWorker(lose),
             sandbox_agent_id=agent,
-            capability_policy=capability_policy,
+            capability_policy=None if persistent else capability_policy,
+            persistent_cog_grants=persistent,
             **profile,
         )
 
@@ -304,9 +316,11 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
     balance = BudgetLedger(db).inspect(actor, episode)
     assert balance["used"] == {"calls": 2, "tool_ms": 4000} and balance["held"] == {}
 
-    expire_before_provider = True
+    expire_before_provider = not persistent
+    revoke_before_provider = persistent
     denied = replace(good, invocation_id=uuid4())
-    with pytest.raises(CogPolicyDenied, match=Denial.EXPIRED.value):
+    denial = Denial.REPLACED if persistent else Denial.EXPIRED
+    with pytest.raises(CogPolicyDenied, match=denial.value):
         asyncio.run(controller(False).invoke(signature, source, denied))
     assert recover(denied.invocation_id) == {
         "state": "denied_before_provider",
@@ -320,6 +334,14 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
         assert requests == [operation.method] * 2
     assert BudgetLedger(db).inspect(actor, episode) == balance
     expire_before_provider = False
+    revoke_before_provider = False
+    if persistent:
+        with pytest.raises(CogPolicyDenied, match=Denial.INSTALLATION.value):
+            asyncio.run(
+                controller(False).invoke(signature, source, replace(good, invocation_id=uuid4()))
+            )
+        assert invocations == [good.invocation_id, lost.invocation_id, denied.invocation_id]
+        publish_cog_policy(app_env.admin_dsn, app_env.schema, capability_policy, 2)
     clock[0] = 1000
     lose_provider_response = True
     unresolved = replace(good, invocation_id=uuid4())

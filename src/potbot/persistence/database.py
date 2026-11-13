@@ -256,7 +256,7 @@ def _grant(connection: Any, schema: str, role: str, migrations: Sequence[SchemaM
         for table in migration.workspace_tables:
             grants = (
                 "SELECT"
-                if table == "workspace_sandboxes"
+                if table in {"workspace_sandboxes", "cog_grant_revisions"}
                 else "SELECT, INSERT"
                 if table in migration.append_only_tables
                 else "SELECT, INSERT, UPDATE"
