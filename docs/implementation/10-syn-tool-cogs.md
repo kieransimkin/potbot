@@ -85,6 +85,27 @@ flowchart LR
     Check -->|No| Refuse["Refuse dispatch and leave budget uncharged"]
 ```
 
+A managed WSL qualification exercised the rollover with two disposable Agents, official Syn 0.10.0, the signed worker image and the scoped TASKSTATS launcher. The test ran against a disposable schema on the external PostgreSQL server over TLS, using a separate restricted worker login. The surviving Agent kept its identity across restart. The revoked Agent could not rejoin with either epoch. The previous grant caused zero worker launches, provider calls or budget charges. Republishing from the verified epoch-2 enrollment restored exactly one audited gRPC request. PostgreSQL retained both grant generations and settled the two successful calls without a residual reservation. The test independently verified removal of its schema.
+
+```mermaid
+sequenceDiagram
+    participant S as Syn Agent
+    participant P as Potbot controller
+    participant G as PostgreSQL grants
+    participant W as Monitored worker
+    S->>P: Verified epoch-1 enrollment
+    P->>G: Check generation 1
+    P->>W: Dispatch and settle one request
+    S->>P: Same Agent, new epoch-2 enrollment
+    P->>G: Check generation 1
+    P-->>S: Deny stale enrollment pin
+    Note over G,W: Zero worker launches, provider calls or charges
+    G->>P: Operator publishes generation 2 with verified epoch-2 pin
+    P->>W: Dispatch and settle one request
+```
+
+Sequence diagram of the managed WSL qualification. The native revocation check separately refused the removed Agent after restart at both epochs.
+
 ## Stateful debugger, terminal and device Cogs
 
 Each operation is a separate typed Cog. Persistent state lives in the controller-owned session service and durable receipts, not a hidden global variable in a supposedly pure handler. Output session references are opaque, tenant/workspace/target/lease scoped, expiring and revision bound; possession alone grants no authority. Never serialize a live Python frame, socket, credential, OS handle or unrestricted device shell into a Cog value.
