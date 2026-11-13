@@ -92,13 +92,8 @@ async def browser(html):
             content=(FIXTURES / "probe.js").read_text()
             + "\n//# sourceURL=https://potbot.invalid/probe.js"
         )
-        # Let the trusted fixture paint after installing its styles and script.
-        # Two frame callbacks allow an intervening rendering opportunity.
-        async with asyncio.timeout(5):
-            await worker.page.evaluate(
-                "() => new Promise(resolve => "
-                "requestAnimationFrame(() => requestAnimationFrame(() => resolve())))"
-            )
+        # The worker's bounded capture verifies rendered pixels. A headful
+        # document can suspend animation callbacks even after navigation commits.
         print(
             "initial_render_state",
             await worker.page.evaluate(
