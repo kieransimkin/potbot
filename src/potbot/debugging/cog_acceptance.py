@@ -23,7 +23,8 @@ async def python_cog_walkthrough(
         for name in ("OUTER_START", "OUTER_CALL", "LEAF_VALUE", "LEAF_RETURN", "OUTER_RETURN")
     }
     observations: list[dict[str, Any]] = []
-    await client.call("initialize")
+    if client.session_ref is None:
+        await client.call("initialize")
     await client.call("attach" if attached else "launch", configuration=configuration)
     breakpoints = await client.call(
         "set_breakpoints", source=str(program), lines=[markers["OUTER_START"]]

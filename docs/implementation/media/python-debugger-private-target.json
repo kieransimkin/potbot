@@ -1,0 +1,422 @@
+{
+  "adapter": "debugpy 1.8.22",
+  "event_count": 139,
+  "observations": [
+    {
+      "action": "wrong_probe_refused"
+    },
+    {
+      "action": "breakpoint",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 43,
+          "locals": {
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 49,
+          "locals": {}
+        }
+      ],
+      "reason": "breakpoint",
+      "stop_revision": 1
+    },
+    {
+      "action": "expired_frame_rejected"
+    },
+    {
+      "action": "step_over",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 44,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 49,
+          "locals": {}
+        }
+      ],
+      "reason": "step",
+      "stop_revision": 2
+    },
+    {
+      "action": "step_into",
+      "frames": [
+        {
+          "function": "leaf",
+          "line": 38,
+          "locals": {
+            "value": "10"
+          }
+        },
+        {
+          "function": "outer",
+          "line": 44,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        }
+      ],
+      "reason": "step",
+      "stop_revision": 3
+    },
+    {
+      "action": "step_over_leaf",
+      "frames": [
+        {
+          "function": "leaf",
+          "line": 39,
+          "locals": {
+            "result": "11",
+            "value": "10"
+          }
+        },
+        {
+          "function": "outer",
+          "line": 44,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        }
+      ],
+      "reason": "step",
+      "stop_revision": 4
+    },
+    {
+      "action": "step_out",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 44,
+          "locals": {
+            "adjusted": "10",
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 49,
+          "locals": {}
+        }
+      ],
+      "reason": "step",
+      "stop_revision": 5
+    },
+    {
+      "action": "caller_assignment",
+      "frames": [
+        {
+          "function": "outer",
+          "line": 45,
+          "locals": {
+            "adjusted": "10",
+            "result": "11",
+            "seed": "5"
+          }
+        },
+        {
+          "function": "main",
+          "line": 49,
+          "locals": {}
+        }
+      ],
+      "reason": "step",
+      "stop_revision": 6
+    },
+    {
+      "action": "detached"
+    },
+    {
+      "action": "natural_exit",
+      "exit_code": 0
+    }
+  ],
+  "qualification": "Private WSL network namespace",
+  "runs": [
+    {
+      "elapsed_ms": 1,
+      "operation": "initialize-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 88,
+      "operation": "attach-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 47,
+      "operation": "set-breakpoints-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 45,
+      "operation": "configure-exceptions-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 89,
+      "operation": "configuration-done-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 0,
+      "operation": "wait-stopped-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 1,
+      "operation": "threads-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "stack-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 47,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 46,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 42,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 90,
+      "operation": "step-over-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 2,
+      "operation": "stack-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 45,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 45,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 42,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 87,
+      "operation": "step-into-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 2,
+      "operation": "stack-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 44,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 48,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 42,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 87,
+      "operation": "step-over-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 2,
+      "operation": "stack-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 46,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 93,
+      "operation": "step-out-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 2,
+      "operation": "stack-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 89,
+      "operation": "step-over-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 2,
+      "operation": "stack-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 46,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "scopes-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 44,
+      "operation": "variables-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 44,
+      "operation": "set-breakpoints-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 46,
+      "operation": "continue-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    },
+    {
+      "elapsed_ms": 43,
+      "operation": "detach-v1",
+      "progress_count": 1,
+      "terminal": "completed"
+    }
+  ],
+  "runtime": "Python 3.12.3",
+  "schema": "potbot-public-cog-recording-v1",
+  "source_sha256": "2a627952cf4b2df1f559d5e8622943c57b2660075133ee242c597ee28f05c1f5",
+  "target_alive_after_detach": true,
+  "target_result": 33
+}
