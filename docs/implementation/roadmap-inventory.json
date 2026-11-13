@@ -289,12 +289,12 @@
     },
     {
       "path": "docs/implementation/08-debugger-python-first.md",
-      "sha256": "a336914ed4ac970677f3478a39ad335bce5be4401a7a9fadc4f4d7d248980996",
-      "bytes": 16290,
+      "sha256": "f9d2655c83435c10e7267f3e5322757a8b8823a0a097fdf8ef9b29ec68ef6bff",
+      "bytes": 16903,
       "kind": "narrative_text",
-      "text_sha256": "a336914ed4ac970677f3478a39ad335bce5be4401a7a9fadc4f4d7d248980996",
-      "characters": 16282,
-      "lines": 114,
+      "text_sha256": "f9d2655c83435c10e7267f3e5322757a8b8823a0a097fdf8ef9b29ec68ef6bff",
+      "characters": 16895,
+      "lines": 116,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36010,7 +36010,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "4f3a003dd9bd782e525637f7755d773dab3d004dce3f5593b1055bfa5d594c40",
+  "review_sha256": "86b02e177d8c1568f7a9d6a609925ba6c8d501a6556b602ff4eca2a2245c3e58",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110678,8 +110678,8 @@
     },
     {
       "source": "docs/implementation/08-debugger-python-first.md",
-      "locator": "line:86-109",
-      "sha256": "e11031351f8547cbaaf50364902ede82c6ec7586c0ee71dfa4c1ca2e47673350",
+      "locator": "line:86-111",
+      "sha256": "c129341ce38e5af8075864a73dfec1f1bb44999ce854600a37461fced0fd4c4c",
       "excerpt": "## Forward an owned debugger session through Syn\n\nThe forwarding route carries typed debugger Cogs between two enrolled Agents over Syn private pub/sub. The ope",
       "review_families": [
         "devices"
@@ -110687,7 +110687,7 @@
     },
     {
       "source": "docs/implementation/08-debugger-python-first.md",
-      "locator": "line:110-114",
+      "locator": "line:112-116",
       "sha256": "35b94a0a9903f6b1fdc3e82a52436ea507b4e659e33ddaf12db368a50cbaf3ed",
       "excerpt": "## Source-preview publication\n\nThe [release workflow](../../.github/workflows/release.yml) builds the exact versioned tag, checks source/package identity and a ",
       "review_families": [
