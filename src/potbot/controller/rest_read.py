@@ -1,4 +1,4 @@
-"""Durable accounting and readback for installed HTTPS read Cogs."""
+"""Durable accounting and readback for installed API read Cogs."""
 
 from __future__ import annotations
 
@@ -16,18 +16,20 @@ from potbot.domain.serialization import canonical_json, content_hash
 from potbot.persistence.evidence import append_event
 from potbot.tools.api_contracts import ApiCallScope, validate_json
 from potbot.tools.capability_contracts import ToolInvocationIntent, ToolObservation
-from potbot.tools.rest_cog import graphql_operation_ref, rest_operation_ref
+from potbot.tools.rest_cog import graphql_operation_ref, grpc_operation_ref, rest_operation_ref
 
 if TYPE_CHECKING:
     from potbot.cogs.contracts import CogRunContext, TypedCogValue
     from potbot.domain.auth import WorkspaceContext
     from potbot.persistence.artifacts import ArtifactStore
     from potbot.persistence.database import Database
+    from potbot.tools.api_grpc import InstalledGrpcRead
     from potbot.tools.api_https import InstalledGraphqlRead, InstalledRestRead
 
 
 _REST_EVENTS = ("rest_read_dispatched", "rest_read_observed", "rest_read_unresolved")
 _GRAPHQL_EVENTS = ("graphql_read_dispatched", "graphql_read_observed", "graphql_read_unresolved")
+_GRPC_EVENTS = ("grpc_read_dispatched", "grpc_read_observed", "grpc_read_unresolved")
 
 
 def _events(
@@ -50,17 +52,21 @@ class ApiReadAttempt:
         db: Database,
         artifacts: ArtifactStore,
         actor: WorkspaceContext,
-        read: InstalledRestRead | InstalledGraphqlRead,
+        read: InstalledRestRead | InstalledGraphqlRead | InstalledGrpcRead,
         source: TypedCogValue,
         cog: CogRunContext,
     ) -> None:
         self.db, self.artifacts, self.actor = db, artifacts, actor
         self.read, self.cog = read, cog
+        from potbot.tools.api_grpc import InstalledGrpcRead
         from potbot.tools.api_https import InstalledGraphqlRead
 
         if isinstance(read, InstalledGraphqlRead):
             self.event_types = _GRAPHQL_EVENTS
             self.operation_ref = graphql_operation_ref(read)
+        elif isinstance(read, InstalledGrpcRead):
+            self.event_types = _GRPC_EVENTS
+            self.operation_ref = grpc_operation_ref(read)
         else:
             self.event_types = _REST_EVENTS
             self.operation_ref = rest_operation_ref(read)
@@ -169,7 +175,13 @@ class ApiReadAttempt:
                     ),
                 )
             )
-            if result.attempts != 1 or result.http_status is None:
+            # The unary adapter reports grpc_unavailable when no response was obtained.
+            confirmed = (
+                result.error_code != "grpc_unavailable"
+                if op.protocol == "grpc"
+                else result.http_status is not None
+            )
+            if result.attempts != 1 or not confirmed:
                 raise IndeterminateExecutionError("API provider response was not confirmed")
             observation = result.to_observation(self.intent, op).to_dict()
             receipt = {"observation": observation, "value": result.value}
@@ -244,6 +256,15 @@ def recover_graphql_read(
     run_id: UUID,
 ) -> dict[str, Any]:
     return _recover_read(db, artifacts, actor, run_id, _GRAPHQL_EVENTS)
+
+
+def recover_grpc_read(
+    db: Database,
+    artifacts: ArtifactStore,
+    actor: WorkspaceContext,
+    run_id: UUID,
+) -> dict[str, Any]:
+    return _recover_read(db, artifacts, actor, run_id, _GRPC_EVENTS)
 
 
 def _recover_read(

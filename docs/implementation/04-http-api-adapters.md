@@ -93,6 +93,30 @@ The sequence above also applies to GraphQL. Replace the GET with the fixed POST 
 
 A managed WSL run of implementation revision `64baca1` used the signed Syn 0.10.0 release, two disposable enrolled Agents, the signed worker image and the installed TASKSTATS launcher. A disposable TLS provider received two GraphQL POSTs and both calls settled in PostgreSQL. After one signed reply was dropped, a fresh controller recovered the saved result. Repeated recovery and a duplicate invocation sent zero extra requests. The interrupted worker's lease remained fenced because it had no complete stop audit.
 
+### Pinned unary gRPC read
+
+Use `InstalledGrpcRead` with the `providers` extra and `install_grpc_cog` to bind a read-only unary method to one principal, hostname and installed Protobuf codec. The operator pins the method, descriptor digest and input/output schemas. The controller checks every IPv4 DNS answer against the existing public-address policy, dials a checked numeric address on port 443 and verifies TLS against the installed name. The channel disables proxy discovery, DNS service configuration and automatic retries.
+
+```mermaid
+sequenceDiagram
+    participant W as Sandboxed worker
+    participant S as Syn directed RPC
+    participant C as Potbot controller
+    participant L as Receipt and budget ledger
+    participant P as gRPC provider
+    W->>S: Request the admitted work input
+    S->>C: Deliver the signed request
+    C->>L: Reserve one call and record dispatch
+    C->>P: Send one pinned unary Protobuf request over TLS
+    P-->>C: Return a bounded response
+    C->>L: Save observation and settle charge
+    C-->>S: Return the typed observation
+    S-->>W: Deliver signed reply
+    W->>S: Acknowledge the observation
+```
+
+`ExecutionCogRuntime.recover_grpc_read(run_id)` reads the receipt and charge using the original invocation ID. If the provider response is unavailable, the reservation stays held and recovery sends no RPC. The real TLS fixture exercises Protobuf delivery, rejects a certificate for the wrong name and checks that malformed admission does not reach the server. The profile admits one read-only method. Streaming, reflection, writes and provider credentials remain outside this profile.
+
 ## Reproduce
 
 From a checked-out Potbot repository after `git apply` and its locked `uv sync`:

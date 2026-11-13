@@ -102,6 +102,12 @@ class SandboxedCogOperation:
         return self.binding.input_type_ref == GRAPHQL_REQUEST
 
     @property
+    def directed_grpc(self) -> bool:
+        from potbot.tools.rest_cog import GRPC_REQUEST
+
+        return self.binding.input_type_ref == GRPC_REQUEST
+
+    @property
     def directed_queue(self) -> bool:
         from potbot.tools.queue_transport_worker import EXECUTABLE, REQUEST
 
@@ -436,7 +442,7 @@ class SandboxedCogExecutor:
             raise ScopeDeniedError("Cog worker requires trusted installed operation and agent")
         if source.type_ref != op.binding.input_type_ref:
             raise ScopeDeniedError("Cog work source differs from pinned typed port")
-        directed_read = op.directed_rest or op.directed_graphql
+        directed_read = op.directed_rest or op.directed_graphql or op.directed_grpc
         if directed_read != (api_read is not None) or (
             directed_read
             and (
