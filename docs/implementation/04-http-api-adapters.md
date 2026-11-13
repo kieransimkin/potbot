@@ -117,6 +117,8 @@ sequenceDiagram
 
 `ExecutionCogRuntime.recover_grpc_read(run_id)` reads the receipt and charge using the original invocation ID. If the provider response is unavailable, the reservation stays held and recovery sends no RPC. The real TLS fixture exercises Protobuf delivery, rejects a certificate for the wrong name and checks that malformed admission does not reach the server. The profile admits one read-only method. Streaming, reflection, writes and provider credentials remain outside this profile.
 
+Implementation revision `3322267` passed on managed WSL with the signed Syn 0.10.0 release, two enrolled disposable Agents, the signed worker image and the installed TASKSTATS launcher. The TLS Protobuf fixture received two unary calls and both settled in disposable PostgreSQL. After one signed reply was dropped, repeated recovery returned the same saved observation and charge. Repeating recovery or attempting a duplicate invocation sent zero additional requests. The interrupted worker's lease remained fenced because its stop audit was incomplete.
+
 ## Reproduce
 
 From a checked-out Potbot repository after `git apply` and its locked `uv sync`:

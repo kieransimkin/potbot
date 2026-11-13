@@ -847,10 +847,9 @@
           "basis": "Runs real TLS and Protobuf, verifies name mismatch rejection and confirms the exact numeric dial and method."
         }
       ],
-      "assessment": "Pinned REST, GraphQL and unary gRPC reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. Managed WSL qualification covers REST and GraphQL. The unary gRPC profile has a local TLS Protobuf fixture.",
+      "assessment": "Pinned REST, GraphQL and unary gRPC reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. All three passed managed WSL qualification with disposable TLS and PostgreSQL.",
       "support_scope": "Selected OpenAPI 3.1 GET, a fixed named GraphQL query and one read-only unary gRPC method per installation.",
       "remaining": [
-        "Qualify unary gRPC through the installed released-Syn worker and its TASKSTATS launcher.",
         "Qualify managed credentials and broader API transport profiles separately.",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported"
       ],
@@ -62849,12 +62848,12 @@
     },
     {
       "path": "docs/implementation/04-http-api-adapters.md",
-      "sha256": "580a1a4c1761c5308316206180c695673475e47eeeb2bf2f39f2b546d982e766",
+      "sha256": "29f68c6e76982d2fa133da47b05a0a0e986867d67880c68d155a56feb05b2062",
       "families": [
         "api"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Selected API adapters and the separate pinned REST, GraphQL and unary gRPC worker profiles.",
+      "assessment": "Selected API adapters and managed REST, GraphQL and unary gRPC worker profiles with durable settlement and recovery.",
       "narrative": [
         {
           "locator": "line:1-6",
@@ -62906,28 +62905,28 @@
           ]
         },
         {
-          "locator": "line:96-119",
-          "sha256": "871484949063027a281cbf9b3bf1b0f5b0228fb9f16fb6a4dff815102cd01630",
+          "locator": "line:96-121",
+          "sha256": "b80a321056f8848686116ba56574dea9f787a810bdb6baddf50acc1d63e83938",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:120-144",
+          "locator": "line:122-146",
           "sha256": "ccc499fe7c580e61ea455212df5d6d65a0f9900f75d199d7fb4a11211701e60e",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:145-152",
+          "locator": "line:147-154",
           "sha256": "38b5b9a81ac035707d21004c2a787b62818b9e3ba3b21c46fa504588d5bb4a0c",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:153-158",
+          "locator": "line:155-160",
           "sha256": "236082be43d189210d88e31c684558e1871434ee2e8be04356e3139a312b75e1",
           "families": [
             "api"
