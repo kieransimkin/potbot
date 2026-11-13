@@ -35,6 +35,7 @@ class Denial(StrEnum):
     INSTALLATION = "cog_policy_installation_denied"
     REVISION = "cog_policy_revision_mismatch"
     EXPIRED = "cog_policy_grant_expired"
+    REPLACED = "cog_policy_grants_replaced"
     TASK = "cog_policy_task_denied"
     PARENT = "cog_policy_parent_exceeded"
 

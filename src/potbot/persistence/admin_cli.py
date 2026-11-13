@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -65,11 +66,46 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository.add_argument("--principal-id", required=True, type=UUID)
     repository.add_argument("--name", required=True)
     repository.add_argument("--source-uri", required=True)
+    inventory = commands.add_parser("cog-installations", help="show grant pins for hosted Cogs")
+    inventory.add_argument("--profile", required=True, type=Path)
+    inventory.add_argument("--operator-manifest", required=True, type=Path)
+    for name, help_text in (
+        ("cog-grants-show", "read the current policy for an installed Syn Agent"),
+        ("cog-grants-publish", "replace the grants for an installed Syn Agent"),
+    ):
+        grants = commands.add_parser(name, help=help_text)
+        grants.add_argument("--workspace-id", required=True, type=UUID)
+        grants.add_argument("--principal-id", required=True, type=UUID)
+        grants.add_argument("--agent-id", required=True, type=UUID)
+        if name == "cog-grants-publish":
+            grants.add_argument("--expected-generation", required=True, type=int)
+            grants.add_argument("--node-sha256", required=True)
+            grants.add_argument("--revision-sha256", required=True)
+            grants.add_argument("--grants-file", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
         _identifier(args.schema)
         result: dict[str, Any]
-        if args.command == "repository-create":
+        if args.command == "cog-installations":
+            from potbot.controller.cog_capability_policy import installation_hash
+            from potbot.controller.native_cog_dispatch import installed_cog_operations, read_profile
+            from potbot.tools.operator_cli import parse_manifest
+
+            profile, revision = read_profile(args.profile)
+            paths = parse_manifest(args.operator_manifest)
+            operations = installed_cog_operations(profile, revision, paths)
+            result = {
+                "revision_sha256": revision,
+                "workspace_id": str(paths.workspace_id),
+                "operations": [
+                    {
+                        "operation_ref": op.binding.operation_ref,
+                        "installation_sha256": installation_hash(op),
+                    }
+                    for op in operations
+                ],
+            }
+        elif args.command == "repository-create":
             result = RepositoryStore(Database(_environment("POTBOT_DSN"), args.schema)).create(
                 WorkspaceContext(args.workspace_id, args.principal_id),
                 name=args.name,
@@ -79,6 +115,44 @@ def main(argv: Sequence[str] | None = None) -> int:
             dsn = _environment("POTBOT_ADMIN_DSN")
             if args.command == "migrate":
                 result = {"versions": list(migrate(dsn, args.schema))}
+            elif args.command in {"cog-grants-show", "cog-grants-publish"}:
+                from potbot.controller.cog_capability_policy import CogCapabilityPolicy
+                from potbot.controller.cog_grant_store import (
+                    current_cog_policy,
+                    parse_grants,
+                    publish_cog_policy,
+                )
+
+                actor = WorkspaceContext(args.workspace_id, args.principal_id)
+                if args.command == "cog-grants-show":
+                    with admin_connection(dsn, args.schema) as connection:
+                        published = current_cog_policy(connection, actor, args.agent_id)
+                else:
+                    try:
+                        with args.grants_file.open("rb") as grant_file:
+                            raw = grant_file.read(65537)
+                        if len(raw) > 65536:
+                            raise ValueError
+                        grants_value = json.loads(raw)
+                    except (OSError, ValueError, RecursionError):
+                        raise InvalidInputError(
+                            "Supply a readable JSON grant file up to 64 KiB"
+                        ) from None
+                    policy = CogCapabilityPolicy(
+                        actor,
+                        args.agent_id,
+                        args.node_sha256,
+                        args.revision_sha256,
+                        parse_grants(grants_value),
+                    )
+                    published = publish_cog_policy(
+                        dsn, args.schema, policy, args.expected_generation
+                    )
+                result = (
+                    published.to_dict()
+                    if published is not None
+                    else {"generation": 0, "grants": []}
+                )
             elif args.command == "workspace-create":
                 identity = provision_workspace(
                     dsn, args.schema, args.name, sandbox_root=args.sandbox_root
