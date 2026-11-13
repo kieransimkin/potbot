@@ -63462,7 +63462,7 @@
     },
     {
       "path": "docs/implementation/10-syn-tool-cogs.md",
-      "sha256": "14beec4182803bad3502a6394a1a1bea2b80a15485801ad3e3b08f94327554f5",
+      "sha256": "919644d6c5c3bd7a6c1c013cbafb290b7d54b5f9088dbf085fd98e8acb8523e8",
       "families": [
         "identity",
         "journal",
@@ -63517,8 +63517,8 @@
           ]
         },
         {
-          "locator": "line:69-87",
-          "sha256": "3db3fb1944d8047576ecc729f5d7e13d15b83d40bacff02dd2ec008e3b208941",
+          "locator": "line:69-108",
+          "sha256": "6abc4e3d6fd32feccdb4917b43272bcd49a97f2cdc19fbf2d68d176a2f07ddc1",
           "families": [
             "identity",
             "journal",
@@ -63526,7 +63526,7 @@
           ]
         },
         {
-          "locator": "line:88-105",
+          "locator": "line:109-126",
           "sha256": "9bc79c00123f55ad8c7d2ff1c3f58605b28e04a5f60c92f17bbc48b5e8ac7433",
           "families": [
             "identity",
@@ -63535,7 +63535,7 @@
           ]
         },
         {
-          "locator": "line:106-120",
+          "locator": "line:127-141",
           "sha256": "da006eb2bf72b378f831d5360e0cfa8d092b3091242c26b82fd59d7398902259",
           "families": [
             "identity",
@@ -63544,7 +63544,7 @@
           ]
         },
         {
-          "locator": "line:121-133",
+          "locator": "line:142-154",
           "sha256": "1e45889fa371d999995f4ba37eb242f4e24e88175858308e63381a108aecdb46",
           "families": [
             "identity",
@@ -63553,7 +63553,7 @@
           ]
         },
         {
-          "locator": "line:134-145",
+          "locator": "line:155-166",
           "sha256": "eb4bdcf7aaa398c048313ce964727632d95396bf2b1231cfa42c6a4a6b8f245d",
           "families": [
             "identity",
@@ -80854,8 +80854,8 @@
         "identity"
       ],
       "status": "partial",
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests.",
-      "next_action": "Qualify grant republishing across a live Syn epoch rollover and extend policy to target-specific device and gateway checks."
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL rehearsal with two disposable Agents and isolated TLS PostgreSQL verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment.",
+      "next_action": "Extend policy to target-specific device and gateway checks."
     },
     {
       "key": "tools:T03.2",
