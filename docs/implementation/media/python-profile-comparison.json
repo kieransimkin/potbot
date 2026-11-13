@@ -1,0 +1,311 @@
+{
+  "clock": {
+    "cpu_ns": "process_time_ns",
+    "wall_ns": "perf_counter_ns"
+  },
+  "host": {
+    "architecture": "x86_64",
+    "kernel": "6.18.54.1-microsoft-standard-WSL2-potbot-ns-taskstats",
+    "logical_cpu_count": 20,
+    "system": "Linux"
+  },
+  "interpreter_sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+  "limits": {
+    "per_process_cpu_seconds": 5,
+    "per_process_wall_ms": 5000
+  },
+  "median_ns": {
+    "baseline": {
+      "cpu_ns": 7987500,
+      "wall_ns": 8746696
+    },
+    "profile": {
+      "cpu_ns": 68020000,
+      "wall_ns": 69564182
+    }
+  },
+  "overhead_ns": {
+    "cpu_ns": 60032500,
+    "wall_ns": 60817486
+  },
+  "profile": "potbot.python-profile-comparison/1",
+  "profiler": {
+    "clock": "process_time_ns",
+    "name": "cProfile",
+    "threads": "main"
+  },
+  "python": "3.12.3",
+  "repetitions": 5,
+  "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+  "samples": {
+    "baseline": [
+      {
+        "cpu_ns": 7919800,
+        "function_count": 0,
+        "functions": [],
+        "isolation_identity": "ca0ac4bd8709fe3e95a5ca46f20bd0e62040c0a5137624dbb47f65863da4e1ac",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 8920746
+      },
+      {
+        "cpu_ns": 7996700,
+        "function_count": 0,
+        "functions": [],
+        "isolation_identity": "53afef399c54808802b896b953a44afbba897182ccdba3a76a73fa7b23403db9",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 8746696
+      },
+      {
+        "cpu_ns": 7987500,
+        "function_count": 0,
+        "functions": [],
+        "isolation_identity": "4dbe1ac552a70b385f6bfa8eab2c0a500616e871eae078fd832c3b30ce37f6a4",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 8492389
+      },
+      {
+        "cpu_ns": 7979900,
+        "function_count": 0,
+        "functions": [],
+        "isolation_identity": "4db199def8f17755e410499e76769535468644d50073398b149b74aff678ddde",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 8964588
+      },
+      {
+        "cpu_ns": 8007500,
+        "function_count": 0,
+        "functions": [],
+        "isolation_identity": "ba287a7733dd07e720e3d4f6509d741ee02d04ca1a5b8ec40e418485671c6ea8",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 8362689
+      }
+    ],
+    "profile": [
+      {
+        "cpu_ns": 76022100,
+        "function_count": 4,
+        "functions": [
+          {
+            "calls": 1,
+            "cumulative_ns": 76022100,
+            "function": "hotspot",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 47974700
+          },
+          {
+            "calls": 200000,
+            "cumulative_ns": 28047400,
+            "function": "item_cost",
+            "line": 7,
+            "primitive_calls": 200000,
+            "self_ns": 28047400
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 76022100,
+            "function": "<module>",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 0
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 76022100,
+            "function": "workload",
+            "line": 10,
+            "primitive_calls": 1,
+            "self_ns": 0
+          }
+        ],
+        "isolation_identity": "3c26280364f5d43ce0254a850a02abb36436c0798fef6f5f8cb80042ea1123a4",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 72505240
+      },
+      {
+        "cpu_ns": 72006200,
+        "function_count": 4,
+        "functions": [
+          {
+            "calls": 1,
+            "cumulative_ns": 72006200,
+            "function": "hotspot",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 44023900
+          },
+          {
+            "calls": 200000,
+            "cumulative_ns": 27982300,
+            "function": "item_cost",
+            "line": 7,
+            "primitive_calls": 200000,
+            "self_ns": 27982300
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 72006200,
+            "function": "<module>",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 0
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 72006200,
+            "function": "workload",
+            "line": 10,
+            "primitive_calls": 1,
+            "self_ns": 0
+          }
+        ],
+        "isolation_identity": "32b20015766ddc4f83f72cf9ff6f035ff0212cad6b02960823402462eb9fb65c",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 70272479
+      },
+      {
+        "cpu_ns": 68020000,
+        "function_count": 4,
+        "functions": [
+          {
+            "calls": 1,
+            "cumulative_ns": 68020000,
+            "function": "hotspot",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 40008000
+          },
+          {
+            "calls": 200000,
+            "cumulative_ns": 28012000,
+            "function": "item_cost",
+            "line": 7,
+            "primitive_calls": 200000,
+            "self_ns": 28012000
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 68020000,
+            "function": "<module>",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 0
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 68020000,
+            "function": "workload",
+            "line": 10,
+            "primitive_calls": 1,
+            "self_ns": 0
+          }
+        ],
+        "isolation_identity": "a97af928e1deecc2de6b9c25925a3d8a0b08491ce6e50a7fe54bcb5ccfb0aa4d",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 69564182
+      },
+      {
+        "cpu_ns": 67997700,
+        "function_count": 4,
+        "functions": [
+          {
+            "calls": 1,
+            "cumulative_ns": 67997700,
+            "function": "hotspot",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 36016500
+          },
+          {
+            "calls": 200000,
+            "cumulative_ns": 31981200,
+            "function": "item_cost",
+            "line": 7,
+            "primitive_calls": 200000,
+            "self_ns": 31981200
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 67997700,
+            "function": "<module>",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 0
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 67997700,
+            "function": "workload",
+            "line": 10,
+            "primitive_calls": 1,
+            "self_ns": 0
+          }
+        ],
+        "isolation_identity": "9de04f0359ea10417bc9b7f3255ca577016b3188634159d99921140c3472009d",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 68607705
+      },
+      {
+        "cpu_ns": 67988600,
+        "function_count": 4,
+        "functions": [
+          {
+            "calls": 200000,
+            "cumulative_ns": 44008300,
+            "function": "item_cost",
+            "line": 7,
+            "primitive_calls": 200000,
+            "self_ns": 44008300
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 67988600,
+            "function": "hotspot",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 23980300
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 67988600,
+            "function": "<module>",
+            "line": 1,
+            "primitive_calls": 1,
+            "self_ns": 0
+          },
+          {
+            "calls": 1,
+            "cumulative_ns": 67988600,
+            "function": "workload",
+            "line": 10,
+            "primitive_calls": 1,
+            "self_ns": 0
+          }
+        ],
+        "isolation_identity": "707d2c27f846f8bf2b9f9ff5b1c0f8080592995dd7a870f6142191b2fda167c6",
+        "python": "3.12.3",
+        "result_sha256": "3240cb1409e5639d98fb210d94c63f1142c22b6841e98ff1ff8432d516e95297",
+        "wall_ns": 68468905
+      }
+    ]
+  },
+  "source_sha256": "b36c9e5f4c1c72eb6eeadb9a0484a831cb88c7869374f49e0d128d023b35935f",
+  "unavailable": [
+    "target_ram_bytes",
+    "gpu",
+    "energy",
+    "thermal_state",
+    "background_load",
+    "sampling_uncertainty"
+  ],
+  "warmup_pairs": 1
+}

@@ -36,6 +36,30 @@ Every capture binds target/device/session/PID identity, executable and source/bu
 
 Before/after performance comparisons use the same workload, build configuration, device/host, warmup, repetitions and measurement method, with thermal/power/background-load context and profiler overhead reported. Separate baseline runs from instrumented runs. No universal speedup threshold or unsupported energy/frame-rate claim; missing counters remain unavailable. Demonstrate detection of a planted CPU hotspot, retained allocation and slow UI path with attributable traces and a repeatable comparison.
 
+### Python CPU profiling
+
+The local operator entry point runs an approved, self-contained Python 3.12 script through Potbot's Bubblewrap supervisor. Select the exact script and system interpreter using independently reviewed SHA-256 digests. The script sets a JSON-serializable `RESULT`; its hash must agree across warmup, baseline and instrumented runs. Use a deterministic workload safe to execute repeatedly. Each run gets its own empty writable directory and has a five-second deadline, with networking denied. The controller discards ordinary Python stdout/stderr and retains only the bounded comparison report.
+
+```bash
+python -m potbot.tools.python_profile \
+  --workspace /absolute/private/workspace --source /absolute/private/workspace/workload.py \
+  --source-sha256 "$APPROVED_SOURCE_SHA256" \
+  --interpreter /usr/bin/python3.12 --interpreter-sha256 "$APPROVED_INTERPRETER_SHA256" \
+  --repetitions 5
+```
+
+One warmup pair is excluded. The remaining pairs alternate baseline-first and profiler-first. Each instrumented sample reports up to 20 functions from the selected source with call counts, self CPU time and cumulative CPU time. The report retains per-process wall and CPU durations, run isolation identities, clock units and median overhead for the selected workload. Process CPU can include other threads. The function trace comes from the main thread. GPU, memory, energy, thermal state, background load and sampling uncertainty are unavailable in this profile.
+
+![Median CPU time for the same Python workload with and without cProfile](media/python-profile-comparison.png)
+
+Measured comparison on WSL2 with Python 3.12.3. The authored workload called `item_cost` 200,000 times in each run. Both `hotspot` and `item_cost` appeared among the leading functions in all five instrumented samples. The median CPU time was 7.99 ms without profiling and 68.02 ms with profiling in this run. [Download the measured report](media/python-profile-comparison.json)
+
+<video controls preload="none" src="media/python-profile-comparison.webm" aria-label="Recorded reveal of median baseline and cProfile CPU timings"></video>
+
+[Play the recorded comparison](media/python-profile-comparison.webm). Transcript: the baseline bar shows 7.99 ms. The instrumented bar then appears at 68.02 ms. The final frame displays the measured median difference of 60.03 ms. This is a visualization of the recorded samples.
+
+This milestone qualifies local CPU profiling through the operator command. A sealed profiling Cog, allocation/UI profiling, and comparisons across hosts remain separate work. [Python 3.12 profiler documentation](https://docs.python.org/3.12/library/profile.html)
+
 ## 3. Interactive debugger adapters
 
 Implement every operation below as an installed, single-input/single-output SYN Cog under the [tool-Cog contract](10-syn-tool-cogs.md). DAP/debugpy and phone/probe protocols remain internal implementations. Full Python-first integration must drive registered Cogs through controller admission and retain Cog, dispatch and execution receipts; a direct backend harness alone is insufficient.
