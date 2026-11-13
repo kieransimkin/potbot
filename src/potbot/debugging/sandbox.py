@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 
-from potbot.debugging.contracts import Admission, DebugIdentity, EventRecorder
+from potbot.debugging.contracts import Admission, DebugAttachTarget, DebugIdentity, EventRecorder
 from potbot.debugging.dap import DapAdapter
 from potbot.debugging.session import DebugSession
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
@@ -35,6 +35,7 @@ class SandboxedDebugger:
         record: EventRecorder,
         redactor: CaptureRedactor | None = None,
         initialize_on_enter: bool = True,
+        attach_target: DebugAttachTarget | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("Debugger requires the existing interactive supervisor")
@@ -48,6 +49,7 @@ class SandboxedDebugger:
         self.executable_sha256 = executable_sha256
         self.admit, self.record, self.redactor = admit, record, redactor
         self.initialize_on_enter = initialize_on_enter
+        self.attach_target = attach_target
         self.process: IsolatedInteractiveProcess | None = None
         self.session: DebugSession | None = None
         self.exit: InteractiveExit | None = None
@@ -78,6 +80,7 @@ class SandboxedDebugger:
                 admit=self.admit,
                 record=self.record,
                 redactor=self.redactor,
+                attach_target=self.attach_target,
             )
             self.session.isolation_identity = self.process.isolation_identity
             if self.initialize_on_enter:

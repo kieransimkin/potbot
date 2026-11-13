@@ -12,6 +12,7 @@ from uuid import UUID
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.execution_events import ExecutionEventInput
+from potbot.domain.serialization import content_hash
 
 
 class DebugState(StrEnum):
@@ -72,6 +73,37 @@ class DebugIdentity:
     def verify_sources(self) -> None:
         for relative, _ in self.source_sha256:
             self.source(relative)
+
+
+@dataclass(frozen=True, slots=True)
+class DebugAttachTarget:
+    """Controller's selection for one already-owned process and adapter connection."""
+
+    process_id: int
+    configuration_sha256: str
+    process_is_current: Callable[[], bool]
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.process_id) is not int
+            or self.process_id < 1
+            or not isinstance(self.configuration_sha256, str)
+            or len(self.configuration_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in self.configuration_sha256)
+            or not callable(self.process_is_current)
+        ):
+            raise InvalidInputError("Debugger attach requires a process and configuration pin")
+
+    def require_current(self, observed_pid: int | None) -> None:
+        if (
+            observed_pid is not None and observed_pid != self.process_id
+        ) or self.process_is_current() is not True:
+            raise ScopeDeniedError("Debugger attach target changed or its lease expired")
+
+    def authorize(self, configuration: Mapping[str, Any]) -> None:
+        if content_hash(dict(configuration)) != self.configuration_sha256:
+            raise ScopeDeniedError("Debugger attach configuration differs from its target pin")
+        self.require_current(None)
 
 
 @dataclass(frozen=True, slots=True)

@@ -177,6 +177,8 @@ class DebuggerCogRuntime:
             # Callback consumes controller-loaded rights, never authority from source.value.
             admitted_hash = source.fingerprint
             try:
+                if operation == "attach":
+                    self.session.authorize_attach(request["configuration"])
                 self._admit(signature, source, context)
             except ScopeDeniedError:
                 self.monitor.denied(signature, source, context)

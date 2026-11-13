@@ -14,6 +14,7 @@ from potbot.debugging.contracts import (
     Admission,
     Breakpoint,
     DebugAdapter,
+    DebugAttachTarget,
     DebugIdentity,
     DebugState,
     EventRecorder,
@@ -62,6 +63,7 @@ class DebugSession:
         timeout_s: float = 30,
         allow_evaluate: bool = False,
         capture_output: Callable[[Mapping[str, Any]], str] | None = None,
+        attach_target: DebugAttachTarget | None = None,
     ) -> None:
         if not callable(admit) or not callable(record):
             raise ScopeDeniedError("Debugger requires controller admission and an event recorder")
@@ -82,6 +84,7 @@ class DebugSession:
         self._lock = asyncio.Lock()
         self._closed = False
         self._attached = False
+        self._attach_target = attach_target
         self.target_process_id: int | None = None
         self.exit_code: int | None = None
         self.isolation_identity: str | None = None
@@ -96,7 +99,7 @@ class DebugSession:
         self._references.clear()
 
     def _event(self, kind: str, body: Mapping[str, Any]) -> None:
-        if self._closed:
+        if self._closed or self.state == DebugState.INDETERMINATE:
             return
         if kind == "initialized":
             self._initialized.set()
@@ -121,6 +124,13 @@ class DebugSession:
             self.state = DebugState.TERMINATED
         elif kind == "process" and type(body.get("process_id")) is int:
             self.target_process_id = _integer(body["process_id"], "target process")
+            if (
+                self._attached
+                and self._attach_target is not None
+                and self.target_process_id != self._attach_target.process_id
+            ):
+                self._invalidate()
+                self.state = DebugState.INDETERMINATE
         elif kind == "connection_lost":
             self._invalidate()
             if self.state not in {DebugState.TERMINATED, DebugState.DISCONNECTED}:
@@ -131,6 +141,17 @@ class DebugSession:
     def _require(self, *states: DebugState) -> None:
         if self._closed or self.state not in states:
             raise StateMismatchError("Debugger operation is invalid in its current state")
+
+    def authorize_attach(self, configuration: Mapping[str, Any]) -> None:
+        if self._attach_target is None:
+            raise ScopeDeniedError("Debugger attach requires a controller-owned target")
+        self._attach_target.authorize(configuration)
+
+    def _authorize_target(self, operation: str, payload: Mapping[str, Any]) -> None:
+        if operation == "attach":
+            self.authorize_attach(payload)
+        elif self._attached and self._attach_target is not None:
+            self._attach_target.require_current(self.target_process_id)
 
     def _check_stop(self, stop: Stop) -> None:
         self._require(DebugState.STOPPED)
@@ -150,6 +171,7 @@ class DebugSession:
         # Each call, including inspection/variable rendering, needs an explicit grant.
         payload = dict(arguments)
         self._admit("debug." + operation, payload)
+        self._authorize_target(operation, payload)
         run_id = uuid4()
         digest = content_hash(
             {"session": str(self.session_id), "operation": operation, "parameters": payload}
@@ -176,11 +198,20 @@ class DebugSession:
             )
 
         emit("started")
+        try:
+            self._authorize_target(operation, payload)
+        except ScopeDeniedError:
+            emit("failed")
+            raise
         if resume:
             self._invalidate()
             self.state = DebugState.RUNNING
         try:
             output = await self.adapter.call(operation, payload)
+            if self.state == DebugState.INDETERMINATE:
+                raise IndeterminateExecutionError(
+                    "Debugger target or connection could not be confirmed"
+                )
             if self._capture_output is not None:
                 safe_output = self._safe_output(output)
                 artifact = self._capture_output(safe_output)
@@ -291,6 +322,8 @@ class DebugSession:
             if self._pending_target is not None:
                 raise StateMismatchError("A debugger target is already configuring")
             self.identity.verify_sources()
+            if attach:
+                self.authorize_attach(configuration)
             self._attached = attach
             pending = asyncio.create_task(
                 self._invoke("attach" if attach else "launch", configuration)
@@ -368,6 +401,8 @@ class DebugSession:
                     self._changed.clear()
                     if self.state == DebugState.STOPPED and self.stop is not None:
                         if self.stop.revision > after_revision:
+                            if self._attached and self._attach_target is not None:
+                                self._attach_target.require_current(self.target_process_id)
                             return self.stop
                     if self.state in {
                         DebugState.INDETERMINATE,

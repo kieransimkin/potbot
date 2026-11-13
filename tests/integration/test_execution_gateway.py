@@ -341,6 +341,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
             http_provider=provider,
             confirmation=confirmation,
             watch_ms=watch_ms,
+            principal_id=context.principal_id,
         ),
         "f" * 64,
         ("test",),
@@ -355,6 +356,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         provider,
         confirmation,
         watch_ms,
+        principal_id=context.principal_id,
     )
     route = SynMcpRoute(
         context.workspace_id, "1" * 32, 1000, lambda *_: pytest.fail("Fixture transport")
@@ -408,6 +410,26 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         gateway.execute(context, bad, rig.lease, reservation)
     assert gateway.store.inspect(context, bad)["run"] is None
     selected, input_artifact = action(installation.fingerprint, "correct-installation")
+    if not profile:
+        # A host can start a new gateway with the same tool name and workspace.
+        # A replacement for another principal must not consume the queued action.
+        other = uuid4()
+        replacement = replace(
+            binding,
+            principal_id=other,
+            installation=replace(
+                installation,
+                configuration_hash=mcp_configuration_hash(
+                    definition, tool, binary, principal_id=other
+                ),
+            ),
+        )
+        key = (context.workspace_id, definition.name)
+        monkeypatch.setitem(gateway._mcp_installations, key, replacement)
+        with pytest.raises(ScopeDeniedError, match="another workspace or principal"):
+            gateway.execute(context, selected, rig.lease, reservation)
+        assert gateway.store.inspect(context, selected)["run"] is None
+        monkeypatch.setitem(gateway._mcp_installations, key, binding)
     with pytest.raises(ScopeDeniedError, match="operator installation"):
         rig.gateway.execute(context, selected, rig.lease, reservation)
     if profile:

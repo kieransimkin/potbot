@@ -21,9 +21,11 @@ from potbot.debugging import DapAdapter, DebugIdentity, DebugSession
 from potbot.debugging.cog_acceptance import python_cog_walkthrough
 from potbot.debugging.cog_client import DebuggerCogClient
 from potbot.debugging.cog_runtime import DebuggerCogRuntime
+from potbot.debugging.contracts import DebugAttachTarget
 from potbot.debugging.python import DEBUGPY_VERSION, launch_configuration
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import ScopeDeniedError
+from potbot.domain.serialization import content_hash
 
 
 class FixtureArtifacts:
@@ -299,14 +301,17 @@ def test_actual_python_attach_detach_preserves_owned_target(tmp_path):
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(endpoint["host"], endpoint["port"]), 10
             )
+            config = {"justMyCode": True, "subProcess": False}
             session = DebugSession(
                 DapAdapter(reader, writer, timeout_s=60),
                 identity,
                 admit=lambda *_: None,
                 record=lambda _: None,
                 timeout_s=60,
+                attach_target=DebugAttachTarget(
+                    endpoint["pid"], content_hash(config), lambda: target.returncode is None
+                ),
             )
-            config = {"justMyCode": True, "subProcess": False}
 
             def admit(selected, source, context):
                 if target.returncode is not None or selected.cog_ref in {

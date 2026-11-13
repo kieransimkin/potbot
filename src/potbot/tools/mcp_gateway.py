@@ -61,6 +61,7 @@ def mcp_configuration_hash(
     http_provider: McpOAuthProvider | None = None,
     confirmation: McpConfirmation | None = None,
     watch_ms: int = 0,
+    principal_id: UUID | None = None,
 ) -> str:
     identity: dict[str, str | int] = {
         "definition": definition.fingerprint,
@@ -73,6 +74,8 @@ def mcp_configuration_hash(
         identity["confirmation_field"] = confirmation.field
     if watch_ms:
         identity["catalog_watch_ms"] = watch_ms
+    if principal_id is not None:
+        identity["principal_id"] = str(principal_id)
     return content_hash(identity)
 
 
@@ -89,8 +92,11 @@ class InstalledMcpTool:
     http_provider: McpOAuthProvider | None = field(default=None, repr=False)
     confirmation: McpConfirmation | None = field(default=None, repr=False)
     watch_ms: int = 0
+    principal_id: UUID | None = None
 
     def __post_init__(self) -> None:
+        if self.principal_id is not None and not isinstance(self.principal_id, UUID):
+            raise InvalidInputError("MCP installation principal must be a UUID")
         if (
             self.definition.protocol != "mcp"
             or self.capability.protocol != "mcp"
@@ -117,11 +123,14 @@ class InstalledMcpTool:
             raise ScopeDeniedError(
                 "MCP confirmation differs from its installed tool and capability"
             )
-        if (
-            self.http_provider is not None
-            and self.http_provider.grant.workspace_id != self.installation.workspace_id
+        if self.http_provider is not None and (
+            self.http_provider.grant.workspace_id != self.installation.workspace_id
+            or (
+                self.principal_id is not None
+                and self.http_provider.grant.principal_id != self.principal_id
+            )
         ):
-            raise ScopeDeniedError("MCP HTTP installation differs from its registered workspace")
+            raise ScopeDeniedError("MCP HTTP installation differs from its registered authority")
         self.implementation.assert_capability(self.capability)
         self.installation.assert_implementation(self.implementation)
         if self.installation.configuration_hash != mcp_configuration_hash(
@@ -131,8 +140,23 @@ class InstalledMcpTool:
             http_provider=self.http_provider,
             confirmation=self.confirmation,
             watch_ms=self.watch_ms,
+            principal_id=self.principal_id,
         ):
             raise ScopeDeniedError("MCP executable, configuration, or tool identity changed")
+
+    def authorize(self, context: WorkspaceContext) -> None:
+        if (
+            self.installation.workspace_id != context.workspace_id
+            or (self.principal_id is not None and self.principal_id != context.principal_id)
+            or (
+                self.http_provider is not None
+                and (
+                    self.http_provider.grant.workspace_id != context.workspace_id
+                    or self.http_provider.grant.principal_id != context.principal_id
+                )
+            )
+        ):
+            raise ScopeDeniedError("MCP installation belongs to another workspace or principal")
 
 
 def _frozen_input(raw: bytes, installation: ToolInstallationDescriptor) -> dict[str, Any]:
@@ -263,11 +287,7 @@ async def execute_mcp_action(
         raise ScopeDeniedError(
             "MCP requires an operator installation, Syn route, and managed Agent"
         )
-    if (
-        binding.http_provider is not None
-        and binding.http_provider.grant.principal_id != context.principal_id
-    ):
-        raise ScopeDeniedError("MCP HTTP installation belongs to another principal")
+    binding.authorize(context)
     input_id = prior["action"].get("stdin_artifact_id")
     if input_id is None:
         raise InvalidInputError("MCP action requires a frozen input artifact")
@@ -319,6 +339,7 @@ async def execute_mcp_action(
         run_id: UUID,
     ) -> dict[str, Any]:
         nonlocal intent, task_contract
+        binding.authorize(context)
         if (
             str(action["stdin_artifact_id"]) != input_id
             or selected.fingerprint != binding.definition.fingerprint
@@ -369,6 +390,7 @@ async def execute_mcp_action(
         return gateway._cancelled(context, run, lease, require_reservation=True)
 
     def approve(tool: McpToolInfo, supplied: Mapping[str, Any]) -> None:
+        binding.authorize(context)
         if (
             tool.fingerprint != binding.tool.fingerprint
             or content_hash(dict(supplied)) != intent.input_hash
@@ -400,6 +422,7 @@ async def execute_mcp_action(
 
     async def record_call(request: dict[str, Any]) -> None:
         nonlocal calls
+        binding.authorize(context)
         details = {"round": calls + 1, "request_sha256": content_hash(request)}
         if watch_ms:
             details["method"] = request["method"]

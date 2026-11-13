@@ -124,6 +124,10 @@ Illustrative proposed data Type URIs below require resolution/registration again
 
 Request envelopes carry parameters and expected revisions; the trusted controller context carries authority. Debug state, adapter protocol sequence numbers, session/frame handles and SYN run/event identities are distinct. Continuing invalidates stop-scoped handles across **all** inspection Cogs. Underlying Python/debugpy support must not leak Python object layouts into the common signature.
 
+For local Python attach, supply a controller-owned process ID, an exact configuration digest and a liveness check tied to the original process handle or an equivalent process-start identity. The session checks the pin before dispatch and checks the lease again after recording the operation. A different process ID reported by the adapter invalidates the session. The local Linux fixture exercised real attach and detach with the original process still alive after detaching.
+
+A managed MCP gateway installation can pin a principal as well as the workspace and installed tool. Include that principal when computing the installation configuration digest. The gateway checks the scope before creating a run and again before dispatch. HTTP installations also check the OAuth grant's workspace and principal. Existing workspace-wide stdio installations keep their prior configuration identity.
+
 ## Mandatory tool-Cog work monitoring
 
 Every invoked tool Cog, including pure transformations, nested Cogs and transport-backed operations, must log its **start, progress and completion statistics** through the [already specified Cog/agent work-monitoring system](05-syn-execution-monitoring.md), particularly sections 2, 3 and 7. This is C07. Reuse its canonical durable execution ledger, workspace cursor, live REST/WebSocket read models and operator tree. A private logger, adapter transcript, parent-only summary or optional telemetry exporter does not satisfy this requirement.
