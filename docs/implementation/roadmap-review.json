@@ -586,13 +586,13 @@
         {
           "path": "src/potbot/tools/mcp_http_broker.py",
           "symbol": "McpHttpBroker",
-          "sha256": "9d166798a270d205bcf323322262f3f4e4d480cc081acfac719f2a4a5d90e200",
+          "sha256": "6fe8cb7e82bddea13278e64f084ea94eeff5f7015ea095bb46a1335197847400",
           "basis": "Inspected controller transport with numeric IP pinning, issuer discovery, consent and scoped credentials."
         },
         {
           "path": "src/potbot/tools/mcp_oauth.py",
           "symbol": "McpOAuthProvider",
-          "sha256": "81cadfc9e5ecbbbbc0968f2a5235cc7a13dd7f4186019e4605d22d2b9482f958",
+          "sha256": "9716641707ef9a584e2a11733189b31401a2d684a09ba7985f1818765233da7a",
           "basis": "Operator-registered authorization-code exchange, signature verification and grant-scoped native vault access."
         },
         {
@@ -672,7 +672,7 @@
         {
           "path": "tests/unit/test_mcp_http_broker.py",
           "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
-          "sha256": "e6cb22523f88921f848935cf527635ce3224f05baebe2c005611bcd8bf7e065e",
+          "sha256": "736f5aa121dbb4db7185c55a7f8f2aa52f1c8716cc89d4d9f382735dd516b9e2",
           "basis": "Local TLS fixture verifies the original DNS identity and refuses a mismatched certificate."
         },
         {
@@ -757,7 +757,7 @@
         {
           "path": "src/potbot/tools/api_http.py",
           "symbol": "ApiReadCache",
-          "sha256": "9166b27c94fe086f8fdddcda42c8757a43a685aac444cc2137e43aee4fe0b240",
+          "sha256": "a8969a4be6949cb6d054680fc55e4c5e9d499390eaa5c2fe7db3e1d9b50e6341",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -765,13 +765,25 @@
           "symbol": "compile_openapi",
           "sha256": "ae76be23f368f25ee0e101fabd9069f43ad43c40e11c9590c5ba5dc38983a2e6",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/tools/api_https.py",
+          "symbol": "InstalledRestRead",
+          "sha256": "1263b083230489ccfe50d1f6d9e8a941fc07dc6ea8a13cc4f161a8811b93957c",
+          "basis": "Pins the selected REST read to its authenticated principal and exact HTTPS egress."
+        },
+        {
+          "path": "src/potbot/tools/pinned_https.py",
+          "symbol": "PinnedHttpsTransport",
+          "sha256": "04a91ff3cc12cb20436cfeb9524aef20fca9eb95f2c51304c8d7de14ec106e6a",
+          "basis": "Binds exact URLs and methods before DNS, dials a public address and verifies named TLS."
         }
       ],
       "tests": [
         {
           "path": "tests/unit/test_api_http.py",
           "symbol": "test_rest_exact_path_query_and_response",
-          "sha256": "62b21c9167de2c2ccfc81e4db51736f1813046992b42a2536156dc42565aa691",
+          "sha256": "8d5cee969ab15c92b3c8aff6c5a5bbb48210c24ece19c1a1945cf870dc5e60d8",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -779,15 +791,27 @@
           "symbol": "test_compile_selected_pinned_operation_without_following_servers",
           "sha256": "2c75094b429f9bc6c99febae65413457c2845b3d40c1fcb6f98467faeb43a41d",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/unit/test_api_http.py",
+          "symbol": "test_installed_rest_read_enforces_route_and_admission",
+          "sha256": "8d5cee969ab15c92b3c8aff6c5a5bbb48210c24ece19c1a1945cf870dc5e60d8",
+          "basis": "Exercises pinned admission, readback schema, route refusal and single physical attempt."
+        },
+        {
+          "path": "tests/unit/test_mcp_http_broker.py",
+          "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
+          "sha256": "736f5aa121dbb4db7185c55a7f8f2aa52f1c8716cc89d4d9f382735dd516b9e2",
+          "basis": "Runs the pinned MCP and OpenAPI REST paths against a real disposable TLS listener."
         }
       ],
-      "assessment": "Bounded REST/GraphQL and approved unary gRPC adapter contracts exist with no blind write retries. A supplied egress callback/channel is an integration boundary, not proof of enforcing production networking.",
-      "support_scope": "Selected OpenAPI 3.1 subset, local services/transport contracts; not universal protocol conformance or live OAuth.",
+      "assessment": "Bounded REST/GraphQL and unary gRPC contracts exist. The installed single-GET profile enforces exact HTTPS egress at the controller boundary.",
+      "support_scope": "Selected OpenAPI 3.1 subset, pinned single HTTPS GET and local service fixtures.",
       "remaining": [
-        "Qualify enforcing DNS/IP egress, disclosure, credentials, durable intents and actual outcome reconciliation",
+        "Qualify the installed REST profile behind the released-Syn worker Cog with durable admission, accounting and reconciliation. Provider credentials and broader managed egress require separate qualification.",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported"
       ],
-      "next_action": "Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes."
+      "next_action": "Bind a selected HTTPS REST read to an admitted installed transport Cog and verify receipt recovery and no replay."
     },
     {
       "id": "catalogue",
@@ -62782,12 +62806,12 @@
     },
     {
       "path": "docs/implementation/04-http-api-adapters.md",
-      "sha256": "c878c609b7e6cd86148b6414b6ec0a08b1afadb83cdc9fee0c66775d60210afb",
+      "sha256": "0bab79c3f3233e985a05a98a9f17dbb541d055d1c9dcba97d2a8a281441a3214",
       "families": [
         "api"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Bounded REST/GraphQL and approved unary gRPC adapter contracts exist with no blind write retries. A supplied egress callback/channel is an integration boundary, not proof of enforcing production networking.",
+      "assessment": "Selected adapter contracts and exact HTTPS egress for the pinned REST read. Managed Cog qualification remains open.",
       "narrative": [
         {
           "locator": "line:1-6",
@@ -62818,21 +62842,28 @@
           ]
         },
         {
-          "locator": "line:39-63",
+          "locator": "line:39-59",
+          "sha256": "52f40623a6081bd4392c179d4a9542aee860d383b87c7f4c12046955ec58ced5",
+          "families": [
+            "api"
+          ]
+        },
+        {
+          "locator": "line:60-84",
           "sha256": "ccc499fe7c580e61ea455212df5d6d65a0f9900f75d199d7fb4a11211701e60e",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:64-71",
+          "locator": "line:85-92",
           "sha256": "38b5b9a81ac035707d21004c2a787b62818b9e3ba3b21c46fa504588d5bb4a0c",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:72-77",
+          "locator": "line:93-98",
           "sha256": "236082be43d189210d88e31c684558e1871434ee2e8be04356e3139a312b75e1",
           "families": [
             "api"

@@ -199,7 +199,17 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
     from cryptography.x509.oid import NameOID
     from httpcore._backends.anyio import AnyIOBackend
 
-    from potbot.tools.mcp_http_broker import _PinnedHttps
+    from potbot.domain.auth import WorkspaceContext
+    from potbot.domain.serialization import content_hash
+    from potbot.tools.api_contracts import ApiCallScope
+    from potbot.tools.api_https import InstalledRestRead, rest_read_configuration_hash
+    from potbot.tools.api_openapi import compile_openapi
+    from potbot.tools.capability_contracts import (
+        ToolImplementationDescriptor,
+        ToolInstallationDescriptor,
+        ToolInvocationIntent,
+    )
+    from potbot.tools.pinned_https import PinnedHttpsTransport
 
     host = "mcp.fixture.example"
     key = ec.generate_private_key(ec.SECP256R1())
@@ -242,7 +252,11 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
         try:
             headers = await reader.readuntil(b"\r\n\r\n")
             accepted.append(headers)
-            writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            writer.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+                b"Content-Length: 12\r\nConnection: close\r\n\r\n"
+                b'{"value":23}'
+            )
             await writer.drain()
         finally:
             writer.close()
@@ -261,7 +275,7 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
             monkeypatch.setattr(AnyIOBackend, "connect_tcp", connect)
             for endpoint in (RESOURCE, "https://other.fixture.example/mcp"):
                 async with httpx.AsyncClient(
-                    transport=_PinnedHttps("POST", endpoint, authenticated=True),
+                    transport=PinnedHttpsTransport("POST", endpoint, authenticated=True),
                     trust_env=False,
                 ) as client:
                     headers = {"authorization": f"Bearer {TOKEN}"}
@@ -271,13 +285,100 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
                         with pytest.raises(httpx.ConnectError, match="CERTIFICATE_VERIFY_FAILED"):
                             await client.post(endpoint, headers=headers)
 
+            origin = "https://mcp.fixture.example"
+            endpoint = origin + "/items/selection?limit=2"
+            async with httpx.AsyncClient(
+                transport=PinnedHttpsTransport("GET", endpoint, allow_query=True),
+                trust_env=False,
+            ) as client:
+                with pytest.raises(ScopeDeniedError):
+                    await client.get(endpoint.replace("limit=2", "limit=3"))
+
+            (op,) = compile_openapi(
+                {
+                    "openapi": "3.1.0",
+                    "servers": [{"url": "https://unused.fixture.example"}],
+                    "paths": {
+                        "/items/{id}": {
+                            "get": {
+                                "operationId": "get_item",
+                                "parameters": [
+                                    {
+                                        "in": "path",
+                                        "name": "id",
+                                        "required": True,
+                                        "schema": {"type": "string"},
+                                    },
+                                    {"in": "query", "name": "limit", "schema": {"type": "integer"}},
+                                ],
+                                "responses": {
+                                    "200": {
+                                        "content": {
+                                            "application/json": {
+                                                "schema": {
+                                                    "type": "object",
+                                                    "properties": {"value": {"type": "integer"}},
+                                                    "required": ["value"],
+                                                    "additionalProperties": False,
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    },
+                },
+                selected_effects={"get_item": "read_only"},
+            )
+            actor = WorkspaceContext(uuid4(), uuid4())
+            implementation = ToolImplementationDescriptor(
+                "syn://thing/tls-rest-implementation",
+                op.to_capability().fingerprint,
+                "a" * 64,
+                "Fixture publisher",
+                "1",
+            )
+            installation = ToolInstallationDescriptor(
+                "syn://thing/tls-rest-installation",
+                actor.workspace_id,
+                implementation.fingerprint,
+                rest_read_configuration_hash(actor, origin, op),
+                "b" * 64,
+                ("read",),
+            )
+            args = {"path": {"id": "selection"}, "query": {"limit": 2}}
+            intent = ToolInvocationIntent(
+                uuid4(),
+                actor.workspace_id,
+                uuid4(),
+                installation.fingerprint,
+                op.input_type_ref,
+                content_hash(args),
+                "read_only",
+                installation.policy_revision_hash,
+                op.timeout_ms,
+                op.max_output_bytes,
+                "local-tls-rest",
+            )
+            scope = ApiCallScope(installation, intent, op.fingerprint, lambda *_: None)
+            result = await InstalledRestRead(actor, origin, op, implementation, installation).call(
+                actor,
+                args,
+                scope,
+            )
+            assert result.status == "succeeded" and result.value == {"value": 23}
+            assert result.to_observation(intent, op).invocation_hash == intent.fingerprint
+
     def resolve(host, port, **kwargs):
         return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (PUBLIC, port))]
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "__init__", configure)
     monkeypatch.setattr(socket, "getaddrinfo", resolve)
     asyncio.run(scenario())
-    assert dialed == [(PUBLIC, 443), (PUBLIC, 443)]
-    assert len(accepted) == 1
+    assert dialed == [(PUBLIC, 443)] * 3
+    assert len(accepted) == 2
     assert b"Host: mcp.fixture.example\r\n" in accepted[0]
     assert f"authorization: Bearer {TOKEN}\r\n".encode() in accepted[0]
+    assert accepted[1].startswith(b"GET /items/selection?limit=2 HTTP/1.1\r\n")
+    assert b"authorization:" not in accepted[1].lower()

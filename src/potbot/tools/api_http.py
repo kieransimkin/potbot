@@ -68,7 +68,7 @@ def _query_scalar(value: Any) -> str:
     raise InvalidInputError("API query arguments must be bounded scalar values")
 
 
-def _rest_url(
+def rest_url(
     origin: str, operation: ApiOperation, args: Mapping[str, Any], cursor: str | None
 ) -> str:
     path = args.get("path", {})
@@ -135,6 +135,7 @@ class ApprovedHttpApiAdapter:
         cache: ApiReadCache | None = None,
         cache_partition: str | None = None,
         bearer_supplier: Any | None = None,
+        retry_reads: bool = True,
     ) -> None:
         self.origin = validated_service_origin(origin, test_loopback=test_loopback)
         if client is None or not callable(getattr(client, "stream", None)):
@@ -147,6 +148,7 @@ class ApprovedHttpApiAdapter:
             )
         self.cache_partition = cache_partition
         self.bearer_supplier = bearer_supplier
+        self.retry_reads = retry_reads
 
     async def call(
         self, operation: ApiOperation, arguments: Mapping[str, Any], scope: ApiCallScope
@@ -169,7 +171,7 @@ class ApprovedHttpApiAdapter:
             }
         else:
             request_payload = approved_arguments.get("body")
-            url = _rest_url(self.origin, operation, approved_arguments, cursor=None)
+            url = rest_url(self.origin, operation, approved_arguments, cursor=None)
         if len(url) > 2048:
             raise InvalidInputError("API target URL too long")
         use_cache = (
@@ -207,7 +209,7 @@ class ApprovedHttpApiAdapter:
         total_bytes = 0
         while True:
             if operation.protocol == "rest":
-                url = _rest_url(self.origin, operation, approved_arguments, current_cursor)
+                url = rest_url(self.origin, operation, approved_arguments, current_cursor)
             if scope.egress(url) is not None:
                 raise ScopeDeniedError("Egress authorization must approve by returning None")
             if (
@@ -240,7 +242,7 @@ class ApprovedHttpApiAdapter:
             if operation.effect_class == "idempotent_write":
                 headers["Idempotency-Key"] = scope.intent.idempotency_key
             is_read = operation.effect_class == "read_only"
-            attempt_limit = 2 if is_read else 1
+            attempt_limit = 2 if is_read and self.retry_reads else 1
             last_status: int | None = None
             current_body: bytes | None = None
             for attempt in range(attempt_limit):
@@ -347,7 +349,7 @@ class ApprovedHttpApiAdapter:
                                 )
                             chunks.append(chunk)
                         current_body = b"".join(chunks)
-                except (asyncio.CancelledError, KeyboardInterrupt):
+                except (asyncio.CancelledError, KeyboardInterrupt, ScopeDeniedError):
                     raise
                 except Exception:
                     if attempt + 1 < attempt_limit:

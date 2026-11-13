@@ -24,10 +24,10 @@ from potbot.tools.mcp_http_broker import (
     McpHttpBroker,
     McpHttpGrant,
     ScopedMcpBearer,
-    _https_host,
     _pinned_json,
 )
 from potbot.tools.mcp_protocol import McpProtocolError, parse_json_document
+from potbot.tools.pinned_https import canonical_https_host
 
 _B64 = re.compile(r"[A-Za-z0-9_-]+")
 _TOKEN_LIMIT = 4096
@@ -67,7 +67,7 @@ class McpOAuthRegistration:
 
     def __post_init__(self) -> None:
         for endpoint in (self.callback, self.authorization_endpoint, self.token_endpoint):
-            _https_host(endpoint)
+            canonical_https_host(endpoint)
             if urlsplit(endpoint).path in ("", "/"):
                 raise InvalidInputError("MCP OAuth endpoints require explicit paths")
         if any(

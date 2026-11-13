@@ -27,12 +27,15 @@ SOURCES = (
     "src/potbot/tools/api_contracts.py",
     "src/potbot/tools/api_openapi.py",
     "src/potbot/tools/api_http.py",
+    "src/potbot/tools/api_https.py",
+    "src/potbot/tools/pinned_https.py",
     "src/potbot/tools/api_grpc.py",
     "tests/unit/test_api_contracts.py",
     "tests/unit/test_api_openapi.py",
     "tests/unit/test_api_http.py",
     "tests/unit/test_api_grpc.py",
     "tests/unit/test_api_stage_gate.py",
+    "tests/unit/test_mcp_http_broker.py",
     "tests/integration/test_tool_phase2_4_local_services.py",
     "examples/tool_api_demo.py",
     "scripts/tool_phase2_4_gate.py",
@@ -44,6 +47,7 @@ SELECTORS = (
     "tests/unit/test_api_http.py",
     "tests/unit/test_api_grpc.py",
     "tests/unit/test_api_stage_gate.py",
+    "tests/unit/test_mcp_http_broker.py::test_pinned_socket_still_verifies_the_approved_hostname",
     "tests/integration/test_tool_phase2_4_local_services.py",
 )
 _MAX_TEST_LOG = 256 * 1024
@@ -223,7 +227,7 @@ def run(*, mode: str, root: Path, output: Path) -> dict[str, Any]:
         "stage_qualified": False,
         "qualification_note": (
             "Offline fixture success is not production qualification; "
-            "T03 must supply enforced egress, credential custody and durable effect admission"
+            "T03 must qualify managed egress, credential custody and durable effect admission"
         ),
     }
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
