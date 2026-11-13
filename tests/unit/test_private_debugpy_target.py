@@ -14,14 +14,14 @@ import pytest
 
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.controller.cog_work import CogWorkMonitor
-from potbot.debugging import DapAdapter, DebugIdentity, DebugSession
+from potbot.debugging import DapAdapter, DebugIdentity, DebugSession, DebugState
 from potbot.debugging.cog_acceptance import python_cog_walkthrough
 from potbot.debugging.cog_client import DebuggerCogClient
 from potbot.debugging.cog_runtime import DebuggerCogRuntime
 from potbot.debugging.contracts import DebugAttachTarget, RemoteDebugTarget
 from potbot.debugging.python import DEBUGPY_VERSION
 from potbot.domain.auth import WorkspaceContext
-from potbot.domain.errors import ScopeDeniedError
+from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
 from potbot.domain.serialization import content_hash
 
 pytestmark = pytest.mark.skipif(
@@ -70,8 +70,10 @@ RELAY = """
 import asyncio
 import json
 import os
+import signal
 import socket
 import sys
+
 async def relay():
     assert [name for _, name in socket.if_nameindex()] == ["lo"]
     channel = socket.socket(fileno=int(sys.argv[1]))
@@ -80,6 +82,8 @@ async def relay():
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
     )
     try:
+        cut = asyncio.Event()
+        asyncio.get_running_loop().add_signal_handler(signal.SIGUSR1, cut.set)
         endpoint = json.loads(await asyncio.wait_for(target.stdout.readline(), 30))
         assert endpoint["pid"] == target.pid
         print(json.dumps({"pid": target.pid, "relay": os.getpid()}), flush=True)
@@ -94,6 +98,7 @@ async def relay():
         tasks = (
             asyncio.create_task(copy(client_reader, peer_writer)),
             asyncio.create_task(copy(peer_reader, client_writer)),
+            asyncio.create_task(cut.wait()),
         )
         try:
             await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -103,6 +108,14 @@ async def relay():
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+        if cut.is_set():
+            assert target.returncode is None
+            print("owner-confirmed: target alive after link loss", flush=True)
+            assert await asyncio.wait_for(asyncio.to_thread(sys.stdin.readline), 10) == "cleanup\\n"
+            target.terminate()
+            assert await asyncio.wait_for(target.wait(), 10) == -signal.SIGTERM
+            print("owner-confirmed: owned target stopped during cleanup", flush=True)
+            return
         assert await asyncio.wait_for(target.stdout.readline(), 10) == b"fixture result: 33\\n"
         assert await asyncio.wait_for(target.stdout.readline(), 10) == b"owner-gate\\n"
         assert target.returncode is None
@@ -136,7 +149,8 @@ class FixtureStore:
         return {"id": str(identifier), "event_ref": f"syn://event/{identifier}"}
 
 
-def test_live_debugpy_on_private_network_target(tmp_path):
+@pytest.mark.parametrize("link_loss", [False, True], ids=["detach", "link-loss"])
+def test_live_debugpy_on_private_network_target(tmp_path, link_loss):
     body = (Path(__file__).resolve().parents[2] / "examples/debugging/nested.py").read_text()
     program = tmp_path / "owned_target.py"
     program.write_text(
@@ -165,6 +179,7 @@ def test_live_debugpy_on_private_network_target(tmp_path):
                 str(program),
                 str(snapshot),
                 pass_fds=(child.fileno(),),
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 start_new_session=True,
             )
@@ -265,6 +280,9 @@ def test_live_debugpy_on_private_network_target(tmp_path):
                     await client.call("attach", configuration=config)
                 assert len(client.history) == 1
                 selected["probe_ref"] = approved["probe_ref"]
+                if link_loss:
+                    await verify_link_loss(client, session, launched, program)
+                    return
                 observations = await python_cog_walkthrough(
                     client, program=program, configuration=config, attached=True
                 )
@@ -336,3 +354,34 @@ def test_live_debugpy_on_private_network_target(tmp_path):
                         await launched.wait()
 
     asyncio.run(scenario())
+
+
+async def verify_link_loss(client, session, relay, program):
+    line = next(
+        i for i, text in enumerate(program.read_text().splitlines(), 1) if "# OUTER_START" in text
+    )
+    await client.call("attach", configuration={"justMyCode": True, "subProcess": False})
+    points = await client.call("set_breakpoints", source=str(program), lines=[line])
+    assert points["breakpoints"][0]["verified"]
+    await client.call("configuration_done")
+    stop = await client.call("wait_stopped")
+    frames = await client.call("stack", stop_ref=stop["stop_ref"])
+    assert frames["frames"][0]["name"] == "outer"
+
+    relay.send_signal(signal.SIGUSR1)
+    assert await asyncio.wait_for(relay.stdout.readline(), 5) == (
+        b"owner-confirmed: target alive after link loss\n"
+    )
+    with pytest.raises(IndeterminateExecutionError, match="not independently observed"):
+        await asyncio.wait_for(client.call("wait_terminated"), 5)
+    assert session.state is DebugState.INDETERMINATE and session.stop is None
+    with pytest.raises(ScopeDeniedError, match="scope/revision/attempt"):
+        await client.call("stack", stop_ref=stop["stop_ref"])
+
+    relay.stdin.write(b"cleanup\n")
+    await relay.stdin.drain()
+    assert await asyncio.wait_for(relay.stdout.readline(), 5) == (
+        b"owner-confirmed: owned target stopped during cleanup\n"
+    )
+    assert await asyncio.wait_for(relay.wait(), 5) == 0
+    print("Private debugpy link loss: target alive, stale stop refused, owner cleanup confirmed")
