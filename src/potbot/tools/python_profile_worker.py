@@ -8,6 +8,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import stat
 import statistics
 import subprocess
@@ -15,7 +16,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 SOURCE_LIMIT = 65536
 REPORT_LIMIT = 32768
@@ -176,7 +177,11 @@ def summarize(
 
 
 def _sample(source: bytes, interpreter: Path, mode: str) -> dict[str, Any]:
-    with tempfile.TemporaryDirectory(prefix="potbot-profile-") as directory:
+    # Linux guest scratch follows the worker's /tmp mount. A fresh directory
+    # is claimed exclusively for each sample and is never selected by the input.
+    directory = Path("/tmp") / ("potbot-profile-" + uuid4().hex)
+    directory.mkdir(mode=0o700)
+    try:
         # The outer worker owns the process tree and the file/output ceilings.
         # Spooling avoids buffering an unbounded child response in memory.
         with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
@@ -195,6 +200,8 @@ def _sample(source: bytes, interpreter: Path, mode: str) -> dict[str, Any]:
             raw = output.read(REPORT_LIMIT + 1)
             if len(raw) > REPORT_LIMIT:
                 raise ValueError("Profile sample exceeded its output bound")
+    finally:
+        shutil.rmtree(directory)
     return report(raw, profiled=mode == "profile")
 
 

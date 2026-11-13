@@ -954,7 +954,7 @@
         {
           "path": "src/potbot/tools/python_profile_worker.py",
           "symbol": "main",
-          "sha256": "47ba9a351289f890bc7c0d6bc4ec4a4c88b95aa47c569e7313a4b3bf31bc0774",
+          "sha256": "4ea362778ce9ae8aad84d528737d8e7322053ef50a0414aaf62ac370baf44df0",
           "basis": "Sealed profile and managed WSL worker fixture with durable receipt readback"
         }
       ],

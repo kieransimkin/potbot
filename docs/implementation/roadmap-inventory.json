@@ -36034,7 +36034,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "dfad35e209c50701169030858f4f35b4043a523c56c4352fd999cd8981e39f27",
+  "review_sha256": "b210726d469c28a3b6c758b9e47cbcf4cafe1f384eee9c7371f174d62c033aa8",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -122616,7 +122616,7 @@
         {
           "path": "src/potbot/tools/python_profile_worker.py",
           "symbol": "main",
-          "sha256": "47ba9a351289f890bc7c0d6bc4ec4a4c88b95aa47c569e7313a4b3bf31bc0774",
+          "sha256": "4ea362778ce9ae8aad84d528737d8e7322053ef50a0414aaf62ac370baf44df0",
           "basis": "Sealed profile and managed WSL worker fixture with durable receipt readback"
         }
       ],
