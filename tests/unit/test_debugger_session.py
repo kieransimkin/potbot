@@ -8,12 +8,14 @@ from uuid import uuid4
 import pytest
 
 from potbot.debugging import DebugIdentity, DebugSession, DebugState
+from potbot.debugging.contracts import DebugAttachTarget
 from potbot.domain.errors import (
     CapabilityUnavailableError,
     IndeterminateExecutionError,
     ScopeDeniedError,
     StateMismatchError,
 )
+from potbot.domain.serialization import content_hash
 from potbot.tools.secrets import CaptureRedactor
 
 
@@ -128,6 +130,58 @@ def test_denied_step_preserves_confirmed_stop_without_dispatch(tmp_path):
             await session.resume(current, operation="step_over")
         assert session.stop == current and session.state == DebugState.STOPPED
         assert not any(op == "step_over" for op, _ in adapter.calls)
+        await session.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "case", ["missing", "different", "expired", "revoked_after_record", "wrong_pid"]
+)
+def test_attach_requires_the_owned_live_target(tmp_path, case):
+    class AttachAdapter(Adapter):
+        async def call(self, operation, args):
+            self.calls.append((operation, args))
+            if operation == "initialize":
+                return {"operations": ["attach", "disconnect"]}
+            if operation == "attach":
+                self.on_event("process", {"process_id": 1235})
+                self.on_event("initialized", {})
+            return {}
+
+    async def scenario():
+        adapter = AttachAdapter()
+        config = {"justMyCode": True}
+        live = True
+
+        def record(event):
+            nonlocal live
+            if (
+                case == "revoked_after_record"
+                and len(adapter.calls) == 1
+                and event.stage == "started"
+            ):
+                live = False
+
+        target = DebugAttachTarget(1234, content_hash(config), lambda: live)
+        session = DebugSession(
+            adapter,
+            identity(tmp_path),
+            admit=lambda *_: None,
+            record=record,
+            attach_target=None if case == "missing" else target,
+        )
+        await session.initialize()
+        if case == "different":
+            config = {"justMyCode": False}
+        elif case == "expired":
+            live = False
+        expected = IndeterminateExecutionError if case == "wrong_pid" else ScopeDeniedError
+        with pytest.raises(expected):
+            await session.begin_target(config, attach=True)
+        assert [op for op, _ in adapter.calls] == (
+            ["initialize", "attach"] if case == "wrong_pid" else ["initialize"]
+        )
         await session.close()
 
     asyncio.run(scenario())

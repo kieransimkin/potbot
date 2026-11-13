@@ -309,12 +309,12 @@
     },
     {
       "path": "docs/implementation/10-syn-tool-cogs.md",
-      "sha256": "8ba9d7e482d538ff37d764658a75a12cd59c9e094d8a7d4def9c7c5e113306b3",
-      "bytes": 24063,
+      "sha256": "7bf779794208bb29d471e4fa357d9d131985634b653392354412a6d4cf2b56e2",
+      "bytes": 24954,
       "kind": "narrative_text",
-      "text_sha256": "8ba9d7e482d538ff37d764658a75a12cd59c9e094d8a7d4def9c7c5e113306b3",
-      "characters": 24045,
-      "lines": 166,
+      "text_sha256": "7bf779794208bb29d471e4fa357d9d131985634b653392354412a6d4cf2b56e2",
+      "characters": 24936,
+      "lines": 170,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -31853,7 +31853,7 @@
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly",
         "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
-      "next_action": "Extend policy to target-specific device and gateway checks.",
+      "next_action": "Extend target checks to qualified remote and physical devices, then broaden gateway coverage.",
       "review_families": [
         "durable",
         "sandbox",
@@ -31868,7 +31868,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL qualification with two disposable Agents and a disposable schema on the external PostgreSQL server over TLS verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment."
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL qualification with two disposable Agents and a disposable schema on the external PostgreSQL server over TLS verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment. Local Python debugger attach checks the selected process lifetime and exact configuration before dispatch. The managed MCP gateway supports principal-pinned installations and refuses cross-principal dispatch. Linux live debugpy and PostgreSQL gateway fixtures verified these paths."
     },
     {
       "key": "tools:T03.2",
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "94593c8a69cb5bf3a42f29ecbb7049ef7a9ae8b081141f7743c448c8e59c7379",
+  "review_sha256": "515755d4f5509e5f87870c93216ec911a6c830ca48f71c9f7c6fa84203297b05",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110973,8 +110973,8 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:109-126",
-      "sha256": "9bc79c00123f55ad8c7d2ff1c3f58605b28e04a5f60c92f17bbc48b5e8ac7433",
+      "locator": "line:109-130",
+      "sha256": "a4eaf56a090022516291ae59612277da4bcb29c1db9ffbd63cf7d6be5650fc25",
       "excerpt": "## Stateful debugger, terminal and device Cogs\n\nEach operation is a separate typed Cog. Persistent state lives in the controller-owned session service and durab",
       "review_families": [
         "identity",
@@ -110984,7 +110984,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:127-141",
+      "locator": "line:131-145",
       "sha256": "da006eb2bf72b378f831d5360e0cfa8d092b3091242c26b82fd59d7398902259",
       "excerpt": "## Mandatory tool-Cog work monitoring\n\nEvery invoked tool Cog, including pure transformations, nested Cogs and transport-backed operations, must log its **start",
       "review_families": [
@@ -110995,7 +110995,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:142-154",
+      "locator": "line:146-158",
       "sha256": "1e45889fa371d999995f4ba37eb242f4e24e88175858308e63381a108aecdb46",
       "excerpt": "## Python-first Cog acceptance\n\nThe authored Python fixture must be driven end to end **through registered SYN Cogs**, not only by calling adapter/session metho",
       "review_families": [
@@ -111006,7 +111006,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:155-166",
+      "locator": "line:159-170",
       "sha256": "eb4bdcf7aaa398c048313ce964727632d95396bf2b1231cfa42c6a4a6b8f245d",
       "excerpt": "## Implementation allocation\n\n- **T01.1\u2013T01.4:** inventory actual Cog/runtime boundaries, review and seal Types/Embers, add signatures/result variants/controlle",
       "review_families": [
@@ -121695,7 +121695,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_actual_compile_and_tests_persist_output_inputs_states_and_events_after_restart",
-          "sha256": "f03c1d96daaac537d171a77f39caf66872844c1c94d651b2fb4201e4d63596af",
+          "sha256": "a4a94eb454a9a02443617f99eb1a8fe813655cb3a9d1dd86179c475683b1333e",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -122175,7 +122175,7 @@
         {
           "path": "src/potbot/tools/mcp_gateway.py",
           "symbol": "execute_mcp_action",
-          "sha256": "fd7be4db101b478ea9d4954b035d61d27e147ecb5b09a84cc4cf8e33702a911d",
+          "sha256": "78fe4efa41afb17467f3fd49a3f138dacac6ff3c7eb2aa54731a7269daeb52d6",
           "basis": "Inspected gateway admission for a pinned installation, frozen input, and audited completion."
         },
         {
@@ -122217,7 +122217,7 @@
         {
           "path": "src/potbot/tools/mcp_gateway.py",
           "symbol": "_record_mcp_event",
-          "sha256": "fd7be4db101b478ea9d4954b035d61d27e147ecb5b09a84cc4cf8e33702a911d",
+          "sha256": "78fe4efa41afb17467f3fd49a3f138dacac6ff3c7eb2aa54731a7269daeb52d6",
           "basis": "Records the operator decision and each provider dispatch under the same admitted run."
         },
         {
@@ -122249,7 +122249,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay",
-          "sha256": "f03c1d96daaac537d171a77f39caf66872844c1c94d651b2fb4201e4d63596af",
+          "sha256": "a4a94eb454a9a02443617f99eb1a8fe813655cb3a9d1dd86179c475683b1333e",
           "basis": "Real PostgreSQL regression for admission, lost reply fencing, and saved receipt recovery."
         },
         {
@@ -122501,7 +122501,7 @@
         {
           "path": "src/potbot/debugging/session.py",
           "symbol": "DebugSession",
-          "sha256": "88f12cca4f1540f450207d8aab6928ee785cf8c76f0dd4711d5baf95c987633a",
+          "sha256": "87915c07653d01a20ac081ae5208983ad1ff654df4e8a64bc66d8999839d6d75",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -122509,7 +122509,7 @@
         {
           "path": "tests/unit/test_debugger_cogs_live.py",
           "symbol": "test_actual_python_cogs_break_step_stack_and_statistics",
-          "sha256": "6654412de64e07ee5aacb4570545fdf7c9e98a9a8edb44a8e5f62579f5609714",
+          "sha256": "3647fadc488a94aab128b47b10aa66cacc915b4aebc83ae1bb0b5a7325e6abaf",
           "basis": "source inspection; test definition is not an individual executed result"
         }
       ],
