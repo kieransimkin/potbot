@@ -21,6 +21,7 @@ from potbot.controller.cog_work import CogWorkMonitor
 from potbot.debugging.contracts import Frame, Stop, ValueReference
 from potbot.debugging.session import DebugSession
 from potbot.domain.errors import (
+    CapabilityUnavailableError,
     IndeterminateExecutionError,
     InvalidInputError,
     ScopeDeniedError,
@@ -264,7 +265,13 @@ class DebuggerCogRuntime:
                 # Lost acknowledgement/storage/cancellation poisons this control lease.
                 uncertain = not isinstance(
                     error,
-                    (InvalidInputError, ScopeDeniedError, StateMismatchError, ToolFailureError),
+                    (
+                        CapabilityUnavailableError,
+                        InvalidInputError,
+                        ScopeDeniedError,
+                        StateMismatchError,
+                        ToolFailureError,
+                    ),
                 )
                 self._poisoned = self._poisoned or uncertain
                 try:

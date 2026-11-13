@@ -19,6 +19,7 @@ from potbot.debugging.contracts import (
     DebugState,
     EventRecorder,
     Frame,
+    RemoteDebugTarget,
     Scope,
     Stop,
     ValueReference,
@@ -37,6 +38,16 @@ from potbot.domain.serialization import content_hash
 from potbot.tools.secrets import CaptureRedactor
 
 _SENSITIVE = re.compile(r"password|secret|token|api.?key|authorization|credential", re.I)
+_REMOTE_CAPABILITY = {
+    "set_breakpoints": "breakpoints",
+    "step_over": "step",
+    "step_into": "step",
+    "step_out": "step",
+    "stack": "stack",
+    "scopes": "stack",
+    "variables": "stack",
+}
+_STOPPED_INSPECTIONS = {"stack", "scopes", "variables", "evaluate", "exception_info"}
 
 
 def _integer(value: Any, label: str, *, zero: bool = False) -> int:
@@ -85,6 +96,12 @@ class DebugSession:
         self._closed = False
         self._attached = False
         self._attach_target = attach_target
+        self._remote_halt_revision: int | None = None
+        self._last_remote_halt_revision = (
+            attach_target.remote.attach_revision - 1
+            if attach_target and attach_target.remote
+            else 0
+        )
         self.target_process_id: int | None = None
         self.exit_code: int | None = None
         self.isolation_identity: str | None = None
@@ -95,6 +112,7 @@ class DebugSession:
 
     def _invalidate(self) -> None:
         self.stop = None
+        self._remote_halt_revision = None
         self._frames.clear()
         self._references.clear()
 
@@ -105,6 +123,18 @@ class DebugSession:
             self._initialized.set()
         elif kind == "stopped":
             self._invalidate()
+            remote = self._remote_target()
+            if remote is not None:
+                try:
+                    revision = remote.require_current()
+                    if revision <= self._last_remote_halt_revision:
+                        raise ScopeDeniedError("Remote debugger reused an earlier halt revision")
+                except ScopeDeniedError:
+                    self.state = DebugState.INDETERMINATE
+                    self._changed.set()
+                    return
+                self._last_remote_halt_revision = revision
+                self._remote_halt_revision = revision
             self._revision += 1
             self.stop = Stop(
                 self.session_id,
@@ -147,11 +177,29 @@ class DebugSession:
             raise ScopeDeniedError("Debugger attach requires a controller-owned target")
         self._attach_target.authorize(configuration)
 
+    def _remote_target(self) -> RemoteDebugTarget | None:
+        return self._attach_target.remote if self._attached and self._attach_target else None
+
     def _authorize_target(self, operation: str, payload: Mapping[str, Any]) -> None:
+        if operation == "launch" and self._attach_target and self._attach_target.remote:
+            raise ScopeDeniedError("The selected remote debugger target requires attach")
         if operation == "attach":
             self.authorize_attach(payload)
         elif self._attached and self._attach_target is not None:
             self._attach_target.require_current(self.target_process_id)
+            if (remote := self._remote_target()) is not None:
+                capability = _REMOTE_CAPABILITY.get(operation)
+                if capability is not None and capability not in remote.capabilities:
+                    raise CapabilityUnavailableError(
+                        "Remote target does not support this operation"
+                    )
+                try:
+                    remote.require_current(halt_revision=self._remote_halt_revision)
+                except ScopeDeniedError:
+                    self._invalidate()
+                    self.state = DebugState.INDETERMINATE
+                    self._changed.set()
+                    raise
 
     def _check_stop(self, stop: Stop) -> None:
         self._require(DebugState.STOPPED)
@@ -173,9 +221,19 @@ class DebugSession:
         self._admit("debug." + operation, payload)
         self._authorize_target(operation, payload)
         run_id = uuid4()
-        digest = content_hash(
-            {"session": str(self.session_id), "operation": operation, "parameters": payload}
-        )
+        intent: dict[str, Any] = {
+            "session": str(self.session_id),
+            "operation": operation,
+            "parameters": payload,
+        }
+        remote = self._remote_target()
+        halt_revision = self._remote_halt_revision
+        if remote is not None:
+            intent["remote_target_sha256"] = remote.fingerprint
+            intent["halt_revision"] = (
+                remote.attach_revision if operation == "attach" else halt_revision
+            )
+        digest = content_hash(intent)
         started = time.monotonic()
 
         def emit(stage: Any, output: str | None = None, artifact: str | None = None) -> None:
@@ -200,7 +258,7 @@ class DebugSession:
         emit("started")
         try:
             self._authorize_target(operation, payload)
-        except ScopeDeniedError:
+        except (ScopeDeniedError, CapabilityUnavailableError):
             emit("failed")
             raise
         if resume:
@@ -212,6 +270,13 @@ class DebugSession:
                 raise IndeterminateExecutionError(
                     "Debugger target or connection could not be confirmed"
                 )
+            if remote is not None and operation in _STOPPED_INSPECTIONS:
+                try:
+                    remote.require_current(halt_revision=halt_revision)
+                except ScopeDeniedError as error:
+                    raise IndeterminateExecutionError(
+                        "Remote debugger target changed while the operation was in flight"
+                    ) from error
             if self._capture_output is not None:
                 safe_output = self._safe_output(output)
                 artifact = self._capture_output(safe_output)
@@ -401,8 +466,7 @@ class DebugSession:
                     self._changed.clear()
                     if self.state == DebugState.STOPPED and self.stop is not None:
                         if self.stop.revision > after_revision:
-                            if self._attached and self._attach_target is not None:
-                                self._attach_target.require_current(self.target_process_id)
+                            self._authorize_target("wait_stopped", {})
                             return self.stop
                     if self.state in {
                         DebugState.INDETERMINATE,

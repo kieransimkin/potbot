@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from potbot.debugging import DebugIdentity, DebugSession, DebugState
-from potbot.debugging.contracts import DebugAttachTarget
+from potbot.debugging.contracts import DebugAttachTarget, RemoteDebugTarget
 from potbot.domain.errors import (
     CapabilityUnavailableError,
     IndeterminateExecutionError,
@@ -200,6 +200,128 @@ def test_other_session_and_forged_frame_rejected(tmp_path):
             await session.scopes(replace(frame, stop=replace(frame.stop, session_id=uuid4())))
         with pytest.raises(ScopeDeniedError):
             await session.scopes(replace(frame, adapter_id=12345))
+        await session.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "wrong_probe",
+        "unavailable",
+        "stale_attach",
+        "stale_inspection",
+        "changed_in_flight",
+        "unsupported_stack",
+        "later_halt",
+        "reused_halt",
+    ],
+)
+def test_remote_target_observation_gates_attach_and_stopped_reads(tmp_path, change):
+    class RemoteAdapter(Adapter):
+        async def call(self, operation, args):
+            if operation == "initialize":
+                self.calls.append((operation, args))
+                return {"operations": ["attach", "stack", "disconnect", "configuration_done"]}
+            if operation == "attach":
+                self.calls.append((operation, args))
+                self.on_event("process", {"process_id": 1234})
+                self.on_event("initialized", {})
+                return {}
+            return await super().call(operation, args)
+
+    async def scenario():
+        approved = {
+            "schema_version": 1,
+            "protocol": "python_remote",
+            "target_ref": "fixture-target",
+            "probe_ref": "fixture-probe",
+            "core_ref": "fixture-core",
+            "firmware_sha256": "a" * 64,
+            "symbols_sha256": "b" * 64,
+            "halt_revision": 1,
+            "endpoint_protected": True,
+            "effects": dict.fromkeys(("reset", "flash", "erase", "unlock"), False),
+            "capabilities": dict.fromkeys(
+                ("breakpoints", "step", "stack", "registers", "memory"), "supported"
+            ),
+            "qualification": "qualified",
+        }
+        if change == "unsupported_stack":
+            approved["capabilities"]["stack"] = "unsupported"
+        observation = dict(approved)
+        available = True
+
+        def observe():
+            if not available:
+                raise OSError("fixture observation unavailable")
+            return observation
+
+        adapter = RemoteAdapter()
+        config = {"justMyCode": True}
+        target = DebugAttachTarget(
+            1234, content_hash(config), lambda: True, RemoteDebugTarget(approved, observe)
+        )
+        session = DebugSession(
+            adapter,
+            identity(tmp_path),
+            admit=lambda *_: None,
+            record=lambda _: None,
+            attach_target=target,
+        )
+        await session.initialize()
+        if change == "wrong_probe":
+            observation["probe_ref"] = "different"
+        if change == "stale_attach":
+            observation["halt_revision"] = 2
+        if change == "unavailable":
+            available = False
+        if change in {"wrong_probe", "stale_attach", "unavailable"}:
+            with pytest.raises(ScopeDeniedError, match="Remote debugger"):
+                await session.begin_target(config, attach=True)
+            assert [op for op, _ in adapter.calls] == ["initialize"]
+            available = True
+        else:
+            await session.begin_target(config, attach=True)
+            await session.finish_configuration()
+            stop(adapter)
+            first = await session.wait_stopped()
+            if change == "unsupported_stack":
+                with pytest.raises(CapabilityUnavailableError):
+                    await session.stack(first)
+                assert not any(op == "stack" for op, _ in adapter.calls)
+                assert session.state is DebugState.STOPPED
+            elif change == "stale_inspection":
+                observation["halt_revision"] = 2
+                with pytest.raises(ScopeDeniedError, match="halt revision changed"):
+                    await session.stack(first)
+                assert not any(op == "stack" for op, _ in adapter.calls)
+                assert session.state is DebugState.INDETERMINATE
+            elif change == "changed_in_flight":
+
+                def change_revision():
+                    observation["halt_revision"] = 2
+
+                adapter.before_response = change_revision
+                with pytest.raises(IndeterminateExecutionError, match="in flight"):
+                    await session.stack(first)
+                assert sum(op == "stack" for op, _ in adapter.calls) == 1
+                assert session.state is DebugState.INDETERMINATE
+            else:
+                assert (await session.stack(first))[0].name == "inner"
+                adapter.on_event("continued", {})
+                if change == "later_halt":
+                    observation["halt_revision"] = 2
+                stop(adapter)
+                if change == "later_halt":
+                    second = await session.wait_stopped()
+                    assert second.revision > first.revision
+                    assert (await session.stack(second))[0].name == "inner"
+                else:
+                    assert session.state is DebugState.INDETERMINATE
+                    with pytest.raises(StateMismatchError):
+                        await session.wait_stopped()
         await session.close()
 
     asyncio.run(scenario())
