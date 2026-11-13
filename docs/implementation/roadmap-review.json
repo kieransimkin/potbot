@@ -835,10 +835,9 @@
           "basis": "Exercises the REST and GraphQL settlements on PostgreSQL with a worker RPC double, including reply loss, duplicate delivery and an unavailable provider response."
         }
       ],
-      "assessment": "Pinned REST and GraphQL reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. Managed WSL qualification covers REST. GraphQL has TLS and PostgreSQL fixture coverage.",
+      "assessment": "Pinned REST and GraphQL reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. Both profiles passed managed WSL qualification with disposable TLS and PostgreSQL.",
       "support_scope": "Selected OpenAPI 3.1 GET and fixed named GraphQL query, using one pinned HTTPS route per installation.",
       "remaining": [
-        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Qualify managed credentials and broader API transport profiles separately.",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported"
       ],
@@ -62837,12 +62836,12 @@
     },
     {
       "path": "docs/implementation/04-http-api-adapters.md",
-      "sha256": "9782af31ec85c75d8791d9214db28e5a5802e3879b7b312544b46acac7f1398c",
+      "sha256": "76708df07331fec90fce84b242391b3ae830f1c593a33feb88377269d7c43ca6",
       "families": [
         "api"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Selected API adapters, the managed REST worker read, and the pinned GraphQL query profile with TLS and PostgreSQL fixture coverage.",
+      "assessment": "Selected API adapters and the managed REST and GraphQL worker read profiles with durable settlement and recovery.",
       "narrative": [
         {
           "locator": "line:1-6",
@@ -62887,28 +62886,28 @@
           ]
         },
         {
-          "locator": "line:88-93",
-          "sha256": "852fd1765ecd4c877767355fc9501533cd08243a0668687cd59a88baa14950b4",
+          "locator": "line:88-95",
+          "sha256": "263b2d8df7ac687ea738326fb2ffe12a1e40fd28f3f214f71c77651f9aa218ae",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:94-118",
+          "locator": "line:96-120",
           "sha256": "ccc499fe7c580e61ea455212df5d6d65a0f9900f75d199d7fb4a11211701e60e",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:119-126",
+          "locator": "line:121-128",
           "sha256": "38b5b9a81ac035707d21004c2a787b62818b9e3ba3b21c46fa504588d5bb4a0c",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:127-132",
+          "locator": "line:129-134",
           "sha256": "236082be43d189210d88e31c684558e1871434ee2e8be04356e3139a312b75e1",
           "families": [
             "api"

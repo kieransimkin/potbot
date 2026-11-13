@@ -91,6 +91,8 @@ Use `InstalledGraphqlRead` with the `providers` extra and `install_graphql_cog` 
 
 The sequence above also applies to GraphQL. Replace the GET with the fixed POST and select the GraphQL Cog profile when importing the execution catalogue. `ExecutionCogRuntime.recover_graphql_read(run_id)` reads GraphQL receipts and settlement by the original invocation ID. The REST and GraphQL profiles keep separate ports and receipt types. The TLS fixture in `test_mcp_http_broker.py` captures the named query and variables that reached the server and checks that a caller-supplied query is rejected before dialing.
 
+A managed WSL run of implementation revision `64baca1` used the signed Syn 0.10.0 release, two disposable enrolled Agents, the signed worker image and the installed TASKSTATS launcher. A disposable TLS provider received two GraphQL POSTs and both calls settled in PostgreSQL. After one signed reply was dropped, a fresh controller recovered the saved result. Repeated recovery and a duplicate invocation sent zero extra requests. The interrupted worker's lease remained fenced because it had no complete stop audit.
+
 ## Reproduce
 
 From a checked-out Potbot repository after `git apply` and its locked `uv sync`:
