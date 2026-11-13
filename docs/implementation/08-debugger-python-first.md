@@ -77,11 +77,35 @@ Completion means the Cog request returned its typed result. A configuring result
 
 The DAP transport has bounded framing, pending requests, output and deadlines, correlation checks and rejection of reverse process-launch requests. Inspection limits frame/variable counts, depth via explicit expansion, returned string size and outstanding handles. Secrets are redacted from inspection output; private input artifacts remain workspace controlled. Expression evaluation, property/pretty-printer execution, production attachment and privilege escalation retain their own grants.
 
-Python is the first implemented backend. The opt-in WSL fixture starts one debugpy target in its own loopback-only network namespace and relays DAP over one inherited Unix socket. The controller pins the process lifetime, executable and source. A target-side observer records each stop independently of the controller's DAP events. The fixture refused a mismatched probe, hit a real breakpoint, stepped into the function and read its local value, rejected the previous frame, then detached. The owning relay confirmed the process survived detach and exited cleanly. A second run cut the private relay while the target was stopped. The controller reported an indeterminate session and refused further reads using the old stop. The owner independently verified that the target was still alive and then stopped it. Authenticated forwarding and recovery on a separate host, phones, JTAG/SWD/ICSP and JIT activation need their own live qualification. Those remain in the [device/debugger specification](07-device-control-profiling-debuggers.md). The [tool-Cog contract](10-syn-tool-cogs.md) and [work-monitoring specification](05-syn-execution-monitoring.md) remain the programme-wide requirements. T07.3 stays in progress until its remaining scope passes.
+Python is the first implemented backend. The opt-in WSL fixture starts one debugpy target in its own loopback-only network namespace and relays DAP over one inherited Unix socket. The controller pins the process lifetime, executable and source. A target-side observer records each stop independently of the controller's DAP events. The fixture refused a mismatched probe, hit a real breakpoint, stepped into the function and read its local value, rejected the previous frame, then detached. The owning relay confirmed the process survived detach and exited cleanly. A second run cut the private relay while the target was stopped. The controller reported an indeterminate session and refused further reads using the old stop. The owner independently verified that the target was still alive and then stopped it. Phones, JTAG/SWD/ICSP and JIT activation need their own live qualification. Those remain in the [device/debugger specification](07-device-control-profiling-debuggers.md). The [tool-Cog contract](10-syn-tool-cogs.md) and [work-monitoring specification](05-syn-execution-monitoring.md) remain the programme-wide requirements. T07.3 stays in progress until its remaining scope passes.
 
 Load the [actual private target recording](media/python-debugger-private-target.json) with the file control in the [debugger replay](../../examples/debugging/replay.html). The recording includes only the authored fixture's selected values and measured Cog work timings.
 
 On a disposable Linux host with network namespace privileges, run `POTBOT_RUN_PRIVATE_DEBUGPY=1 python -m pytest -s -q tests/unit/test_private_debugpy_target.py` using the project's locked debugger dependencies.
+
+## Forward an owned debugger session through Syn
+
+The forwarding route carries typed debugger Cogs between two enrolled Agents over Syn private pub/sub. The operator’s public key hash determines the debugger group ID. Syn binds the encrypted publications to the workspace, epoch, signed roster and a fresh session ID. Each Potbot controller pins the other Agent’s node and boot. The target controller still checks the Cog’s task and repository revisions and applies its existing target admission before running it.
+
+```mermaid
+sequenceDiagram
+    participant Caller as Potbot caller
+    participant Syn as Private Syn group
+    participant Owner as Potbot target controller
+    participant Debugger as Owned debugger
+    Caller->>Syn: Typed request and invocation ID
+    Syn->>Owner: Verified sender, boot and session
+    Owner->>Owner: Claim invocation in protected storage
+    Owner->>Debugger: Run admitted Cog
+    Owner-->>Syn: Typed output and Cog receipt
+    Syn-->>Caller: Verified reply for this invocation
+    Note over Caller,Owner: A lost reply leaves the outcome indeterminate
+    Note over Caller,Owner: A fresh session rejects old replies and claimed invocations
+```
+
+Use a dedicated two-Agent mesh with the group ID returned by `debugger_group_id`. Build one `SynPubSubEndpoint` per host from its verified native Agent and the shared mesh scope. On the target, serve the route with the existing `DebuggerCogRuntime` and a private claim directory that survives reconnect. On the caller, construct `DebuggerCogClient.forwarded` with the admitted task and repository revisions. Use a new controller session and new invocation IDs after reconciling the old target. Keep the claim directory across restarts. Large inspections should use smaller pages to fit Syn’s publication limit.
+
+The two-host acceptance used signed Syn 0.10.0, native Linux Secret Service keystores and a disposable debugpy process. The target completed one `continue` invocation whose reply was dropped. The caller reported an indeterminate outcome and the target owner observed that the process was still alive. Both Agents retained their identities through restart. A fresh session rejected a signed reply from the old session and recorded zero executions when the old invocation ID was resubmitted. A fresh inspection returned the expected local value. This run used test journals and an isolated target. Qualification of the installed controller service and its PostgreSQL journal remains open.
 
 ## Source-preview publication
 

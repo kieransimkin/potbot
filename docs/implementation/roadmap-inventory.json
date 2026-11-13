@@ -289,12 +289,12 @@
     },
     {
       "path": "docs/implementation/08-debugger-python-first.md",
-      "sha256": "c22cc5eb29621a8ead4ba527f9ae83702b89050d976e072bf2d9fc6d3de331d3",
-      "bytes": 13858,
+      "sha256": "a336914ed4ac970677f3478a39ad335bce5be4401a7a9fadc4f4d7d248980996",
+      "bytes": 16290,
       "kind": "narrative_text",
-      "text_sha256": "c22cc5eb29621a8ead4ba527f9ae83702b89050d976e072bf2d9fc6d3de331d3",
-      "characters": 13858,
-      "lines": 90,
+      "text_sha256": "a336914ed4ac970677f3478a39ad335bce5be4401a7a9fadc4f4d7d248980996",
+      "characters": 16282,
+      "lines": 114,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36010,7 +36010,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "b90bac281dc5aedeec345fcfc9da6e01b89173c1bdcbc3d4184a91830903a675",
+  "review_sha256": "4f3a003dd9bd782e525637f7755d773dab3d004dce3f5593b1055bfa5d594c40",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110670,7 +110670,7 @@
     {
       "source": "docs/implementation/08-debugger-python-first.md",
       "locator": "line:76-85",
-      "sha256": "cca31c30fdf01d712c684440931ac79df6d62870235bdd713853fb985f0a3362",
+      "sha256": "ee3a760c3da92b085d7280c3e9208c5329a364c01eaf8d34d01de39c7897709a",
       "excerpt": "## Limits and qualification\n\nThe DAP transport has bounded framing, pending requests, output and deadlines, correlation checks and rejection of reverse process-",
       "review_families": [
         "devices"
@@ -110678,7 +110678,16 @@
     },
     {
       "source": "docs/implementation/08-debugger-python-first.md",
-      "locator": "line:86-90",
+      "locator": "line:86-109",
+      "sha256": "e11031351f8547cbaaf50364902ede82c6ec7586c0ee71dfa4c1ca2e47673350",
+      "excerpt": "## Forward an owned debugger session through Syn\n\nThe forwarding route carries typed debugger Cogs between two enrolled Agents over Syn private pub/sub. The ope",
+      "review_families": [
+        "devices"
+      ]
+    },
+    {
+      "source": "docs/implementation/08-debugger-python-first.md",
+      "locator": "line:110-114",
       "sha256": "35b94a0a9903f6b1fdc3e82a52436ea507b4e659e33ddaf12db368a50cbaf3ed",
       "excerpt": "## Source-preview publication\n\nThe [release workflow](../../.github/workflows/release.yml) builds the exact versioned tag, checks source/package identity and a ",
       "review_families": [
@@ -122038,7 +122047,7 @@
         {
           "path": "src/potbot/syn_release/mesh.py",
           "symbol": "LiveSynParticipant",
-          "sha256": "493c61cb021a517e4b106d5ab8e4774eb46c22214b17510800577a7091cbf0ed",
+          "sha256": "8a80a0f389c2dd55ddd39c53186e773c175a89897891dfeeb4d05b7cb88c8064",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -122520,8 +122529,14 @@
         {
           "path": "src/potbot/debugging/session.py",
           "symbol": "DebugSession",
-          "sha256": "889a56ba5d44ce13de2cfb715645307c5ed9e1838df316e0e6bbc13c821bbca0",
+          "sha256": "3f509d023e93b4a1ccb79b9903f523f175ceb842e4aa6d2551ab97a957b3667f",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/debugging/syn_forwarding.py",
+          "symbol": "SynDebuggerRoute",
+          "sha256": "65f9f170cb34cb7b385cfe2b6177fa4ef2c99d87d7b64441da8650bc75d1d0d0",
+          "basis": "Source inspection of the private debugger route and reconnect coverage"
         }
       ],
       "tests": [
@@ -122530,6 +122545,12 @@
           "symbol": "test_actual_python_cogs_break_step_stack_and_statistics",
           "sha256": "3647fadc488a94aab128b47b10aa66cacc915b4aebc83ae1bb0b5a7325e6abaf",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/unit/test_syn_debugger_forwarding.py",
+          "symbol": "test_forwarding_discards_old_signed_reply_and_does_not_resend",
+          "sha256": "1fc4c98695dd282b07882bec7aca9e63a4d270892e0186d22f1879046588c6be",
+          "basis": "Source inspection of the private debugger route and reconnect coverage"
         }
       ],
       "assessment": "Python-first debugger and typed session/target receipts are foundations. Android/Apple/remote native/profiler/board/probe/ICSP targets remain independently unqualified; no physical target has been supplied.",
