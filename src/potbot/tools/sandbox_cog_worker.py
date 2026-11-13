@@ -21,6 +21,7 @@ import json
 import os
 import re
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -87,6 +88,12 @@ class SandboxedCogOperation:
             raise InvalidInputError("sandbox Cog needs a bounded, pinned guest executable")
         if self.binding.parent_event_id or self.binding.links:
             raise ScopeDeniedError("Cog cause belongs to an invocation, not the installation")
+
+    @property
+    def directed_rest(self) -> bool:
+        from potbot.tools.rest_cog import REQUEST
+
+        return self.binding.input_type_ref == REQUEST
 
     @property
     def directed_queue(self) -> bool:
@@ -417,11 +424,21 @@ class SandboxedCogExecutor:
         agent_id: UUID,
         *,
         syn_authorization: SynCogGrant | None = None,
+        rest_read: Callable[[], dict[str, Any]] | None = None,
     ) -> TypedCogValue:
         if not isinstance(op, SandboxedCogOperation) or not isinstance(agent_id, UUID):
             raise ScopeDeniedError("Cog worker requires trusted installed operation and agent")
         if source.type_ref != op.binding.input_type_ref:
             raise ScopeDeniedError("Cog work source differs from pinned typed port")
+        if op.directed_rest != (rest_read is not None) or (
+            op.directed_rest
+            and (
+                op.protocol != "context-rpc/v1"
+                or self._syn_context_route is None
+                or not isinstance(self.syn_mesh, ReleasedSynWorkerNodeMesh)
+            )
+        ):
+            raise ScopeDeniedError("REST worker requires its broker and released Syn route")
         if op.directed_queue and getattr(self, "_syn_context_route", None) is None:
             raise CapabilityUnavailableError("Directed queue work requires a verified Syn route")
         # Separate SYN node runtime instance for each admitted worker. The
@@ -466,6 +483,7 @@ class SandboxedCogExecutor:
                         node.fault_event,
                         syn_route=route,
                         syn_agent=live_native_agent if route is not None else None,
+                        rest_read=rest_read,
                     )
                 )
             else:

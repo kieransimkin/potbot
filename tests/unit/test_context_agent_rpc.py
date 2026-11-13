@@ -584,3 +584,64 @@ def test_mutation_request_without_explicit_reason_or_revision_is_not_accepted():
         bad = {k: v for k, v in good.items() if k != name}
         with pytest.raises(InvalidInputError):
             parse_request(encoded(bad))
+
+
+def test_rest_worker_discloses_and_acknowledges_only_the_observed_value():
+    from types import SimpleNamespace
+
+    from potbot.context.rpc_contract import WorkRequest
+    from potbot.context.work_exchange import ContextWorkExchange
+    from potbot.domain.errors import IndeterminateExecutionError, StateMismatchError
+    from potbot.tools.rest_cog import REQUEST, RESULT
+
+    context = {
+        "schema_version": 1,
+        "operation_ref": "syn://thing/test-rest",
+        "invocation_id": str(uuid4()),
+        "input": {"type_ref": REQUEST, "value": {"arguments": {"query": {"secret": "input"}}}},
+    }
+    result = {"status": "succeeded", "value": {"count": 1}, "observation_sha256": "a" * 64}
+    calls = []
+
+    def provide():
+        calls.append("GET")
+        return result
+
+    store = SimpleNamespace(admit_work_read=lambda _: None, complete_work=lambda *_: {"ok": True})
+    grant = object()
+    exchange = ContextWorkExchange(context, RESULT, work_only=True, provide_value=provide)
+    request = WorkRequest(uuid4(), "work.input")
+    assert exchange.execute(store, grant, request)["work"]["input"] == {
+        "type_ref": RESULT,
+        "value": result,
+    }
+    with pytest.raises(StateMismatchError, match="already requested"):
+        exchange.execute(store, grant, request)
+
+    def acknowledge(value):
+        return exchange.execute(
+            store,
+            grant,
+            WorkRequest(
+                uuid4(),
+                "work.result",
+                {"schema_version": 1, "type_ref": RESULT, "value": value},
+            ),
+        )
+
+    with pytest.raises(ScopeDeniedError, match="retained REST observation"):
+        acknowledge({**result, "value": {"count": True}})
+    assert acknowledge(result) == {"ok": True}
+    assert calls == ["GET"]
+
+    def uncertain():
+        calls.append("GET")
+        raise IndeterminateExecutionError("Fixture lost upstream response")
+
+    exchange = ContextWorkExchange(context, RESULT, work_only=True, provide_value=uncertain)
+    with pytest.raises(IndeterminateExecutionError):
+        exchange.execute(store, grant, request)
+    assert exchange.provider_uncertain
+    with pytest.raises(StateMismatchError, match="already requested"):
+        exchange.execute(store, grant, request)
+    assert calls == ["GET", "GET"]

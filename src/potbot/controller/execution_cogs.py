@@ -6,7 +6,7 @@ import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from potbot.cogs.contracts import CogOutcome, CogReceipt, CogRunContext, CogSignature, TypedCogValue
@@ -36,6 +36,9 @@ from potbot.tools.sandbox_cog_worker import (
     require_isolated_work,
 )
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
+
+if TYPE_CHECKING:
+    from potbot.tools.api_https import InstalledRestRead
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +163,7 @@ class ExecutionCogRuntime:
         sandbox_agent_id: UUID | None = None,
         child_plans: tuple[InstalledChildPlan, ...] = (),
         admit_transport_recovery: Callable[[UUID], None] | None = None,
+        rest_read: InstalledRestRead | None = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -186,6 +190,25 @@ class ExecutionCogRuntime:
             len(operations) != 1 or artifact_ranges is not None or browser_service is not None
         ):
             raise ScopeDeniedError("Queue requires a dedicated installed transport profile")
+        rest_ops = tuple(op for op in operations if op.directed_rest)
+        if bool(rest_ops) != (rest_read is not None) or (
+            rest_ops
+            and (
+                len(operations) != 1
+                or artifact_ranges is not None
+                or browser_service is not None
+                or receipts is not None
+            )
+        ):
+            raise ScopeDeniedError("REST read requires a dedicated installed transport profile")
+        if rest_read is not None:
+            from potbot.tools.api_https import InstalledRestRead
+            from potbot.tools.rest_cog import require_rest_cog
+
+            if not isinstance(rest_read, InstalledRestRead) or rest_read.actor != actor:
+                raise ScopeDeniedError("REST installation belongs to another principal")
+            require_rest_cog(rest_read, rest_ops[0])
+        self.rest_read = rest_read
         self.admit_transport_recovery = admit_transport_recovery
         if operations and (
             not isinstance(sandbox_executor, SandboxedCogExecutor)
@@ -251,10 +274,16 @@ class ExecutionCogRuntime:
             ember_bundle = browser_ember_bundle
             self._direct_operations = browser_operations(browser_service, policy)
         else:
-            self.registry = BoundCogRegistry.provenance(queue_transport=bool(queue_operations))
+            self.registry = BoundCogRegistry.provenance(
+                queue_transport=bool(queue_operations), rest_read=bool(rest_ops)
+            )
             from functools import partial
 
-            ember_bundle = partial(execution_ember_bundle, queue_transport=bool(queue_operations))
+            ember_bundle = partial(
+                execution_ember_bundle,
+                queue_transport=bool(queue_operations),
+                rest_read=bool(rest_ops),
+            )
             self._direct_operations = {}
         with database.transaction(actor) as connection:
             sealed = SynService._snapshot(connection, actor, snapshot_id)
@@ -331,6 +360,11 @@ class ExecutionCogRuntime:
         self, signature: CogSignature, source: TypedCogValue, context: CogRunContext
     ) -> CogOutcome:
         return await self._invoke(signature, source, context)
+
+    def recover_rest_read(self, run_id: UUID) -> dict[str, Any]:
+        from potbot.controller.rest_read import recover_rest_read
+
+        return recover_rest_read(self.db, self.artifacts, self.actor, run_id)
 
     async def reconcile_transport_effect(self, run_id: UUID) -> dict[str, Any]:
         from potbot.controller.sandbox_transport import reconcile_queue_effect
@@ -413,6 +447,14 @@ class ExecutionCogRuntime:
         if isinstance(op, SandboxedCogOperation) and op.binding.input_type_ref == QUEUE_REQUEST:
             assert self.sandbox_agent_id is not None
             queue_effect = QueueEffect.installed(op, typed.value, self.sandbox_agent_id)
+        rest_attempt = None
+        if isinstance(op, SandboxedCogOperation) and op.directed_rest:
+            from potbot.controller.rest_read import RestReadAttempt
+
+            assert self.rest_read is not None
+            rest_attempt = RestReadAttempt(
+                self.db, self.artifacts, self.actor, self.rest_read, typed, context
+            )
         journal = PinnedExecutionJournal(
             self.db,
             self.artifacts,
@@ -490,6 +532,11 @@ class ExecutionCogRuntime:
                                 self.actor,
                                 self.sandbox_agent_id,
                                 syn_authorization=syn_grant,
+                                **(
+                                    {"rest_read": rest_attempt.execute}
+                                    if rest_attempt is not None
+                                    else {}
+                                ),
                             )
                             # Validate the parent result before authorizing *any*
                             # planned child effect. A malformed guest response

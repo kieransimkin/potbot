@@ -214,9 +214,10 @@ async def execute_context_operation(
     *,
     syn_route: SynContextRoute | None = None,
     syn_agent: Callable[[], tuple[str, str]] | None = None,
+    rest_read: Callable[[], dict[str, Any]] | None = None,
 ) -> Any:
     """Typed work and context RPC on one declared protocol; no stdout sniffing."""
-    if (syn_route is None) != (syn_agent is None):
+    if (syn_route is None) != (syn_agent is None) or (rest_read is not None and syn_route is None):
         raise ScopeDeniedError("Syn Context routing requires a live native Agent pin")
     from potbot.cogs.contracts import TypedCogValue
     from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
@@ -261,6 +262,7 @@ async def execute_context_operation(
     projections = None
     launch = None
     process = None
+    channel = None
     stopped = False
     dispatched = False
     # Preparation has effects (placeholders); retain its outcome even on cancellation.
@@ -307,6 +309,13 @@ async def execute_context_operation(
         dispatched = True
         launch = asyncio.create_task(supervisor.open(request, cancelled=cancelled))
         process = await asyncio.shield(launch)
+        exchange = ContextWorkExchange(
+            envelope,
+            op.binding.output_type_ref,
+            allow_mutations=op.binding.effect_class != "read_only",
+            work_only=directed_queue or rest_read is not None,
+            provide_value=rest_read,
+        )
         channel = ContextWorkerChannel(
             store=ContextSessionStore(binding.database),
             principal=actor,
@@ -316,17 +325,14 @@ async def execute_context_operation(
             check_operator=active,
             syn_route=syn_route,
             syn_agent=syn_agent,
-            work_exchange=ContextWorkExchange(
-                envelope,
-                op.binding.output_type_ref,
-                allow_mutations=op.binding.effect_class != "read_only",
-                work_only=directed_queue,
-            ),
+            work_exchange=exchange,
         )
         result = await channel.serve(process)
         stopped = result.exit.processes_stopped is True
         if not stopped:
             raise IndeterminateExecutionError("Worker shutdown was not confirmed")
+        if exchange.provider_uncertain:
+            raise IndeterminateExecutionError("REST response requires provider reconciliation")
         if result.exit.return_code != 0 or result.output is None:
             raise StateMismatchError("Worker did not complete its declared result protocol")
         encoded = bounded_work(result.output)
@@ -365,20 +371,21 @@ async def execute_context_operation(
                     pass
             if process is not None and not stopped:
                 try:
-                    receipt = await process.close(force=True)
+                    receipt = getattr(channel, "exit_receipt", None)
+                    if receipt is None:
+                        receipt = await process.close(force=True)
                     stopped = receipt.processes_stopped is True
                 except BaseException:
                     pass
             if guard.lease is not None and not getattr(guard, "_finished", False):
-                if directed_queue and stopped:
-                    # The target's receipt remains authoritative. Release a
-                    # confirmed stopped worker so a new admitted resolver can
-                    # reconcile the same effect ID without reapplying it.
+                if (directed_queue or rest_read is not None) and stopped:
+                    # A confirmed stop releases process ownership. The durable
+                    # dispatch and receipt still govern the provider outcome.
                     try:
                         await _settle(
                             lambda: guard.finish(
                                 evidence_sha256=admission_digest(
-                                    "stopped-queue-effect-unknown:" + str(cog.invocation_id)
+                                    "stopped-directed-transport:" + str(cog.invocation_id)
                                 )
                             )
                         )
