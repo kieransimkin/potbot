@@ -25,6 +25,7 @@ from uuid import UUID, uuid4
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 
 from .agent import AgentSession, SynAgentDeployment
+from .cog_enrollment import cog_enrollment_sha256
 from .commands import SynPublicCommands
 from .contracts import canonical
 from .store import _directory, _write_new
@@ -203,6 +204,7 @@ class SynPrivateMesh(SynPublicCommands):
             "agent_id": str(agent_id),
             "session_id": self.scope["session_id"],
             "node": selected.selected_hash,
+            "enrollment_sha256": cog_enrollment_sha256(selected.proof),
             "boot_id": selected.proof["status"]["boot_id"],
             "manifest_sha256": policy.manifest_sha256,
             "release_policy_sha256": policy.fingerprint,
@@ -266,9 +268,11 @@ class SynPrivateMesh(SynPublicCommands):
         selected = self.participant(agent_id)
         if verify_installation:
             proof = selected.deployment.attach()
-            if proof["status"]["boot_id"] != selected.proof["status"]["boot_id"]:
+            if proof["status"]["boot_id"] != selected.proof["status"][
+                "boot_id"
+            ] or cog_enrollment_sha256(proof) != cog_enrollment_sha256(selected.proof):
                 raise StateMismatchError(
-                    "Native Agent restarted; reconcile its admitted mesh session"
+                    "Native Agent boot or enrollment changed; reconcile its admitted mesh session"
                 )
             selected.session.observe(proof, owner_uid=selected.deployment.uid)
         value = self.call(agent_id, "status")

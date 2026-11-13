@@ -16,6 +16,7 @@ from uuid import UUID
 from potbot.domain.errors import DomainError, ScopeDeniedError, StateMismatchError
 
 from .agent import SynAgentDeployment
+from .cog_enrollment import cog_enrollment_sha256
 from .contracts import Policy, canonical, document, fields
 from .store import SynReleaseStore, private_read
 
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--group-epoch", type=int, required=True)
     parser.add_argument("--approved-device-profile", required=True)
     parser.add_argument("--new-identity", action="store_true")
+    parser.add_argument("--cog-enrollment-pin", action="store_true")
     args = parser.parse_args(argv)
     try:
         if sys.platform != "linux" or os.getuid() != 0:
@@ -59,10 +61,24 @@ def main(argv: list[str] | None = None) -> int:
             device_profile=args.approved_device_profile,
             policy_path=args.policy,
         )
+        if args.cog_enrollment_pin and args.operation != "attach":
+            raise ScopeDeniedError("Cog enrollment pins require a verified attachment")
         if args.operation == "attach":
             if args.new_identity:
                 raise ScopeDeniedError("Read-only attachment cannot create an identity")
-            _output(deployment.attach())
+            proof = deployment.attach()
+            if args.cog_enrollment_pin:
+                _output(
+                    {
+                        "agent_id": str(deployment.agent_id),
+                        "node_sha256": proof["status"]["group_certificate"]["body"][
+                            "node_public_key_hash"
+                        ],
+                        "enrollment_sha256": cog_enrollment_sha256(proof),
+                    }
+                )
+            else:
+                _output(proof)
             return 0
         with deployment.session(new_identity=args.new_identity) as session:
             _output(session.initial)
