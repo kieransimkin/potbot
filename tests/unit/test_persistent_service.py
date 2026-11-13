@@ -91,10 +91,12 @@ class _null_context:
 def test_service_unit_keeps_user_service_settings(monkeypatch, tmp_path):
     directory = tmp_path / "workspace with %"
     monkeypatch.setattr(service, "project_root", lambda: directory)
+    monkeypatch.setenv("POTBOT_CREDENTIAL_PROFILE", "managed-wsl")
     unit = service._systemd_unit()
     assert f"WorkingDirectory={str(directory).replace('%', '%%')}" in unit.splitlines()
     assert "--user" not in unit
     assert "NoNewPrivileges=true" in unit
+    assert "Environment=POTBOT_CREDENTIAL_PROFILE=managed-wsl" in unit.splitlines()
     assert "potbot.startup" in unit
     assert "Restart=on-failure" in unit
 
@@ -229,3 +231,49 @@ def test_systemd_user_service_only_loads_scoped_monitor_settings_when_requested(
     directive = f"EnvironmentFile=-{ENV_FILE}"
     assert directive not in service._systemd_unit()
     assert directive in service._systemd_unit(scoped_worker_launcher=True)
+
+
+def test_debugger_child_is_started_once_and_requires_explicit_recovery(monkeypatch, tmp_path):
+    monkeypatch.setattr(service, "project_root", lambda: tmp_path)
+    monkeypatch.setattr(service, "credential_profile", lambda: "default")
+    monkeypatch.setattr(service.signal, "signal", lambda *args: None)
+    commands = []
+
+    class Stop:
+        count = 0
+
+        def is_set(self):
+            return self.count >= 3
+
+        def wait(self, _):
+            self.count += 1
+
+    def popen(command, **_):
+        commands.append(command)
+        return SimpleNamespace(
+            pid=3,
+            poll=lambda: 2 if command[2] == "potbot.debugging.service" else None,
+            terminate=lambda: None,
+            wait=lambda **_: 0,
+        )
+
+    monkeypatch.setattr(
+        service,
+        "threading",
+        SimpleNamespace(Event=Stop, Thread=lambda **_: SimpleNamespace(start=lambda: None)),
+    )
+    monkeypatch.setattr(service.subprocess, "Popen", popen)
+    registration = tmp_path / "registration.json"
+    config = service.ServiceConfig(
+        str(uuid4()),
+        str(uuid4()),
+        str(tmp_path / "policy.json"),
+        debugger_forwarding=str(registration),
+    )
+    assert service._supervise(config) == 0
+    debugger = [command for command in commands if command[2] == "potbot.debugging.service"]
+    assert len(debugger) == 1
+    assert debugger[0][-2:] == ["--registration", str(registration)]
+    records = (service.service_home() / "supervisor.jsonl").read_text().splitlines()
+    stops = [json.loads(record) for record in records if "service.debugger_stopped" in record]
+    assert len(stops) == 1 and stops[0]["recovery_required"] is True
