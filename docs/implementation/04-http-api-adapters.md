@@ -85,6 +85,14 @@ sequenceDiagram
 
 `ExecutionCogRuntime.recover_rest_read(run_id)` reads the receipt for the original principal and validates its digest and settlement. It never opens the worker channel or contacts the provider. A lost worker reply can leave the Cog indeterminate with a settled provider receipt. If the provider response itself is unavailable, the invocation stays unresolved with a held reservation. The profile covers one read-only operation and accounts for its reserved deadline as a conservative estimate.
 
+### Pinned GraphQL query
+
+Use `InstalledGraphqlRead` with the `providers` extra and `install_graphql_cog` to admit a named query over the same directed Syn route. The installation pins the query document, variable and response schemas, origin, path and principal. Potbot parses the document at installation and accepts a single query definition. The caller supplies a variables object and the controller sends one HTTPS POST. Responses with GraphQL errors or data that fails the pinned schema yield a failed observation.
+
+The sequence above also applies to GraphQL. Replace the GET with the fixed POST and select the GraphQL Cog profile when importing the execution catalogue. `ExecutionCogRuntime.recover_graphql_read(run_id)` reads GraphQL receipts and settlement by the original invocation ID. The REST and GraphQL profiles keep separate ports and receipt types. The TLS fixture in `test_mcp_http_broker.py` captures the named query and variables that reached the server and checks that a caller-supplied query is rejected before dialing.
+
+A managed WSL run of implementation revision `64baca1` used the signed Syn 0.10.0 release, two disposable enrolled Agents, the signed worker image and the installed TASKSTATS launcher. A disposable TLS provider received two GraphQL POSTs and both calls settled in PostgreSQL. After one signed reply was dropped, a fresh controller recovered the saved result. Repeated recovery and a duplicate invocation sent zero extra requests. The interrupted worker's lease remained fenced because it had no complete stop audit.
+
 ## Reproduce
 
 From a checked-out Potbot repository after `git apply` and its locked `uv sync`:

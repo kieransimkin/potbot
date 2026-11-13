@@ -415,6 +415,15 @@ wheels = [
 ]
 
 [[package]]
+name = "graphql-core"
+version = "3.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/11/511b9487dd338a9cd98a8040a1f20feaa99b2f2e4921c049cb9cbbff2870/graphql_core-3.3.2.tar.gz", hash = "sha256:15d6eee7d4364fbc202833bc6bd0d504004d8ae7c0aaf620fa884d8e437622f2", size = 794346, upload-time = "2026-11-06T21:41:54.017Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/c0/dec5c3a96d9e47c7aaaa6a062e065e6c738d67d11a9cda15705592f45409/graphql_core-3.3.2-py3-none-any.whl", hash = "sha256:d83f49ee18d2db89fb575dab6ffefa8aa1bf5f60dff8a6781db6f63420041348", size = 366135, upload-time = "2026-11-06T21:41:52.327Z" },
+]
+
+[[package]]
 name = "grpcio"
 version = "1.84.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1087,6 +1096,7 @@ postgres = [
     { name = "psycopg", extra = ["binary"] },
 ]
 providers = [
+    { name = "graphql-core" },
     { name = "httpx" },
 ]
 security = [
@@ -1104,6 +1114,7 @@ web = [
 [package.dev-dependencies]
 dev = [
     { name = "fastapi" },
+    { name = "graphql-core" },
     { name = "grpcio" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -1122,6 +1133,7 @@ requires-dist = [
     { name = "cryptography", marker = "extra == 'security'", specifier = "==50.0.2" },
     { name = "debugpy", marker = "extra == 'debugger'", specifier = "==1.8.22" },
     { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.115,<1" },
+    { name = "graphql-core", marker = "extra == 'providers'", specifier = "==3.3.2" },
     { name = "httpx", marker = "extra == 'providers'", specifier = ">=0.28,<1" },
     { name = "jsonschema", marker = "extra == 'semantics'", specifier = ">=4.26,<5" },
     { name = "keyring", marker = "extra == 'credentials'", specifier = "==25.7.0" },
@@ -1137,6 +1149,7 @@ provides-extras = ["postgres", "embeddings", "semantics", "credentials", "provid
 [package.metadata.requires-dev]
 dev = [
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "graphql-core", specifier = "==3.3.2" },
     { name = "grpcio", specifier = ">=1.75,<2" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jsonschema", specifier = ">=4.26,<5" },

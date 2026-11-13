@@ -60,7 +60,7 @@ EXECUTION_COGS = (*WORK_COGS, SEAL, REPLAY)
 
 
 def execution_cog_snapshot(
-    *, queue_transport: bool = False, rest_read: bool = False
+    *, queue_transport: bool = False, rest_read: bool = False, graphql_read: bool = False
 ) -> SynSnapshot:
     from potbot.cogs.debugger import debugger_cog_snapshot
     from potbot.cogs.registry import _type, builtin_cog_snapshot
@@ -99,10 +99,10 @@ def execution_cog_snapshot(
         transport_schemas = queue_schemas()
         wire_schemas.update(transport_schemas)
         refs += tuple(transport_schemas)
-    if rest_read:
+    if rest_read or graphql_read:
         from potbot.tools.rest_cog import schemas as rest_schemas
 
-        transport_schemas = rest_schemas()
+        transport_schemas = rest_schemas(graphql=graphql_read)
         wire_schemas.update(transport_schemas)
         refs += tuple(transport_schemas)
     for ref in refs:
@@ -164,6 +164,8 @@ def execution_cog_snapshot(
             if queue_transport
             else "potbot-execution-rest-read-v1"
             if rest_read
+            else "potbot-execution-graphql-read-v1"
+            if graphql_read
             else "potbot-execution-provenance-v1"
         ),
         types=tuple(types),
@@ -178,6 +180,7 @@ def execution_ember_bundle(
     namespace: str,
     queue_transport: bool = False,
     rest_read: bool = False,
+    graphql_read: bool = False,
 ) -> EmberContractBundle:
     from potbot.cogs.tool_contracts import contract_ember_bundle
 
@@ -185,7 +188,9 @@ def execution_ember_bundle(
         workspace_id=workspace_id,
         snapshot_id=snapshot_id,
         namespace=namespace,
-        _snapshot=execution_cog_snapshot(queue_transport=queue_transport, rest_read=rest_read),
+        _snapshot=execution_cog_snapshot(
+            queue_transport=queue_transport, rest_read=rest_read, graphql_read=graphql_read
+        ),
         _installed=EXECUTION_COGS,
         _cog_type=WORK_COG,
     )

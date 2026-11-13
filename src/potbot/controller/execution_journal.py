@@ -114,6 +114,7 @@ class PinnedExecutionJournal:
         if context.cog_snapshot_hash in {
             execution_cog_snapshot(queue_transport=True).fingerprint,
             execution_cog_snapshot(rest_read=True).fingerprint,
+            execution_cog_snapshot(graphql_read=True).fingerprint,
         }:
             expected_catalog = context.cog_snapshot_hash
         if context.cog_snapshot_hash != expected_catalog:

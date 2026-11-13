@@ -113,7 +113,7 @@ class ContextWorkExchange:
             work = bounded_work(self._input)
             if self._provide_value is not None:
                 if self._provider_started:
-                    raise StateMismatchError("REST input already requested")
+                    raise StateMismatchError("Provider input already requested")
                 self._provider_started = True
                 try:
                     self._provided = bounded_work(self._provide_value())
@@ -134,7 +134,7 @@ class ContextWorkExchange:
         if self._provide_value is not None and (
             self._provided is None or content_hash(output["value"]) != content_hash(self._provided)
         ):
-            raise ScopeDeniedError("Worker result differs from the retained REST observation")
+            raise ScopeDeniedError("Worker result differs from the retained provider observation")
         receipt = store.complete_work(grant, request)
         self._result = output
         return receipt
