@@ -55,7 +55,35 @@ sequenceDiagram
     I-->>C: Return schema-checked observation
 ```
 
-This controller profile supports one read without credentials, pagination, redirects or retries. The test compiles a selected OpenAPI operation and executes it against a disposable TLS listener. A different query is refused before the socket opens. The managed follow-up is to install this operation behind the released-Syn worker Cog, bind its egress to durable admission and verify accounting and reply loss through that entry point.
+This controller profile supports one read without credentials, pagination, redirects or retries. The test compiles a selected OpenAPI operation and executes it against a disposable TLS listener. A different query is refused before the socket opens.
+
+### Managed Syn worker
+
+The operator pairs `InstalledRestRead` with `install_rest_cog` and seals the `rest_read` execution catalogue. The Cog pins the installed operation, the guest interpreter and the Context client from the worker image. The worker uses directed Syn Context RPC. Its first request triggers the controller's single approved GET. The controller records the dispatch and reserves one call before contacting the provider. It saves the response and settles the reservation in one database transaction before sending the signed reply. The worker acknowledges the returned typed observation and shuts down under audit.
+
+```mermaid
+sequenceDiagram
+    participant W as TASKSTATS worker
+    participant S as Released Syn
+    participant C as Potbot controller
+    participant J as PostgreSQL and artifact store
+    participant P as Pinned HTTPS provider
+    W->>S: Request installed work
+    S->>C: Deliver admitted request
+    C->>J: Commit dispatch and reserve one call
+    C->>P: Send one GET
+    P-->>C: Return schema-checked result
+    C->>J: Save observation and settle one call
+    C-->>S: Return observation for signing
+    alt Signed reply arrives
+        S-->>W: Deliver observation
+        W->>S: Acknowledge typed result
+    else Signed reply is lost
+        C->>J: Recover retained receipt by invocation ID
+    end
+```
+
+`ExecutionCogRuntime.recover_rest_read(run_id)` reads the receipt for the original principal and validates its digest and settlement. It never opens the worker channel or contacts the provider. A lost worker reply can leave the Cog indeterminate with a settled provider receipt. If the provider response itself is unavailable, the invocation stays unresolved with a held reservation. The profile covers one read-only operation and accounts for its reserved deadline as a conservative estimate.
 
 ## Reproduce
 

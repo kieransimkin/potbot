@@ -264,6 +264,7 @@ class ToolSemanticCatalog:
         from potbot.tools.browser_cog_contracts import schemas as browser_schemas
         from potbot.tools.execution_schemas import schemas as execution_schemas
         from potbot.tools.queue_transport import schemas as queue_schemas
+        from potbot.tools.rest_cog import schemas as rest_schemas
 
         definitions = schemas()
         definitions.update(
@@ -275,6 +276,7 @@ class ToolSemanticCatalog:
                     **artifact_upload_schemas(),
                     **browser_schemas(),
                     **queue_schemas(),
+                    **rest_schemas(),
                 }.items()
                 if type_identity(ref) in known
             }

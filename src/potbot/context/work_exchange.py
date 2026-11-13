@@ -7,6 +7,7 @@ return a bounded result, but cannot select an operation, actor or child command.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from potbot.context.rpc_contract import (
@@ -16,7 +17,13 @@ from potbot.context.rpc_contract import (
     WorkRequest,
     canonical_uuid,
 )
-from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
+from potbot.domain.errors import (
+    IndeterminateExecutionError,
+    InvalidInputError,
+    ScopeDeniedError,
+    StateMismatchError,
+)
+from potbot.domain.serialization import content_hash
 
 if TYPE_CHECKING:
     from potbot.context.sessions import ContextSession, ContextSessionStore
@@ -47,6 +54,7 @@ class ContextWorkExchange:
         *,
         allow_mutations: bool = True,
         work_only: bool = False,
+        provide_value: Callable[[], dict[str, Any]] | None = None,
     ) -> None:
         if (
             not isinstance(output_type_ref, str)
@@ -72,6 +80,10 @@ class ContextWorkExchange:
         ):
             raise InvalidInputError("Invalid controller work envelope")
         canonical_uuid(self._input["invocation_id"])
+        self._provide_value = provide_value
+        self._provided: dict[str, Any] | None = None
+        self._provider_started = False
+        self.provider_uncertain = False
         self._port = output_type_ref
         self._result: dict[str, Any] | None = None
 
@@ -98,7 +110,18 @@ class ContextWorkExchange:
             if self._result is not None:
                 raise StateMismatchError("Typed work is already complete")
             store.admit_work_read(grant)
-            return {"revision": 1, "work": bounded_work(self._input)}
+            work = bounded_work(self._input)
+            if self._provide_value is not None:
+                if self._provider_started:
+                    raise StateMismatchError("REST input already requested")
+                self._provider_started = True
+                try:
+                    self._provided = bounded_work(self._provide_value())
+                except IndeterminateExecutionError:
+                    self.provider_uncertain = True
+                    raise
+                work["input"] = {"type_ref": self._port, "value": self._provided}
+            return {"revision": 1, "work": bounded_work(work)}
         assert request.result is not None
         output = bounded_work(request.result)
         if (
@@ -108,6 +131,10 @@ class ContextWorkExchange:
             or output["type_ref"] != self._port
         ):
             raise ScopeDeniedError("Typed work changed its installed output port")
+        if self._provide_value is not None and (
+            self._provided is None or content_hash(output["value"]) != content_hash(self._provided)
+        ):
+            raise ScopeDeniedError("Worker result differs from the retained REST observation")
         receipt = store.complete_work(grant, request)
         self._result = output
         return receipt

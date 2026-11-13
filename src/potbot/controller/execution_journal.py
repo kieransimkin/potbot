@@ -111,7 +111,10 @@ class PinnedExecutionJournal:
 
         allowed: tuple[CogSignature, ...] = EXECUTION_COGS
         expected_catalog = execution_cog_snapshot().fingerprint
-        if context.cog_snapshot_hash == execution_cog_snapshot(queue_transport=True).fingerprint:
+        if context.cog_snapshot_hash in {
+            execution_cog_snapshot(queue_transport=True).fingerprint,
+            execution_cog_snapshot(rest_read=True).fingerprint,
+        }:
             expected_catalog = context.cog_snapshot_hash
         if context.cog_snapshot_hash != expected_catalog:
             expected_catalog = artifact_range_snapshot().fingerprint
