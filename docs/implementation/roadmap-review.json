@@ -938,6 +938,12 @@
           "symbol": "serve",
           "sha256": "dfd9e5a68213f85c68cdf1a3146b51d763bab9658677af0ff0969b50beff03ca",
           "basis": "Source inspection of the installed debugger service and its focused tests"
+        },
+        {
+          "path": "src/potbot/tools/python_profile.py",
+          "symbol": "compare_python_profile",
+          "sha256": "99691c96c5f36b02798e1302c037ad7970c195e2a10ddf8023b3813ca4110086",
+          "basis": "Source inspection of the bounded Python profiler and its real Linux acceptance"
         }
       ],
       "tests": [
@@ -964,9 +970,15 @@
           "symbol": "test_debugger_child_is_started_once_and_requires_explicit_recovery",
           "sha256": "292cafa1b8bf811a3328449e8828f34c505227baed1b835a3fa85a3e1c4e45bd",
           "basis": "Source inspection of the installed debugger service and its focused tests"
+        },
+        {
+          "path": "tests/integration/test_python_profile.py",
+          "symbol": "test_python_profile_finds_hotspot_and_measures_paired_overhead",
+          "sha256": "98f88a7f031a1d3261f8628e85254da46b6b6edd9e81c1e6007c99821bc57764",
+          "basis": "Source inspection of the bounded Python profiler and its real Linux acceptance"
         }
       ],
-      "assessment": "Python-first debugger and typed session/target receipts are foundations. Android/Apple/remote native/profiler/board/probe/ICSP targets remain independently unqualified; no physical target has been supplied.",
+      "assessment": "Python debugging and bounded local cProfile comparisons have real Linux fixture evidence. Broader allocation, browser, mobile, native and physical probe profiles require independent qualification.",
       "support_scope": "Python debugger tests and language-neutral representation; no inference of device availability from Types.",
       "remaining": [
         "Identify each real target/probe and qualify stop/step/stack/variables, process identity and protected transport",
@@ -63168,12 +63180,12 @@
     },
     {
       "path": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "sha256": "186daf15d3ddd18224ec3919c47d7e07ebef853a667d40e618209c818323defd",
+      "sha256": "1106a45489ea269ff20d6478452ccabfe784edbb1a5b71db4fbbad5ed68c589b",
       "families": [
         "devices"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Python-first debugger and typed session/target receipts are foundations. Android/Apple/remote native/profiler/board/probe/ICSP targets remain independently unqualified; no physical target has been supplied.",
+      "assessment": "The Python CPU slice compares the same bounded workload under the existing process supervisor with cProfile off and on. Other capture types and Cog admission require separate work.",
       "narrative": [
         {
           "locator": "line:1-8",
@@ -63197,42 +63209,49 @@
           ]
         },
         {
-          "locator": "line:39-47",
+          "locator": "line:39-62",
+          "sha256": "16b69c36076d8d85d66695802ec3decd8d2d80f03745f851720176909d256f4a",
+          "families": [
+            "devices"
+          ]
+        },
+        {
+          "locator": "line:63-71",
           "sha256": "815c245a4ef459d3707320c173a18308856d64442d9ca72d9018ea728dabf760",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:48-55",
+          "locator": "line:72-79",
           "sha256": "db31bf4df9e216c8766625d4cbba4f7d63d31bb3bfd03f57526c9b6112e2513b",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:56-68",
+          "locator": "line:80-92",
           "sha256": "eb3dd9ee15f578ea70e12c5f3bad2d75a898444f0dd460c9baf7ce00a7ba63d0",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:69-87",
+          "locator": "line:93-111",
           "sha256": "88dcba40d1ffda95c2a6244c7f415cf232cdba7ef2b82a71261ec935aff707c3",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:88-106",
+          "locator": "line:112-130",
           "sha256": "6f9e8aab3ac33da87735f6c73d41eb726633d39e4d63a44f87ee26e1ea626d60",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:107-119",
+          "locator": "line:131-143",
           "sha256": "7fedc454b4097d4ba8babd0996c288aed78e4b0096da83b84cbcbd0708b2531a",
           "families": [
             "devices"
@@ -67764,6 +67783,44 @@
           ]
         }
       ]
+    },
+    {
+      "path": "docs/implementation/media/python-profile-comparison.json",
+      "sha256": "a39ac610bc00075d6e73ef51f4f3b5063143888fd90ae1ae43b2a3f1d160edff",
+      "families": [
+        "devices"
+      ],
+      "disposition": "registry_or_historical_claim_not_fresh_execution",
+      "assessment": "The Python CPU slice compares the same bounded workload under the existing process supervisor with cProfile off and on. Other capture types and Cog admission require separate work.",
+      "narrative": [
+        {
+          "locator": "line:1-311",
+          "sha256": "8147a987c18d0f19b77355856b2e5c1bb87f4c9a4464b12513c5685b2b5deff4",
+          "families": [
+            "devices"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/implementation/media/python-profile-comparison.png",
+      "sha256": "adeedfa22413e47045a10cb41208d6b585d6e3a72ebb3b487787f7f7f97073b4",
+      "families": [
+        "devices"
+      ],
+      "disposition": "asset_identity_only_not_execution_evidence",
+      "assessment": "The Python CPU slice compares the same bounded workload under the existing process supervisor with cProfile off and on. Other capture types and Cog admission require separate work.",
+      "narrative": []
+    },
+    {
+      "path": "docs/implementation/media/python-profile-comparison.webm",
+      "sha256": "98bb4634c5fd3fea35c858581e4affac4a4377c6122ce10593ade4f6f6a5accf",
+      "families": [
+        "devices"
+      ],
+      "disposition": "asset_identity_only_not_execution_evidence",
+      "assessment": "The Python CPU slice compares the same bounded workload under the existing process supervisor with cProfile off and on. Other capture types and Cog admission require separate work.",
+      "narrative": []
     },
     {
       "path": "docs/implementation/media/roadmap-inventory.svg",
@@ -83131,7 +83188,7 @@
       },
       {
         "path": ".github/workflows/ci.yml",
-        "sha256": "2856228278cdae4ec5502b6876e50bad9efce5118c4885eacb908b54c29792d5",
+        "sha256": "0c56086df73b523eb3ee47083816c41d4c684c128cb97dfa3feb89c7119ca3d4",
         "name": "Potbot verification",
         "state": "active",
         "scope": [

@@ -142,7 +142,9 @@ jobs:
             sudo apparmor_parser --replace "$potbot_bwrap_profile"
           fi
       - name: Verify sandbox setup before database tests
-        run: uv run --locked python -m pytest -q tests/integration/test_process_isolation.py
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/integration/test_process_isolation.py tests/integration/test_python_profile.py
       - name: Start real PostgreSQL with pgvector
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify sandbox transport crash recovery on PostgreSQL
