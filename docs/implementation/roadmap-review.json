@@ -63206,7 +63206,7 @@
     },
     {
       "path": "docs/implementation/08-debugger-python-first.md",
-      "sha256": "bd83706eefef366c7bb448dd8ff6bbc9b2360100a18ab80e561e09782b0a175b",
+      "sha256": "c22cc5eb29621a8ead4ba527f9ae83702b89050d976e072bf2d9fc6d3de331d3",
       "families": [
         "devices"
       ],
@@ -63249,14 +63249,14 @@
           ]
         },
         {
-          "locator": "line:76-81",
-          "sha256": "a7c5a503cf4db4e591207bf453234a8ff91ffdf42546eeda630bad1fb0b55d89",
+          "locator": "line:76-85",
+          "sha256": "cca31c30fdf01d712c684440931ac79df6d62870235bdd713853fb985f0a3362",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:82-86",
+          "locator": "line:86-90",
           "sha256": "35b94a0a9903f6b1fdc3e82a52436ea507b4e659e33ddaf12db368a50cbaf3ed",
           "families": [
             "devices"
@@ -67569,16 +67569,6 @@
       ]
     },
     {
-      "path": "docs/implementation/media/syn-010-browser-rpc.jpg",
-      "sha256": "f62efc7914e76222465b8f3355e8dd073fdb42a20566e4d47d38a38b163285d4",
-      "families": [
-        "browser"
-      ],
-      "disposition": "retained_media_evidence",
-      "assessment": "A rendered Chromium fixture frame shows the page after one directed browser command on managed WSL.",
-      "narrative": []
-    },
-    {
       "path": "docs/implementation/cross-agent-compatibility.md",
       "sha256": "9805c017fdd0aa344128a95c1ca31d57954cd904e74f577093d2c3f67afbb68a",
       "families": [
@@ -67708,6 +67698,24 @@
       "narrative": []
     },
     {
+      "path": "docs/implementation/media/python-debugger-private-target.json",
+      "sha256": "271be329d48b5235b2f97e36d38de1254b00df47707ac20c9b201f4d4710a963",
+      "families": [
+        "devices"
+      ],
+      "disposition": "registry_or_historical_claim_not_fresh_execution",
+      "assessment": "Sanitized output of an owned debugpy fixture across a private WSL network namespace.",
+      "narrative": [
+        {
+          "locator": "line:1-422",
+          "sha256": "87d4a77f1b823653cbac27eec3c07a595cdbc25fbdc3012c3fb46dd6a8c91745",
+          "families": [
+            "devices"
+          ]
+        }
+      ]
+    },
+    {
       "path": "docs/implementation/media/roadmap-inventory.svg",
       "sha256": "f9daa7bd341e794fdf74ea823e32927b37ee2d3ece83dc725ea554ea05e9807e",
       "families": [
@@ -67764,6 +67772,16 @@
       ],
       "disposition": "asset_identity_only_not_execution_evidence",
       "assessment": "Typed installed Cogs, sealed ports, controller-only grants and distinct transformation/dispatch/verification receipts are implemented for selected core operations. Every adapter and specialist still needs its own admitted binding.",
+      "narrative": []
+    },
+    {
+      "path": "docs/implementation/media/syn-010-browser-rpc.jpg",
+      "sha256": "f62efc7914e76222465b8f3355e8dd073fdb42a20566e4d47d38a38b163285d4",
+      "families": [
+        "browser"
+      ],
+      "disposition": "retained_media_evidence",
+      "assessment": "A rendered Chromium fixture frame shows the page after one directed browser command on managed WSL.",
       "narrative": []
     },
     {
@@ -80854,8 +80872,8 @@
         "identity"
       ],
       "status": "partial",
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL qualification with two disposable Agents and a disposable schema on the external PostgreSQL server over TLS verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment. Local Python debugger attach checks the selected process lifetime and exact configuration before dispatch. The managed MCP gateway supports principal-pinned installations and refuses cross-principal dispatch. Linux live debugpy and PostgreSQL gateway fixtures verified these paths. Remote debugger policy fixtures verify the selected identity and halt revision through the session boundary, including refusal before dispatch and invalidation when a stop changes during a read.",
-      "next_action": "Qualify the target checks on a protected remote Python process and an authorized board and probe, then broaden gateway coverage."
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL qualification with two disposable Agents and a disposable schema on the external PostgreSQL server over TLS verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment. Local Python debugger attach checks the selected process lifetime and exact configuration before dispatch. The managed MCP gateway supports principal-pinned installations and refuses cross-principal dispatch. Linux live debugpy and PostgreSQL gateway fixtures verified these paths. Remote debugger policy fixtures verify the selected identity and halt revision through the session boundary, including refusal before dispatch and invalidation when a stop changes during a read. A live debugpy process in a private WSL network namespace verified wrong-probe refusal, stopped inspections, stepping, expired-frame refusal and detach preserving the target. A controlled cut of the private relay while the target was stopped invalidated the session and its stop handle. The target owner verified that the process survived the cut and then stopped it.",
+      "next_action": "Qualify authenticated forwarding and recovery on a separate remote Python host, then qualify an authorized board and probe."
     },
     {
       "key": "tools:T03.2",

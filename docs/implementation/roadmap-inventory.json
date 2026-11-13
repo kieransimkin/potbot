@@ -289,12 +289,12 @@
     },
     {
       "path": "docs/implementation/08-debugger-python-first.md",
-      "sha256": "bd83706eefef366c7bb448dd8ff6bbc9b2360100a18ab80e561e09782b0a175b",
-      "bytes": 12589,
+      "sha256": "c22cc5eb29621a8ead4ba527f9ae83702b89050d976e072bf2d9fc6d3de331d3",
+      "bytes": 13858,
       "kind": "narrative_text",
-      "text_sha256": "bd83706eefef366c7bb448dd8ff6bbc9b2360100a18ab80e561e09782b0a175b",
-      "characters": 12589,
-      "lines": 86,
+      "text_sha256": "c22cc5eb29621a8ead4ba527f9ae83702b89050d976e072bf2d9fc6d3de331d3",
+      "characters": 13858,
+      "lines": 90,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -1067,6 +1067,16 @@
       "bytes": 1162313,
       "kind": "media",
       "interpretation": "asset_identity_only"
+    },
+    {
+      "path": "docs/implementation/media/python-debugger-private-target.json",
+      "sha256": "271be329d48b5235b2f97e36d38de1254b00df47707ac20c9b201f4d4710a963",
+      "bytes": 8714,
+      "kind": "structured_text",
+      "text_sha256": "271be329d48b5235b2f97e36d38de1254b00df47707ac20c9b201f4d4710a963",
+      "characters": 8714,
+      "lines": 422,
+      "interpretation": "source_content_not_runtime_evidence"
     },
     {
       "path": "docs/implementation/media/roadmap-inventory.svg",
@@ -31853,7 +31863,7 @@
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly",
         "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
-      "next_action": "Qualify the target checks on a protected remote Python process and an authorized board and probe, then broaden gateway coverage.",
+      "next_action": "Qualify authenticated forwarding and recovery on a separate remote Python host, then qualify an authorized board and probe.",
       "review_families": [
         "durable",
         "sandbox",
@@ -31868,7 +31878,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL qualification with two disposable Agents and a disposable schema on the external PostgreSQL server over TLS verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment. Local Python debugger attach checks the selected process lifetime and exact configuration before dispatch. The managed MCP gateway supports principal-pinned installations and refuses cross-principal dispatch. Linux live debugpy and PostgreSQL gateway fixtures verified these paths. Remote debugger policy fixtures verify the selected identity and halt revision through the session boundary, including refusal before dispatch and invalidation when a stop changes during a read."
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests. A managed WSL qualification with two disposable Agents and a disposable schema on the external PostgreSQL server over TLS verified that a live Syn epoch rollover denies the old grant before launch or charge and that an operator can restore audited dispatch by republishing against the new enrollment. Local Python debugger attach checks the selected process lifetime and exact configuration before dispatch. The managed MCP gateway supports principal-pinned installations and refuses cross-principal dispatch. Linux live debugpy and PostgreSQL gateway fixtures verified these paths. Remote debugger policy fixtures verify the selected identity and halt revision through the session boundary, including refusal before dispatch and invalidation when a stop changes during a read. A live debugpy process in a private WSL network namespace verified wrong-probe refusal, stopped inspections, stepping, expired-frame refusal and detach preserving the target. A controlled cut of the private relay while the target was stopped invalidated the session and its stop handle. The target owner verified that the process survived the cut and then stopped it."
     },
     {
       "key": "tools:T03.2",
@@ -36000,7 +36010,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "48fe533d4a7a68566b63be3d25df1c2abb97a910b451cd649c76865261d3a8bf",
+  "review_sha256": "b90bac281dc5aedeec345fcfc9da6e01b89173c1bdcbc3d4184a91830903a675",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110659,8 +110669,8 @@
     },
     {
       "source": "docs/implementation/08-debugger-python-first.md",
-      "locator": "line:76-81",
-      "sha256": "a7c5a503cf4db4e591207bf453234a8ff91ffdf42546eeda630bad1fb0b55d89",
+      "locator": "line:76-85",
+      "sha256": "cca31c30fdf01d712c684440931ac79df6d62870235bdd713853fb985f0a3362",
       "excerpt": "## Limits and qualification\n\nThe DAP transport has bounded framing, pending requests, output and deadlines, correlation checks and rejection of reverse process-",
       "review_families": [
         "devices"
@@ -110668,7 +110678,7 @@
     },
     {
       "source": "docs/implementation/08-debugger-python-first.md",
-      "locator": "line:82-86",
+      "locator": "line:86-90",
       "sha256": "35b94a0a9903f6b1fdc3e82a52436ea507b4e659e33ddaf12db368a50cbaf3ed",
       "excerpt": "## Source-preview publication\n\nThe [release workflow](../../.github/workflows/release.yml) builds the exact versioned tag, checks source/package identity and a ",
       "review_families": [
@@ -115076,6 +115086,15 @@
       "locator": "line:1-927",
       "sha256": "b5e3457b89c0ae8602219ccc72a529b3e5c5157675622c77b595c9bafb5fbfbc",
       "excerpt": "{\n  \"schema\": \"potbot-public-cog-recording-v1\",\n  \"runtime\": \"Python 3.12.13\",\n  \"adapter\": \"debugpy 1.8.22\",\n  \"qualification\": \"Real Python SYN Cogs; local te",
+      "review_families": [
+        "devices"
+      ]
+    },
+    {
+      "source": "docs/implementation/media/python-debugger-private-target.json",
+      "locator": "line:1-422",
+      "sha256": "87d4a77f1b823653cbac27eec3c07a595cdbc25fbdc3012c3fb46dd6a8c91745",
+      "excerpt": "{\n  \"adapter\": \"debugpy 1.8.22\",\n  \"event_count\": 139,\n  \"observations\": [\n    {\n      \"action\": \"wrong_probe_refused\"\n    },\n    {\n      \"action\": \"breakpoint\"",
       "review_families": [
         "devices"
       ]
