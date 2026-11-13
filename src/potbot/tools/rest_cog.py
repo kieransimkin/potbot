@@ -8,6 +8,7 @@ from potbot.domain.errors import ScopeDeniedError
 from potbot.domain.serialization import content_hash
 
 if TYPE_CHECKING:
+    from potbot.tools.api_grpc import InstalledGrpcRead
     from potbot.tools.api_https import InstalledGraphqlRead, InstalledRestRead
     from potbot.tools.execution_contracts import ExecutionPolicy
     from potbot.tools.sandbox_cog_worker import SandboxedCogOperation
@@ -16,6 +17,8 @@ REQUEST = "syn://type/potbot-rest-read-request-v1"
 RESULT = "syn://type/potbot-rest-read-result-v1"
 GRAPHQL_REQUEST = "syn://type/potbot-graphql-read-request-v1"
 GRAPHQL_RESULT = "syn://type/potbot-graphql-read-result-v1"
+GRPC_REQUEST = "syn://type/potbot-grpc-read-request-v1"
+GRPC_RESULT = "syn://type/potbot-grpc-read-result-v1"
 INTERPRETER = "/usr/bin/python3.11"
 WORKER_SOURCE = """import hashlib
 import json
@@ -45,10 +48,12 @@ if receipt != {"revision": 1, "sha256": checksum}:
 """
 
 
-def schemas(*, graphql: bool = False) -> dict[str, dict[str, Any]]:
+def schemas(*, graphql: bool = False, grpc: bool = False) -> dict[str, dict[str, Any]]:
     from potbot.tools.semantic_contracts import HASH, obj
 
     request, result = (GRAPHQL_REQUEST, GRAPHQL_RESULT) if graphql else (REQUEST, RESULT)
+    if grpc:
+        request, result = GRPC_REQUEST, GRPC_RESULT
     return {
         request: obj({"arguments": {"type": "object"}}),
         result: obj(
@@ -67,6 +72,10 @@ def rest_operation_ref(read: InstalledRestRead) -> str:
 
 def graphql_operation_ref(read: InstalledGraphqlRead) -> str:
     return "syn://thing/potbot-graphql-read-" + read.installation.fingerprint
+
+
+def grpc_operation_ref(read: InstalledGrpcRead) -> str:
+    return "syn://thing/potbot-grpc-read-" + read.installation.fingerprint
 
 
 def install_rest_cog(
@@ -98,7 +107,7 @@ def install_graphql_cog(
 
 
 def _install_read_cog(
-    read: InstalledRestRead | InstalledGraphqlRead,
+    read: InstalledRestRead | InstalledGraphqlRead | InstalledGrpcRead,
     policy: ExecutionPolicy,
     executable_sha256: str,
     client_sha256: str,
@@ -165,3 +174,29 @@ def require_graphql_cog(read: InstalledGraphqlRead, op: SandboxedCogOperation) -
         or op != install_graphql_cog(read, op.binding.policy, op.executable_sha256, op.argv[5])
     ):
         raise ScopeDeniedError("GraphQL read requires its exact installed Syn worker")
+
+
+def install_grpc_cog(
+    read: InstalledGrpcRead,
+    policy: ExecutionPolicy,
+    executable_sha256: str,
+    client_sha256: str,
+) -> SandboxedCogOperation:
+    return _install_read_cog(
+        read,
+        policy,
+        executable_sha256,
+        client_sha256,
+        grpc_operation_ref(read),
+        GRPC_REQUEST,
+        GRPC_RESULT,
+    )
+
+
+def require_grpc_cog(read: InstalledGrpcRead, op: SandboxedCogOperation) -> None:
+    if (
+        not op.directed_grpc
+        or len(op.argv) != 8
+        or op != install_grpc_cog(read, op.binding.policy, op.executable_sha256, op.argv[5])
+    ):
+        raise ScopeDeniedError("gRPC read requires its exact installed Syn worker")

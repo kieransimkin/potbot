@@ -1,4 +1,4 @@
-"""Exercise durable HTTPS read settlement on PostgreSQL with a worker RPC double."""
+"""Exercise durable API read settlement on PostgreSQL with a worker RPC double."""
 
 import asyncio
 import json
@@ -20,6 +20,7 @@ from potbot.domain.serialization import canonical_json
 from potbot.domain.tasks import ContractSpec, DeliverableType, Requirement, TaskStatus
 from potbot.semantics.service import SynService
 from potbot.tools.api_contracts import ApiOperation
+from potbot.tools.api_grpc import InstalledGrpcRead, grpc_read_configuration_hash
 from potbot.tools.api_https import (
     InstalledGraphqlRead,
     InstalledRestRead,
@@ -31,15 +32,18 @@ from potbot.tools.capability_contracts import (
     ToolInstallationDescriptor,
 )
 from potbot.tools.execution_contracts import WORK_KINDS, ExecutionPolicy
-from potbot.tools.rest_cog import install_graphql_cog, install_rest_cog
+from potbot.tools.rest_cog import install_graphql_cog, install_grpc_cog, install_rest_cog
 from potbot.tools.sandbox_cog_worker import SandboxedCogExecutor
 from tests.integration.test_repository_states import setup
+from tests.integration.test_tool_phase2_4_local_services import pinned_grpc_provider  # noqa: F401
 
 pytestmark = pytest.mark.postgres
 
 
-@pytest.mark.parametrize("graphql", [False, True], ids=["REST", "GraphQL"])
-def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, graphql):
+@pytest.mark.parametrize("protocol", ["rest", "graphql", "grpc"])
+def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, request, protocol):
+    graphql = protocol == "graphql"
+    grpc = protocol == "grpc"
     _, artifacts, _, _, state, _ = setup(app_env, tmp_path)
     actor, db, repo = app_env.context, app_env.db, app_env.repository_id
     tasks = TaskService(db)
@@ -65,35 +69,45 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
     )
     tasks.transition(actor, episode, 1, TaskStatus.RUNNING, "Run", idempotency_key="run")
 
-    registry = BoundCogRegistry.provenance(rest_read=not graphql, graphql_read=graphql)
+    registry = BoundCogRegistry.provenance(
+        rest_read=protocol == "rest",
+        graphql_read=graphql,
+        grpc_read=grpc,
+    )
     sealed = SynService(db, artifacts).import_snapshot(actor, repo, "api-read", registry.snapshot)
     origin = "https://api.fixture.example"
     request_group = "variables" if graphql else "path"
+    input_schema = {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": False,
+        "properties": {"id": {"type": "string"}},
+    }
+    target, method = {
+        "rest": ("/item/{id}", "GET"),
+        "graphql": ("/graphql", "POST"),
+        "grpc": ("/sample.Registry/Lookup", "UNARY"),
+    }[protocol]
     operation = ApiOperation(
         "lookup",
-        "graphql" if graphql else "rest",
+        protocol,
         "read_only",
-        "/graphql" if graphql else "/item/{id}",
-        "POST" if graphql else "GET",
+        target,
+        method,
         canonical_json(
-            {
+            input_schema
+            if grpc
+            else {
                 "type": "object",
                 "required": [request_group],
                 "additionalProperties": False,
-                "properties": {
-                    request_group: {
-                        "type": "object",
-                        "required": ["id"],
-                        "additionalProperties": False,
-                        "properties": {"id": {"type": "string"}},
-                    }
-                },
+                "properties": {request_group: input_schema},
             }
         ),
         canonical_json(
             {
                 "type": "object",
-                "properties": {"value": {"type": "integer"}},
+                "properties": {"value": {"type": "string" if grpc else "integer"}},
                 "required": ["value"],
                 "additionalProperties": False,
             }
@@ -103,7 +117,13 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
         timeout_ms=2000,
         max_output_bytes=1024,
     )
-    config_hash = graphql_read_configuration_hash if graphql else rest_read_configuration_hash
+    config_hash = {
+        "rest": rest_read_configuration_hash,
+        "graphql": graphql_read_configuration_hash,
+        "grpc": grpc_read_configuration_hash,
+    }[protocol]
+    if grpc:
+        origin, codec, provider_requests, _, _ = request.getfixturevalue("pinned_grpc_provider")
     implementation = ToolImplementationDescriptor(
         "syn://thing/fixture-api-read",
         operation.to_capability().fingerprint,
@@ -125,7 +145,11 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
         state["content_digest"],
         "fixture",
     )
-    if graphql:
+    if grpc:
+        installed = InstalledGrpcRead(actor, origin, operation, codec, implementation, installation)
+        worker = install_grpc_cog(installed, policy, "d" * 64, "e" * 64)
+        profile = {"grpc_read": installed}
+    elif graphql:
         installed = InstalledGraphqlRead(actor, origin, operation, implementation, installation)
         worker = install_graphql_cog(installed, policy, "d" * 64, "e" * 64)
         profile = {"graphql_read": installed}
@@ -156,8 +180,9 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
             raise httpx.ReadTimeout("Fixture lost the provider response")
         return httpx.Response(200, json={"data": {"value": 42}} if graphql else {"value": 42})
 
-    monkeypatch.setattr(socket, "getaddrinfo", resolve)
-    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", provider)
+    if not grpc:
+        monkeypatch.setattr(socket, "getaddrinfo", resolve)
+        monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", provider)
 
     class ReplyLossWorker(SandboxedCogExecutor):
         """Only the signed RPC acknowledgement is simulated."""
@@ -204,29 +229,33 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
         )
 
     signature = WORK_COGS[WORK_KINDS.index("api")]
-    source = TypedCogValue(
-        signature.input_type_ref,
-        {
-            "schema_version": 1,
-            "operation_ref": worker.binding.operation_ref,
-            "input": {
-                "type_ref": worker.binding.input_type_ref,
-                "value": {
-                    "arguments": {request_group: {"id": "test"}},
+
+    def input_for(identifier):
+        arguments = {"id": identifier}
+        return TypedCogValue(
+            signature.input_type_ref,
+            {
+                "schema_version": 1,
+                "operation_ref": worker.binding.operation_ref,
+                "input": {
+                    "type_ref": worker.binding.input_type_ref,
+                    "value": {"arguments": arguments if grpc else {request_group: arguments}},
                 },
             },
-        },
-    )
+        )
+
+    source = input_for("test")
+    expected = {"value": "hello:test"} if grpc else {"value": 42}
     good = CogRunContext(registry.snapshot.fingerprint, revision, state["id"], uuid4())
     lost = replace(good, invocation_id=uuid4())
     result = asyncio.run(controller(False).invoke(signature, source, good))
-    assert result.value.value["result"]["value"]["value"] == {"value": 42}
+    assert result.value.value["result"]["value"]["value"] == expected
     with pytest.raises(IndeterminateExecutionError, match="lost the reply"):
         asyncio.run(controller(True).invoke(signature, source, lost))
     fresh = controller(False)
-    recover = fresh.recover_graphql_read if graphql else fresh.recover_rest_read
+    recover = getattr(fresh, f"recover_{protocol}_read")
     receipt = recover(lost.invocation_id)
-    assert receipt["receipt"]["value"] == {"value": 42}
+    assert receipt["receipt"]["value"] == expected
     assert receipt["state"] == "receipt_recorded" and receipt["cog_stage"] == "indeterminate"
     assert receipt["usage"] == {"calls": 1, "tool_ms": 2000}
     assert recover(lost.invocation_id) == receipt
@@ -235,7 +264,10 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
         wrong_profile(lost.invocation_id)
     with pytest.raises(ScopeDeniedError):
         asyncio.run(fresh.invoke(signature, source, lost))
-    assert requests == [operation.method, operation.method]
+    if grpc:
+        assert provider_requests == [{"id": "test"}] * 2
+    else:
+        assert requests == [operation.method, operation.method]
     assert invocations == [good.invocation_id, lost.invocation_id]
     balance = BudgetLedger(db).inspect(actor, episode)
     assert balance["used"] == {"calls": 2, "tool_ms": 4000} and balance["held"] == {}
@@ -243,14 +275,17 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, gra
     lose_provider_response = True
     unresolved = replace(good, invocation_id=uuid4())
     with pytest.raises(IndeterminateExecutionError, match="requires retained evidence"):
-        asyncio.run(controller(False).invoke(signature, source, unresolved))
+        asyncio.run(controller(False).invoke(signature, input_for("provider-lost"), unresolved))
     assert recover(unresolved.invocation_id) == {
         "state": "unresolved",
         "cog_stage": "indeterminate",
         "budget_status": "indeterminate",
         "automatic_retry_permitted": False,
     }
-    assert requests == [operation.method] * 3
+    if grpc:
+        assert provider_requests == [{"id": "test"}, {"id": "test"}, {"id": "provider-lost"}]
+    else:
+        assert requests == [operation.method] * 3
     balance = BudgetLedger(db).inspect(actor, episode)
     assert balance["used"] == {"calls": 2, "tool_ms": 4000}
     assert balance["held"] == {"calls": 1, "tool_ms": 2000, "concurrency": 1}

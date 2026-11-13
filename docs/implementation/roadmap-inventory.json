@@ -249,12 +249,12 @@
     },
     {
       "path": "docs/implementation/04-http-api-adapters.md",
-      "sha256": "76708df07331fec90fce84b242391b3ae830f1c593a33feb88377269d7c43ca6",
-      "bytes": 13861,
+      "sha256": "29f68c6e76982d2fa133da47b05a0a0e986867d67880c68d155a56feb05b2062",
+      "bytes": 16047,
       "kind": "narrative_text",
-      "text_sha256": "76708df07331fec90fce84b242391b3ae830f1c593a33feb88377269d7c43ca6",
-      "characters": 13857,
-      "lines": 134,
+      "text_sha256": "29f68c6e76982d2fa133da47b05a0a0e986867d67880c68d155a56feb05b2062",
+      "characters": 16043,
+      "lines": 160,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "b40d68f97cfb29526deb250e112813daaacb9176ad82bd1979e030c6af716854",
+  "review_sha256": "fb8c7ddb50aadc74867e2667ea7a83af7d22d4a0ebaa0b8a7dbc06924d14f5ef",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110301,7 +110301,16 @@
     },
     {
       "source": "docs/implementation/04-http-api-adapters.md",
-      "locator": "line:96-120",
+      "locator": "line:96-121",
+      "sha256": "b80a321056f8848686116ba56574dea9f787a810bdb6baddf50acc1d63e83938",
+      "excerpt": "### Pinned unary gRPC read\n\nUse `InstalledGrpcRead` with the `providers` extra and `install_grpc_cog` to bind a read-only unary method to one principal, hostnam",
+      "review_families": [
+        "api"
+      ]
+    },
+    {
+      "source": "docs/implementation/04-http-api-adapters.md",
+      "locator": "line:122-146",
       "sha256": "ccc499fe7c580e61ea455212df5d6d65a0f9900f75d199d7fb4a11211701e60e",
       "excerpt": "## Reproduce\n\nFrom a checked-out Potbot repository after `git apply` and its locked `uv sync`:\n\n```bash\nuv run --locked python -m pytest -q \\\n  tests/unit/test_",
       "review_families": [
@@ -110310,7 +110319,7 @@
     },
     {
       "source": "docs/implementation/04-http-api-adapters.md",
-      "locator": "line:121-128",
+      "locator": "line:147-154",
       "sha256": "38b5b9a81ac035707d21004c2a787b62818b9e3ba3b21c46fa504588d5bb4a0c",
       "excerpt": "## Acceptance and next work\n\n1. **T02.4 offline acceptance:** Every selected tool enforces input/output contracts, effect classification, pinned schema hash and",
       "review_families": [
@@ -110319,7 +110328,7 @@
     },
     {
       "source": "docs/implementation/04-http-api-adapters.md",
-      "locator": "line:129-134",
+      "locator": "line:155-160",
       "sha256": "236082be43d189210d88e31c684558e1871434ee2e8be04356e3139a312b75e1",
       "excerpt": "## External protocol references\n\n- OpenAPI 3.1 specification: https://spec.openapis.org/oas/v3.1\n- GraphQL over HTTP working draft: https://http-spec.graphql.or",
       "review_families": [
@@ -121689,7 +121698,7 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "PinnedExecutionJournal",
-          "sha256": "17b4ebcd2e72e966846111fa90dae79093f6159106cb91c5e96c4465c50f70ab",
+          "sha256": "5cb28b805e9fa62bd16d481286e3bc43e8b64f06380bfcaba05fc0af912e75fa",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
@@ -121739,7 +121748,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "7f11f4297c30c3ce84c497c161a6d2ff7b5ed7cde05bfffd3659539459a60498",
+          "sha256": "f66f76063b565dd763ff2015adfca875b23d63bec8cbec81c84deece9ab30af5",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122075,13 +122084,13 @@
         {
           "path": "src/potbot/cogs/execution.py",
           "symbol": "execute",
-          "sha256": "2d88487451f8def79d4daf50594a34b6365f2e007532bf439a372bac5cf46547",
+          "sha256": "ee5d72184033cc1362c4c60a0f14537dfcdb5c769f90046bd43a9d008226bb29",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "56bb7297fda6f3d9483e9ee7ecdd608d2ffeb1cd0ed91a6af143a7b4a2b47bb5",
+          "sha256": "b174daff160e9078ae5647fbb2409f29743b079553fcb362bcf25d879a9d5c79",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122333,13 +122342,13 @@
         {
           "path": "src/potbot/controller/rest_read.py",
           "symbol": "ApiReadAttempt",
-          "sha256": "099d7a46a2323b417b7944c16e00cc7856563446162723efe12205d0b4ff728a",
+          "sha256": "99e12608471632434eabaa0638287dce3dbb49153963176aef23509ef5a534e6",
           "basis": "Reserves and records one admitted provider request, then settles with its retained observation."
         },
         {
           "path": "src/potbot/tools/rest_cog.py",
           "symbol": "install_rest_cog",
-          "sha256": "481400deb05dd1901d0e8a48cd532a9a5023c32fe2a106d043549d55855b8cd4",
+          "sha256": "5bb133ef107ea49407fa14611533c6140307bab1abcac1f44d774ca887a1c63d",
           "basis": "Pins the REST observation to a sealed API Cog and the installed Context worker."
         },
         {
@@ -122347,6 +122356,12 @@
           "symbol": "InstalledGraphqlRead",
           "sha256": "cf6b461da73a6ed3df649df02542cc9c3a0412e0c85c6c220705225953e8cb02",
           "basis": "Validates one fixed named query at installation and restricts the request to the pinned HTTPS path and typed variables."
+        },
+        {
+          "path": "src/potbot/tools/api_grpc.py",
+          "symbol": "InstalledGrpcRead",
+          "sha256": "d641638eed35a45db50302c2d9e5e5f7d1d05e3cd5bf108bb482ec79ad099b60",
+          "basis": "Pins the unary method and installed codec to one hostname and uses a direct, name-verified gRPC TLS channel."
         }
       ],
       "tests": [
@@ -122383,12 +122398,18 @@
         {
           "path": "tests/integration/test_api_read_cog_recovery.py",
           "symbol": "test_api_read_cog_recovery_never_resends",
-          "sha256": "60b2ef7e8339581122d07f7fddaaf608a013da867fcfc76ffccbf327fe0254f2",
+          "sha256": "daefe6fa1b0bc9a90284341446cc389b202931d32aa0a06f99aa51af3b3bc267",
           "basis": "Exercises the REST and GraphQL settlements on PostgreSQL with a worker RPC double, including reply loss, duplicate delivery and an unavailable provider response."
+        },
+        {
+          "path": "tests/integration/test_tool_phase2_4_local_services.py",
+          "symbol": "test_installed_grpc_dials_the_checked_address_and_verifies_the_named_peer",
+          "sha256": "20815508b78767bbd2536f3822e3c5bdb9ffe61b95b8a28ffd771a586e0dfd7f",
+          "basis": "Runs real TLS and Protobuf, verifies name mismatch rejection and confirms the exact numeric dial and method."
         }
       ],
-      "assessment": "Pinned REST and GraphQL reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. Both profiles passed managed WSL qualification with disposable TLS and PostgreSQL.",
-      "support_scope": "Selected OpenAPI 3.1 GET and fixed named GraphQL query, using one pinned HTTPS route per installation.",
+      "assessment": "Pinned REST, GraphQL and unary gRPC reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. All three passed managed WSL qualification with disposable TLS and PostgreSQL.",
+      "support_scope": "Selected OpenAPI 3.1 GET, a fixed named GraphQL query and one read-only unary gRPC method per installation.",
       "remaining": [
         "Qualify managed credentials and broader API transport profiles separately.",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported"
@@ -122585,7 +122606,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogExecutor",
-          "sha256": "7f11f4297c30c3ce84c497c161a6d2ff7b5ed7cde05bfffd3659539459a60498",
+          "sha256": "f66f76063b565dd763ff2015adfca875b23d63bec8cbec81c84deece9ab30af5",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
@@ -123438,13 +123459,13 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "inspect_sandbox_transport_effect",
-          "sha256": "17b4ebcd2e72e966846111fa90dae79093f6159106cb91c5e96c4465c50f70ab",
+          "sha256": "5cb28b805e9fa62bd16d481286e3bc43e8b64f06380bfcaba05fc0af912e75fa",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "56bb7297fda6f3d9483e9ee7ecdd608d2ffeb1cd0ed91a6af143a7b4a2b47bb5",
+          "sha256": "b174daff160e9078ae5647fbb2409f29743b079553fcb362bcf25d879a9d5c79",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {

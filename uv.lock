@@ -1097,7 +1097,9 @@ postgres = [
 ]
 providers = [
     { name = "graphql-core" },
+    { name = "grpcio" },
     { name = "httpx" },
+    { name = "protobuf" },
 ]
 security = [
     { name = "cryptography" },
@@ -1134,9 +1136,11 @@ requires-dist = [
     { name = "debugpy", marker = "extra == 'debugger'", specifier = "==1.8.22" },
     { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.115,<1" },
     { name = "graphql-core", marker = "extra == 'providers'", specifier = "==3.3.2" },
+    { name = "grpcio", marker = "extra == 'providers'", specifier = ">=1.75,<2" },
     { name = "httpx", marker = "extra == 'providers'", specifier = ">=0.28,<1" },
     { name = "jsonschema", marker = "extra == 'semantics'", specifier = ">=4.26,<5" },
     { name = "keyring", marker = "extra == 'credentials'", specifier = "==25.7.0" },
+    { name = "protobuf", marker = "extra == 'providers'", specifier = ">=5,<7" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2,<4" },
     { name = "torch", marker = "(sys_platform == 'linux' and extra == 'embeddings') or (sys_platform == 'win32' and extra == 'embeddings')", specifier = "==2.9.1", index = "https://download.pytorch.org/whl/cpu" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32' and extra == 'embeddings'", specifier = "==2.9.1" },

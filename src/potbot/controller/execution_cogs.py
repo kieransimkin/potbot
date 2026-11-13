@@ -38,6 +38,7 @@ from potbot.tools.sandbox_cog_worker import (
 from potbot.tools.semantic_contracts import ToolSemanticCatalog
 
 if TYPE_CHECKING:
+    from potbot.tools.api_grpc import InstalledGrpcRead
     from potbot.tools.api_https import InstalledGraphqlRead, InstalledRestRead
 
 
@@ -165,6 +166,7 @@ class ExecutionCogRuntime:
         admit_transport_recovery: Callable[[UUID], None] | None = None,
         rest_read: InstalledRestRead | None = None,
         graphql_read: InstalledGraphqlRead | None = None,
+        grpc_read: InstalledGrpcRead | None = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -193,11 +195,13 @@ class ExecutionCogRuntime:
             raise ScopeDeniedError("Queue requires a dedicated installed transport profile")
         rest_ops = tuple(op for op in operations if op.directed_rest)
         graphql_ops = tuple(op for op in operations if op.directed_graphql)
+        grpc_ops = tuple(op for op in operations if op.directed_grpc)
         if (
             bool(rest_ops) != (rest_read is not None)
             or bool(graphql_ops) != (graphql_read is not None)
+            or bool(grpc_ops) != (grpc_read is not None)
             or (
-                (rest_ops or graphql_ops)
+                (rest_ops or graphql_ops or grpc_ops)
                 and (
                     len(operations) != 1
                     or artifact_ranges is not None
@@ -221,8 +225,16 @@ class ExecutionCogRuntime:
             if not isinstance(graphql_read, InstalledGraphqlRead) or graphql_read.actor != actor:
                 raise ScopeDeniedError("GraphQL installation belongs to another principal")
             require_graphql_cog(graphql_read, graphql_ops[0])
+        if grpc_read is not None:
+            from potbot.tools.api_grpc import InstalledGrpcRead
+            from potbot.tools.rest_cog import require_grpc_cog
+
+            if not isinstance(grpc_read, InstalledGrpcRead) or grpc_read.actor != actor:
+                raise ScopeDeniedError("gRPC installation belongs to another principal")
+            require_grpc_cog(grpc_read, grpc_ops[0])
         self.rest_read = rest_read
         self.graphql_read = graphql_read
+        self.grpc_read = grpc_read
         self.admit_transport_recovery = admit_transport_recovery
         if operations and (
             not isinstance(sandbox_executor, SandboxedCogExecutor)
@@ -292,6 +304,7 @@ class ExecutionCogRuntime:
                 queue_transport=bool(queue_operations),
                 rest_read=bool(rest_ops),
                 graphql_read=bool(graphql_ops),
+                grpc_read=bool(grpc_ops),
             )
             from functools import partial
 
@@ -300,6 +313,7 @@ class ExecutionCogRuntime:
                 queue_transport=bool(queue_operations),
                 rest_read=bool(rest_ops),
                 graphql_read=bool(graphql_ops),
+                grpc_read=bool(grpc_ops),
             )
             self._direct_operations = {}
         with database.transaction(actor) as connection:
@@ -388,6 +402,11 @@ class ExecutionCogRuntime:
 
         return recover_graphql_read(self.db, self.artifacts, self.actor, run_id)
 
+    def recover_grpc_read(self, run_id: UUID) -> dict[str, Any]:
+        from potbot.controller.rest_read import recover_grpc_read
+
+        return recover_grpc_read(self.db, self.artifacts, self.actor, run_id)
+
     async def reconcile_transport_effect(self, run_id: UUID) -> dict[str, Any]:
         from potbot.controller.sandbox_transport import reconcile_queue_effect
 
@@ -470,10 +489,16 @@ class ExecutionCogRuntime:
             assert self.sandbox_agent_id is not None
             queue_effect = QueueEffect.installed(op, typed.value, self.sandbox_agent_id)
         read_attempt = None
-        if isinstance(op, SandboxedCogOperation) and (op.directed_rest or op.directed_graphql):
+        if isinstance(op, SandboxedCogOperation) and (
+            op.directed_rest or op.directed_graphql or op.directed_grpc
+        ):
             from potbot.controller.rest_read import ApiReadAttempt
 
-            read = self.graphql_read if op.directed_graphql else self.rest_read
+            read = (
+                self.grpc_read
+                if op.directed_grpc
+                else (self.graphql_read if op.directed_graphql else self.rest_read)
+            )
             assert read is not None
             read_attempt = ApiReadAttempt(self.db, self.artifacts, self.actor, read, typed, context)
         journal = PinnedExecutionJournal(

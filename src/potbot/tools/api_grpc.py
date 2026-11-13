@@ -10,18 +10,26 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
-from potbot.domain.errors import InvalidInputError, ScopeDeniedError
-from potbot.domain.serialization import canonical_json
+from potbot.domain.auth import WorkspaceContext
+from potbot.domain.errors import CapabilityUnavailableError, InvalidInputError, ScopeDeniedError
+from potbot.domain.serialization import canonical_json, content_hash
 from potbot.tools.api_contracts import (
     ApiCallResult,
     ApiCallScope,
     ApiOperation,
     validate_json,
 )
+from potbot.tools.capability_contracts import (
+    ToolImplementationDescriptor,
+    ToolInstallationDescriptor,
+)
+from potbot.tools.connect_policy import ConnectPolicy, checked_host
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,8 +57,6 @@ def protobuf_struct_codec(descriptor_hash: str) -> InstalledGrpcCodec:
         from google.protobuf import json_format
         from google.protobuf.struct_pb2 import Struct
     except ImportError as error:
-        from potbot.domain.errors import CapabilityUnavailableError
-
         raise CapabilityUnavailableError("Protobuf support is not installed") from error
 
     def serialize(value: Mapping[str, Any]) -> bytes:
@@ -90,6 +96,11 @@ class ApprovedGrpcAdapter:
             raise InvalidInputError("Not a gRPC operation")
         approved_arguments = json.loads(canonical_json(dict(arguments)))
         scope.check(operation, approved_arguments)
+        return await self._call_admitted(operation, approved_arguments)
+
+    async def _call_admitted(
+        self, operation: ApiOperation, approved_arguments: dict[str, Any]
+    ) -> ApiCallResult:
         if self.channel_approval(operation.target) is not None:
             raise ScopeDeniedError("gRPC channel check must authorize by returning None")
         codec = self.codecs.get(operation.target)
@@ -103,8 +114,7 @@ class ApprovedGrpcAdapter:
             ) from error
         if not isinstance(payload, bytes) or len(payload) > 1048576:
             raise InvalidInputError("gRPC serialized request exceeds message limit")
-        # Channel instance is operator-owned; remote address/credentials are not
-        # accepted from arguments. gRPC performs exactly one call, without retries.
+        # The pre-authorized channel determines any transport retry behavior.
         method = self.channel.unary_unary(
             operation.target,
             request_serializer=lambda v: v,
@@ -133,6 +143,8 @@ class ApprovedGrpcAdapter:
         try:
             value = codec.deserialize(response)
             validate_json(operation.output_schema_json, value, label="gRPC decoded response")
+            if len(canonical_json(value).encode("utf-8")) > operation.max_output_bytes:
+                raise InvalidInputError("gRPC decoded response exceeds the admitted bound")
         except Exception:
             return ApiCallResult(
                 operation.fingerprint,
@@ -142,3 +154,96 @@ class ApprovedGrpcAdapter:
                 attempts=1,
             )
         return ApiCallResult(operation.fingerprint, "succeeded", value, None, attempts=1)
+
+
+def grpc_read_configuration_hash(
+    actor: WorkspaceContext, host: str, operation: ApiOperation
+) -> str:
+    return content_hash(
+        {
+            "profile": "potbot.pinned-grpc-read/1",
+            "workspace_id": str(actor.workspace_id),
+            "principal_id": str(actor.principal_id),
+            "authority": f"{host}:443",
+            "operation": operation.fingerprint,
+        }
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class InstalledGrpcRead:
+    """One operator-selected read-only method and installed codec over named TLS."""
+
+    actor: WorkspaceContext
+    host: str
+    operation: ApiOperation
+    codec: InstalledGrpcCodec
+    implementation: ToolImplementationDescriptor
+    installation: ToolInstallationDescriptor
+
+    def __post_init__(self) -> None:
+        checked_host(self.host)
+        op = self.operation
+        if (
+            op.protocol != "grpc"
+            or op.effect_class != "read_only"
+            or not isinstance(self.codec, InstalledGrpcCodec)
+            or self.codec.descriptor_hash != op.source_hash
+            or self.actor.workspace_id != self.installation.workspace_id
+            or self.installation.configuration_hash
+            != grpc_read_configuration_hash(self.actor, self.host, op)
+        ):
+            raise ScopeDeniedError("gRPC read differs from the pinned installation")
+        self.implementation.assert_capability(op.to_capability())
+        self.installation.assert_implementation(self.implementation)
+
+    async def call(
+        self, actor: WorkspaceContext, arguments: Mapping[str, Any], scope: ApiCallScope
+    ) -> ApiCallResult:
+        if (
+            actor != self.actor
+            or scope.installation != self.installation
+            or scope.egress is not None
+        ):
+            raise ScopeDeniedError("gRPC read is unavailable to this principal or installation")
+        try:
+            import grpc  # type: ignore[import-untyped]
+        except ImportError as exc:
+            raise CapabilityUnavailableError(
+                "gRPC installation requires the providers extra"
+            ) from exc
+
+        op = self.operation
+        frozen = json.loads(canonical_json(dict(arguments)))
+        scope.check(op, frozen)
+        async with asyncio.timeout(op.timeout_ms / 1000):
+            address = await asyncio.to_thread(
+                ConnectPolicy((self.host,)).resolve,
+                f"{self.host}:443",
+                resolver=partial(socket.getaddrinfo, family=socket.AF_INET),
+            )
+            # Use a numeric resolver target and independently verify the installed DNS name.
+            async with grpc.aio.secure_channel(
+                f"ipv4:{address}:443",
+                grpc.ssl_channel_credentials(),
+                options=(
+                    ("grpc.ssl_target_name_override", self.host),
+                    ("grpc.default_authority", self.host),
+                    ("grpc.enable_http_proxy", 0),
+                    ("grpc.enable_retries", 0),
+                    ("grpc.service_config_disable_resolution", 1),
+                    ("grpc.max_receive_message_length", op.max_output_bytes),
+                    ("grpc.max_send_message_length", 1048576),
+                ),
+            ) as channel:
+
+                def admit_method(target: str) -> None:
+                    if target != op.target:
+                        raise ScopeDeniedError("gRPC method differs from the pinned installation")
+
+                adapter = ApprovedGrpcAdapter(
+                    channel=channel,
+                    installed_codecs={op.target: self.codec},
+                    channel_approval=admit_method,
+                )
+                return await adapter._call_admitted(op, frozen)
