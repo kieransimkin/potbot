@@ -214,10 +214,10 @@ async def execute_context_operation(
     *,
     syn_route: SynContextRoute | None = None,
     syn_agent: Callable[[], tuple[str, str]] | None = None,
-    rest_read: Callable[[], dict[str, Any]] | None = None,
+    api_read: Callable[[], dict[str, Any]] | None = None,
 ) -> Any:
     """Typed work and context RPC on one declared protocol; no stdout sniffing."""
-    if (syn_route is None) != (syn_agent is None) or (rest_read is not None and syn_route is None):
+    if (syn_route is None) != (syn_agent is None) or (api_read is not None and syn_route is None):
         raise ScopeDeniedError("Syn Context routing requires a live native Agent pin")
     from potbot.cogs.contracts import TypedCogValue
     from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
@@ -313,8 +313,8 @@ async def execute_context_operation(
             envelope,
             op.binding.output_type_ref,
             allow_mutations=op.binding.effect_class != "read_only",
-            work_only=directed_queue or rest_read is not None,
-            provide_value=rest_read,
+            work_only=directed_queue or api_read is not None,
+            provide_value=api_read,
         )
         channel = ContextWorkerChannel(
             store=ContextSessionStore(binding.database),
@@ -332,7 +332,7 @@ async def execute_context_operation(
         if not stopped:
             raise IndeterminateExecutionError("Worker shutdown was not confirmed")
         if exchange.provider_uncertain:
-            raise IndeterminateExecutionError("REST response requires provider reconciliation")
+            raise IndeterminateExecutionError("API response requires provider reconciliation")
         if result.exit.return_code != 0 or result.output is None:
             raise StateMismatchError("Worker did not complete its declared result protocol")
         encoded = bounded_work(result.output)
@@ -378,7 +378,7 @@ async def execute_context_operation(
                 except BaseException:
                     pass
             if guard.lease is not None and not getattr(guard, "_finished", False):
-                if (directed_queue or rest_read is not None) and stopped:
+                if (directed_queue or api_read is not None) and stopped:
                     # A confirmed stop releases process ownership. The durable
                     # dispatch and receipt still govern the provider outcome.
                     try:

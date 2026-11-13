@@ -200,9 +200,14 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
     from httpcore._backends.anyio import AnyIOBackend
 
     from potbot.domain.auth import WorkspaceContext
-    from potbot.domain.serialization import content_hash
-    from potbot.tools.api_contracts import ApiCallScope
-    from potbot.tools.api_https import InstalledRestRead, rest_read_configuration_hash
+    from potbot.domain.serialization import canonical_json, content_hash
+    from potbot.tools.api_contracts import ApiCallScope, ApiOperation
+    from potbot.tools.api_https import (
+        InstalledGraphqlRead,
+        InstalledRestRead,
+        graphql_read_configuration_hash,
+        rest_read_configuration_hash,
+    )
     from potbot.tools.api_openapi import compile_openapi
     from potbot.tools.capability_contracts import (
         ToolImplementationDescriptor,
@@ -240,6 +245,7 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
     server_tls.load_cert_chain(cert_file, key_file)
     client_tls = ssl.create_default_context(cafile=str(cert_file))
     accepted = []
+    graphql_bodies = []
     dialed = []
     original_init = httpx.AsyncHTTPTransport.__init__
     original_connect = AnyIOBackend.connect_tcp
@@ -252,10 +258,19 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
         try:
             headers = await reader.readuntil(b"\r\n\r\n")
             accepted.append(headers)
+            body = b'{"value":23}'
+            if headers.startswith(b"POST /graphql "):
+                length = next(
+                    int(line.split(b":", 1)[1])
+                    for line in headers.split(b"\r\n")
+                    if line.lower().startswith(b"content-length:")
+                )
+                graphql_bodies.append(json.loads(await reader.readexactly(length)))
+                body = b'{"data":{"value":23}}'
             writer.write(
                 b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
-                b"Content-Length: 12\r\nConnection: close\r\n\r\n"
-                b'{"value":23}'
+                + f"Content-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+                + body
             )
             await writer.drain()
         finally:
@@ -370,15 +385,84 @@ def test_pinned_socket_still_verifies_the_approved_hostname(tmp_path, monkeypatc
             assert result.status == "succeeded" and result.value == {"value": 23}
             assert result.to_observation(intent, op).invocation_hash == intent.fingerprint
 
+            graph = ApiOperation(
+                "lookup",
+                "graphql",
+                "read_only",
+                "/graphql",
+                "POST",
+                canonical_json(
+                    {
+                        "type": "object",
+                        "required": ["variables"],
+                        "additionalProperties": False,
+                        "properties": {
+                            "variables": {
+                                "type": "object",
+                                "required": ["id"],
+                                "additionalProperties": False,
+                                "properties": {"id": {"type": "string"}},
+                            }
+                        },
+                    }
+                ),
+                op.output_schema_json,
+                "a" * 64,
+                graphql_document="query lookup($id: ID!) { value(id: $id) }",
+            )
+            graph_impl = replace(implementation, capability_hash=graph.to_capability().fingerprint)
+            graph_install = replace(
+                installation,
+                implementation_hash=graph_impl.fingerprint,
+                configuration_hash=graphql_read_configuration_hash(actor, origin, graph),
+            )
+            graph_read = InstalledGraphqlRead(actor, origin, graph, graph_impl, graph_install)
+            mixed = replace(
+                graph, graphql_document=graph.graphql_document + " mutation other { reset }"
+            )
+            mixed_impl = replace(graph_impl, capability_hash=mixed.to_capability().fingerprint)
+            mixed_install = replace(
+                graph_install,
+                implementation_hash=mixed_impl.fingerprint,
+                configuration_hash=graphql_read_configuration_hash(actor, origin, mixed),
+            )
+            with pytest.raises(ScopeDeniedError, match="one query definition"):
+                InstalledGraphqlRead(actor, origin, mixed, mixed_impl, mixed_install)
+            graph_args = {"variables": {"id": "selection"}}
+            graph_intent = replace(
+                intent,
+                installation_hash=graph_install.fingerprint,
+                input_hash=content_hash(graph_args),
+            )
+            graph_scope = ApiCallScope(
+                graph_install, graph_intent, graph.fingerprint, lambda *_: None
+            )
+            with pytest.raises(InvalidInputError, match="only a variables object"):
+                await graph_read.call(
+                    actor, {**graph_args, "query": "mutation other { reset }"}, graph_scope
+                )
+            graph_result = await graph_read.call(actor, graph_args, graph_scope)
+            assert graph_result.status == "succeeded" and graph_result.value == {"value": 23}
+            assert graph_result.attempts == 1
+
     def resolve(host, port, **kwargs):
         return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (PUBLIC, port))]
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "__init__", configure)
     monkeypatch.setattr(socket, "getaddrinfo", resolve)
     asyncio.run(scenario())
-    assert dialed == [(PUBLIC, 443)] * 3
-    assert len(accepted) == 2
+    assert dialed == [(PUBLIC, 443)] * 4
+    assert len(accepted) == 3
     assert b"Host: mcp.fixture.example\r\n" in accepted[0]
     assert f"authorization: Bearer {TOKEN}\r\n".encode() in accepted[0]
     assert accepted[1].startswith(b"GET /items/selection?limit=2 HTTP/1.1\r\n")
     assert b"authorization:" not in accepted[1].lower()
+    assert accepted[2].startswith(b"POST /graphql HTTP/1.1\r\n")
+    assert b"authorization:" not in accepted[2].lower()
+    assert graphql_bodies == [
+        {
+            "query": "query lookup($id: ID!) { value(id: $id) }",
+            "operationName": "lookup",
+            "variables": {"id": "selection"},
+        }
+    ]

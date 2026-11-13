@@ -137,7 +137,7 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "PinnedExecutionJournal",
-          "sha256": "5174deb5b4eaf1ab639041e5e9fb2d65aa97f4e67142dcf4294b76da66e8cfe3",
+          "sha256": "17b4ebcd2e72e966846111fa90dae79093f6159106cb91c5e96c4465c50f70ab",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
@@ -187,7 +187,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "391828bd6ae5b9fe0299d6d3025253970ad08f2eb57a43d9ec2b662d6cf1e3a4",
+          "sha256": "7f11f4297c30c3ce84c497c161a6d2ff7b5ed7cde05bfffd3659539459a60498",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -523,13 +523,13 @@
         {
           "path": "src/potbot/cogs/execution.py",
           "symbol": "execute",
-          "sha256": "28157ac1af77b4ea0d04950912ebc2414a30c471de9a3f7f9a542375cf81b746",
+          "sha256": "2d88487451f8def79d4daf50594a34b6365f2e007532bf439a372bac5cf46547",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "34e2c9cf657cc9ed871f48b93cb35d9657ef11eb9366f469c9359e2772a327d5",
+          "sha256": "56bb7297fda6f3d9483e9ee7ecdd608d2ffeb1cd0ed91a6af143a7b4a2b47bb5",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -672,7 +672,7 @@
         {
           "path": "tests/unit/test_mcp_http_broker.py",
           "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
-          "sha256": "736f5aa121dbb4db7185c55a7f8f2aa52f1c8716cc89d4d9f382735dd516b9e2",
+          "sha256": "b06e24b08c0e0476f4394ec9e4fc3857c6f24db6f0f0a01cd9f660a1544682aa",
           "basis": "Local TLS fixture verifies the original DNS identity and refuses a mismatched certificate."
         },
         {
@@ -769,7 +769,7 @@
         {
           "path": "src/potbot/tools/api_https.py",
           "symbol": "InstalledRestRead",
-          "sha256": "1263b083230489ccfe50d1f6d9e8a941fc07dc6ea8a13cc4f161a8811b93957c",
+          "sha256": "cf6b461da73a6ed3df649df02542cc9c3a0412e0c85c6c220705225953e8cb02",
           "basis": "Pins the selected REST read to its authenticated principal and exact HTTPS egress."
         },
         {
@@ -780,15 +780,21 @@
         },
         {
           "path": "src/potbot/controller/rest_read.py",
-          "symbol": "RestReadAttempt",
-          "sha256": "95d3e74503cf6177bc651d5bfb826a0d0cb5caa26c0c17c0d7513b324ed1d85e",
+          "symbol": "ApiReadAttempt",
+          "sha256": "099d7a46a2323b417b7944c16e00cc7856563446162723efe12205d0b4ff728a",
           "basis": "Reserves and records one admitted provider request, then settles with its retained observation."
         },
         {
           "path": "src/potbot/tools/rest_cog.py",
           "symbol": "install_rest_cog",
-          "sha256": "31434d1e5c099c1b792df7c350bae08ff6bc3fc2d1982427af0abf070d74cd35",
+          "sha256": "481400deb05dd1901d0e8a48cd532a9a5023c32fe2a106d043549d55855b8cd4",
           "basis": "Pins the REST observation to a sealed API Cog and the installed Context worker."
+        },
+        {
+          "path": "src/potbot/tools/api_https.py",
+          "symbol": "InstalledGraphqlRead",
+          "sha256": "cf6b461da73a6ed3df649df02542cc9c3a0412e0c85c6c220705225953e8cb02",
+          "basis": "Validates one fixed named query at installation and restricts the request to the pinned HTTPS path and typed variables."
         }
       ],
       "tests": [
@@ -813,19 +819,26 @@
         {
           "path": "tests/unit/test_mcp_http_broker.py",
           "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
-          "sha256": "736f5aa121dbb4db7185c55a7f8f2aa52f1c8716cc89d4d9f382735dd516b9e2",
+          "sha256": "b06e24b08c0e0476f4394ec9e4fc3857c6f24db6f0f0a01cd9f660a1544682aa",
           "basis": "Runs the pinned MCP and OpenAPI REST paths against a real disposable TLS listener."
         },
         {
           "path": "tests/unit/test_context_agent_rpc.py",
           "symbol": "test_rest_worker_discloses_and_acknowledges_only_the_observed_value",
-          "sha256": "5477444abfe456d1139c96961ac3a69abbc0756c103a6d3b0c94e293c0a24525",
+          "sha256": "a9b5162807567d6820319bb25095d36963c6a243c939203382dcf301c27b8f6a",
           "basis": "Rejects duplicate dispatch and changed worker acknowledgement."
+        },
+        {
+          "path": "tests/integration/test_api_read_cog_recovery.py",
+          "symbol": "test_api_read_cog_recovery_never_resends",
+          "sha256": "60b2ef7e8339581122d07f7fddaaf608a013da867fcfc76ffccbf327fe0254f2",
+          "basis": "Exercises the REST and GraphQL settlements on PostgreSQL with a worker RPC double, including reply loss, duplicate delivery and an unavailable provider response."
         }
       ],
-      "assessment": "The pinned single REST read has an installed worker Cog, a durable provider receipt and read-only recovery.",
-      "support_scope": "Selected OpenAPI 3.1 subset, pinned single HTTPS GET and local service fixtures.",
+      "assessment": "Pinned REST and GraphQL reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. Managed WSL qualification covers REST. GraphQL has TLS and PostgreSQL fixture coverage.",
+      "support_scope": "Selected OpenAPI 3.1 GET and fixed named GraphQL query, using one pinned HTTPS route per installation.",
       "remaining": [
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Qualify managed credentials and broader API transport profiles separately.",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported"
       ],
@@ -1021,13 +1034,13 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogExecutor",
-          "sha256": "391828bd6ae5b9fe0299d6d3025253970ad08f2eb57a43d9ec2b662d6cf1e3a4",
+          "sha256": "7f11f4297c30c3ce84c497c161a6d2ff7b5ed7cde05bfffd3659539459a60498",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "20dc861976a994a0d32b033500da9d2d4f5b04d1fd7aacc61f3b2aa1b997eb7d",
+          "sha256": "bdc4d3ae7185f98d4f6211af5d03499909b0a57ffecb0ff0e3d8407b0fca0f6d",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -1522,7 +1535,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "20dc861976a994a0d32b033500da9d2d4f5b04d1fd7aacc61f3b2aa1b997eb7d",
+          "sha256": "bdc4d3ae7185f98d4f6211af5d03499909b0a57ffecb0ff0e3d8407b0fca0f6d",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -1874,13 +1887,13 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "inspect_sandbox_transport_effect",
-          "sha256": "5174deb5b4eaf1ab639041e5e9fb2d65aa97f4e67142dcf4294b76da66e8cfe3",
+          "sha256": "17b4ebcd2e72e966846111fa90dae79093f6159106cb91c5e96c4465c50f70ab",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "34e2c9cf657cc9ed871f48b93cb35d9657ef11eb9366f469c9359e2772a327d5",
+          "sha256": "56bb7297fda6f3d9483e9ee7ecdd608d2ffeb1cd0ed91a6af143a7b4a2b47bb5",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
@@ -62824,12 +62837,12 @@
     },
     {
       "path": "docs/implementation/04-http-api-adapters.md",
-      "sha256": "fa1f970546eefa565472d1f350e18320845a2fa5c65b69374aa1d3dc3e83f6be",
+      "sha256": "9782af31ec85c75d8791d9214db28e5a5802e3879b7b312544b46acac7f1398c",
       "families": [
         "api"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Selected API adapters and the pinned managed REST read profile with durable settlement and recovery.",
+      "assessment": "Selected API adapters, the managed REST worker read, and the pinned GraphQL query profile with TLS and PostgreSQL fixture coverage.",
       "narrative": [
         {
           "locator": "line:1-6",
@@ -62874,21 +62887,28 @@
           ]
         },
         {
-          "locator": "line:88-112",
+          "locator": "line:88-93",
+          "sha256": "852fd1765ecd4c877767355fc9501533cd08243a0668687cd59a88baa14950b4",
+          "families": [
+            "api"
+          ]
+        },
+        {
+          "locator": "line:94-118",
           "sha256": "ccc499fe7c580e61ea455212df5d6d65a0f9900f75d199d7fb4a11211701e60e",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:113-120",
+          "locator": "line:119-126",
           "sha256": "38b5b9a81ac035707d21004c2a787b62818b9e3ba3b21c46fa504588d5bb4a0c",
           "families": [
             "api"
           ]
         },
         {
-          "locator": "line:121-126",
+          "locator": "line:127-132",
           "sha256": "236082be43d189210d88e31c684558e1871434ee2e8be04356e3139a312b75e1",
           "families": [
             "api"

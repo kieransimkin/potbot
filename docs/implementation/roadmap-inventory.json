@@ -249,12 +249,12 @@
     },
     {
       "path": "docs/implementation/04-http-api-adapters.md",
-      "sha256": "fa1f970546eefa565472d1f350e18320845a2fa5c65b69374aa1d3dc3e83f6be",
-      "bytes": 12301,
+      "sha256": "9782af31ec85c75d8791d9214db28e5a5802e3879b7b312544b46acac7f1398c",
+      "bytes": 13344,
       "kind": "narrative_text",
-      "text_sha256": "fa1f970546eefa565472d1f350e18320845a2fa5c65b69374aa1d3dc3e83f6be",
-      "characters": 12297,
-      "lines": 126,
+      "text_sha256": "9782af31ec85c75d8791d9214db28e5a5802e3879b7b312544b46acac7f1398c",
+      "characters": 13340,
+      "lines": 132,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -3499,6 +3499,7 @@
         "Cross-producer crash boundaries and durable approval/cancellation adoption remain incomplete",
         "Give any additional transport provider an equivalent receipt or cancellation contract before admission.",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Qualify the shared rootfs and cgroup host path against a released Syn node and production grants.",
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly"
       ],
@@ -3641,6 +3642,7 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Implement curated registry snapshots, readiness states, quarantine/test/approval/update/revocation",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Reconcile all selected IBM/DanceFlow/WordPress capabilities and concurrency footprints"
       ],
       "next_action": "For G34 (DanceFlow workflows jobs and native federation): Extend the existing capability/installation registry and operator UI; do not create a second tool registry. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
@@ -12207,6 +12209,7 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Implement curated registry snapshots, readiness states, quarantine/test/approval/update/revocation",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Reconcile all selected IBM/DanceFlow/WordPress capabilities and concurrency footprints"
       ],
       "next_action": "For U15 (Integrate the DanceFlow ecosystem MCP hub including workflows jobs conditional effects and native federation): Extend the existing capability/installation registry and operator UI; do not create a second tool registry. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
@@ -26430,6 +26433,7 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Implement curated registry snapshots, readiness states, quarantine/test/approval/update/revocation",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Reconcile all selected IBM/DanceFlow/WordPress capabilities and concurrency footprints"
       ],
       "next_action": "For P172 (Capture DanceFlow capabilities and portable workflow references): Extend the existing capability/installation registry and operator UI; do not create a second tool registry. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
@@ -26475,6 +26479,7 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Implement curated registry snapshots, readiness states, quarantine/test/approval/update/revocation",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Reconcile all selected IBM/DanceFlow/WordPress capabilities and concurrency footprints"
       ],
       "next_action": "For P173 (Map DanceFlow effect acknowledgments to task authority): Extend the existing capability/installation registry and operator UI; do not create a second tool registry. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
@@ -26520,6 +26525,7 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Implement curated registry snapshots, readiness states, quarantine/test/approval/update/revocation",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Reconcile all selected IBM/DanceFlow/WordPress capabilities and concurrency footprints"
       ],
       "next_action": "For P174 (Track DanceFlow jobs and reconcile missing acknowledgments): Extend the existing capability/installation registry and operator UI; do not create a second tool registry. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
@@ -26565,6 +26571,7 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Implement curated registry snapshots, readiness states, quarantine/test/approval/update/revocation",
         "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Reconcile all selected IBM/DanceFlow/WordPress capabilities and concurrency footprints"
       ],
       "next_action": "For P175 (Preserve DanceFlow native federation and host boundaries): Extend the existing capability/installation registry and operator UI; do not create a second tool registry. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
@@ -30903,7 +30910,8 @@
       "evidence_state": "reviewed_partial",
       "blockers": [
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For G04 (Network diagnostics and protocol clients): Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -31685,7 +31693,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T02.1 (MCP stdio adapter): Rebase/review PR13 against released-Syn admission, then qualify each explicit MCP profile and selected live deployment. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -31726,7 +31735,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T02.2 (MCP Streamable HTTP and authorization): Rebase/review PR13 against released-Syn admission, then qualify each explicit MCP profile and selected live deployment. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -31767,7 +31777,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T02.3 (CLI and local process adapters): Rebase/review PR13 against released-Syn admission, then qualify each explicit MCP profile and selected live deployment. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -31808,7 +31819,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Installed transport Cog factories in open PR13 are not merged into main",
         "Pin protocol/deployment/schema/auth scope and reconcile uncertain mutations across layered retries",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T02.4 (HTTP, SDK, GraphQL and gRPC adapters): Rebase/review PR13 against released-Syn admission, then qualify each explicit MCP profile and selected live deployment. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -32681,7 +32693,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Measure fixed-condition model/index comparisons before approximate or custom spaces",
         "Qualify exact/lexical/vector baseline with shared eligibility, source chunks and final packet provenance",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T08.1 (Safe SQL and analytical data adapters): Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -32726,7 +32739,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Measure fixed-condition model/index comparisons before approximate or custom spaces",
         "Qualify exact/lexical/vector baseline with shared eligibility, source chunks and final packet provenance",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T08.2 (Vector, full-text and graph retrieval): Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -32771,7 +32785,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Measure fixed-condition model/index comparisons before approximate or custom spaces",
         "Qualify exact/lexical/vector baseline with shared eligibility, source chunks and final packet provenance",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T08.3 (Schema-aware external API integration): Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -32816,7 +32831,8 @@
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported",
         "Measure fixed-condition model/index comparisons before approximate or custom spaces",
         "Qualify exact/lexical/vector baseline with shared eligibility, source chunks and final packet provenance",
-        "Qualify managed credentials and broader API transport profiles separately."
+        "Qualify managed credentials and broader API transport profiles separately.",
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher."
       ],
       "next_action": "For T08.4 (Cloud, files, collaboration and optional services): Finish standard-before-custom E01-E06/P095-P110 gates and keep E07-E09 optional experiments separate. Use admitted installed transport Cogs and real controlled service failure tests; preserve indeterminate outcomes.",
       "review_families": [
@@ -35319,11 +35335,11 @@
     },
     {
       "path": "src/potbot/context/runtime_integration.py",
-      "sha256": "20dc861976a994a0d32b033500da9d2d4f5b04d1fd7aacc61f3b2aa1b997eb7d",
-      "bytes": 16787,
+      "sha256": "bdc4d3ae7185f98d4f6211af5d03499909b0a57ffecb0ff0e3d8407b0fca0f6d",
+      "bytes": 16781,
       "kind": "narrative_text",
-      "text_sha256": "20dc861976a994a0d32b033500da9d2d4f5b04d1fd7aacc61f3b2aa1b997eb7d",
-      "characters": 16787,
+      "text_sha256": "bdc4d3ae7185f98d4f6211af5d03499909b0a57ffecb0ff0e3d8407b0fca0f6d",
+      "characters": 16781,
       "lines": 419,
       "interpretation": "source_content_not_runtime_evidence"
     },
@@ -36000,7 +36016,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "9079f7d312743eb6512cd832a59b9b1ab95cc545db5a6b02b399876b0c753ef1",
+  "review_sha256": "de28d4d100df72099ea71823a9da07f0a22b72bd600026f927016848861028f4",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110292,7 +110308,16 @@
     },
     {
       "source": "docs/implementation/04-http-api-adapters.md",
-      "locator": "line:88-112",
+      "locator": "line:88-93",
+      "sha256": "852fd1765ecd4c877767355fc9501533cd08243a0668687cd59a88baa14950b4",
+      "excerpt": "### Pinned GraphQL query\n\nUse `InstalledGraphqlRead` with the `providers` extra and `install_graphql_cog` to admit a named query over the same directed Syn rout",
+      "review_families": [
+        "api"
+      ]
+    },
+    {
+      "source": "docs/implementation/04-http-api-adapters.md",
+      "locator": "line:94-118",
       "sha256": "ccc499fe7c580e61ea455212df5d6d65a0f9900f75d199d7fb4a11211701e60e",
       "excerpt": "## Reproduce\n\nFrom a checked-out Potbot repository after `git apply` and its locked `uv sync`:\n\n```bash\nuv run --locked python -m pytest -q \\\n  tests/unit/test_",
       "review_families": [
@@ -110301,7 +110326,7 @@
     },
     {
       "source": "docs/implementation/04-http-api-adapters.md",
-      "locator": "line:113-120",
+      "locator": "line:119-126",
       "sha256": "38b5b9a81ac035707d21004c2a787b62818b9e3ba3b21c46fa504588d5bb4a0c",
       "excerpt": "## Acceptance and next work\n\n1. **T02.4 offline acceptance:** Every selected tool enforces input/output contracts, effect classification, pinned schema hash and",
       "review_families": [
@@ -110310,7 +110335,7 @@
     },
     {
       "source": "docs/implementation/04-http-api-adapters.md",
-      "locator": "line:121-126",
+      "locator": "line:127-132",
       "sha256": "236082be43d189210d88e31c684558e1871434ee2e8be04356e3139a312b75e1",
       "excerpt": "## External protocol references\n\n- OpenAPI 3.1 specification: https://spec.openapis.org/oas/v3.1\n- GraphQL over HTTP working draft: https://http-spec.graphql.or",
       "review_families": [
@@ -121680,7 +121705,7 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "PinnedExecutionJournal",
-          "sha256": "5174deb5b4eaf1ab639041e5e9fb2d65aa97f4e67142dcf4294b76da66e8cfe3",
+          "sha256": "17b4ebcd2e72e966846111fa90dae79093f6159106cb91c5e96c4465c50f70ab",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
@@ -121730,7 +121755,7 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogOperation",
-          "sha256": "391828bd6ae5b9fe0299d6d3025253970ad08f2eb57a43d9ec2b662d6cf1e3a4",
+          "sha256": "7f11f4297c30c3ce84c497c161a6d2ff7b5ed7cde05bfffd3659539459a60498",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122066,13 +122091,13 @@
         {
           "path": "src/potbot/cogs/execution.py",
           "symbol": "execute",
-          "sha256": "28157ac1af77b4ea0d04950912ebc2414a30c471de9a3f7f9a542375cf81b746",
+          "sha256": "2d88487451f8def79d4daf50594a34b6365f2e007532bf439a372bac5cf46547",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "34e2c9cf657cc9ed871f48b93cb35d9657ef11eb9366f469c9359e2772a327d5",
+          "sha256": "56bb7297fda6f3d9483e9ee7ecdd608d2ffeb1cd0ed91a6af143a7b4a2b47bb5",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122215,7 +122240,7 @@
         {
           "path": "tests/unit/test_mcp_http_broker.py",
           "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
-          "sha256": "736f5aa121dbb4db7185c55a7f8f2aa52f1c8716cc89d4d9f382735dd516b9e2",
+          "sha256": "b06e24b08c0e0476f4394ec9e4fc3857c6f24db6f0f0a01cd9f660a1544682aa",
           "basis": "Local TLS fixture verifies the original DNS identity and refuses a mismatched certificate."
         },
         {
@@ -122312,7 +122337,7 @@
         {
           "path": "src/potbot/tools/api_https.py",
           "symbol": "InstalledRestRead",
-          "sha256": "1263b083230489ccfe50d1f6d9e8a941fc07dc6ea8a13cc4f161a8811b93957c",
+          "sha256": "cf6b461da73a6ed3df649df02542cc9c3a0412e0c85c6c220705225953e8cb02",
           "basis": "Pins the selected REST read to its authenticated principal and exact HTTPS egress."
         },
         {
@@ -122323,15 +122348,21 @@
         },
         {
           "path": "src/potbot/controller/rest_read.py",
-          "symbol": "RestReadAttempt",
-          "sha256": "95d3e74503cf6177bc651d5bfb826a0d0cb5caa26c0c17c0d7513b324ed1d85e",
+          "symbol": "ApiReadAttempt",
+          "sha256": "099d7a46a2323b417b7944c16e00cc7856563446162723efe12205d0b4ff728a",
           "basis": "Reserves and records one admitted provider request, then settles with its retained observation."
         },
         {
           "path": "src/potbot/tools/rest_cog.py",
           "symbol": "install_rest_cog",
-          "sha256": "31434d1e5c099c1b792df7c350bae08ff6bc3fc2d1982427af0abf070d74cd35",
+          "sha256": "481400deb05dd1901d0e8a48cd532a9a5023c32fe2a106d043549d55855b8cd4",
           "basis": "Pins the REST observation to a sealed API Cog and the installed Context worker."
+        },
+        {
+          "path": "src/potbot/tools/api_https.py",
+          "symbol": "InstalledGraphqlRead",
+          "sha256": "cf6b461da73a6ed3df649df02542cc9c3a0412e0c85c6c220705225953e8cb02",
+          "basis": "Validates one fixed named query at installation and restricts the request to the pinned HTTPS path and typed variables."
         }
       ],
       "tests": [
@@ -122356,19 +122387,26 @@
         {
           "path": "tests/unit/test_mcp_http_broker.py",
           "symbol": "test_pinned_socket_still_verifies_the_approved_hostname",
-          "sha256": "736f5aa121dbb4db7185c55a7f8f2aa52f1c8716cc89d4d9f382735dd516b9e2",
+          "sha256": "b06e24b08c0e0476f4394ec9e4fc3857c6f24db6f0f0a01cd9f660a1544682aa",
           "basis": "Runs the pinned MCP and OpenAPI REST paths against a real disposable TLS listener."
         },
         {
           "path": "tests/unit/test_context_agent_rpc.py",
           "symbol": "test_rest_worker_discloses_and_acknowledges_only_the_observed_value",
-          "sha256": "5477444abfe456d1139c96961ac3a69abbc0756c103a6d3b0c94e293c0a24525",
+          "sha256": "a9b5162807567d6820319bb25095d36963c6a243c939203382dcf301c27b8f6a",
           "basis": "Rejects duplicate dispatch and changed worker acknowledgement."
+        },
+        {
+          "path": "tests/integration/test_api_read_cog_recovery.py",
+          "symbol": "test_api_read_cog_recovery_never_resends",
+          "sha256": "60b2ef7e8339581122d07f7fddaaf608a013da867fcfc76ffccbf327fe0254f2",
+          "basis": "Exercises the REST and GraphQL settlements on PostgreSQL with a worker RPC double, including reply loss, duplicate delivery and an unavailable provider response."
         }
       ],
-      "assessment": "The pinned single REST read has an installed worker Cog, a durable provider receipt and read-only recovery.",
-      "support_scope": "Selected OpenAPI 3.1 subset, pinned single HTTPS GET and local service fixtures.",
+      "assessment": "Pinned REST and GraphQL reads have separate installed worker Cog profiles, durable provider receipts and read-only recovery. Managed WSL qualification covers REST. GraphQL has TLS and PostgreSQL fixture coverage.",
+      "support_scope": "Selected OpenAPI 3.1 GET and fixed named GraphQL query, using one pinned HTTPS route per installation.",
       "remaining": [
+        "Qualify the pinned GraphQL query through the installed released-Syn worker and its TASKSTATS launcher.",
         "Qualify managed credentials and broader API transport profiles separately.",
         "Broader GraphQL/protobuf/reflection/subscription features remain unsupported"
       ],
@@ -122564,13 +122602,13 @@
         {
           "path": "src/potbot/tools/sandbox_cog_worker.py",
           "symbol": "SandboxedCogExecutor",
-          "sha256": "391828bd6ae5b9fe0299d6d3025253970ad08f2eb57a43d9ec2b662d6cf1e3a4",
+          "sha256": "7f11f4297c30c3ce84c497c161a6d2ff7b5ed7cde05bfffd3659539459a60498",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         },
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "execute_context_operation",
-          "sha256": "20dc861976a994a0d32b033500da9d2d4f5b04d1fd7aacc61f3b2aa1b997eb7d",
+          "sha256": "bdc4d3ae7185f98d4f6211af5d03499909b0a57ffecb0ff0e3d8407b0fca0f6d",
           "basis": "Reviewed shared Cog log source. Live acceptance requires a separate execution record."
         }
       ],
@@ -123065,7 +123103,7 @@
         {
           "path": "src/potbot/context/runtime_integration.py",
           "symbol": "LaunchContext",
-          "sha256": "20dc861976a994a0d32b033500da9d2d4f5b04d1fd7aacc61f3b2aa1b997eb7d",
+          "sha256": "bdc4d3ae7185f98d4f6211af5d03499909b0a57ffecb0ff0e3d8407b0fca0f6d",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -123417,13 +123455,13 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "inspect_sandbox_transport_effect",
-          "sha256": "5174deb5b4eaf1ab639041e5e9fb2d65aa97f4e67142dcf4294b76da66e8cfe3",
+          "sha256": "17b4ebcd2e72e966846111fa90dae79093f6159106cb91c5e96c4465c50f70ab",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "34e2c9cf657cc9ed871f48b93cb35d9657ef11eb9366f469c9359e2772a327d5",
+          "sha256": "56bb7297fda6f3d9483e9ee7ecdd608d2ffeb1cd0ed91a6af143a7b4a2b47bb5",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {

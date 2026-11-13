@@ -71,6 +71,7 @@ def test_guest_cannot_select_identity_or_resources(extra):
         b'{"schema":NaN}',
         b" " * (MAX_FRAME_BYTES + 1),
     ],
+    ids=["list", "null", "truncated", "encoding", "duplicate-key", "nan", "oversized"],
 )
 def test_malformed_or_unbounded_input(value):
     with pytest.raises(InvalidInputError):
@@ -586,19 +587,22 @@ def test_mutation_request_without_explicit_reason_or_revision_is_not_accepted():
             parse_request(encoded(bad))
 
 
-def test_rest_worker_discloses_and_acknowledges_only_the_observed_value():
+@pytest.mark.parametrize("graphql", [False, True], ids=["REST", "GraphQL"])
+def test_rest_worker_discloses_and_acknowledges_only_the_observed_value(graphql):
     from types import SimpleNamespace
 
     from potbot.context.rpc_contract import WorkRequest
     from potbot.context.work_exchange import ContextWorkExchange
     from potbot.domain.errors import IndeterminateExecutionError, StateMismatchError
-    from potbot.tools.rest_cog import REQUEST, RESULT
+    from potbot.tools.rest_cog import schemas
+
+    request_type, result_type = schemas(graphql=graphql)
 
     context = {
         "schema_version": 1,
         "operation_ref": "syn://thing/test-rest",
         "invocation_id": str(uuid4()),
-        "input": {"type_ref": REQUEST, "value": {"arguments": {"query": {"secret": "input"}}}},
+        "input": {"type_ref": request_type, "value": {"arguments": {"query": {"secret": "input"}}}},
     }
     result = {"status": "succeeded", "value": {"count": 1}, "observation_sha256": "a" * 64}
     calls = []
@@ -609,10 +613,10 @@ def test_rest_worker_discloses_and_acknowledges_only_the_observed_value():
 
     store = SimpleNamespace(admit_work_read=lambda _: None, complete_work=lambda *_: {"ok": True})
     grant = object()
-    exchange = ContextWorkExchange(context, RESULT, work_only=True, provide_value=provide)
+    exchange = ContextWorkExchange(context, result_type, work_only=True, provide_value=provide)
     request = WorkRequest(uuid4(), "work.input")
     assert exchange.execute(store, grant, request)["work"]["input"] == {
-        "type_ref": RESULT,
+        "type_ref": result_type,
         "value": result,
     }
     with pytest.raises(StateMismatchError, match="already requested"):
@@ -625,11 +629,11 @@ def test_rest_worker_discloses_and_acknowledges_only_the_observed_value():
             WorkRequest(
                 uuid4(),
                 "work.result",
-                {"schema_version": 1, "type_ref": RESULT, "value": value},
+                {"schema_version": 1, "type_ref": result_type, "value": value},
             ),
         )
 
-    with pytest.raises(ScopeDeniedError, match="retained REST observation"):
+    with pytest.raises(ScopeDeniedError, match="retained provider observation"):
         acknowledge({**result, "value": {"count": True}})
     assert acknowledge(result) == {"ok": True}
     assert calls == ["GET"]
@@ -638,7 +642,7 @@ def test_rest_worker_discloses_and_acknowledges_only_the_observed_value():
         calls.append("GET")
         raise IndeterminateExecutionError("Fixture lost upstream response")
 
-    exchange = ContextWorkExchange(context, RESULT, work_only=True, provide_value=uncertain)
+    exchange = ContextWorkExchange(context, result_type, work_only=True, provide_value=uncertain)
     with pytest.raises(IndeterminateExecutionError):
         exchange.execute(store, grant, request)
     assert exchange.provider_uncertain

@@ -234,6 +234,7 @@ class BoundCogRegistry:
     browser_profile: bool = False
     queue_transport_profile: bool = False
     rest_read_profile: bool = False
+    graphql_read_profile: bool = False
 
     def installed(self) -> tuple[CogSignature, ...]:
         if self.browser_profile:
@@ -294,9 +295,10 @@ class BoundCogRegistry:
             > 1
         ):
             raise ScopeDeniedError("Choose one exact installed execution profile")
-        if (
-            (self.queue_transport_profile or self.rest_read_profile) and not self.provenance_profile
-        ) or (self.queue_transport_profile and self.rest_read_profile):
+        transport_profiles = sum(
+            (self.queue_transport_profile, self.rest_read_profile, self.graphql_read_profile)
+        )
+        if transport_profiles > int(self.provenance_profile):
             raise ScopeDeniedError("Choose one exact execution transport profile")
         expected = (
             browser_cog_snapshot()
@@ -306,7 +308,9 @@ class BoundCogRegistry:
             else artifact_range_snapshot()
             if self.artifact_range_profile
             else execution_cog_snapshot(
-                queue_transport=self.queue_transport_profile, rest_read=self.rest_read_profile
+                queue_transport=self.queue_transport_profile,
+                rest_read=self.rest_read_profile,
+                graphql_read=self.graphql_read_profile,
             )
             if self.provenance_profile
             else contract_cog_snapshot()
@@ -367,15 +371,18 @@ class BoundCogRegistry:
 
     @classmethod
     def provenance(
-        cls, *, queue_transport: bool = False, rest_read: bool = False
+        cls, *, queue_transport: bool = False, rest_read: bool = False, graphql_read: bool = False
     ) -> BoundCogRegistry:
         from potbot.cogs.execution import execution_cog_snapshot
 
         return cls(
-            execution_cog_snapshot(queue_transport=queue_transport, rest_read=rest_read),
+            execution_cog_snapshot(
+                queue_transport=queue_transport, rest_read=rest_read, graphql_read=graphql_read
+            ),
             provenance_profile=True,
             queue_transport_profile=queue_transport,
             rest_read_profile=rest_read,
+            graphql_read_profile=graphql_read,
         )
 
     @classmethod

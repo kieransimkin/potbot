@@ -277,6 +277,7 @@ class ToolSemanticCatalog:
                     **browser_schemas(),
                     **queue_schemas(),
                     **rest_schemas(),
+                    **rest_schemas(graphql=True),
                 }.items()
                 if type_identity(ref) in known
             }
