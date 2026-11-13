@@ -541,7 +541,7 @@
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "2dd1d22d3552f18633a9d5361de1cb95588bff5d0cadc5a6684d21c41d20bca6",
+          "sha256": "ad2919481a93609f3f1513143973c2ca40d460679b95f9ccfc69693d8f6acf23",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -1916,7 +1916,7 @@
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "2dd1d22d3552f18633a9d5361de1cb95588bff5d0cadc5a6684d21c41d20bca6",
+          "sha256": "ad2919481a93609f3f1513143973c2ca40d460679b95f9ccfc69693d8f6acf23",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {

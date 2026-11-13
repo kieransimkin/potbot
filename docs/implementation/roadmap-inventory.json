@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "0d5305b87d75de04b5929ae357f6607f25b0232977ad2fed2750242992a57fd5",
+  "review_sha256": "0bcff4bca30689902745f1491ef66b89df4a365bbe066e2a9f6549402912714c",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -122113,7 +122113,7 @@
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "2dd1d22d3552f18633a9d5361de1cb95588bff5d0cadc5a6684d21c41d20bca6",
+          "sha256": "ad2919481a93609f3f1513143973c2ca40d460679b95f9ccfc69693d8f6acf23",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -123488,7 +123488,7 @@
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "2dd1d22d3552f18633a9d5361de1cb95588bff5d0cadc5a6684d21c41d20bca6",
+          "sha256": "ad2919481a93609f3f1513143973c2ca40d460679b95f9ccfc69693d8f6acf23",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
