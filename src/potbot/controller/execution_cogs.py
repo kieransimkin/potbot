@@ -583,12 +583,10 @@ class ExecutionCogRuntime:
             self._admission(signature, source, context)
         except ScopeDeniedError as error:
             try:
-                monitor.denied(
-                    signature,
-                    source,
-                    context,
-                    reason=error.reason.value if isinstance(error, CogPolicyDenied) else None,
-                )
+                if isinstance(error, CogPolicyDenied):
+                    monitor.denied(signature, source, context, reason=error.reason.value)
+                else:
+                    monitor.denied(signature, source, context)
             except Exception:
                 self._poisoned = True
                 raise
