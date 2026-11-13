@@ -100,6 +100,12 @@
           "symbol": "JobLease",
           "sha256": "f2b45a5522562970f5fe23f912ce2f217b6793aa629bb3a2dde17b3e7293b320",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
+        },
+        {
+          "path": "src/potbot/controller/cog_capability_policy.py",
+          "symbol": "CogCapabilityPolicy",
+          "sha256": "59cbbe2fb770d7f662f2f2716428a00414f1eee3ac932dd8471d41f9ddb94da6",
+          "basis": "Matches operator grants to the exact sandbox installation and native Syn Agent, with active task and parent capability ceilings."
         }
       ],
       "tests": [
@@ -114,6 +120,12 @@
           "symbol": "test_artifact_identity_scope_and_immutable_metadata",
           "sha256": "94341e80d4db5a506352c84f839b15f063e5916395b6af08eef3e86cb65ed77f",
           "basis": "source inspection; test definition is not an individual executed result"
+        },
+        {
+          "path": "tests/integration/test_cog_capability_policy.py",
+          "symbol": "test_cog_policy_checks_installed_work_before_dispatch",
+          "sha256": "885ed0039abf4e5ddb2c7ebea9d5ab3b2321c67da0f7776a462595f2ed5f367b",
+          "basis": "Exercises allowed, denied, stale and nested policy decisions through the existing Cog journal on disposable PostgreSQL."
         }
       ],
       "assessment": "Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers.",
@@ -529,7 +541,7 @@
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "b174daff160e9078ae5647fbb2409f29743b079553fcb362bcf25d879a9d5c79",
+          "sha256": "ad2919481a93609f3f1513143973c2ca40d460679b95f9ccfc69693d8f6acf23",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -781,7 +793,7 @@
         {
           "path": "src/potbot/controller/rest_read.py",
           "symbol": "ApiReadAttempt",
-          "sha256": "99e12608471632434eabaa0638287dce3dbb49153963176aef23509ef5a534e6",
+          "sha256": "ac317ed1b249dba59472e7d8bbf3ef7e331c1756672170a29258335514c5d50a",
           "basis": "Reserves and records one admitted provider request, then settles with its retained observation."
         },
         {
@@ -837,7 +849,7 @@
         {
           "path": "tests/integration/test_api_read_cog_recovery.py",
           "symbol": "test_api_read_cog_recovery_never_resends",
-          "sha256": "daefe6fa1b0bc9a90284341446cc389b202931d32aa0a06f99aa51af3b3bc267",
+          "sha256": "cf44687dce0b0912afbea3d7e0e808bcb6b20895ca2298647645cc9ddf80fef9",
           "basis": "Exercises the REST and GraphQL settlements on PostgreSQL with a worker RPC double, including reply loss, duplicate delivery and an unavailable provider response."
         },
         {
@@ -1904,7 +1916,7 @@
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "b174daff160e9078ae5647fbb2409f29743b079553fcb362bcf25d879a9d5c79",
+          "sha256": "ad2919481a93609f3f1513143973c2ca40d460679b95f9ccfc69693d8f6acf23",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
@@ -63450,7 +63462,7 @@
     },
     {
       "path": "docs/implementation/10-syn-tool-cogs.md",
-      "sha256": "b8734eb81da64ffbdd84ebffa0b82a3c9bd89bb7ee065bf4f97cb0c1dfaebe76",
+      "sha256": "ed9b9c766f58ffe30e8efa4c68757447370d5bcc54449fedbfe3a6f5ac6a069b",
       "families": [
         "identity",
         "journal",
@@ -63496,7 +63508,16 @@
           ]
         },
         {
-          "locator": "line:47-64",
+          "locator": "line:47-68",
+          "sha256": "b54d8a1dcbcd64b9fc6394bab8a3cce2a6bd9b79d50c2afb6122b1326225227d",
+          "families": [
+            "identity",
+            "journal",
+            "syn-operations"
+          ]
+        },
+        {
+          "locator": "line:69-86",
           "sha256": "9bc79c00123f55ad8c7d2ff1c3f58605b28e04a5f60c92f17bbc48b5e8ac7433",
           "families": [
             "identity",
@@ -63505,7 +63526,7 @@
           ]
         },
         {
-          "locator": "line:65-79",
+          "locator": "line:87-101",
           "sha256": "da006eb2bf72b378f831d5360e0cfa8d092b3091242c26b82fd59d7398902259",
           "families": [
             "identity",
@@ -63514,7 +63535,7 @@
           ]
         },
         {
-          "locator": "line:80-92",
+          "locator": "line:102-114",
           "sha256": "1e45889fa371d999995f4ba37eb242f4e24e88175858308e63381a108aecdb46",
           "families": [
             "identity",
@@ -63523,7 +63544,7 @@
           ]
         },
         {
-          "locator": "line:93-104",
+          "locator": "line:115-126",
           "sha256": "eb4bdcf7aaa398c048313ce964727632d95396bf2b1231cfa42c6a4a6b8f245d",
           "families": [
             "identity",
@@ -80824,8 +80845,8 @@
         "identity"
       ],
       "status": "partial",
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts.",
-      "next_action": "For T03.1 (Capability permission and risk policy): U01-A: extend existing intent/receipt/recovery owners with a producer-by-producer crash and duplicate-delivery matrix. Use the existing registered workspace/image/agent path and fail before dispatch if the host or audit is unqualified. Keep all private generation/derivation/custody in Syn and apply scoped Potbot activation separately from signed adoption."
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker.",
+      "next_action": "Connect scoped Cog capability grants to durable operator management, wallet delegation and target-specific device and gateway checks."
     },
     {
       "key": "tools:T03.2",

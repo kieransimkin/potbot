@@ -13,6 +13,14 @@ from potbot.cogs.contracts import CogRunContext, TypedCogValue
 from potbot.cogs.execution import WORK_COGS
 from potbot.cogs.registry import BoundCogRegistry
 from potbot.controller.budgets import BudgetLedger
+from potbot.controller.cog_capability_policy import (
+    Capability,
+    CogCapabilityGrant,
+    CogCapabilityPolicy,
+    CogPolicyDenied,
+    Denial,
+    installation_hash,
+)
 from potbot.controller.execution_cogs import ExecutionCogRuntime
 from potbot.controller.tasks import TaskService
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
@@ -56,7 +64,7 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
             deliverable_type=DeliverableType.INVESTIGATION,
             requirements=(Requirement("R1", "Recover result", "No repeated request"),),
             change_scope=(),
-            capabilities=("test",),
+            capabilities=("read", "network", "external_disclosure"),
             verification_policy="checks-v1",
             budget=(("tokens", 0), ("calls", 3), ("tool_ms", 6000), ("concurrency", 1)),
         ),
@@ -161,6 +169,9 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
     requests = []
     invocations = []
     lose_provider_response = False
+    expire_before_provider = False
+    clock = [1000]
+    monkeypatch.setattr("potbot.controller.cog_capability_policy.time", lambda: clock[0])
 
     def resolve(host, port, **_):
         assert host == "api.fixture.example" and port == 443
@@ -197,19 +208,39 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
             pass
 
         def syn_provenance(self, *_):
-            return None
+            return {
+                "profile": "potbot.syn-cog-native-binding/1",
+                "workspace_id": str(actor.workspace_id),
+                "agent_id": str(agent),
+                "node": "f" * 64,
+            }
 
         def authorize_syn(self, *_):
             return None
 
         async def execute(self, op, _value, cog, _actor, _agent, *, syn_authorization, api_read):
             invocations.append(cog.invocation_id)
+            if expire_before_provider:
+                clock[0] = 1200
             response = await asyncio.to_thread(api_read)
             if self.lose:
                 raise IndeterminateExecutionError("Fixture lost the reply after settlement")
             return TypedCogValue(op.binding.output_type_ref, response)
 
     agent = uuid4()
+    capability_policy = CogCapabilityPolicy(
+        actor,
+        agent,
+        "f" * 64,
+        policy.policy_revision_hash,
+        (
+            CogCapabilityGrant(
+                installation_hash(worker),
+                frozenset({Capability.READ, Capability.NETWORK, Capability.EXTERNAL_DISCLOSURE}),
+                1200,
+            ),
+        ),
+    )
 
     def controller(lose):
         return ExecutionCogRuntime(
@@ -225,6 +256,7 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
             admit=lambda *_: None,
             sandbox_executor=ReplyLossWorker(lose),
             sandbox_agent_id=agent,
+            capability_policy=capability_policy,
             **profile,
         )
 
@@ -272,6 +304,23 @@ def test_api_read_cog_recovery_never_resends(app_env, tmp_path, monkeypatch, req
     balance = BudgetLedger(db).inspect(actor, episode)
     assert balance["used"] == {"calls": 2, "tool_ms": 4000} and balance["held"] == {}
 
+    expire_before_provider = True
+    denied = replace(good, invocation_id=uuid4())
+    with pytest.raises(CogPolicyDenied, match=Denial.EXPIRED.value):
+        asyncio.run(controller(False).invoke(signature, source, denied))
+    assert recover(denied.invocation_id) == {
+        "state": "denied_before_provider",
+        "cog_stage": "failed",
+        "budget_status": "released",
+        "automatic_retry_permitted": False,
+    }
+    if grpc:
+        assert provider_requests == [{"id": "test"}] * 2
+    else:
+        assert requests == [operation.method] * 2
+    assert BudgetLedger(db).inspect(actor, episode) == balance
+    expire_before_provider = False
+    clock[0] = 1000
     lose_provider_response = True
     unresolved = replace(good, invocation_id=uuid4())
     with pytest.raises(IndeterminateExecutionError, match="requires retained evidence"):

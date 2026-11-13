@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from potbot.controller.budgets import BudgetLedger
+from potbot.controller.cog_capability_policy import CogPolicyDenied
 from potbot.controller.sandbox_transport import effect_episode
 from potbot.controller.tasks import lock_episode
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError, StateMismatchError
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
 _REST_EVENTS = ("rest_read_dispatched", "rest_read_observed", "rest_read_unresolved")
 _GRAPHQL_EVENTS = ("graphql_read_dispatched", "graphql_read_observed", "graphql_read_unresolved")
 _GRPC_EVENTS = ("grpc_read_dispatched", "grpc_read_observed", "grpc_read_unresolved")
+_DENIED_BEFORE_PROVIDER = "api_read_denied_before_provider"
 
 
 def _events(
@@ -55,9 +58,11 @@ class ApiReadAttempt:
         read: InstalledRestRead | InstalledGraphqlRead | InstalledGrpcRead,
         source: TypedCogValue,
         cog: CogRunContext,
+        check_policy: Callable[[Any], None] | None = None,
     ) -> None:
         self.db, self.artifacts, self.actor = db, artifacts, actor
         self.read, self.cog = read, cog
+        self.check_policy = check_policy
         from potbot.tools.api_grpc import InstalledGrpcRead
         from potbot.tools.api_https import InstalledGraphqlRead
 
@@ -146,10 +151,19 @@ class ApiReadAttempt:
                 },
             )["id"]
 
+        policy_denial: CogPolicyDenied | None = None
+
         def authorize(*_: Any) -> None:
+            nonlocal policy_denial
             with self.db.transaction(actor) as conn:
                 current = lock_episode(conn, actor, episode)
                 self._require_cog(conn)
+                if self.check_policy is not None:
+                    try:
+                        self.check_policy(conn)
+                    except CogPolicyDenied as exc:
+                        policy_denial = exc
+                        raise
                 row = conn.execute(
                     "SELECT status FROM budget_reservations WHERE workspace_id=%s AND id=%s",
                     (actor.workspace_id, reservation),
@@ -214,7 +228,27 @@ class ApiReadAttempt:
             try:
                 with self.db.transaction(actor) as conn:
                     lock_episode(conn, actor, episode)
-                    if observed not in _events(conn, actor, cog.invocation_id, self.event_types):
+                    if exc is policy_denial and isinstance(exc, CogPolicyDenied):
+                        ledger.release(
+                            actor,
+                            reservation,
+                            exc.reason.value,
+                            confirmed_not_started=True,
+                            connection=conn,
+                        )
+                        append_event(
+                            conn,
+                            actor,
+                            _DENIED_BEFORE_PROVIDER,
+                            episode_id=episode,
+                            correlation_id=cog.invocation_id,
+                            causation_id=dispatch,
+                            details={
+                                "reason_class": exc.reason.value,
+                                "reservation_id": str(reservation),
+                            },
+                        )
+                    elif observed not in _events(conn, actor, cog.invocation_id, self.event_types):
                         ledger.mark_indeterminate(
                             actor,
                             reservation,
@@ -232,6 +266,8 @@ class ApiReadAttempt:
             except Exception:
                 # The committed reservation still holds and duplicate dispatch stays fenced.
                 raise IndeterminateExecutionError("API dispatch evidence is unavailable") from exc
+            if exc is policy_denial:
+                raise
             raise IndeterminateExecutionError("API dispatch requires retained evidence") from exc
         return {
             "status": result.status,
@@ -295,6 +331,13 @@ def _recover_read(
     if budget is None or terminal is None:
         raise StateMismatchError("API receipt has no matching Cog and budget")
     if observed is None:
+        if budget["status"] == "released":
+            return {
+                "state": "denied_before_provider",
+                "cog_stage": terminal["stage"],
+                "budget_status": "released",
+                "automatic_retry_permitted": False,
+            }
         return {
             "state": "unresolved",
             "cog_stage": terminal["stage"],
