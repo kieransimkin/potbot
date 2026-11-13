@@ -63218,12 +63218,12 @@
     },
     {
       "path": "docs/implementation/08-debugger-python-first.md",
-      "sha256": "a336914ed4ac970677f3478a39ad335bce5be4401a7a9fadc4f4d7d248980996",
+      "sha256": "f9d2655c83435c10e7267f3e5322757a8b8823a0a097fdf8ef9b29ec68ef6bff",
       "families": [
         "devices"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "Python-first debugger and typed session/target receipts are foundations. Android/Apple/remote native/profiler/board/probe/ICSP targets remain independently unqualified; no physical target has been supplied.",
+      "assessment": "The installed Python debugger passed remote inspection and reconnect with signed Syn 0.10.1 and durable PostgreSQL receipts in a disposable two-host fixture. Permanent service, profiler and device/probe qualification remain open.",
       "narrative": [
         {
           "locator": "line:1-10",
@@ -63268,14 +63268,14 @@
           ]
         },
         {
-          "locator": "line:86-109",
-          "sha256": "e11031351f8547cbaaf50364902ede82c6ec7586c0ee71dfa4c1ca2e47673350",
+          "locator": "line:86-111",
+          "sha256": "c129341ce38e5af8075864a73dfec1f1bb44999ce854600a37461fced0fd4c4c",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:110-114",
+          "locator": "line:112-116",
           "sha256": "35b94a0a9903f6b1fdc3e82a52436ea507b4e659e33ddaf12db368a50cbaf3ed",
           "families": [
             "devices"
