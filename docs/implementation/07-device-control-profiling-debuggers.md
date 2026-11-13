@@ -58,7 +58,9 @@ Measured comparison on WSL2 with Python 3.12.3. The authored workload called `it
 
 [Play the recorded comparison](media/python-profile-comparison.webm). Transcript: the baseline bar shows 7.99 ms. The instrumented bar then appears at 68.02 ms. The final frame displays the measured median difference of 60.03 ms. This is a visualization of the recorded samples.
 
-This milestone qualifies local CPU profiling through the operator command. A sealed profiling Cog, allocation/UI profiling, and comparisons across hosts remain separate work. [Python 3.12 profiler documentation](https://docs.python.org/3.12/library/profile.html)
+The sealed execution catalogue `BoundCogRegistry.provenance(python_profile=True)` adds typed profiling ports to the existing script Cog. The operator installs `syn://thing/potbot-python-profile-v1` with the worker executable, the Python interpreter digest and a script digest present in the pinned repository state. The worker reads that exact script from the registered Agent home. The caller supplies only a repetition count of two or three. A fresh process captures each sample inside the existing worker sandbox and the ordinary execution journal stores the typed result and receipt.
+
+The managed WSL acceptance used real Bubblewrap and the existing sandbox executor with a projected fixture image and a development Syn relay. It used PostgreSQL over TLS and verified hotspot attribution, private-output suppression, network denial, durable receipt readback and refusal to redispatch a completed invocation. The comparison above records the earlier operator command. Allocation and UI profiling, and qualification of a published signed worker image with native Syn, remain separate. [Python 3.12 profiler documentation](https://docs.python.org/3.12/library/profile.html)
 
 ## 3. Interactive debugger adapters
 

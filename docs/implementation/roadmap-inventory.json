@@ -279,12 +279,12 @@
     },
     {
       "path": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "sha256": "1106a45489ea269ff20d6478452ccabfe784edbb1a5b71db4fbbad5ed68c589b",
-      "bytes": 28579,
+      "sha256": "c69807bea360fb623c860569c681c944ec4d328d1a0b34336c472eb90de8be11",
+      "bytes": 29491,
       "kind": "narrative_text",
-      "text_sha256": "1106a45489ea269ff20d6478452ccabfe784edbb1a5b71db4fbbad5ed68c589b",
-      "characters": 28563,
-      "lines": 143,
+      "text_sha256": "c69807bea360fb623c860569c681c944ec4d328d1a0b34336c472eb90de8be11",
+      "characters": 29475,
+      "lines": 145,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35725,12 +35725,12 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "sha256": "0c56086df73b523eb3ee47083816c41d4c684c128cb97dfa3feb89c7119ca3d4",
-      "bytes": 13591,
+      "sha256": "0f3db807fe457b9de27fb8493336dc27263c4b878f2d3746b7f2583a5abb9c83",
+      "bytes": 13659,
       "kind": "narrative_text",
-      "text_sha256": "0c56086df73b523eb3ee47083816c41d4c684c128cb97dfa3feb89c7119ca3d4",
-      "characters": 13589,
-      "lines": 264,
+      "text_sha256": "0f3db807fe457b9de27fb8493336dc27263c4b878f2d3746b7f2583a5abb9c83",
+      "characters": 13657,
+      "lines": 266,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -35835,12 +35835,12 @@
     },
     {
       "path": ".github/workflows/sandbox-system-image.yml",
-      "sha256": "828082823187efe5116db0d105c105c3e17b1eda93929aad9f27cdf993a1ece6",
-      "bytes": 8053,
+      "sha256": "2710a92225d72308f98c61c9bc9b3bfc48ad4d5951ee9f5c240638aab74cf107",
+      "bytes": 8153,
       "kind": "narrative_text",
-      "text_sha256": "828082823187efe5116db0d105c105c3e17b1eda93929aad9f27cdf993a1ece6",
-      "characters": 8053,
-      "lines": 182,
+      "text_sha256": "2710a92225d72308f98c61c9bc9b3bfc48ad4d5951ee9f5c240638aab74cf107",
+      "characters": 8153,
+      "lines": 184,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36034,7 +36034,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "d022371939067a8dad30c84ddf304524adcbe6df07efa0c409327baf97714fb0",
+  "review_sha256": "dfad35e209c50701169030858f4f35b4043a523c56c4352fd999cd8981e39f27",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110594,8 +110594,8 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:39-62",
-      "sha256": "16b69c36076d8d85d66695802ec3decd8d2d80f03745f851720176909d256f4a",
+      "locator": "line:39-64",
+      "sha256": "c277945a0d0bcc7a4b37093500814cde744769ee222fd74e0bca3ed8db12ec3d",
       "excerpt": "### Python CPU profiling\n\nThe local operator entry point runs an approved, self-contained Python 3.12 script through Potbot's Bubblewrap supervisor. Select the ",
       "review_families": [
         "devices"
@@ -110603,7 +110603,7 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:63-71",
+      "locator": "line:65-73",
       "sha256": "815c245a4ef459d3707320c173a18308856d64442d9ca72d9018ea728dabf760",
       "excerpt": "## 3. Interactive debugger adapters\n\nImplement every operation below as an installed, single-input/single-output SYN Cog under the [tool-Cog contract](10-syn-to",
       "review_families": [
@@ -110612,7 +110612,7 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:72-79",
+      "locator": "line:74-81",
       "sha256": "db31bf4df9e216c8766625d4cbba4f7d63d31bb3bfd03f57526c9b6112e2513b",
       "excerpt": "### Language-neutral debugger contract; Python first\n\nThe common interface must support any programming language through an admitted debugger adapter, rather th",
       "review_families": [
@@ -110621,7 +110621,7 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:80-92",
+      "locator": "line:82-94",
       "sha256": "eb3dd9ee15f578ea70e12c5f3bad2d75a898444f0dd460c9baf7ce00a7ba63d0",
       "excerpt": "### Required step-by-step process debugging\n\n1. **Select and reproduce.** Identify the language, exact interpreter/runtime/compiler environment, program/module ",
       "review_families": [
@@ -110630,7 +110630,7 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:93-111",
+      "locator": "line:95-113",
       "sha256": "88dcba40d1ffda95c2a6244c7f415cf232cdba7ef2b82a71261ec935aff707c3",
       "excerpt": "## 4. Connected devices, embedded targets and remote debugging\n\nThe same language-neutral session contract must extend to network-connected processes, developme",
       "review_families": [
@@ -110639,7 +110639,7 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:112-130",
+      "locator": "line:114-132",
       "sha256": "6f9e8aab3ac33da87735f6c73d41eb726633d39e4d63a44f87ee26e1ea626d60",
       "excerpt": "## 5. Stage allocation and acceptance\n\nKeep all 48 stage IDs, existing dependencies and implementation statuses. Append requirements to their existing deliverab",
       "review_families": [
@@ -110648,7 +110648,7 @@
     },
     {
       "source": "docs/implementation/07-device-control-profiling-debuggers.md",
-      "locator": "line:131-143",
+      "locator": "line:133-145",
       "sha256": "7fedc454b4097d4ba8babd0996c288aed78e4b0096da83b84cbcbd0708b2531a",
       "excerpt": "## 6. Primary implementation references\n\nReviewed 23 October 2026; these identify candidate contracts, not installed tool versions. Pin implementation revisions",
       "review_families": [
@@ -121811,7 +121811,7 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "PinnedExecutionJournal",
-          "sha256": "5cb28b805e9fa62bd16d481286e3bc43e8b64f06380bfcaba05fc0af912e75fa",
+          "sha256": "d969959881a3fb50792b4c9023287099814037b09f55cab58c665f2168b9756e",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
@@ -122197,13 +122197,13 @@
         {
           "path": "src/potbot/cogs/execution.py",
           "symbol": "execute",
-          "sha256": "ee5d72184033cc1362c4c60a0f14537dfcdb5c769f90046bd43a9d008226bb29",
+          "sha256": "0331337e6661edaa054cfa72fa901796a97eec8f7571401ecb6d3fae2e618573",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "HostOperation",
-          "sha256": "82bacb9add90780e6ff2c1c76643668c8baf4d189ddce425f4d7801fa63b031b",
+          "sha256": "c79ea438a44f7562e2c8ef39736c939574e8d73c853c8ae96e281adbfead5c5a",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -122604,8 +122604,20 @@
         {
           "path": "src/potbot/tools/python_profile.py",
           "symbol": "compare_python_profile",
-          "sha256": "99691c96c5f36b02798e1302c037ad7970c195e2a10ddf8023b3813ca4110086",
+          "sha256": "23d868fa0905f67a9cc0cc7d006ac5a0031816940fa26aa8a4e44d1a921c505a",
           "basis": "Source inspection of the bounded Python profiler and its real Linux acceptance"
+        },
+        {
+          "path": "src/potbot/tools/python_profile_cog.py",
+          "symbol": "install_python_profile",
+          "sha256": "e149d2f951e29dc709f4734093d18011dcf28413638296ff8f3b5e6d24249a67",
+          "basis": "Sealed profile and managed WSL worker fixture with durable receipt readback"
+        },
+        {
+          "path": "src/potbot/tools/python_profile_worker.py",
+          "symbol": "main",
+          "sha256": "47ba9a351289f890bc7c0d6bc4ec4a4c88b95aa47c569e7313a4b3bf31bc0774",
+          "basis": "Sealed profile and managed WSL worker fixture with durable receipt readback"
         }
       ],
       "tests": [
@@ -122638,9 +122650,15 @@
           "symbol": "test_python_profile_finds_hotspot_and_measures_paired_overhead",
           "sha256": "98f88a7f031a1d3261f8628e85254da46b6b6edd9e81c1e6007c99821bc57764",
           "basis": "Source inspection of the bounded Python profiler and its real Linux acceptance"
+        },
+        {
+          "path": "tests/integration/test_python_profile_cog.py",
+          "symbol": "test_sealed_python_profile_through_sandbox_worker",
+          "sha256": "1e3ea1d6ea42dcea2ea222aa18bbeb3b7a56c29c1be614ed38faa496695370e8",
+          "basis": "Sealed profile and managed WSL worker fixture with durable receipt readback"
         }
       ],
-      "assessment": "Python debugging and bounded local cProfile comparisons have real Linux fixture evidence. Broader allocation, browser, mobile, native and physical probe profiles require independent qualification.",
+      "assessment": "Python debugging and bounded CPU profiling have real Linux fixture evidence, including a sealed script Cog and PostgreSQL receipt on WSL. Broader profiles and production image qualification remain open.",
       "support_scope": "Python debugger tests and language-neutral representation; no inference of device availability from Types.",
       "remaining": [
         "Identify each real target/probe and qualify stop/step/stack/variables, process identity and protected transport",
@@ -123620,13 +123638,13 @@
         {
           "path": "src/potbot/controller/execution_journal.py",
           "symbol": "inspect_sandbox_transport_effect",
-          "sha256": "5cb28b805e9fa62bd16d481286e3bc43e8b64f06380bfcaba05fc0af912e75fa",
+          "sha256": "d969959881a3fb50792b4c9023287099814037b09f55cab58c665f2168b9756e",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {
           "path": "src/potbot/controller/execution_cogs.py",
           "symbol": "ExecutionCogRuntime",
-          "sha256": "82bacb9add90780e6ff2c1c76643668c8baf4d189ddce425f4d7801fa63b031b",
+          "sha256": "c79ea438a44f7562e2c8ef39736c939574e8d73c853c8ae96e281adbfead5c5a",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {

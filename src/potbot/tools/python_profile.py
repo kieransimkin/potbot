@@ -6,10 +6,7 @@ import argparse
 import hashlib
 import json
 import os
-import platform
-import re
 import stat
-import statistics
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -21,109 +18,17 @@ from potbot.domain.errors import (
     ScopeDeniedError,
     StateMismatchError,
 )
+from potbot.tools.python_profile_worker import (
+    CAPTURE,
+    CPU_SECONDS,
+    REPORT_LIMIT,
+    SOURCE_LIMIT,
+    TIMEOUT_MS,
+    report,
+    summarize,
+)
 from potbot.tools.supervisor import ProcessRequest, ProcessSupervisor
 from potbot.tools.temporary import TemporaryDirectory
-
-_SOURCE_LIMIT = 65_536
-_REPORT_LIMIT = 32_768
-_FUNCTION_LIMIT = 20
-_TIMEOUT_MS = 5_000
-_CPU_SECONDS = 5
-
-# Run the exact source received from the controller. Keep target output and
-# native profiler dumps out of the wire format. The trace contains only rows
-# attributable to the selected source; external code can contribute to cumulative time.
-_CAPTURE = r"""
-import contextlib
-import cProfile
-import hashlib
-import json
-import os
-import pstats
-import sys
-import time
-
-if sys.version_info[:2] != (3, 12):
-    raise SystemExit("Unsupported profiling interpreter")
-filename = "potbot-approved-workload.py"
-code = compile(sys.stdin.buffer.read(65537), filename, "exec")
-namespace = {"__name__": "__main__", "__file__": filename}
-profiler = cProfile.Profile(timer=time.process_time_ns, timeunit=1e-9)
-profiled = sys.argv[1] == "profile"
-with open(os.devnull, "w") as discarded:
-    with contextlib.redirect_stdout(discarded), contextlib.redirect_stderr(discarded):
-        wall, cpu = time.perf_counter_ns(), time.process_time_ns()
-        if profiled:
-            profiler.enable()
-        try:
-            exec(code, namespace)
-        finally:
-            if profiled:
-                profiler.disable()
-        cpu, wall = time.process_time_ns() - cpu, time.perf_counter_ns() - wall
-
-encoded = json.dumps(namespace["RESULT"], sort_keys=True, separators=(",", ":"), allow_nan=False)
-if len(encoded) > 16384:
-    raise SystemExit("Profiling result exceeds bound")
-report = {
-    "python": sys.version.split()[0],
-    "wall_ns": wall,
-    "cpu_ns": cpu,
-    "result_sha256": hashlib.sha256(encoded.encode()).hexdigest(),
-    "functions": [],
-    "function_count": 0,
-}
-if profiled:
-    rows = [
-        {"line": line, "function": name[:120], "calls": calls, "primitive_calls": primitive,
-         "self_ns": round(own * 1e9), "cumulative_ns": round(cumulative * 1e9)}
-        for (path, line, name), (primitive, calls, own, cumulative, _) in
-        pstats.Stats(profiler).stats.items() if path == filename
-    ]
-    rows.sort(key=lambda row: (-row["self_ns"], row["line"], row["function"]))
-    report["function_count"] = len(rows)
-    report["functions"] = rows[:20]
-print(json.dumps(report, separators=(",", ":"), allow_nan=False))
-"""
-
-
-def _report(stdout: bytes, *, profiled: bool) -> dict[str, Any]:
-    fields = {"python", "wall_ns", "cpu_ns", "result_sha256", "functions", "function_count"}
-    function_fields = {"line", "function", "calls", "primitive_calls", "self_ns", "cumulative_ns"}
-    try:
-        row = json.loads(stdout)
-        if (
-            not isinstance(row, dict)
-            or set(row) != fields
-            or not isinstance(row["python"], str)
-            or re.fullmatch(r"3\.12\.[0-9]{1,3}", row["python"]) is None
-            or not isinstance(row["result_sha256"], str)
-            or re.fullmatch(r"[a-f0-9]{64}", row["result_sha256"]) is None
-            or any(type(row[key]) is not int or row[key] <= 0 for key in ("wall_ns", "cpu_ns"))
-            or type(row["function_count"]) is not int
-            or row["function_count"] < 0
-            or not isinstance(row["functions"], list)
-            or len(row["functions"]) != min(_FUNCTION_LIMIT, row["function_count"])
-            or (row["function_count"] == 0) == profiled
-        ):
-            raise ValueError
-        for item in row["functions"]:
-            if (
-                not isinstance(item, dict)
-                or set(item) != function_fields
-                or not isinstance(item["function"], str)
-                or not 1 <= len(item["function"]) <= 120
-                or any(
-                    type(item[key]) is not int or item[key] < 0
-                    for key in function_fields - {"function"}
-                )
-                or not 0 < item["primitive_calls"] <= item["calls"]
-                or item["self_ns"] > item["cumulative_ns"]
-            ):
-                raise ValueError
-    except (UnicodeError, ValueError, RecursionError) as error:
-        raise StateMismatchError("Profiling process returned an invalid bounded report") from error
-    return row
 
 
 def _read_source(source: Path) -> bytes:
@@ -133,8 +38,8 @@ def _read_source(source: Path) -> bytes:
     with os.fdopen(os.open(source, flags), "rb") as stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
             raise ScopeDeniedError("Profiling source must be a regular file")
-        workload = stream.read(_SOURCE_LIMIT + 1)
-    if not 0 < len(workload) <= _SOURCE_LIMIT:
+        workload = stream.read(SOURCE_LIMIT + 1)
+    if not 0 < len(workload) <= SOURCE_LIMIT:
         raise InvalidInputError("Profiling source exceeds the supported size")
     return workload
 
@@ -192,16 +97,16 @@ def compare_python_profile(
             run_root = scratch.path
             result = supervisor.run(
                 ProcessRequest(
-                    (str(interpreter), "-I", "-B", "-c", _CAPTURE, mode),
+                    (str(interpreter), "-I", "-B", "-c", CAPTURE, mode),
                     run_root,
                     run_root,
                     sandbox_root=workspace,
                     stdin=workload,
-                    timeout_ms=_TIMEOUT_MS,
-                    cpu_seconds=_CPU_SECONDS,
+                    timeout_ms=TIMEOUT_MS,
+                    cpu_seconds=CPU_SECONDS,
                     memory_bytes=256 * 1024**2,
                     max_file_bytes=1024**2,
-                    max_output_bytes=_REPORT_LIMIT,
+                    max_output_bytes=REPORT_LIMIT,
                 ),
                 cancelled=cancelled,
             )
@@ -219,7 +124,10 @@ def compare_python_profile(
                 raise StateMismatchError(
                     f"Profiling process did not complete cleanly ({result.outcome})"
                 )
-            row = _report(result.stdout, profiled=mode == "profile")
+            try:
+                row = report(result.stdout, profiled=mode == "profile")
+            except ValueError as error:
+                raise StateMismatchError(str(error)) from error
             current = (row["result_sha256"], row["python"])
             if result_sha256 is None:
                 result_sha256, runtime = current
@@ -228,46 +136,7 @@ def compare_python_profile(
             if iteration:
                 samples[mode].append({**row, "isolation_identity": result.isolation_identity})
 
-    elapsed = {
-        mode: {
-            metric: round(statistics.median(row[metric] for row in rows))
-            for metric in ("cpu_ns", "wall_ns")
-        }
-        for mode, rows in samples.items()
-    }
-
-    return {
-        "profile": "potbot.python-profile-comparison/1",
-        "source_sha256": source_sha256,
-        "interpreter_sha256": runtime_sha256,
-        "python": runtime,
-        "result_sha256": result_sha256,
-        "host": {
-            "system": platform.system(),
-            "kernel": platform.release(),
-            "architecture": platform.machine(),
-            "logical_cpu_count": os.cpu_count(),
-        },
-        "clock": {"wall_ns": "perf_counter_ns", "cpu_ns": "process_time_ns"},
-        "profiler": {"name": "cProfile", "clock": "process_time_ns", "threads": "main"},
-        "limits": {"per_process_wall_ms": _TIMEOUT_MS, "per_process_cpu_seconds": _CPU_SECONDS},
-        "warmup_pairs": 1,
-        "repetitions": repetitions,
-        "samples": samples,
-        "median_ns": elapsed,
-        "overhead_ns": {
-            metric: elapsed["profile"][metric] - elapsed["baseline"][metric]
-            for metric in ("cpu_ns", "wall_ns")
-        },
-        "unavailable": [
-            "target_ram_bytes",
-            "gpu",
-            "energy",
-            "thermal_state",
-            "background_load",
-            "sampling_uncertainty",
-        ],
-    }
+    return summarize(samples, source_sha256, runtime_sha256, repetitions)
 
 
 def main() -> int:

@@ -37,6 +37,7 @@ from potbot.domain.errors import (
 )
 from potbot.domain.serialization import canonical_json
 from potbot.tools.execution_contracts import EVENT, WORK_KINDS, ExecutionPolicy, WorkBinding, fields
+from potbot.tools.python_profile_worker import OPERATION as PROFILE_OPERATION
 from potbot.tools.sandbox_cog_worker import (
     SandboxedCogExecutor,
     SandboxedCogOperation,
@@ -204,6 +205,21 @@ class ExecutionCogRuntime:
         # The only installed *worker* implementation is an admitted sandbox
         # executable. Legacy HostOperation callbacks cannot dispatch model work.
         require_isolated_work(operations)
+        from potbot.tools.python_profile_cog import require_python_profile
+        from potbot.tools.python_profile_worker import REQUEST as PROFILE_REQUEST
+
+        profile_operations = tuple(
+            op
+            for op in operations
+            if op.binding.operation_ref == PROFILE_OPERATION
+            or op.binding.input_type_ref == PROFILE_REQUEST
+        )
+        if profile_operations:
+            if len(operations) != 1 or any(
+                x is not None for x in (artifact_ranges, browser_service, receipts)
+            ):
+                raise ScopeDeniedError("Python profiling requires its dedicated sealed profile")
+            require_python_profile(profile_operations[0])
         queue_operations = tuple(
             op for op in operations if op.binding.input_type_ref == QUEUE_REQUEST
         )
@@ -343,6 +359,7 @@ class ExecutionCogRuntime:
                 rest_read=bool(rest_ops),
                 graphql_read=bool(graphql_ops),
                 grpc_read=bool(grpc_ops),
+                python_profile=bool(profile_operations),
             )
             from functools import partial
 
@@ -352,6 +369,7 @@ class ExecutionCogRuntime:
                 rest_read=bool(rest_ops),
                 graphql_read=bool(graphql_ops),
                 grpc_read=bool(grpc_ops),
+                python_profile=bool(profile_operations),
             )
             self._direct_operations = {}
         with database.transaction(actor) as connection:
@@ -360,6 +378,13 @@ class ExecutionCogRuntime:
             json.loads(artifacts.read(actor, sealed["artifact_id"]))["source"]
         )
         state = RepositoryStateStore(database, artifacts).get(actor, repository_state_id)
+        if profile_operations:
+            _, filename, source_sha, _ = profile_operations[0].argv
+            if not any(
+                entry["path"] == filename and entry["sha256"] == source_sha
+                for entry in state["manifest"]["files"]
+            ):
+                raise ScopeDeniedError("Profiling source is outside the pinned repository state")
         if (
             imported.fingerprint != self.registry.snapshot.fingerprint
             or sealed["source_hash"] != imported.fingerprint
@@ -716,6 +741,16 @@ class ExecutionCogRuntime:
                                     "Parent sandbox result is not the pinned typed port"
                                 )
                             self.catalog.validate(response)
+                            if op.binding.operation_ref == PROFILE_OPERATION:
+                                _, _, source_sha, python_sha = op.argv
+                                if (
+                                    response.value["source_sha256"] != source_sha
+                                    or response.value["interpreter_sha256"] != python_sha
+                                    or response.value["repetitions"] != typed.value["repetitions"]
+                                ):
+                                    raise StateMismatchError(
+                                        "Profiling result differs from the installed input pins"
+                                    )
                             if (
                                 len(canonical_json(response.value).encode("utf-8"))
                                 > self.policy.max_output_bytes

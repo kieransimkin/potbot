@@ -236,6 +236,7 @@ class BoundCogRegistry:
     rest_read_profile: bool = False
     graphql_read_profile: bool = False
     grpc_read_profile: bool = False
+    python_profile: bool = False
 
     def installed(self) -> tuple[CogSignature, ...]:
         if self.browser_profile:
@@ -302,6 +303,7 @@ class BoundCogRegistry:
                 self.rest_read_profile,
                 self.graphql_read_profile,
                 self.grpc_read_profile,
+                self.python_profile,
             )
         )
         if transport_profiles > int(self.provenance_profile):
@@ -318,6 +320,7 @@ class BoundCogRegistry:
                 rest_read=self.rest_read_profile,
                 graphql_read=self.graphql_read_profile,
                 grpc_read=self.grpc_read_profile,
+                python_profile=self.python_profile,
             )
             if self.provenance_profile
             else contract_cog_snapshot()
@@ -384,6 +387,7 @@ class BoundCogRegistry:
         rest_read: bool = False,
         graphql_read: bool = False,
         grpc_read: bool = False,
+        python_profile: bool = False,
     ) -> BoundCogRegistry:
         from potbot.cogs.execution import execution_cog_snapshot
 
@@ -393,12 +397,14 @@ class BoundCogRegistry:
                 rest_read=rest_read,
                 graphql_read=graphql_read,
                 grpc_read=grpc_read,
+                python_profile=python_profile,
             ),
             provenance_profile=True,
             queue_transport_profile=queue_transport,
             rest_read_profile=rest_read,
             graphql_read_profile=graphql_read,
             grpc_read_profile=grpc_read,
+            python_profile=python_profile,
         )
 
     @classmethod

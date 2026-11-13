@@ -5,6 +5,7 @@ on:
     paths:
       - src/potbot/tools/xpra_browser_worker.py
       - src/potbot/tools/browser_https_routes.py
+      - src/potbot/tools/python_profile_worker.py
       - sandbox/**
       - scripts/sandbox_image_manifest.py
       - docs/implementation/28-shared-model-library-and-download-admission.md
@@ -43,6 +44,7 @@ on:
     paths:
       - src/potbot/tools/xpra_browser_worker.py
       - src/potbot/tools/browser_https_routes.py
+      - src/potbot/tools/python_profile_worker.py
       - sandbox/**
       - scripts/sandbox_image_manifest.py
       - docs/implementation/28-shared-model-library-and-download-admission.md
