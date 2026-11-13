@@ -9,7 +9,7 @@ from typing import Any
 
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
 from potbot.domain.serialization import content_hash
-from potbot.tools.mcp_protocol import Exchange, decode_reply
+from potbot.tools.mcp_protocol import TOOLS_LISTEN, Exchange, decode_reply
 
 # Run from the pinned Python interpreter in the worker image. The definition
 # fingerprint covers these exact arguments. Only the controller opens HTTP.
@@ -56,10 +56,33 @@ CONFIRMATION_WORKER_ARGS = (
 )
 
 
-def check_http_worker(argv: tuple[str, ...], *, http: bool, confirmation: bool) -> None:
-    worker = CONFIRMATION_WORKER_ARGS if confirmation else WORKER_ARGS
+SUBSCRIPTION_WORKER_ARGS = (
+    *_WORKER_PREFIX,
+    _PREAMBLE
+    + _EXCHANGE.replace("tools/call", TOOLS_LISTEN)
+    + "if sys.stdin.buffer.peek(1):\n"
+    + indent(_EXCHANGE, "    ")
+    + _EOF,
+)
+
+
+def check_http_worker(
+    argv: tuple[str, ...], *, http: bool, confirmation: bool, watch_ms: int = 0
+) -> None:
+    if type(watch_ms) is not int or (watch_ms and (confirmation or not 250 <= watch_ms <= 5000)):
+        raise ScopeDeniedError("MCP catalogue watch requires a pinned subscription-only profile")
+    worker = WORKER_ARGS
+    if confirmation:
+        worker = CONFIRMATION_WORKER_ARGS
+    if watch_ms:
+        worker = SUBSCRIPTION_WORKER_ARGS
     if (http and argv != worker) or (
-        not http and (confirmation or argv in (WORKER_ARGS, CONFIRMATION_WORKER_ARGS))
+        not http
+        and (
+            confirmation
+            or watch_ms
+            or argv in (WORKER_ARGS, CONFIRMATION_WORKER_ARGS, SUBSCRIPTION_WORKER_ARGS)
+        )
     ):
         raise ScopeDeniedError("MCP HTTP requires its pinned relay and provider")
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -26,8 +26,11 @@ from potbot.tools.mcp_protocol import (
     MAX_NOTIFICATION_MESSAGES,
     MAX_WIRE_BYTES,
     MODERN,
+    TOOLS_CHANGED,
+    TOOLS_LISTEN,
     McpProtocolError,
     McpToolInfo,
+    decode_reply,
     encoded_frame,
     parse_wire,
 )
@@ -112,6 +115,22 @@ class McpHttpTransport:
     def accepts_header_tool(self, tool: McpToolInfo) -> bool:
         return self._header_tool is not None and self._header_tool.fingerprint == tool.fingerprint
 
+    def _authorize(self, headers: dict[str, str]) -> str | None:
+        if self.network_approval is None:
+            raise ScopeDeniedError("No controller-qualified MCP network transport")
+        self.network_approval(self.endpoint)
+        token = None
+        if self.bearer_supplier is not None:
+            token = self.bearer_supplier()
+            if (
+                not isinstance(token, str)
+                or not token
+                or any(ord(c) < 33 or ord(c) > 126 for c in token)
+            ):
+                raise ScopeDeniedError("MCP credential broker returned an invalid secret")
+            headers["Authorization"] = "Bearer " + token
+        return token
+
     @staticmethod
     def _sse_result(body: bytes, request_id: int) -> dict[str, Any]:
         try:
@@ -145,13 +164,11 @@ class McpHttpTransport:
         message: dict[str, Any],
         expect_reply: bool,
     ) -> dict[str, Any] | None:
-        if self.network_approval is None:
-            raise ScopeDeniedError("No controller-qualified MCP network transport")
-        # The callback must fail closed for unqualified hosts, routes and scopes.
-        self.network_approval(self.endpoint)
         method = message.get("method")
         if not isinstance(method, str) or not method:
             raise InvalidInputError("MCP POST has no valid method")
+        if method == TOOLS_LISTEN:
+            raise InvalidInputError("MCP catalogue subscriptions require a bounded watch")
         modern = method == "server/discover" or (
             isinstance(message.get("params"), dict)
             and isinstance(message["params"].get("_meta"), dict)
@@ -179,16 +196,7 @@ class McpHttpTransport:
             headers["MCP-Protocol-Version"] = self._legacy_version
             if self._session_id is not None:
                 headers["Mcp-Session-Id"] = self._session_id
-        token: str | None = None
-        if self.bearer_supplier is not None:
-            token = self.bearer_supplier()
-            if (
-                not isinstance(token, str)
-                or not token
-                or any(ord(c) < 33 or ord(c) > 126 for c in token)
-            ):
-                raise ScopeDeniedError("MCP credential broker returned an invalid secret")
-            headers["Authorization"] = "Bearer " + token
+        token = self._authorize(headers)
         try:
             # Explicitly disable redirects even if the injected client defaults
             # to follow_redirects=True; never send a bearer to a new host.
@@ -263,3 +271,132 @@ class McpHttpTransport:
             raise IndeterminateExecutionError(
                 "MCP HTTP connection failed; write status unknown"
             ) from None
+
+    async def listen_tools(self, request: dict[str, Any], *, window_ms: int) -> dict[str, Any]:
+        """Observe at most one catalogue invalidation within the admitted window."""
+        request_id = request.get("id")
+        requested = request.get("params")
+        version = requested.get("_meta") if isinstance(requested, dict) else None
+        if (
+            request.get("jsonrpc") != "2.0"
+            or not isinstance(requested, dict)
+            or set(requested) != {"notifications", "_meta"}
+            or not isinstance(requested["notifications"], dict)
+            or set(requested["notifications"]) != {"toolsListChanged"}
+            or requested["notifications"]["toolsListChanged"] is not True
+            or not isinstance(version, dict)
+            or version.get("io.modelcontextprotocol/protocolVersion") != MODERN
+            or type(request_id) is not int
+            or request_id <= 0
+            or request.get("method") != TOOLS_LISTEN
+            or type(window_ms) is not int
+            or not 250 <= window_ms <= 5000
+        ):
+            raise InvalidInputError("Invalid MCP catalogue watch")
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": MODERN,
+            "Mcp-Method": TOOLS_LISTEN,
+        }
+        token = self._authorize(headers)
+        acknowledged = False
+        changed = False
+        deadline = asyncio.timeout(min(self.deadline_s, window_ms / 1000))
+        try:
+            async with deadline:
+                async with self.client.stream(
+                    "POST",
+                    self.endpoint,
+                    headers=headers,
+                    content=encoded_frame(request),
+                    follow_redirects=False,
+                ) as response:
+                    if response.status_code in (401, 403) or 300 <= response.status_code < 400:
+                        raise ScopeDeniedError("MCP subscription authorization was refused")
+                    kind = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                    if response.status_code != 200 or kind != "text/event-stream":
+                        raise McpProtocolError("MCP catalogue subscription requires an SSE stream")
+                    async for document in _subscription_frames(response):
+                        if token is not None and _contains_secret(document, token):
+                            raise ScopeDeniedError(
+                                "MCP subscription contains its authorization secret"
+                            )
+                        if "id" in document:
+                            result = decode_reply(document, request_id)
+                            if (
+                                not acknowledged
+                                or set(result) - {"_meta"}
+                                or not _matches_subscription(result, request_id)
+                            ):
+                                raise McpProtocolError("Invalid MCP subscription completion")
+                            break
+                        params = document.get("params")
+                        if not isinstance(params, dict) or not _matches_subscription(
+                            params, request_id
+                        ):
+                            raise McpProtocolError(
+                                "MCP subscription notification has the wrong identity"
+                            )
+                        method = document.get("method")
+                        if not acknowledged:
+                            if (
+                                method != "notifications/subscriptions/acknowledged"
+                                or params.get("notifications") != {"toolsListChanged": True}
+                                or params["notifications"]["toolsListChanged"] is not True
+                            ):
+                                raise McpProtocolError(
+                                    "MCP provider did not acknowledge toolsListChanged"
+                                )
+                            acknowledged = True
+                        elif method == TOOLS_CHANGED:
+                            changed = True
+                            break
+                        else:
+                            raise McpProtocolError(
+                                "Unexpected MCP catalogue subscription notification"
+                            )
+                    else:
+                        raise IndeterminateExecutionError(
+                            "MCP catalogue subscription ended abruptly"
+                        )
+        except TimeoutError:
+            if not acknowledged or not deadline.expired():
+                raise IndeterminateExecutionError(
+                    "MCP catalogue subscription timed out before a confirmed observation"
+                ) from None
+        except (OSError, ConnectionError, httpx.TransportError):
+            raise IndeterminateExecutionError("MCP catalogue subscription was lost") from None
+        return {"jsonrpc": "2.0", "id": request_id, "result": {"changed": changed}}
+
+
+def _matches_subscription(fields: dict[str, Any], request_id: int) -> bool:
+    meta = fields.get("_meta")
+    ident = meta.get("io.modelcontextprotocol/subscriptionId") if isinstance(meta, dict) else None
+    return type(ident) is int and ident == request_id
+
+
+async def _subscription_frames(response: httpx.Response) -> AsyncIterator[dict[str, Any]]:
+    """Parse event boundaries incrementally with the ordinary MCP wire budget."""
+    pending = bytearray()
+    data: list[bytes] = []
+    size = 0
+    count = 0
+    async for chunk in response.aiter_bytes():
+        size += len(chunk)
+        if size > MAX_WIRE_BYTES:
+            raise McpProtocolError("MCP subscription exceeds the wire budget")
+        lines = chunk.split(b"\n")
+        for piece in lines[:-1]:
+            pending.extend(piece)
+            line = bytes(pending).removesuffix(b"\r")
+            pending.clear()
+            if line.startswith(b"data:"):
+                data.append(line[5:].removeprefix(b" "))
+            elif not line and data:
+                count += 1
+                if count > MAX_NOTIFICATION_MESSAGES + 1:
+                    raise McpProtocolError("MCP subscription exceeds the notification budget")
+                yield parse_wire(b"\n".join(data))
+                data.clear()
+        pending.extend(lines[-1])

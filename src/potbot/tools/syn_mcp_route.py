@@ -18,7 +18,13 @@ from potbot.context.installed_syn_route import (
 from potbot.context.syn_context_route import SynRoundTrip, serve_rpc_connection
 from potbot.context.syn_directed_rpc import DirectedRpcRoute
 from potbot.domain.errors import IndeterminateExecutionError, ScopeDeniedError
-from potbot.tools.mcp_protocol import MAX_WIRE_BYTES, Exchange, encoded_frame, parse_wire
+from potbot.tools.mcp_protocol import (
+    MAX_WIRE_BYTES,
+    TOOLS_LISTEN,
+    Exchange,
+    encoded_frame,
+    parse_wire,
+)
 
 
 class SynMcpRoute(DirectedRpcRoute):
@@ -36,7 +42,7 @@ class SynMcpRoute(DirectedRpcRoute):
     async def invoke(self, request: dict[str, Any], dispatch: Exchange) -> dict[str, Any]:
         if (
             request.get("jsonrpc") != "2.0"
-            or request.get("method") != "tools/call"
+            or request.get("method") not in ("tools/call", TOOLS_LISTEN)
             or type(request.get("id")) is not int
             or request["id"] <= 0
         ):

@@ -695,26 +695,42 @@ class ToolGateway:
             details = dispatch["details"] if dispatch else {}
             if receipt.get("mcp_intent_hash") != details.get("mcp_intent_hash"):
                 raise StateMismatchError("Receipt does not match the admitted MCP intent")
-            if "mcp_confirmation_field" in details:
+            watch = "mcp_catalog_watch_ms" in details
+            if watch or "mcp_confirmation_field" in details:
                 rounds = conn.execute(
                     "SELECT details FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
                     "AND event_type='mcp_http_dispatch' ORDER BY (details->>'round')::integer",
                     (context.workspace_id, run["id"]),
                 ).fetchall()
-                decisions = conn.execute(
-                    "SELECT details FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
-                    "AND event_type='mcp_confirmation_decision'",
-                    (context.workspace_id, run["id"]),
-                ).fetchall()
-                expected_decisions = (
-                    [True]
-                    if len(rounds) == 2
-                    else [False]
-                    if receipt.get("error_code") == "mcp_confirmation_declined"
-                    else []
-                )
+                if watch:
+                    observed = conn.execute(
+                        "SELECT 1 FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
+                        "AND event_type='mcp_catalog_observed'",
+                        (context.workspace_id, run["id"]),
+                    ).fetchall()
+                    methods = ["subscriptions/listen"]
+                    if receipt.get("error_code") != "mcp_catalog_changed":
+                        methods.append("tools/call")
+                    matched = (
+                        len(observed) == 1
+                        and [r["details"].get("method") for r in rounds] == methods
+                    )
+                else:
+                    decisions = conn.execute(
+                        "SELECT details FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
+                        "AND event_type='mcp_confirmation_decision'",
+                        (context.workspace_id, run["id"]),
+                    ).fetchall()
+                    expected = (
+                        [True]
+                        if len(rounds) == 2
+                        else [False]
+                        if receipt.get("error_code") == "mcp_confirmation_declined"
+                        else []
+                    )
+                    matched = [row["details"]["approved"] for row in decisions] == expected
                 if (
-                    [row["details"]["approved"] for row in decisions] != expected_decisions
+                    not matched
                     or [row["details"]["round"] for row in rounds] not in ([1], [1, 2])
                     or type(receipt.get("mcp_http_calls")) is not int
                     or receipt["mcp_http_calls"] != len(rounds)
@@ -723,7 +739,7 @@ class ToolGateway:
                         "MCP receipt differs from the recorded HTTP dispatches"
                     )
             elif "mcp_http_calls" in receipt:
-                raise StateMismatchError("MCP receipt has no matching confirmation admission")
+                raise StateMismatchError("MCP receipt has no matching multi-request admission")
             stdin_id = action.get("stdin_artifact_id")
             if stdin_id is not None:
                 artifact = scoped_row(conn, context, "artifacts", stdin_id)

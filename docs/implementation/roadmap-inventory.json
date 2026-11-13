@@ -229,12 +229,12 @@
     },
     {
       "path": "docs/implementation/02-mcp-transports.md",
-      "sha256": "a245b1fb9c4a456c5d0674203b9dc91eb64d219e10697f12a4e026d1a9c0d4ca",
-      "bytes": 18731,
+      "sha256": "0c0dbf6bb19f8f0d759f30ce7fca529d745309f722c23f2d2f9637740db3d538",
+      "bytes": 20940,
       "kind": "narrative_text",
-      "text_sha256": "a245b1fb9c4a456c5d0674203b9dc91eb64d219e10697f12a4e026d1a9c0d4ca",
-      "characters": 18728,
-      "lines": 204,
+      "text_sha256": "0c0dbf6bb19f8f0d759f30ce7fca529d745309f722c23f2d2f9637740db3d538",
+      "characters": 20935,
+      "lines": 234,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "86400b2948bf27720c640111f3ac03f3a26150548b33a5ded114a53a99b6ec48",
+  "review_sha256": "c7a198d24803dc5981baef59934614775c73231e5757a0055c237edf6c18cc6a",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110059,7 +110059,7 @@
     {
       "source": "docs/implementation/02-mcp-transports.md",
       "locator": "line:8-16",
-      "sha256": "579a1ab36257d36665922b28f1ce114774f05c203b6aab3f64f21fb58408e422",
+      "sha256": "22f9b900ea324326fd7d71e73f92178602a0017b82130950f6267d0d07620bdc",
       "excerpt": "## What the increment implements\n\n| Stage | Implementation | Tests | Outstanding |\n|---|---|---|---|\n| T02.1 | Bounded JSON-RPC framing; both lifecycle eras; st",
       "review_families": [
         "mcp"
@@ -110068,7 +110068,7 @@
     {
       "source": "docs/implementation/02-mcp-transports.md",
       "locator": "line:17-66",
-      "sha256": "dd5d60a48e7f6d87118296a785e9e3035b5772c55f2927b5d6719d6ef5ae481a",
+      "sha256": "db135f69a06ac1378094ce9eb04507b53264b499e55c1805d8f7c18bc820925e",
       "excerpt": "## Security architecture\n\n- A tool supplied by an MCP server is an **untrusted definition**. `annotations.readOnlyHint` is metadata, not a permission. Only an o",
       "review_families": [
         "mcp"
@@ -110112,8 +110112,17 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:163-188",
-      "sha256": "3daa5b266f6c1527712baae8677b468890460913672e989471764b7e42337127",
+      "locator": "line:163-192",
+      "sha256": "3701ad3f847c4df9e1954b45b22e829edcd1604a964ff34e8298f8874ddea589",
+      "excerpt": "### Managed tool catalogue subscriptions\n\nAn operator can pin an HTTP installation to the subscription relay and set `watch_ms` between 250 and 5,000 millisecon",
+      "review_families": [
+        "mcp"
+      ]
+    },
+    {
+      "source": "docs/implementation/02-mcp-transports.md",
+      "locator": "line:193-218",
+      "sha256": "62158b857f47886a28662022f1f206200f565f6f787bc882a11cc769c2b3cff6",
       "excerpt": "## How to run\n\nFrom an existing repository checkout containing this patch:\n\n```bash\nuv sync --locked --extra semantics --extra providers --extra security --dev\n",
       "review_families": [
         "mcp"
@@ -110121,8 +110130,8 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:189-197",
-      "sha256": "16df826d6ffdff956a560539072fe1a5794c6f85ffdbe31615b3bfbd0877222d",
+      "locator": "line:219-227",
+      "sha256": "3dc3713fe33cdfb401c7c6d987c4e0fc0c6110d539db77b5a48426013eb3b816",
       "excerpt": "## Next engineering steps, in order\n\n1. **T02.3.1:** Extend Potbot's production `ProcessSupervisor` to expose a bounded, bidirectional stdio session without byp",
       "review_families": [
         "mcp"
@@ -110130,7 +110139,7 @@
     },
     {
       "source": "docs/implementation/02-mcp-transports.md",
-      "locator": "line:198-204",
+      "locator": "line:228-234",
       "sha256": "b0d9b24b8b4360d92cd3671efc8fef5950bba99a891426a6c46351148a7aca61",
       "excerpt": "## References\n\n- MCP spec 2026-07-28: https://modelcontextprotocol.io/specification/2026-07-28\n- Discovery spec: https://github.com/modelcontextprotocol/modelco",
       "review_families": [
@@ -121608,7 +121617,7 @@
         {
           "path": "src/potbot/tools/gateway.py",
           "symbol": "ToolGateway",
-          "sha256": "7483844d2b446f9a8d675972e44a9bff3f6ba048779c2e716c10839c92f8187b",
+          "sha256": "896a22e660602478b0f2306df09e11a297e2f105e8bf01d0df9076e364287ecc",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -121622,7 +121631,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_actual_compile_and_tests_persist_output_inputs_states_and_events_after_restart",
-          "sha256": "ebe72b260e11c956fb905dd60f99f60fdfa194abe554e4c48f7c00b39d5104a3",
+          "sha256": "f03c1d96daaac537d171a77f39caf66872844c1c94d651b2fb4201e4d63596af",
           "basis": "source inspection; test definition is not an individual executed result"
         },
         {
@@ -122078,25 +122087,25 @@
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ReadOnlyMcpGrant",
-          "sha256": "331a2873adf680069df7f1731d1982f756ca2ae70d6f90530828aa70ca6037f4",
+          "sha256": "9073833fe4144f58d39b27d7fae47056c9ac540388facfb5901841414620c2ca",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
           "path": "src/potbot/tools/syn_mcp_route.py",
           "symbol": "SynMcpRoute",
-          "sha256": "5067222989669fd76a0b8c646580d55f5378c96e5ca218f532e9214888bd65f8",
+          "sha256": "33888c3440ca533704771e737f9ad2613dfec2449c32e9062987af8b5d3bf3f0",
           "basis": "Inspected directed MCP tool route. The application protocol is still bounded and read-only."
         },
         {
           "path": "src/potbot/tools/mcp_sandbox.py",
           "symbol": "ManagedMcpScope",
-          "sha256": "331a2873adf680069df7f1731d1982f756ca2ae70d6f90530828aa70ca6037f4",
+          "sha256": "9073833fe4144f58d39b27d7fae47056c9ac540388facfb5901841414620c2ca",
           "basis": "Managed workspace, image, Agent and run binding for the scoped MCP launcher."
         },
         {
           "path": "src/potbot/tools/mcp_gateway.py",
           "symbol": "execute_mcp_action",
-          "sha256": "3f086b76cd91a30c9827df0c3e97a4f09835545a00f2d77014a5a44997cdd3e0",
+          "sha256": "fd7be4db101b478ea9d4954b035d61d27e147ecb5b09a84cc4cf8e33702a911d",
           "basis": "Inspected gateway admission for a pinned installation, frozen input, and audited completion."
         },
         {
@@ -122120,7 +122129,7 @@
         {
           "path": "src/potbot/tools/mcp_http_worker.py",
           "symbol": "relay_http_call",
-          "sha256": "0c694d7630587f2c639b1b87705b28b6631a11c080232bb7e747e477d39521b0",
+          "sha256": "9c949c2b35c53f6f01cb16883e12bb4b8c311b828adcb87772de56e450071d6c",
           "basis": "Binds an approved HTTP request and its receipt to one monitored worker lifetime."
         },
         {
@@ -122137,9 +122146,15 @@
         },
         {
           "path": "src/potbot/tools/mcp_gateway.py",
-          "symbol": "_record_confirmation_event",
-          "sha256": "3f086b76cd91a30c9827df0c3e97a4f09835545a00f2d77014a5a44997cdd3e0",
+          "symbol": "_record_mcp_event",
+          "sha256": "fd7be4db101b478ea9d4954b035d61d27e147ecb5b09a84cc4cf8e33702a911d",
           "basis": "Records the operator decision and each provider dispatch under the same admitted run."
+        },
+        {
+          "path": "src/potbot/tools/mcp_http.py",
+          "symbol": "listen_tools",
+          "sha256": "933c3cdac35e13ae63c71ac67bfa527736d180dc954e5a3b58054e9ed0936ffb",
+          "basis": "Scopes catalogue SSE to one acknowledged filter, request identity and bounded watch window."
         }
       ],
       "tests": [
@@ -122164,7 +122179,7 @@
         {
           "path": "tests/integration/test_execution_gateway.py",
           "symbol": "test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay",
-          "sha256": "ebe72b260e11c956fb905dd60f99f60fdfa194abe554e4c48f7c00b39d5104a3",
+          "sha256": "f03c1d96daaac537d171a77f39caf66872844c1c94d651b2fb4201e4d63596af",
           "basis": "Real PostgreSQL regression for admission, lost reply fencing, and saved receipt recovery."
         },
         {
@@ -122212,7 +122227,7 @@
         {
           "path": "tests/unit/test_mcp_http.py",
           "symbol": "test_modern_http_mirrors_only_the_installed_tool_schema",
-          "sha256": "2a7323e9e4d922e01aa7ac721b83616ff1f29753ce7062ce0b86ea5e57c60ab5",
+          "sha256": "d671d007cf12bd85fc376cfca7c488fe8db5c18afae06faeebcdc034b593379e",
           "basis": "Tests header and body agreement, encoding, opt-in approval and exclusion of an invalid tool."
         },
         {
@@ -122224,7 +122239,7 @@
         {
           "path": "tests/unit/test_mcp_http.py",
           "symbol": "test_http_mcp_confirmation_is_explicit_pinned_and_single_round",
-          "sha256": "2a7323e9e4d922e01aa7ac721b83616ff1f29753ce7062ce0b86ea5e57c60ab5",
+          "sha256": "d671d007cf12bd85fc376cfca7c488fe8db5c18afae06faeebcdc034b593379e",
           "basis": "Tests approval, argument pinning, refusal, re-admission and loss without replay."
         },
         {
@@ -122238,6 +122253,12 @@
           "symbol": "test_confirmation_worker_acknowledges_digests_and_exits_after_eof",
           "sha256": "00384a04d25e1050319f40e76f12738ecfce26b0d925fb67ddf4bb463061a5d1",
           "basis": "Runs the two-round relay and checks one- and two-request shutdown with private continuation data."
+        },
+        {
+          "path": "tests/unit/test_mcp_http.py",
+          "symbol": "test_http_catalog_watch_bounds_and_correlates_the_stream",
+          "sha256": "d671d007cf12bd85fc376cfca7c488fe8db5c18afae06faeebcdc034b593379e",
+          "basis": "Exercises fragmented SSE, correlation, timeout, early EOF and credential reflection."
         }
       ],
       "assessment": "Managed read-only MCP uses directed Syn RPC, an installed scoped launcher, and the existing gateway admission, evidence, and budget ledgers. Complete modern/legacy profiles, catalogue drift, resources/prompts, elicitation/sampling and live IBM/ContextForge remain distinct requirements.",

@@ -42,8 +42,8 @@ from potbot.tools.gateway import ToolGateway
 from potbot.tools.interactive_supervisor import InteractiveExit
 from potbot.tools.mcp_confirmation import McpConfirmation
 from potbot.tools.mcp_gateway import InstalledMcpTool, mcp_configuration_hash
-from potbot.tools.mcp_http_worker import CONFIRMATION_WORKER_ARGS
-from potbot.tools.mcp_protocol import McpCallResult, McpToolInfo
+from potbot.tools.mcp_http_worker import CONFIRMATION_WORKER_ARGS, SUBSCRIPTION_WORKER_ARGS
+from potbot.tools.mcp_protocol import TOOLS_LISTEN, McpCallResult, McpCatalog, McpToolInfo
 from potbot.tools.receipts import RunReceiptStore
 from potbot.tools.repository import CandidateWorkspaceManager, RepositoryStateStore
 from potbot.tools.secrets import SecretReferenceProvider
@@ -237,7 +237,7 @@ def restarted(rig) -> ToolGateway:
 
 
 @pytest.mark.parametrize(
-    ("confirmation_case", "fault"),
+    ("profile", "fault"),
     [
         (None, None),
         (None, "lost-reply"),
@@ -248,11 +248,18 @@ def restarted(rig) -> ToolGateway:
         ("approved", None),
         ("approved", "lost-reply"),
         ("approved", "after-receipt"),
+        ("watch", None),
+        ("watch-drift", None),
+        ("watch", "watch-lost"),
+        ("watch", "after-receipt"),
     ],
 )
 def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
-    app_env, tmp_path: Path, monkeypatch, confirmation_case, fault
+    app_env, tmp_path: Path, monkeypatch, profile, fault
 ):
+    watch = profile in {"watch", "watch-drift"}
+    watch_ms = 500 if watch else 0
+    confirmation_case = None if watch else profile
     context = app_env.context
     home, rootfs = tmp_path / "worker-home", tmp_path / "worker-image"
     home.mkdir()
@@ -277,7 +284,11 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
     definition = ToolDefinition(
         "fixture-mcp",
         "test",
-        (PYTHON, *CONFIRMATION_WORKER_ARGS) if confirmation_case else (PYTHON,),
+        (PYTHON, *SUBSCRIPTION_WORKER_ARGS)
+        if watch
+        else (PYTHON, *CONFIRMATION_WORKER_ARGS)
+        if confirmation_case
+        else (PYTHON,),
         mutates=False,
         accepts_stdin=True,
         protocol="mcp",
@@ -314,6 +325,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
 
     if confirmation_case:
         confirmation = McpConfirmation(tool.fingerprint, capability, "confirm", approve)
+    if profile:
         provider = SimpleNamespace(
             grant=context,
             registration_fingerprint="2" * 64,
@@ -323,13 +335,26 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         context.workspace_id,
         implementation.fingerprint,
         mcp_configuration_hash(
-            definition, tool, binary, http_provider=provider, confirmation=confirmation
+            definition,
+            tool,
+            binary,
+            http_provider=provider,
+            confirmation=confirmation,
+            watch_ms=watch_ms,
         ),
         "f" * 64,
         ("test",),
     )
     binding = InstalledMcpTool(
-        definition, tool, binary, capability, implementation, installation, provider, confirmation
+        definition,
+        tool,
+        binary,
+        capability,
+        implementation,
+        installation,
+        provider,
+        confirmation,
+        watch_ms,
     )
     route = SynMcpRoute(
         context.workspace_id, "1" * 32, 1000, lambda *_: pytest.fail("Fixture transport")
@@ -385,7 +410,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
     selected, input_artifact = action(installation.fingerprint, "correct-installation")
     with pytest.raises(ScopeDeniedError, match="operator installation"):
         rig.gateway.execute(context, selected, rig.lease, reservation)
-    if confirmation_case:
+    if profile:
         with pytest.raises(StateMismatchError, match="Reservation does not cover"):
             gateway.execute(context, selected, rig.lease, reservation)
         assert gateway.store.inspect(context, selected)["run"] is None
@@ -398,7 +423,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         with app_env.db.transaction(context) as conn:
             return conn.execute(
                 "SELECT event_type,details FROM evidence_events WHERE run_id=%s "
-                "AND event_type IN ('mcp_confirmation_decision','mcp_http_dispatch') "
+                "AND event_type IN ('mcp_confirmation_decision','mcp_http_dispatch','mcp_catalog_observed') "
                 "ORDER BY recorded_at",
                 (run_id,),
             ).fetchall()
@@ -435,6 +460,15 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         async def __aexit__(self, *_):
             return None
 
+        async def watch_tool_catalog(self):
+            assert self.config["watch_ms"] == 500
+            await self.config["before_http_call"]({"id": 1, "method": TOOLS_LISTEN})
+            calls.append(TOOLS_LISTEN)
+            if fault == "watch-lost":
+                raise IndeterminateExecutionError("Fixture lost the signed reply")
+            self.catalog = McpCatalog(() if profile == "watch-drift" else (tool,), "6" * 64)
+            return True
+
         async def call(self, name, supplied):
             assert name == "add" and supplied == arguments
             if fault == "reservation-lost":
@@ -449,6 +483,16 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
                 evidence = journal(self.config["managed_scope"].run_id)
                 assert [event["event_type"] for event in evidence] == ["mcp_http_dispatch"]
                 assert evidence[0]["details"]["request_sha256"] == content_hash(request)
+            if watch:
+                request["method"] = "tools/call"
+                request["id"] = 2
+                await self.config["before_http_call"](request)
+                evidence = journal(self.config["managed_scope"].run_id)
+                assert [event["event_type"] for event in evidence] == [
+                    "mcp_http_dispatch",
+                    "mcp_catalog_observed",
+                    "mcp_http_dispatch",
+                ]
             calls.append(name)
             if confirmation_case in {"declined", "approved"}:
                 continuation = await self.config["confirmation"].answer(
@@ -489,10 +533,10 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
             return InteractiveExit(0, "a" * 64, 0, False, "b" * 64, False, True)
 
     monkeypatch.setattr("potbot.tools.mcp_gateway.SandboxedMcpClient", FixtureClient)
-    if fault in {"lost-reply", "reservation-lost"}:
+    if fault in {"lost-reply", "watch-lost", "reservation-lost"}:
         error, message = (
             (IndeterminateExecutionError, "lost the signed reply")
-            if fault == "lost-reply"
+            if fault in {"lost-reply", "watch-lost"}
             else (ScopeDeniedError, "live durable admission")
         )
         with pytest.raises(error, match=message):
@@ -500,7 +544,7 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
         view = gateway.store.inspect(context, selected)
         assert view["execution_status"] == "indeterminate" and view["completion"] is None
         budget = rig.budgets.inspect(context, rig.episode_id)
-        assert budget["held"]["calls"] == (2 if confirmation_case else 1)
+        assert budget["held"]["calls"] == (2 if profile else 1)
         assert budget["used"] == {}
         with pytest.raises(IndeterminateExecutionError, match="without a confirmed completion"):
             gateway.execute(context, selected, rig.lease, reservation)
@@ -522,30 +566,38 @@ def test_mcp_gateway_pins_intent_and_settles_or_fences_without_replay(
             view = restarted(rig).reconcile(context, UUID(view["run"]["id"]))
         else:
             view = gateway.execute(context, selected, rig.lease, reservation)
-        declined = confirmation_case == "declined"
-        assert view["execution_status"] == ("inconclusive" if declined else "completed")
+        blocked = profile in {"declined", "watch-drift"}
+        assert view["execution_status"] == ("inconclusive" if blocked else "completed")
         result = json.loads(
             rig.artifacts.read(context, UUID(view["completion"]["stdout_artifact_id"]))
         )
-        assert result["structured_content"] == (None if declined else {"sum": 42})
-        if declined:
-            assert result["observation"]["error_code"] == "mcp_confirmation_declined"
+        assert result["structured_content"] == (None if blocked else {"sum": 42})
+        if blocked:
+            code = "mcp_catalog_changed" if watch else "mcp_confirmation_declined"
+            assert result["observation"]["error_code"] == code
         assert result["observation"]["invocation_hash"] == intents[0].fingerprint
         assert view["completion"]["details"]["mcp_intent_hash"] == intents[0].fingerprint
-        used = 2 if confirmation_case == "approved" else 1
+        used = 2 if profile in {"approved", "watch"} else 1
         budget = rig.budgets.inspect(context, rig.episode_id)
         assert budget["used"]["calls"] == used and not budget["held"].get("calls", 0)
-        if confirmation_case:
+        if profile:
             assert view["completion"]["details"]["mcp_http_calls"] == used
         assert (
             gateway.execute(context, selected, rig.lease, reservation)["completion"]
             == view["completion"]
         )
-    assert calls == (
-        []
-        if fault == "reservation-lost"
-        else ["add"] * (2 if confirmation_case == "approved" else 1)
-    )
+    if watch:
+        assert calls == (
+            [TOOLS_LISTEN]
+            if profile == "watch-drift" or fault == "watch-lost"
+            else [TOOLS_LISTEN, "add"]
+        )
+    else:
+        assert calls == (
+            []
+            if fault == "reservation-lost"
+            else ["add"] * (2 if confirmation_case == "approved" else 1)
+        )
     assert len(intents) == 1
     assert len(approvals) == int(confirmation_case in {"approved", "declined"})
     if confirmation_case:
