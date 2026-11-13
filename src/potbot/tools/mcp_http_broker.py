@@ -4,44 +4,22 @@ from __future__ import annotations
 
 import asyncio
 import re
-import socket
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from functools import partial
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
 
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
-from potbot.tools.connect_policy import ConnectPolicy, checked_host
 from potbot.tools.mcp_http import McpHttpTransport
 from potbot.tools.mcp_protocol import McpProtocolError, McpToolInfo, parse_json_document
+from potbot.tools.pinned_https import PinnedHttpsTransport, canonical_https_host
 
 _METADATA_LIMIT = 64 * 1024
 _BEARER = re.compile(r"[A-Za-z0-9._~+/-]+=*")
-
-
-def _https_host(url: str) -> str:
-    if not isinstance(url, str) or len(url) > 2048 or any(not 33 <= ord(c) <= 126 for c in url):
-        raise InvalidInputError("MCP requires a canonical HTTPS URL")
-    try:
-        parts = urlsplit(url)
-        host = checked_host(parts.hostname)
-        if (
-            parts.scheme != "https"
-            or parts.netloc != host
-            or "?" in url
-            or "#" in url
-            or "\\" in url
-            or str(httpx.URL(url)) != url
-        ):
-            raise InvalidInputError("MCP requires a canonical HTTPS URL on the default port")
-    except (ValueError, httpx.InvalidURL):
-        raise InvalidInputError("MCP requires a canonical HTTPS URL") from None
-    return host
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,8 +31,8 @@ class McpHttpGrant:
     scopes: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        _https_host(self.resource)
-        _https_host(self.issuer)
+        canonical_https_host(self.resource)
+        canonical_https_host(self.issuer)
         if not isinstance(self.workspace_id, UUID) or not isinstance(self.principal_id, UUID):
             raise InvalidInputError("MCP consent requires a workspace and principal")
         if urlsplit(self.resource).path in ("", "/"):
@@ -86,56 +64,13 @@ class ScopedMcpBearer:
     secret: str = field(repr=False, compare=False)
 
 
-class _PinnedHttps(httpx.AsyncBaseTransport):
-    def __init__(self, method: str, url: str, *, authenticated: bool = False) -> None:
-        self.method = method
-        self.url = url
-        self.authenticated = authenticated
-        self.host = _https_host(url)
-        self.policy = ConnectPolicy((self.host,))
-        self.backend = httpx.AsyncHTTPTransport(
-            retries=0, trust_env=False, limits=httpx.Limits(max_keepalive_connections=0)
-        )
-
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        if request.method != self.method or str(request.url) != self.url:
-            raise ScopeDeniedError("MCP request differs from the approved route")
-        if self.authenticated != ("authorization" in request.headers):
-            raise ScopeDeniedError("MCP route refused unexpected credential state")
-        # The current policy dials IPv4 only. Reject the entire A answer set if
-        # it includes private or special addresses. Numeric dialing avoids re-resolution.
-        address = await asyncio.to_thread(
-            self.policy.resolve,
-            self.host + ":443",
-            resolver=partial(socket.getaddrinfo, family=socket.AF_INET),
-        )
-        headers = httpx.Headers(request.headers)
-        headers.pop("cookie", None)
-        headers["Host"] = self.host
-        headers["Accept-Encoding"] = "identity"
-        pinned = httpx.Request(
-            request.method,
-            request.url.copy_with(host=address),
-            headers=headers,
-            stream=request.stream,
-            extensions={"timeout": request.extensions.get("timeout"), "sni_hostname": self.host},
-        )
-        response = await self.backend.handle_async_request(pinned)
-        response.headers.pop("set-cookie", None)
-        if response.headers.get("content-encoding", "identity").lower().strip() != "identity":
-            await response.aclose()
-            raise ScopeDeniedError("MCP route refused encoded content")
-        return response
-
-    async def aclose(self) -> None:
-        await self.backend.aclose()
-
-
 async def _pinned_json(method: str, url: str, *, data: dict[str, str] | None = None) -> object:
     try:
         async with (
             asyncio.timeout(15),
-            httpx.AsyncClient(transport=_PinnedHttps(method, url), trust_env=False) as client,
+            httpx.AsyncClient(
+                transport=PinnedHttpsTransport(method, url), trust_env=False
+            ) as client,
             client.stream(method, url, data=data, follow_redirects=False) as response,
         ):
             kind = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
@@ -199,7 +134,7 @@ class McpHttpBroker:
             url = document.get(name)
             if not isinstance(url, str):
                 raise ScopeDeniedError("MCP issuer endpoint is missing")
-            _https_host(url)
+            canonical_https_host(url)
             endpoints[name] = url
         methods = document.get("code_challenge_methods_supported")
         if isinstance(methods, list) and "S256" in methods:
@@ -220,7 +155,8 @@ class McpHttpBroker:
             self.require_consent(grant)
 
         async with httpx.AsyncClient(
-            transport=_PinnedHttps("POST", grant.resource, authenticated=True), trust_env=False
+            transport=PinnedHttpsTransport("POST", grant.resource, authenticated=True),
+            trust_env=False,
         ) as client:
             yield McpHttpTransport(
                 grant.resource,

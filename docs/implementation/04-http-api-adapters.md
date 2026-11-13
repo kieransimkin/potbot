@@ -36,6 +36,27 @@ Remote API credentials are never recorded in API schemas, result hashes, task ar
 - Pagination is enabled only for selected GET operations and uses **one same-origin path**, capped to 10 pages and total output bytes/time. Cursor strings are restricted, observed cycles are rejected, each following page requires renewed trusted approval, and a still-live cursor at the page limit is an error, not silently a complete result.
 - Only the explicitly declared successful HTTP status codes are accepted. HTTP `429`/`503` may be retried **once for reads**, with bounded delay. All writes receive one attempt only. Invalid responses after a possible remote write are reported `indeterminate`, not `failed` and never `succeeded`.
 
+### Pinned HTTPS REST read
+
+An operator can construct an `InstalledRestRead` for a selected OpenAPI GET. The installation pins the origin, compiled operation and its schemas, implementation, workspace, principal and policy. The schema’s own `servers` entries confer no network authority. The controller verifies the typed intent before sending one request. The shared HTTPS transport verifies the exact method and rendered URL, checks the DNS answers, dials a vetted numeric address and verifies TLS for the original hostname. The adapter validates the response before making it available as a typed observation.
+
+```mermaid
+sequenceDiagram
+    participant C as Controller
+    participant I as Installed REST read
+    participant T as Pinned HTTPS transport
+    participant P as Provider
+    C->>I: Submit pinned installation, typed intent and arguments
+    I->>I: Check principal, scope and input schema
+    I->>T: Submit the exact GET and query
+    T->>T: Check destination and resolve a public address
+    T->>P: Dial numeric address and verify TLS for named host
+    P-->>I: Return bounded JSON
+    I-->>C: Return schema-checked observation
+```
+
+This controller profile supports one read without credentials, pagination, redirects or retries. The test compiles a selected OpenAPI operation and executes it against a disposable TLS listener. A different query is refused before the socket opens. The managed follow-up is to install this operation behind the released-Syn worker Cog, bind its egress to durable admission and verify accounting and reply loss through that entry point.
+
 ## Reproduce
 
 From a checked-out Potbot repository after `git apply` and its locked `uv sync`:

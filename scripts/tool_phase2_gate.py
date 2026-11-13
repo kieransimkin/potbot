@@ -35,6 +35,7 @@ SOURCES = [
     "src/potbot/tools/mcp_http.py",
     "src/potbot/tools/mcp_headers.py",
     "src/potbot/tools/mcp_http_broker.py",
+    "src/potbot/tools/pinned_https.py",
     "src/potbot/tools/mcp_oauth.py",
     "src/potbot/credentials.py",
     "tests/unit/test_mcp_oauth.py",

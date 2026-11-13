@@ -4,17 +4,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 from dataclasses import replace
 from uuid import uuid4
 
 import httpx
 import pytest
 
+from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError
 from potbot.domain.serialization import canonical_json, content_hash
 from potbot.tools.api_contracts import ApiCallScope, ApiOperation
 from potbot.tools.api_http import ApiReadCache, ApprovedHttpApiAdapter
-from potbot.tools.capability_contracts import ToolInstallationDescriptor, ToolInvocationIntent
+from potbot.tools.api_https import InstalledRestRead, rest_read_configuration_hash
+from potbot.tools.capability_contracts import (
+    ToolImplementationDescriptor,
+    ToolInstallationDescriptor,
+    ToolInvocationIntent,
+)
 
 
 def operation(**changes: object) -> ApiOperation:
@@ -661,3 +668,93 @@ def test_rest_rejects_undeclared_success_status_even_with_valid_json() -> None:
 
     result = run(check())
     assert result.status == "failed" and result.error_code == "unexpected_success_status"
+
+
+@pytest.mark.parametrize(
+    ("scenario", "status", "dials"),
+    [
+        ("ok", "succeeded", 1),
+        ("redirect", "failed", 1),
+        ("rate-limit", "failed", 1),
+        ("schema-drift", "failed", 1),
+        ("private-dns", None, 0),
+        ("wrong-principal", None, 0),
+        ("wrong-operation", None, 0),
+        ("denied", None, 0),
+    ],
+)
+def test_installed_rest_read_enforces_route_and_admission(monkeypatch, scenario, status, dials):
+    op = operation()
+    args = {"path": {"id": "selection"}}
+    origin = "https://api.fixture.example"
+    original = scope_for(op, args)
+    actor = WorkspaceContext(original.installation.workspace_id, uuid4())
+    implementation = ToolImplementationDescriptor(
+        "syn://thing/installed-rest-test",
+        op.to_capability().fingerprint,
+        "c" * 64,
+        "Test publisher",
+        "1",
+    )
+    installation = replace(
+        original.installation,
+        implementation_hash=implementation.fingerprint,
+        configuration_hash=rest_read_configuration_hash(actor, origin, op),
+    )
+    installed = InstalledRestRead(actor, origin, op, implementation, installation)
+    with pytest.raises(ScopeDeniedError, match="pinned installation"):
+        replace(installed, origin="https://other.fixture.example")
+    addresses = ["93.184.215.14"]
+    if scenario == "private-dns":
+        addresses.append("127.0.0.1")
+
+    def resolve(host, port, **kwargs):
+        assert host == "api.fixture.example" and port == 443
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))
+            for ip in addresses
+        ]
+
+    dispatched = []
+    approved = []
+
+    def admit(*_):
+        if scenario == "denied":
+            raise ScopeDeniedError("Fixture rejected the intent")
+        approved.append(True)
+
+    async def send(_, req):
+        assert approved == [True]
+        dispatched.append(req)
+        assert str(req.url) == "https://93.184.215.14/items/selection"
+        assert req.method == "GET"
+        assert req.headers["host"] == "api.fixture.example"
+        assert req.extensions["sni_hostname"] == "api.fixture.example"
+        assert "authorization" not in req.headers
+        return httpx.Response(
+            {"redirect": 307, "rate-limit": 429}.get(scenario, 200),
+            headers={"location": "https://other.fixture.example/items/selection"},
+            json={"value": "wrong type" if scenario == "schema-drift" else 23},
+        )
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", send)
+    scope = replace(
+        original,
+        installation=installation,
+        intent=replace(original.intent, installation_hash=installation.fingerprint),
+        authorize=admit,
+        egress=None,
+        operation_hash="e" * 64 if scenario == "wrong-operation" else op.fingerprint,
+    )
+    if scenario == "wrong-principal":
+        actor = WorkspaceContext(actor.workspace_id, uuid4())
+    if status is None:
+        with pytest.raises(ScopeDeniedError):
+            run(installed.call(actor, args, scope))
+    else:
+        result = run(installed.call(actor, args, scope))
+        assert result.status == status
+        if status == "succeeded":
+            assert result.value == {"value": 23}
+    assert len(dispatched) == dials
