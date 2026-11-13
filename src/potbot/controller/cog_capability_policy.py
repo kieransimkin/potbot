@@ -32,6 +32,7 @@ class Capability(StrEnum):
 
 class Denial(StrEnum):
     AGENT = "cog_policy_agent_mismatch"
+    ENROLLMENT = "cog_policy_enrollment_mismatch"
     INSTALLATION = "cog_policy_installation_denied"
     REVISION = "cog_policy_revision_mismatch"
     EXPIRED = "cog_policy_grant_expired"
@@ -84,10 +85,13 @@ class CogCapabilityPolicy:
     node_sha256: str
     revision_sha256: str
     grants: tuple[CogCapabilityGrant, ...]
+    enrollment_sha256: str | None = None
 
     def __post_init__(self) -> None:
         digest(self.node_sha256)
         digest(self.revision_sha256)
+        if self.enrollment_sha256 is not None:
+            digest(self.enrollment_sha256)
         if (
             type(self.actor) is not WorkspaceContext
             or not isinstance(self.agent_id, UUID)
@@ -108,6 +112,11 @@ class CogCapabilityPolicy:
                 "agent_id": str(self.agent_id),
                 "node_sha256": self.node_sha256,
                 "revision_sha256": self.revision_sha256,
+                **(
+                    {"enrollment_sha256": self.enrollment_sha256}
+                    if self.enrollment_sha256 is not None
+                    else {}
+                ),
                 "grants": [
                     [
                         grant.installation_sha256,
@@ -138,6 +147,10 @@ class CogCapabilityPolicy:
             or native.get("node") != self.node_sha256
         ):
             raise CogPolicyDenied(Denial.AGENT)
+        if self.enrollment_sha256 is not None and (
+            native.get("enrollment_sha256") != self.enrollment_sha256
+        ):
+            raise CogPolicyDenied(Denial.ENROLLMENT)
         binding = operation.binding
         if binding.policy.policy_revision_hash != self.revision_sha256:
             raise CogPolicyDenied(Denial.REVISION)

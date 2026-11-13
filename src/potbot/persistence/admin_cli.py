@@ -80,6 +80,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if name == "cog-grants-publish":
             grants.add_argument("--expected-generation", required=True, type=int)
             grants.add_argument("--node-sha256", required=True)
+            grants.add_argument("--enrollment-sha256")
             grants.add_argument("--revision-sha256", required=True)
             grants.add_argument("--grants-file", required=True, type=Path)
     args = parser.parse_args(argv)
@@ -144,6 +145,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         args.node_sha256,
                         args.revision_sha256,
                         parse_grants(grants_value),
+                        enrollment_sha256=args.enrollment_sha256,
                     )
                     published = publish_cog_policy(
                         dsn, args.schema, policy, args.expected_generation

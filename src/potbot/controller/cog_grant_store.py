@@ -70,6 +70,11 @@ class PublishedCogPolicy:
             "agent_id": str(policy.agent_id),
             "node_sha256": policy.node_sha256,
             "revision_sha256": policy.revision_sha256,
+            **(
+                {"enrollment_sha256": policy.enrollment_sha256}
+                if policy.enrollment_sha256 is not None
+                else {}
+            ),
             "policy_sha256": policy.fingerprint,
             "generation": self.generation,
             "published_by": self.published_by,
@@ -93,7 +98,7 @@ def current_cog_policy(
     if for_dispatch:
         _lock_scope(connection, actor, agent, shared=True)
     row = connection.execute(
-        "SELECT generation,node_sha256,revision_sha256,policy_sha256,grants,"
+        "SELECT generation,node_sha256,revision_sha256,policy_sha256,grants,enrollment_sha256,"
         "published_by,published_at FROM cog_grant_revisions "
         "WHERE workspace_id=%s AND principal_id=%s AND agent_id=%s "
         "ORDER BY generation DESC LIMIT 1",
@@ -102,7 +107,12 @@ def current_cog_policy(
     if row is None:
         return None
     policy = CogCapabilityPolicy(
-        actor, agent, row["node_sha256"], row["revision_sha256"], parse_grants(row["grants"])
+        actor,
+        agent,
+        row["node_sha256"],
+        row["revision_sha256"],
+        parse_grants(row["grants"]),
+        enrollment_sha256=row["enrollment_sha256"],
     )
     if policy.fingerprint != row["policy_sha256"]:
         raise StateMismatchError("Stored Cog grant policy failed its fingerprint check")
@@ -127,6 +137,12 @@ def publish_cog_policy(
         if member is None:
             raise InvalidInputError("Cog grant requires a principal bound to the workspace")
         current = current_cog_policy(connection, actor, policy.agent_id)
+        if (
+            current is not None
+            and current.policy.enrollment_sha256 is not None
+            and policy.enrollment_sha256 is None
+        ):
+            raise InvalidInputError("Replacement requires an explicit Cog enrollment pin")
         generation = current.generation if current is not None else 0
         fingerprint = policy.fingerprint
         if (
@@ -139,7 +155,8 @@ def publish_cog_policy(
             raise RevisionConflictError("Cog grant generation changed. Read it before publishing.")
         saved = connection.execute(
             "INSERT INTO cog_grant_revisions(workspace_id,principal_id,agent_id,generation,"
-            "node_sha256,revision_sha256,policy_sha256,grants) VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb) "
+            "node_sha256,revision_sha256,policy_sha256,grants,enrollment_sha256) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s) "
             "RETURNING published_by,published_at",
             (
                 *scope,
@@ -148,6 +165,7 @@ def publish_cog_policy(
                 policy.revision_sha256,
                 fingerprint,
                 canonical_json(_grant_document(policy)),
+                policy.enrollment_sha256,
             ),
         ).fetchone()
         assert saved is not None

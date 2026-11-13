@@ -309,12 +309,12 @@
     },
     {
       "path": "docs/implementation/10-syn-tool-cogs.md",
-      "sha256": "4b3f4c1d92486e8a24493459406804b28634d7481c7b7670bc909116e96a0921",
-      "bytes": 21799,
+      "sha256": "14beec4182803bad3502a6394a1a1bea2b80a15485801ad3e3b08f94327554f5",
+      "bytes": 22595,
       "kind": "narrative_text",
-      "text_sha256": "4b3f4c1d92486e8a24493459406804b28634d7481c7b7670bc909116e96a0921",
-      "characters": 21781,
-      "lines": 143,
+      "text_sha256": "14beec4182803bad3502a6394a1a1bea2b80a15485801ad3e3b08f94327554f5",
+      "characters": 22577,
+      "lines": 145,
       "interpretation": "source_content_not_runtime_evidence"
     },
     {
@@ -31853,7 +31853,7 @@
         "Remote effects need target idempotency/status evidence; uncertainty cannot release budget or replay blindly",
         "Retain owner-approved host-bound virtual-device IDs per Agent"
       ],
-      "next_action": "Qualify production grant rollout and extend policy to wallet delegation and target-specific device and gateway checks.",
+      "next_action": "Qualify grant republishing across a live Syn epoch rollover and extend policy to target-specific device and gateway checks.",
       "review_families": [
         "durable",
         "sandbox",
@@ -31868,7 +31868,7 @@
         "U08",
         "U16"
       ],
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch."
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker. Operators can publish versioned PostgreSQL grant sets through the administration CLI. The installed Cog controller and opt-in hosted worker profile check the current grant generation before dispatch. The managed signed worker verified that revocation survives a controller and Syn operator restart with an external PostgreSQL store. Operators can opt into grant pins derived from Syn's verified assignment and signed group epoch. PostgreSQL migration and hosted denial are covered by tests."
     },
     {
       "key": "tools:T03.2",
@@ -36000,7 +36000,7 @@
       "finding": "Separately authored source/section and 731-stage dispositions, code/test boundaries, all PRs/workflows and inaccessible-source records close U00-A only. Runtime qualification remains false."
     }
   ],
-  "review_sha256": "184b84526e5fca56d335a5eb5bafc4dd60d01e7f04852e2634e95b97b91d95ba",
+  "review_sha256": "06d3c9785a400a9caf756b58d569e299a1c16bdcf9de54ea4e961f660ad87fd8",
   "review_file": "docs/implementation/roadmap-review.json",
   "narrative_coverage": [
     {
@@ -110962,8 +110962,8 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:69-85",
-      "sha256": "31eb4cd766518227f30669b9500e293607809ec1246f8ab729e88d8c5c8cf112",
+      "locator": "line:69-87",
+      "sha256": "3db3fb1944d8047576ecc729f5d7e13d15b83d40bacff02dd2ec008e3b208941",
       "excerpt": "### Persistent grants for installed Cogs\n\nApply the application migration with `potbot admin migrate`. Run `potbot admin cog-grants-show` with `--workspace-id`,",
       "review_families": [
         "identity",
@@ -110973,7 +110973,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:86-103",
+      "locator": "line:88-105",
       "sha256": "9bc79c00123f55ad8c7d2ff1c3f58605b28e04a5f60c92f17bbc48b5e8ac7433",
       "excerpt": "## Stateful debugger, terminal and device Cogs\n\nEach operation is a separate typed Cog. Persistent state lives in the controller-owned session service and durab",
       "review_families": [
@@ -110984,7 +110984,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:104-118",
+      "locator": "line:106-120",
       "sha256": "da006eb2bf72b378f831d5360e0cfa8d092b3091242c26b82fd59d7398902259",
       "excerpt": "## Mandatory tool-Cog work monitoring\n\nEvery invoked tool Cog, including pure transformations, nested Cogs and transport-backed operations, must log its **start",
       "review_families": [
@@ -110995,7 +110995,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:119-131",
+      "locator": "line:121-133",
       "sha256": "1e45889fa371d999995f4ba37eb242f4e24e88175858308e63381a108aecdb46",
       "excerpt": "## Python-first Cog acceptance\n\nThe authored Python fixture must be driven end to end **through registered SYN Cogs**, not only by calling adapter/session metho",
       "review_families": [
@@ -111006,7 +111006,7 @@
     },
     {
       "source": "docs/implementation/10-syn-tool-cogs.md",
-      "locator": "line:132-143",
+      "locator": "line:134-145",
       "sha256": "eb4bdcf7aaa398c048313ce964727632d95396bf2b1231cfa42c6a4a6b8f245d",
       "excerpt": "## Implementation allocation\n\n- **T01.1\u2013T01.4:** inventory actual Cog/runtime boundaries, review and seal Types/Embers, add signatures/result variants/controlle",
       "review_families": [
@@ -121637,7 +121637,7 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "ec1dccbced66b13634aa030456bd28ea47183971b3b00d5f11b61464ec53ff32",
+          "sha256": "121b50412859393cc01baa408bcb2e70d1970a2954afd5410dc8df85d7f1bb5a",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         }
       ],
@@ -121687,7 +121687,7 @@
         {
           "path": "src/potbot/controller/cog_capability_policy.py",
           "symbol": "CogCapabilityPolicy",
-          "sha256": "78309f5347dd9ae4e5bf6c006ae84ce30c3ca33667810648ec63af9b8630c3fc",
+          "sha256": "d7159082e2f2014007a70c4f543e0c766e21efb8b4183c8dea7419847ba0be8b",
           "basis": "Matches operator grants to the exact sandbox installation and native Syn Agent, with active task and parent capability ceilings."
         }
       ],
@@ -122019,7 +122019,7 @@
         {
           "path": "src/potbot/syn_release/mesh.py",
           "symbol": "LiveSynParticipant",
-          "sha256": "e295b5323a76f21e699f02446c078531d884171b06beb55ad87da70e58640fe4",
+          "sha256": "493c61cb021a517e4b106d5ab8e4774eb46c22214b17510800577a7091cbf0ed",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         },
         {
@@ -123437,7 +123437,7 @@
         {
           "path": "src/potbot/persistence/schema.py",
           "symbol": "application_migrations",
-          "sha256": "ec1dccbced66b13634aa030456bd28ea47183971b3b00d5f11b61464ec53ff32",
+          "sha256": "121b50412859393cc01baa408bcb2e70d1970a2954afd5410dc8df85d7f1bb5a",
           "basis": "U01-A queue transport source or test definition. Exact-revision execution evidence is tracked in CI."
         },
         {

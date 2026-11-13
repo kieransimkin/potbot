@@ -23,15 +23,72 @@ from potbot.controller.jobs import JobService
 from potbot.controller.native_cog_dispatch import NativeCogDispatcher
 from potbot.controller.tasks import TaskService
 from potbot.domain.errors import RevisionConflictError, ScopeDeniedError
+from potbot.domain.serialization import content_hash
 from potbot.domain.tasks import ContractSpec, DeliverableType, Requirement, TaskStatus
 from potbot.persistence.admin_cli import main
-from potbot.persistence.database import Database, admin_connection, provision_principal
+from potbot.persistence.database import (
+    Database,
+    admin_connection,
+    migrate,
+    provision_principal,
+    provision_workspace,
+)
+from potbot.persistence.schema import application_migrations
 from potbot.tools.execution_contracts import ExecutionPolicy, WorkBinding
 from potbot.tools.sandbox_cog_worker import SandboxedCogExecutor, SandboxedCogOperation
 from potbot.tools.semantic_contracts import QUERY, RESULTS
 from tests.integration.test_repository_states import setup
 
 pytestmark = pytest.mark.postgres
+
+
+def test_enrollment_pin_migration_preserves_existing_grant_fingerprint(app_env):
+    schema = "grant_before_enrollment_pins"
+    assert migrate(app_env.admin_dsn, schema, application_migrations()[:36])[-1] == 36
+    with app_env.db.transaction(app_env.context) as connection:
+        role = connection.execute("SELECT session_user AS role").fetchone()["role"]
+    workspace = provision_workspace(app_env.admin_dsn, schema, "Existing grant workspace")
+    actor = provision_principal(app_env.admin_dsn, schema, role, workspace)
+    agent = uuid4()
+    legacy = content_hash(
+        {
+            "profile": "potbot.cog-capability-policy/1",
+            "workspace_id": str(workspace),
+            "principal_id": str(actor.principal_id),
+            "agent_id": str(agent),
+            "node_sha256": "a" * 64,
+            "revision_sha256": "b" * 64,
+            "grants": [["c" * 64, ["read"], 2**31]],
+        }
+    )
+    with admin_connection(app_env.admin_dsn, schema) as connection:
+        connection.execute(
+            "INSERT INTO cog_grant_revisions(workspace_id,principal_id,agent_id,generation,"
+            "node_sha256,revision_sha256,policy_sha256,grants) VALUES (%s,%s,%s,1,%s,%s,%s,%s::jsonb)",
+            (
+                workspace,
+                actor.principal_id,
+                agent,
+                "a" * 64,
+                "b" * 64,
+                legacy,
+                json.dumps(
+                    [
+                        {
+                            "installation_sha256": "c" * 64,
+                            "capabilities": ["read"],
+                            "expires_at": 2**31,
+                        }
+                    ]
+                ),
+            ),
+        )
+    assert migrate(app_env.admin_dsn, schema)[-1] == 37
+    with Database(app_env.db.dsn, schema).transaction(actor) as connection:
+        published = current_cog_policy(connection, actor, agent)
+        assert published is not None
+        assert published.policy.fingerprint == legacy
+        assert published.policy.enrollment_sha256 is None
 
 
 def test_cog_grants_operator_publication_and_principal_isolation(
@@ -55,8 +112,9 @@ def test_cog_grants_operator_publication_and_principal_isolation(
     document = tmp_path / "grants.json"
     allow = [{"installation_sha256": "a" * 64, "capabilities": ["read"], "expires_at": 2**31}]
 
-    def publish(value, expected):
+    def publish(value, expected, enrollment=None):
         document.write_text(json.dumps(value), encoding="utf-8")
+        pin = ["--enrollment-sha256", enrollment] if enrollment else []
         status = main(
             [
                 "cog-grants-publish",
@@ -69,6 +127,7 @@ def test_cog_grants_operator_publication_and_principal_isolation(
                 str(document),
                 "--expected-generation",
                 str(expected),
+                *pin,
             ]
         )
         return status, json.loads(capsys.readouterr().out)
@@ -131,6 +190,12 @@ def test_cog_grants_operator_publication_and_principal_isolation(
                 pass
     (winner,) = winners
     assert winner.generation == 3 and show() == winner.to_dict()
+    status, pinned = publish(allow, 3, "d" * 64)
+    assert status == 0 and pinned["result"]["enrollment_sha256"] == "d" * 64
+    assert publish(allow, 3, "d" * 64) == (0, pinned)
+    status, downgrade = publish(allow, 4)
+    assert status == 1 and downgrade["error"]["code"] == "invalid_input"
+    assert show() == pinned["result"]
 
 
 def test_hosted_cog_grants_gate_dispatch_and_budget(app_env, tmp_path):
@@ -176,6 +241,7 @@ def test_hosted_cog_grants_gate_dispatch_and_budget(app_env, tmp_path):
     jobs = JobService(db)
     worker_calls = []
     during_syn_admission = None
+    enrollment = "f" * 64
 
     class Worker(SandboxedCogExecutor):
         def __init__(self):
@@ -192,6 +258,7 @@ def test_hosted_cog_grants_gate_dispatch_and_budget(app_env, tmp_path):
                 "workspace_id": str(actor.workspace_id),
                 "agent_id": str(agent),
                 "node": node,
+                "enrollment_sha256": enrollment,
             }
 
         async def execute(self, operation, *_args, **_kwargs):
@@ -231,6 +298,7 @@ def test_hosted_cog_grants_gate_dispatch_and_budget(app_env, tmp_path):
         node,
         profile,
         (CogCapabilityGrant(installation_hash(op), frozenset({Capability.READ}), 2**31),),
+        enrollment_sha256=enrollment,
     )
     issued = publish_cog_policy(app_env.admin_dsn, app_env.schema, grant, 0)
     allowed = enqueue("allowed")
@@ -245,6 +313,14 @@ def test_hosted_cog_grants_gate_dispatch_and_budget(app_env, tmp_path):
         "decision": "allow",
         "capabilities": ["read"],
     }
+    enrolled = enrollment
+    enrollment = "e" * 64
+    wrong_epoch = enqueue("wrong-epoch")
+    with pytest.raises(CogPolicyDenied, match=Denial.ENROLLMENT.value):
+        dispatcher().run(jobs, actor, wrong_epoch, Event())
+    assert jobs.inspect(actor, wrong_epoch.job_id)["dispatched_at"] is None
+    jobs.finish(actor, wrong_epoch, "failed", error_code="scope_denied")
+    enrollment = enrolled
 
     def revoke():
         publish_cog_policy(app_env.admin_dsn, app_env.schema, replace(grant, grants=()), 1)

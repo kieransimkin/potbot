@@ -157,6 +157,7 @@ def application_migrations(*, lineage: str = "main") -> tuple[SchemaMigration, .
         (34, "sandbox_transport_schema"),
         (35, "native_cog_jobs_schema"),
         (36, "cog_grants_schema"),
+        (37, "cog_enrollment_pins_schema"),
     ):
         module = import_module(f"potbot.persistence.{module_name}")
         migrations.append(
