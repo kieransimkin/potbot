@@ -85,7 +85,7 @@ flowchart LR
     Check -->|No| Refuse["Refuse dispatch and leave budget uncharged"]
 ```
 
-A managed WSL rehearsal exercised the complete rollover with two disposable Agents, official Syn 0.10.0, the signed worker image, the scoped TASKSTATS launcher and an isolated TLS PostgreSQL instance. The surviving Agent kept its identity across restart. The revoked Agent could not rejoin with either epoch. The previous grant caused zero worker launches, provider calls or budget charges. Republishing from the verified epoch-2 enrollment restored exactly one audited gRPC request. PostgreSQL retained both grant generations and settled the two successful calls without a residual reservation.
+A managed WSL qualification exercised the rollover with two disposable Agents, official Syn 0.10.0, the signed worker image and the scoped TASKSTATS launcher. The test ran against a disposable schema on the external PostgreSQL server over TLS, using a separate restricted worker login. The surviving Agent kept its identity across restart. The revoked Agent could not rejoin with either epoch. The previous grant caused zero worker launches, provider calls or budget charges. Republishing from the verified epoch-2 enrollment restored exactly one audited gRPC request. PostgreSQL retained both grant generations and settled the two successful calls without a residual reservation. The test independently verified removal of its schema.
 
 ```mermaid
 sequenceDiagram
@@ -104,7 +104,7 @@ sequenceDiagram
     P->>W: Dispatch and settle one request
 ```
 
-Sequence diagram of the managed WSL rehearsal. The native revocation check separately refused the removed Agent after restart at both epochs.
+Sequence diagram of the managed WSL qualification. The native revocation check separately refused the removed Agent after restart at both epochs.
 
 ## Stateful debugger, terminal and device Cogs
 
