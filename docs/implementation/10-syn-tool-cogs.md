@@ -126,6 +126,8 @@ Request envelopes carry parameters and expected revisions; the trusted controlle
 
 For local Python attach, supply a controller-owned process ID, an exact configuration digest and a liveness check tied to the original process handle or an equivalent process-start identity. The session checks the pin before dispatch and checks the lease again after recording the operation. A different process ID reported by the adapter invalidates the session. The local Linux fixture exercised real attach and detach with the original process still alive after detaching.
 
+A remote attach can also carry a controller-approved target declaration and an independent live observer. The debugger checks the protected endpoint, target, probe, core, firmware and symbols against the approved declaration. It requires the approved halt revision for attach and binds each later stopped session to a fresh observed revision. A mismatch before inspection blocks the adapter call. A mismatch during inspection discards the result and invalidates the session. Stack reads, stepping and breakpoint operations require the corresponding supported capability. Automated fixtures exercise the policy checks. A protected remote Python process and an authorized board and probe still need live qualification.
+
 A managed MCP gateway installation can pin a principal as well as the workspace and installed tool. Include that principal when computing the installation configuration digest. The gateway checks the scope before creating a run and again before dispatch. HTTP installations also check the OAuth grant's workspace and principal. Existing workspace-wide stdio installations keep their prior configuration identity.
 
 ## Mandatory tool-Cog work monitoring

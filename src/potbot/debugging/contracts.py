@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
@@ -13,6 +13,7 @@ from uuid import UUID
 from potbot.domain.errors import InvalidInputError, ScopeDeniedError, StateMismatchError
 from potbot.domain.execution_events import ExecutionEventInput
 from potbot.domain.serialization import content_hash
+from potbot.tools.execution_contracts import remote_target
 
 
 class DebugState(StrEnum):
@@ -76,12 +77,62 @@ class DebugIdentity:
 
 
 @dataclass(frozen=True, slots=True)
+class RemoteDebugTarget:
+    """Pin a qualified target and read its current snapshot from the connection owner.
+
+    The observer reads state already collected by the trusted transport. It must
+    not block on the adapter that is currently delivering a debugger event.
+    """
+
+    approved: InitVar[object]
+    observe: Callable[[], object] = field(repr=False)
+    fingerprint: str = field(init=False)
+    attach_revision: int = field(init=False)
+    capabilities: frozenset[str] = field(init=False, repr=False)
+
+    def __post_init__(self, approved: object) -> None:
+        selected = remote_target(approved)
+        if selected["qualification"] != "qualified" or not callable(self.observe):
+            raise ScopeDeniedError("Remote debugger needs a qualified target and live observation")
+        object.__setattr__(self, "fingerprint", self._identity(selected))
+        object.__setattr__(self, "attach_revision", selected["halt_revision"])
+        object.__setattr__(
+            self,
+            "capabilities",
+            frozenset(
+                name for name, support in selected["capabilities"].items() if support == "supported"
+            ),
+        )
+
+    @staticmethod
+    def _identity(target: Mapping[str, Any]) -> str:
+        return content_hash({key: value for key, value in target.items() if key != "halt_revision"})
+
+    def require_current(self, *, halt_revision: int | None = None) -> int:
+        try:
+            current = remote_target(self.observe())
+            fingerprint = self._identity(current)
+        except (InvalidInputError, OSError, UnicodeError):
+            raise ScopeDeniedError("Remote debugger target observation is unavailable") from None
+        if fingerprint != self.fingerprint:
+            raise ScopeDeniedError("Remote debugger target differs from its approved identity")
+        revision = int(current["halt_revision"])
+        if halt_revision is not None and revision != halt_revision:
+            raise ScopeDeniedError("Remote debugger halt revision changed")
+        return revision
+
+    def require_attach(self) -> None:
+        self.require_current(halt_revision=self.attach_revision)
+
+
+@dataclass(frozen=True, slots=True)
 class DebugAttachTarget:
     """Controller's selection for one already-owned process and adapter connection."""
 
     process_id: int
     configuration_sha256: str
     process_is_current: Callable[[], bool]
+    remote: RemoteDebugTarget | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -91,6 +142,7 @@ class DebugAttachTarget:
             or len(self.configuration_sha256) != 64
             or any(c not in "0123456789abcdef" for c in self.configuration_sha256)
             or not callable(self.process_is_current)
+            or (self.remote is not None and not isinstance(self.remote, RemoteDebugTarget))
         ):
             raise InvalidInputError("Debugger attach requires a process and configuration pin")
 
@@ -104,6 +156,8 @@ class DebugAttachTarget:
         if content_hash(dict(configuration)) != self.configuration_sha256:
             raise ScopeDeniedError("Debugger attach configuration differs from its target pin")
         self.require_current(None)
+        if self.remote is not None:
+            self.remote.require_attach()
 
 
 @dataclass(frozen=True, slots=True)
