@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,7 +39,8 @@ from potbot.tools.interactive_supervisor import (
     InteractiveProcessSupervisor,
     IsolatedInteractiveProcess,
 )
-from potbot.tools.mcp_http_worker import WORKER_ARGS, relay_http_call
+from potbot.tools.mcp_confirmation import McpConfirmation, McpConfirmationDeclined
+from potbot.tools.mcp_http_worker import check_http_worker, relay_http_call
 from potbot.tools.mcp_protocol import Exchange, McpCallResult, McpCatalog, McpClient, McpToolInfo
 from potbot.tools.mcp_stdio import McpStdioTransport
 from potbot.tools.shared_workspace_isolation import SharedWorkspaceBubblewrapBackend
@@ -120,6 +121,8 @@ class SandboxedMcpClient:
         managed_scope: ManagedMcpScope | None = None,
         http_provider: McpOAuthProvider | None = None,
         http_header_tool: McpToolInfo | None = None,
+        confirmation: McpConfirmation | None = None,
+        before_http_call: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> None:
         if not isinstance(supervisor, InteractiveProcessSupervisor):
             raise InvalidInputError("MCP requires the qualified interactive ProcessSupervisor")
@@ -177,6 +180,8 @@ class SandboxedMcpClient:
         self._managed_scope = managed_scope
         self._http_provider = http_provider
         self._http_header_tool = http_header_tool
+        self._confirmation = confirmation
+        self._before_http_call = before_http_call
         self._http_session = AsyncExitStack()
         self._broker_exchange: Exchange | None = None
         self._lease: WorkspaceLeaseGuard | None = None
@@ -349,8 +354,15 @@ class SandboxedMcpClient:
                 raise ScopeDeniedError("Managed MCP execution requires a scoped Agent launch")
         definition = self._registry.get(self._server_kind)
         definition.admit(ActionProposal(kind=self._server_kind))
-        if (definition.argv_prefix[1:] == WORKER_ARGS) != (self._http_provider is not None):
-            raise ScopeDeniedError("HTTP MCP requires its installed relay and provider")
+        check_http_worker(
+            definition.argv_prefix[1:],
+            http=self._http_provider is not None,
+            confirmation=self._confirmation is not None,
+        )
+        if (self._confirmation is not None) != (self._before_http_call is not None) or (
+            self._confirmation is not None and self._syn_route is None
+        ):
+            raise ScopeDeniedError("MCP confirmation requires a routed, journaled execution")
         if self._http_provider is not None:
             scope = self._managed_scope
             http_grant = self._http_provider.grant
@@ -467,7 +479,22 @@ class SandboxedMcpClient:
         async with asyncio.timeout(process.remaining_seconds()):
             if message.get("method") != "tools/call":
                 return await broker(message, expect_reply)
-            return await relay_http_call(message, self._dispatch, broker, self._check_live)
+
+            async def dispatch_admitted(
+                request: dict[str, Any], expect: bool
+            ) -> dict[str, Any] | None:
+                if self._before_http_call is not None:
+                    await self._before_http_call(request)
+                await self._check_live()
+                return await broker(request, expect)
+
+            return await relay_http_call(
+                message,
+                self._dispatch,
+                dispatch_admitted,
+                self._check_live,
+                digest_only=self._confirmation is not None,
+            )
 
     async def _check_live(self) -> None:
         await self._live_process()
@@ -494,15 +521,20 @@ class SandboxedMcpClient:
         if name not in self._grants:
             raise ScopeDeniedError("MCP tool is not granted to this task")
         try:
-            result = await self._client.call_tool(
-                name,
-                arguments,
-                pinned_catalog_hash=self._catalog.fingerprint,
-                pinned_tool_hash=tool.fingerprint,
-            )
-            if self._lease is not None:
-                await asyncio.to_thread(self._lease.ensure_live)
-            return result
+            remaining = self._process.remaining_seconds() if self._confirmation else None
+            async with asyncio.timeout(remaining):
+                result = await self._client.call_tool(
+                    name,
+                    arguments,
+                    pinned_catalog_hash=self._catalog.fingerprint,
+                    pinned_tool_hash=tool.fingerprint,
+                    confirmation=self._confirmation,
+                )
+                if self._lease is not None:
+                    await asyncio.to_thread(self._lease.ensure_live)
+                return result
+        except McpConfirmationDeclined:
+            raise  # The gateway closes and accounts for the completed first round.
         except BaseException:
             # An error after dispatch can be indeterminate. Never silently
             # restart a server or replay a request, even when labelled a read.

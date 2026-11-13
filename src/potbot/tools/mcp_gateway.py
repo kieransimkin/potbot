@@ -6,12 +6,14 @@ import base64
 import json
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from time import monotonic
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from potbot.controller.execution import scoped_row
+from potbot.controller.tasks import lock_episode
 from potbot.domain.auth import WorkspaceContext
 from potbot.domain.errors import (
     IndeterminateExecutionError,
@@ -21,6 +23,7 @@ from potbot.domain.errors import (
 )
 from potbot.domain.execution import ActionProposal, ToolDefinition
 from potbot.domain.serialization import canonical_json, content_hash
+from potbot.persistence.evidence import append_event
 from potbot.tools.capability_contracts import (
     ToolCapabilityDescriptor,
     ToolImplementationDescriptor,
@@ -28,10 +31,15 @@ from potbot.tools.capability_contracts import (
     ToolInvocationIntent,
 )
 from potbot.tools.interactive_supervisor import InteractiveProcessSupervisor
-from potbot.tools.mcp_http_worker import WORKER_ARGS
-from potbot.tools.mcp_protocol import MAX_WIRE_BYTES, McpToolInfo, validate_arguments
+from potbot.tools.mcp_confirmation import (
+    McpConfirmation,
+    McpConfirmationDeclined,
+    McpConfirmationPrompt,
+)
+from potbot.tools.mcp_http_worker import check_http_worker
+from potbot.tools.mcp_protocol import MAX_WIRE_BYTES, McpCallResult, McpToolInfo, validate_arguments
 from potbot.tools.mcp_sandbox import ManagedMcpScope, ReadOnlyMcpGrant, SandboxedMcpClient
-from potbot.tools.repository import Lease
+from potbot.tools.repository import Lease, assert_lease
 from potbot.workspace_sandbox import WorkspaceSandbox
 
 if TYPE_CHECKING:
@@ -45,6 +53,7 @@ def mcp_configuration_hash(
     executable: str,
     *,
     http_provider: McpOAuthProvider | None = None,
+    confirmation: McpConfirmation | None = None,
 ) -> str:
     identity = {
         "definition": definition.fingerprint,
@@ -53,6 +62,8 @@ def mcp_configuration_hash(
     }
     if http_provider is not None:
         identity["oauth_registration_sha256"] = http_provider.registration_fingerprint
+    if confirmation is not None:
+        identity["confirmation_field"] = confirmation.field
     return content_hash(identity)
 
 
@@ -67,6 +78,7 @@ class InstalledMcpTool:
     implementation: ToolImplementationDescriptor
     installation: ToolInstallationDescriptor
     http_provider: McpOAuthProvider | None = field(default=None, repr=False)
+    confirmation: McpConfirmation | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if (
@@ -82,8 +94,18 @@ class InstalledMcpTool:
             raise ScopeDeniedError("MCP installation differs from the operator's tool and scope")
         if self.tool.header_parameters and self.http_provider is None:
             raise ScopeDeniedError("MCP header parameters require an approved HTTP installation")
-        if (self.definition.argv_prefix[1:] == WORKER_ARGS) != (self.http_provider is not None):
-            raise ScopeDeniedError("MCP HTTP installation requires its pinned worker and provider")
+        check_http_worker(
+            self.definition.argv_prefix[1:],
+            http=self.http_provider is not None,
+            confirmation=self.confirmation is not None,
+        )
+        if self.confirmation is not None and (
+            self.confirmation.tool_fingerprint != self.tool.fingerprint
+            or self.confirmation.capability.fingerprint != self.capability.fingerprint
+        ):
+            raise ScopeDeniedError(
+                "MCP confirmation differs from its installed tool and capability"
+            )
         if (
             self.http_provider is not None
             and self.http_provider.grant.workspace_id != self.installation.workspace_id
@@ -92,7 +114,11 @@ class InstalledMcpTool:
         self.implementation.assert_capability(self.capability)
         self.installation.assert_implementation(self.implementation)
         if self.installation.configuration_hash != mcp_configuration_hash(
-            self.definition, self.tool, self.executable_sha256, http_provider=self.http_provider
+            self.definition,
+            self.tool,
+            self.executable_sha256,
+            http_provider=self.http_provider,
+            confirmation=self.confirmation,
         ):
             raise ScopeDeniedError("MCP executable, configuration, or tool identity changed")
 
@@ -114,6 +140,65 @@ def _frozen_input(raw: bytes, installation: ToolInstallationDescriptor) -> dict[
     if value["installation_hash"] != installation.fingerprint:
         raise ScopeDeniedError("MCP action does not select the installed policy and tool")
     return value["arguments"]
+
+
+def _record_confirmation_event(
+    gateway: ToolGateway,
+    context: WorkspaceContext,
+    run: dict[str, Any],
+    lease: Lease,
+    event_type: str,
+    details: dict[str, Any],
+) -> None:
+    """Commit the next step before returning to the provider dispatch path."""
+    with gateway.database.transaction(context) as conn:
+        episode = lock_episode(conn, context, run["episode_id"])
+        assert_lease(conn, context, lease)
+        current = scoped_row(conn, context, "action_runs", run["id"])
+        reservation = scoped_row(conn, context, "budget_reservations", run["reservation_id"])
+        if (
+            episode["status"] != "running"
+            or episode["active_contract_id"] != run["contract_revision_id"]
+            or current["status"] != "running"
+            or current["owner_instance"] != gateway.instance_id
+            or reservation["status"] != "reserved"
+            or reservation["amounts"].get("calls", 0) < 2
+        ):
+            raise ScopeDeniedError("MCP confirmation lost its durable admission")
+        rows = conn.execute(
+            "SELECT event_type,details FROM evidence_events WHERE workspace_id=%s AND run_id=%s "
+            "AND event_type IN ('mcp_confirmation_decision','mcp_http_dispatch')",
+            (context.workspace_id, run["id"]),
+        ).fetchall()
+        step = (event_type, details.get("round"))
+        allowed = (
+            (not rows and step == ("mcp_http_dispatch", 1))
+            or (
+                len(rows) == 1
+                and rows[0]["event_type"] == "mcp_http_dispatch"
+                and rows[0]["details"]["round"] == 1
+                and step == ("mcp_confirmation_decision", None)
+            )
+            or (
+                len(rows) == 2
+                and any(
+                    row["event_type"] == "mcp_confirmation_decision"
+                    and row["details"]["approved"] is True
+                    for row in rows
+                )
+                and step == ("mcp_http_dispatch", 2)
+            )
+        )
+        if not allowed:
+            raise ScopeDeniedError("MCP confirmation dispatch is out of sequence")
+        append_event(
+            conn,
+            context,
+            event_type,
+            episode_id=run["episode_id"],
+            run_id=run["id"],
+            details=details,
+        )
 
 
 async def execute_mcp_action(
@@ -186,6 +271,7 @@ async def execute_mcp_action(
         ):
             raise ScopeDeniedError("MCP worker mounts overlap private controller storage")
 
+    confirmation = binding.confirmation
     intent = None
     task_contract = None
 
@@ -220,14 +306,21 @@ async def execute_mcp_action(
         intent.assert_capability(binding.capability)
         intent.assert_installation(binding.installation)
         task_contract = contract["content"]
+        details = {"mcp_confirmation_field": confirmation.field} if confirmation else {}
         return {
+            **details,
             "mcp_installation": binding.installation.to_dict(),
             "mcp_intent": intent.to_dict(),
             "mcp_intent_hash": intent.fingerprint,
         }
 
     run, _, _, candidate = gateway._admit(
-        context, action_id, lease, reservation_id, pin_intent=pin_intent
+        context,
+        action_id,
+        lease,
+        reservation_id,
+        min_calls=2 if confirmation else 1,
+        pin_intent=pin_intent,
     )
     assert intent is not None and task_contract is not None
     started = monotonic()
@@ -242,6 +335,40 @@ async def execute_mcp_action(
             or cancelled()
         ):
             raise ScopeDeniedError("MCP call differs from its live durable admission")
+
+    calls = 0
+
+    async def confirm(prompt: McpConfirmationPrompt) -> bool:
+        assert confirmation is not None
+        if cancelled():
+            raise ScopeDeniedError("MCP confirmation admission expired")
+        approved = await confirmation.approve(prompt) is True
+        _record_confirmation_event(
+            gateway,
+            context,
+            run,
+            lease,
+            "mcp_confirmation_decision",
+            {
+                "principal_id": str(context.principal_id),
+                "field": prompt.field,
+                "prompt_sha256": content_hash({"tool": prompt.tool, "message": prompt.message}),
+                "approved": approved,
+            },
+        )
+        return approved
+
+    async def record_call(request: dict[str, Any]) -> None:
+        nonlocal calls
+        _record_confirmation_event(
+            gateway,
+            context,
+            run,
+            lease,
+            "mcp_http_dispatch",
+            {"round": calls + 1, "request_sha256": content_hash(request)},
+        )
+        calls += 1
 
     try:
         if Path(candidate["path"]).resolve(strict=True) != root:
@@ -264,11 +391,20 @@ async def execute_mcp_action(
             workspace_id=context.workspace_id,
             http_provider=binding.http_provider,
             http_header_tool=binding.tool if binding.tool.header_parameters else None,
+            confirmation=replace(confirmation, approve=confirm) if confirmation else None,
+            before_http_call=record_call if confirmation else None,
             managed_scope=ManagedMcpScope(
                 context, gateway.host_agent_id, run["id"], gateway.agent_homes
             ),
         ) as client:
-            result = await client.call(binding.tool.name, arguments)
+            try:
+                result = await client.call(binding.tool.name, arguments)
+                declined = False
+            except McpConfirmationDeclined:
+                if confirmation is None:
+                    raise
+                result = McpCallResult.from_wire(binding.tool.name, {"isError": True})
+                declined = True
             exit_receipt = await client.close()
         if exit_receipt is None or not exit_receipt.processes_stopped or cancelled():
             raise IndeterminateExecutionError("MCP shutdown or controller admission is unconfirmed")
@@ -277,6 +413,8 @@ async def execute_mcp_action(
         if gateway._fingerprint(context, candidate) != run["input_fingerprint"]:
             raise StateMismatchError("Read-only MCP action changed the candidate contents")
         observation = result.to_observation(intent=intent, capability=binding.capability)
+        if declined:
+            observation = replace(observation, error_code="mcp_confirmation_declined")
         stdout = canonical_json(
             {
                 "observation": observation.to_dict(),
@@ -305,7 +443,7 @@ async def execute_mcp_action(
             "stderr_truncated": exit_receipt.stderr_truncated,
             "dispatched": True,
             "isolation_identity": exit_receipt.isolation_identity,
-            "error_code": "mcp_tool_reported_error" if result.is_error else None,
+            "error_code": observation.error_code,
             "retryable": False,
             "processes_stopped": True,
             "stdin_artifact_id": input_id,
@@ -314,6 +452,8 @@ async def execute_mcp_action(
             ),
             "mcp_intent_hash": intent.fingerprint,
         }
+        if confirmation is not None:
+            receipt["mcp_http_calls"] = calls
         gateway.receipts.write(context.workspace_id, run["id"], receipt)
         if after_receipt is not None:
             after_receipt()
