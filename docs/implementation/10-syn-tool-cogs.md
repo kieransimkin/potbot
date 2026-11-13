@@ -44,6 +44,26 @@ The installed native handler namespace is currently constrained by `CogSignature
 
 For asynchronous tools, the one result may be a registered pending-result variant with an opaque operation reference. A separately registered await/status/cancel Cog accepts that reference and returns its own typed result. Streaming progress remains a causally linked event/artifact stream; it does not silently change the Cog's one-input/one-output signature. New requests are re-admitted, fenced and budgeted.
 
+### Controller capability policy
+
+An operator can supply `CogCapabilityPolicy` when constructing an `ExecutionCogRuntime` with installed sandbox Cogs. The policy selects one workspace, principal, native Syn Agent and selected public node key. Each grant pins the installed binding, executable digest and command, declares capability categories and expires at a UTC epoch second. The active task must permit every category. The policy is an additional admission check alongside the existing controller authorizer and native Syn worker grant.
+
+The categories are read, external disclosure, file mutation, network, database write, code execution, money and admin. Operator configuration must classify the exact operation. The controller requires read for a read-only operation, network and external disclosure for API and browser Cogs, code execution for script and CI Cogs, database write for mutating SQL, and admin for destructive effects. Child Cogs require an explicit grant and inherit the parent's capability ceiling and earlier expiry.
+
+```mermaid
+flowchart TD
+    Request["Typed Cog request"] --> Pin["Installed operation and native Agent"]
+    Pin --> Decision{"Operator grant, task and parent agree?"}
+    Decision -->|No| Denial["Record bounded denial reason"]
+    Decision -->|Yes| Launch["Recheck policy and issue one-use Syn grant"]
+    Launch --> Worker["Run monitored sandbox worker"]
+    Worker --> Provider{"For an API read, check policy again before provider dispatch"}
+    Provider -->|Allowed| Observe["Save provider observation and settle"]
+    Provider -->|Denied| Release["Record denial and release unused provider reservation"]
+```
+
+The execution journal records the policy digest and effective capabilities on admission. A denial records a fixed reason code. Invocation data remains in the existing scoped artifact store. Existing callers can continue using their configured authorizer. This milestone covers the installed sandbox Cog path, with the existing native Syn identity check. It leaves durable operator grant management, wallet delegation, device grants and broader gateway rollout to later stages.
+
 ## Stateful debugger, terminal and device Cogs
 
 Each operation is a separate typed Cog. Persistent state lives in the controller-owned session service and durable receipts, not a hidden global variable in a supposedly pure handler. Output session references are opaque, tenant/workspace/target/lease scoped, expiring and revision bound; possession alone grants no authority. Never serialize a live Python frame, socket, credential, OS handle or unrestricted device shell into a Cog value.

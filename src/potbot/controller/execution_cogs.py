@@ -16,6 +16,12 @@ from potbot.controller.child_plans import (
     compile_child_plans,
     execute_child_plan,
 )
+from potbot.controller.cog_capability_policy import (
+    CogCapabilityGrant,
+    CogCapabilityPolicy,
+    CogPolicyDenied,
+    Denial,
+)
 from potbot.controller.cog_work import CogWorkMonitor, CogWorkRun
 from potbot.controller.execution_journal import (
     TRANSPORT_DISPATCH_PHASE,
@@ -63,9 +69,16 @@ class HostOperation:
 class ExecutionCall:
     """Trusted callback context; child work returns through the same Cog boundary."""
 
-    def __init__(self, runtime: ExecutionCogRuntime, work: CogWorkRun, depth: int) -> None:
+    def __init__(
+        self,
+        runtime: ExecutionCogRuntime,
+        work: CogWorkRun,
+        depth: int,
+        capability_grant: CogCapabilityGrant | None = None,
+    ) -> None:
         self.runtime, self.work, self.depth = runtime, work, depth
         self.owner = asyncio.current_task()
+        self.capability_grant = capability_grant
 
     def _check(self) -> None:
         if (
@@ -130,6 +143,7 @@ class ExecutionCall:
             parent_event_id=UUID(self.work.previous["id"]),
             links=links,
             depth=self.depth + 1,
+            parent_grant=self.capability_grant,
         )
         self.work.child_runs.append(
             {
@@ -167,6 +181,7 @@ class ExecutionCogRuntime:
         rest_read: InstalledRestRead | None = None,
         graphql_read: InstalledGraphqlRead | None = None,
         grpc_read: InstalledGrpcRead | None = None,
+        capability_policy: CogCapabilityPolicy | None = None,
     ) -> None:
         from potbot.cogs.execution import execution_ember_bundle
         from potbot.cogs.registry import BoundCogRegistry
@@ -244,6 +259,17 @@ class ExecutionCogRuntime:
                 "Cog worker requires a qualified sandbox executor and registered agent"
             )
         self.sandbox_executor, self.sandbox_agent_id = sandbox_executor, sandbox_agent_id
+        if capability_policy is not None and (
+            type(capability_policy) is not CogCapabilityPolicy
+            or capability_policy.actor != actor
+            or capability_policy.agent_id != sandbox_agent_id
+            or capability_policy.revision_sha256 != policy.policy_revision_hash
+            or not operations
+        ):
+            raise ScopeDeniedError(
+                "Cog capability policy differs from the installed controller scope"
+            )
+        self.capability_policy = capability_policy
         if browser_service is not None and (
             artifact_ranges is not None or artifact_uploads is not None
         ):
@@ -421,6 +447,7 @@ class ExecutionCogRuntime:
         parent_event_id: UUID | None = None,
         links: tuple[UUID, ...] = (),
         depth: int = 0,
+        parent_grant: CogCapabilityGrant | None = None,
     ) -> CogOutcome:
         if (
             signature not in (*EXECUTION_COGS, *self._direct_operations)
@@ -488,6 +515,16 @@ class ExecutionCogRuntime:
         if isinstance(op, SandboxedCogOperation) and op.binding.input_type_ref == QUEUE_REQUEST:
             assert self.sandbox_agent_id is not None
             queue_effect = QueueEffect.installed(op, typed.value, self.sandbox_agent_id)
+        capability_policy = (
+            self.capability_policy if isinstance(op, SandboxedCogOperation) else None
+        )
+        capability_grant: CogCapabilityGrant | None = None
+
+        def check_capability(connection: Any) -> None:
+            if capability_policy is not None:
+                assert capability_grant is not None
+                capability_policy.require_active_task(connection, context, capability_grant)
+
         read_attempt = None
         if isinstance(op, SandboxedCogOperation) and (
             op.directed_rest or op.directed_graphql or op.directed_grpc
@@ -500,7 +537,15 @@ class ExecutionCogRuntime:
                 else (self.graphql_read if op.directed_graphql else self.rest_read)
             )
             assert read is not None
-            read_attempt = ApiReadAttempt(self.db, self.artifacts, self.actor, read, typed, context)
+            read_attempt = ApiReadAttempt(
+                self.db,
+                self.artifacts,
+                self.actor,
+                read,
+                typed,
+                context,
+                check_policy=check_capability if capability_policy is not None else None,
+            )
         journal = PinnedExecutionJournal(
             self.db,
             self.artifacts,
@@ -520,10 +565,30 @@ class ExecutionCogRuntime:
         original_hash = source.fingerprint
         self._seen.add(context.invocation_id)
         try:
+            if capability_policy is not None:
+                assert self.sandbox_executor is not None and self.sandbox_agent_id is not None
+                assert isinstance(op, SandboxedCogOperation)
+                if parent_event_id is not None and parent_grant is None:
+                    raise CogPolicyDenied(Denial.PARENT)
+                native = self.sandbox_executor.syn_provenance(self.actor, self.sandbox_agent_id)
+                capability_grant = capability_policy.select(
+                    self.actor,
+                    self.sandbox_agent_id,
+                    native,
+                    op,
+                    parent=parent_grant,
+                )
+                with self.db.transaction(self.actor) as connection:
+                    check_capability(connection)
             self._admission(signature, source, context)
-        except ScopeDeniedError:
+        except ScopeDeniedError as error:
             try:
-                monitor.denied(signature, source, context)
+                monitor.denied(
+                    signature,
+                    source,
+                    context,
+                    reason=error.reason.value if isinstance(error, CogPolicyDenied) else None,
+                )
             except Exception:
                 self._poisoned = True
                 raise
@@ -538,6 +603,14 @@ class ExecutionCogRuntime:
                 )
                 if native_binding is not None:
                     implementation["syn_native"] = native_binding
+            if capability_policy is not None and capability_grant is not None:
+                implementation["capability_policy"] = {
+                    "sha256": capability_policy.fingerprint,
+                    "capabilities": sorted(
+                        capability.value for capability in capability_grant.capabilities
+                    ),
+                    "decision": "allow",
+                }
             work = monitor.begin(signature, source, context, implementation=implementation)
         except Exception:
             self._poisoned = True
@@ -549,7 +622,7 @@ class ExecutionCogRuntime:
             if source.fingerprint != original_hash:
                 raise StateMismatchError("Work input changed before dispatch")
             dispatched = not transport_effect
-            call = ExecutionCall(self, work, depth)
+            call = ExecutionCall(self, work, depth, capability_grant)
             if op:
                 # The timeout task owns callbacks; no detached task inherits its grant.
                 async def run() -> TypedCogValue:
@@ -560,6 +633,19 @@ class ExecutionCogRuntime:
                         if isinstance(op, SandboxedCogOperation):
                             if self.sandbox_executor is None or self.sandbox_agent_id is None:
                                 raise ScopeDeniedError("Cog worker has no host-authorized sandbox")
+                            if capability_policy is not None:
+                                native = self.sandbox_executor.syn_provenance(
+                                    self.actor, self.sandbox_agent_id
+                                )
+                                capability_policy.select(
+                                    self.actor,
+                                    self.sandbox_agent_id,
+                                    native,
+                                    op,
+                                    parent=parent_grant,
+                                )
+                                with self.db.transaction(self.actor) as connection:
+                                    check_capability(connection)
                             if not transport_effect:
                                 call.progress("sandbox_worker_dispatched")
                             syn_grant = self.sandbox_executor.authorize_syn(
@@ -713,7 +799,9 @@ class ExecutionCogRuntime:
                     work.fail(
                         uncertain=uncertain,
                         cancelled=isinstance(error, asyncio.CancelledError) and not uncertain,
-                        reason=type(error).__name__,
+                        reason=error.reason.value
+                        if isinstance(error, CogPolicyDenied)
+                        else type(error).__name__,
                     )
             except Exception:
                 self._poisoned = True

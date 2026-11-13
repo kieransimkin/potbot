@@ -54,9 +54,14 @@ class CogWorkMonitor:
         return CogWorkRun(self, signature, source, context, implementation=implementation)
 
     def denied(
-        self, signature: CogSignature, source: TypedCogValue, context: CogRunContext
+        self,
+        signature: CogSignature,
+        source: TypedCogValue,
+        context: CogRunContext,
+        *,
+        reason: str | None = None,
     ) -> None:
-        CogWorkRun(self, signature, source, context, admitted=False)
+        CogWorkRun(self, signature, source, context, admitted=False, denial_reason=reason)
 
 
 class CogWorkRun:
@@ -69,6 +74,7 @@ class CogWorkRun:
         *,
         implementation: Mapping[str, Any] | None = None,
         admitted: bool = True,
+        denial_reason: str | None = None,
     ) -> None:
         self.owner, self.signature, self.context = owner, signature, context
         self.started_at = datetime.now(UTC).isoformat()
@@ -84,7 +90,9 @@ class CogWorkRun:
             "application/json",
         )
         self._emit(
-            "started" if admitted else "failed", "executing" if admitted else "admission_denied"
+            "started" if admitted else "failed",
+            "executing" if admitted else "admission_denied",
+            reason=denial_reason,
         )
 
     def _emit(
