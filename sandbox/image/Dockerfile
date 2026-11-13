@@ -51,6 +51,7 @@ COPY sandbox/clients/context_client.py /opt/potbot/context_client.py
 # Diagnostic worker: exercised only by explicit host qualification.
 COPY sandbox/qualification/worker_probe.py /usr/local/libexec/potbot-worker-probe
 COPY src/potbot/tools/queue_transport_worker.py /usr/local/libexec/potbot-queue-transport
-RUN chmod 0555 /usr/local/libexec/potbot-worker-probe /usr/local/libexec/potbot-queue-transport
+COPY src/potbot/tools/python_profile_worker.py /usr/local/libexec/potbot-python-profile
+RUN chmod 0555 /usr/local/libexec/potbot-worker-probe /usr/local/libexec/potbot-queue-transport /usr/local/libexec/potbot-python-profile
 WORKDIR /home
 CMD ["/bin/bash"]

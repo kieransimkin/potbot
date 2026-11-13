@@ -148,7 +148,9 @@ jobs:
       - name: Start real PostgreSQL with pgvector
         run: docker compose up --detach --wait --wait-timeout 90
       - name: Verify sandbox transport crash recovery on PostgreSQL
-        run: uv run --locked python -m pytest -q tests/integration/test_sandbox_transport_recovery.py
+        run: >-
+          uv run --locked python -m pytest -q
+          tests/integration/test_sandbox_transport_recovery.py tests/integration/test_python_profile_cog.py
       - name: Qualify MODEL.md context, ACLs, recovery and refresh against PostgreSQL
         run: >-
           uv run --locked python -m pytest -q

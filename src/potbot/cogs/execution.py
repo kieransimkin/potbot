@@ -65,6 +65,7 @@ def execution_cog_snapshot(
     rest_read: bool = False,
     graphql_read: bool = False,
     grpc_read: bool = False,
+    python_profile: bool = False,
 ) -> SynSnapshot:
     from potbot.cogs.debugger import debugger_cog_snapshot
     from potbot.cogs.registry import _type, builtin_cog_snapshot
@@ -109,6 +110,12 @@ def execution_cog_snapshot(
         transport_schemas = rest_schemas(graphql=graphql_read, grpc=grpc_read)
         wire_schemas.update(transport_schemas)
         refs += tuple(transport_schemas)
+    if python_profile:
+        from potbot.tools.python_profile_cog import schemas as profile_schemas
+
+        profiling = profile_schemas()
+        wire_schemas.update(profiling)
+        refs += tuple(profiling)
     for ref in refs:
         types.append(
             replace(
@@ -172,6 +179,8 @@ def execution_cog_snapshot(
             if graphql_read
             else "potbot-execution-grpc-read-v1"
             if grpc_read
+            else "potbot-execution-python-profile-v1"
+            if python_profile
             else "potbot-execution-provenance-v1"
         ),
         types=tuple(types),
@@ -188,6 +197,7 @@ def execution_ember_bundle(
     rest_read: bool = False,
     graphql_read: bool = False,
     grpc_read: bool = False,
+    python_profile: bool = False,
 ) -> EmberContractBundle:
     from potbot.cogs.tool_contracts import contract_ember_bundle
 
@@ -200,6 +210,7 @@ def execution_ember_bundle(
             rest_read=rest_read,
             graphql_read=graphql_read,
             grpc_read=grpc_read,
+            python_profile=python_profile,
         ),
         _installed=EXECUTION_COGS,
         _cog_type=WORK_COG,
