@@ -49,6 +49,7 @@ class ServiceConfig:
     operator_manifest: str | None = None
     scoped_worker_launcher: bool = False
     native_cog_config: str | None = None
+    debugger_forwarding: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> ServiceConfig:
@@ -102,6 +103,12 @@ class ServiceConfig:
                 not self.scoped_worker_launcher
                 or not isinstance(self.native_cog_config, str)
                 or not Path(self.native_cog_config).is_absolute()
+            ):
+                raise ValueError
+            if self.debugger_forwarding is not None and (
+                not sys.platform.startswith("linux")
+                or not isinstance(self.debugger_forwarding, str)
+                or not Path(self.debugger_forwarding).is_absolute()
             ):
                 raise ValueError
         except (ValueError, TypeError):
@@ -164,6 +171,7 @@ def _systemd_unit(*, scoped_worker_launcher: bool = False) -> str:
         return '"' + arg.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%") + '"'
 
     command = " ".join(quote(part) for part in _service_command())
+    vault = "Environment=POTBOT_CREDENTIAL_PROFILE=" + credential_profile() + "\n"
     directory = str(project_root())
     if "\n" in directory or "\r" in directory or directory != directory.rstrip():
         raise InvalidInputError("Project path cannot be represented in a systemd unit.")
@@ -180,6 +188,7 @@ def _systemd_unit(*, scoped_worker_launcher: bool = False) -> str:
         "[Service]\nType=simple\nWorkingDirectory="
         + directory
         + "\n"
+        + vault
         + monitor_environment
         + "ExecStart="
         + command
@@ -344,8 +353,15 @@ def install(args: argparse.Namespace) -> dict[str, Any]:
         native_cog_config=str(args.native_cog_config.absolute())
         if getattr(args, "native_cog_config", None) is not None
         else None,
+        debugger_forwarding=str(args.debugger_forwarding.absolute())
+        if getattr(args, "debugger_forwarding", None) is not None
+        else None,
     )
     config.validate()
+    if config.debugger_forwarding is not None:
+        from potbot.debugging.service import read_registration
+
+        read_registration(Path(config.debugger_forwarding), UUID(config.workspace_id))
     if config.native_cog_config is not None:
         from potbot.controller.native_cog_dispatch import read_profile
 
@@ -426,6 +442,13 @@ def _supervise(config: ServiceConfig) -> int:
         "worker": _service_command()[:2]
         + ["potbot.startup", "jobs", "worker", *common, "--provider-policy", policy],
     }
+    if config.debugger_forwarding is not None:
+        commands["debugger"] = _service_command()[:2] + [
+            "potbot.debugging.service",
+            *common,
+            "--registration",
+            config.debugger_forwarding,
+        ]
     stopped = threading.Event()
 
     def halt(_sig: int, _frame: Any) -> None:
@@ -516,6 +539,7 @@ def _supervise(config: ServiceConfig) -> int:
             events.emit("service.console", source=name, line=line.rstrip("\n")[:8192])
 
     worker_blocked = False
+    debugger_exit_reported = False
     try:
         while not stopped.is_set():
             for name, command in commands.items():
@@ -529,6 +553,11 @@ def _supervise(config: ServiceConfig) -> int:
                     continue
                 if name != "operator" and operator_attachment is not None:
                     operator_attachment.require_healthy()
+                if name == "debugger" and previous is not None:
+                    if previous.poll() is not None and not debugger_exit_reported:
+                        debugger_exit_reported = True
+                        events.emit("service.debugger_stopped", recovery_required=True)
+                    continue
                 if previous is not None and previous.poll() is None:
                     continue
                 if name == "worker" and scoped_endpoint is not None:
@@ -624,6 +653,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     install_parser.add_argument(
         "--native-cog-config", type=Path, help="administrator-owned native Cog worker profile"
+    )
+    install_parser.add_argument(
+        "--debugger-forwarding", type=Path, help="administrator-owned debugger session registration"
     )
     install_parser.add_argument("--schema", default="potbot")
     install_parser.add_argument("--host", default="127.0.0.1")

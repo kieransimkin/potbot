@@ -924,8 +924,20 @@
         {
           "path": "src/potbot/debugging/syn_forwarding.py",
           "symbol": "SynDebuggerRoute",
-          "sha256": "65f9f170cb34cb7b385cfe2b6177fa4ef2c99d87d7b64441da8650bc75d1d0d0",
+          "sha256": "98635f11d6f3305c86e70154563a5cbb7169b2b8c60133543f833b8753fca6c0",
           "basis": "Source inspection of the private debugger route and reconnect coverage"
+        },
+        {
+          "path": "src/potbot/debugging/bridge.py",
+          "symbol": "debugger_bridge",
+          "sha256": "7f7f499fe8ef4da7204ae526c46af02dab77336fe9b090ea2e9238c5f5b6e531",
+          "basis": "Source inspection of the installed debugger service and its focused tests"
+        },
+        {
+          "path": "src/potbot/debugging/service.py",
+          "symbol": "serve",
+          "sha256": "dfd9e5a68213f85c68cdf1a3146b51d763bab9658677af0ff0969b50beff03ca",
+          "basis": "Source inspection of the installed debugger service and its focused tests"
         }
       ],
       "tests": [
@@ -938,8 +950,20 @@
         {
           "path": "tests/unit/test_syn_debugger_forwarding.py",
           "symbol": "test_forwarding_discards_old_signed_reply_and_does_not_resend",
-          "sha256": "1fc4c98695dd282b07882bec7aca9e63a4d270892e0186d22f1879046588c6be",
+          "sha256": "3b0bfb653b49b457ca092a86b1f572f7423321525f9f2e25b45435937956109c",
           "basis": "Source inspection of the private debugger route and reconnect coverage"
+        },
+        {
+          "path": "tests/unit/test_syn_debugger_forwarding.py",
+          "symbol": "test_service_bridge_restricts_direction_topic_destination_and_session",
+          "sha256": "3b0bfb653b49b457ca092a86b1f572f7423321525f9f2e25b45435937956109c",
+          "basis": "Source inspection of the installed debugger service and its focused tests"
+        },
+        {
+          "path": "tests/unit/test_persistent_service.py",
+          "symbol": "test_debugger_child_is_started_once_and_requires_explicit_recovery",
+          "sha256": "292cafa1b8bf811a3328449e8828f34c505227baed1b835a3fa85a3e1c4e45bd",
+          "basis": "Source inspection of the installed debugger service and its focused tests"
         }
       ],
       "assessment": "Python-first debugger and typed session/target receipts are foundations. Android/Apple/remote native/profiler/board/probe/ICSP targets remain independently unqualified; no physical target has been supplied.",
@@ -1872,7 +1896,7 @@
         {
           "path": "src/potbot/service.py",
           "symbol": "ServiceConfig",
-          "sha256": "0e54f04244e8f8a284c2c330e2fbd38fd889a6e56fab08f5695b1d3f27f52d33",
+          "sha256": "ec632c106b04c53064552581e9e26bef497e9225244ec563ed61ea9113c74948",
           "basis": "inspected integration owner; not whole-requirement implementation proof"
         }
       ],
@@ -63218,12 +63242,12 @@
     },
     {
       "path": "docs/implementation/08-debugger-python-first.md",
-      "sha256": "f9d2655c83435c10e7267f3e5322757a8b8823a0a097fdf8ef9b29ec68ef6bff",
+      "sha256": "886baf7d5773832821dcdc3c54b514a14e3e1aba7fd404aff194175d685ad231",
       "families": [
         "devices"
       ],
       "disposition": "retained_requirement_or_implementation_narrative",
-      "assessment": "The installed Python debugger passed remote inspection and reconnect with signed Syn 0.10.1 and durable PostgreSQL receipts in a disposable two-host fixture. Permanent service, profiler and device/probe qualification remain open.",
+      "assessment": "The installed Linux service supervises Python debugger forwarding through a dedicated operator bridge. Two-host Syn 0.10.1 qualification preserved one PostgreSQL receipt across reconnect and rejected replay. Profiler and device/probe qualification remain open.",
       "narrative": [
         {
           "locator": "line:1-10",
@@ -63269,13 +63293,20 @@
         },
         {
           "locator": "line:86-111",
-          "sha256": "c129341ce38e5af8075864a73dfec1f1bb44999ce854600a37461fced0fd4c4c",
+          "sha256": "17a0f6d4b8bc4aff848ff56cdef61e69a18619277494a0b60367ebc6afb922b5",
           "families": [
             "devices"
           ]
         },
         {
-          "locator": "line:112-116",
+          "locator": "line:112-133",
+          "sha256": "18a40fe8f5ad5f0508c8a34863e405e5d563ba1247568c0bd90e1676625df2f0",
+          "families": [
+            "devices"
+          ]
+        },
+        {
+          "locator": "line:134-138",
           "sha256": "35b94a0a9903f6b1fdc3e82a52436ea507b4e659e33ddaf12db368a50cbaf3ed",
           "families": [
             "devices"

@@ -107,7 +107,29 @@ Use a dedicated two-Agent mesh with the group ID returned by `debugger_group_id`
 
 Use the [Agent policy](../../scripts/fixtures/syn-0.10.1-context-agent.json) and [operator policy](../../scripts/fixtures/syn-0.10.1-context-operator.json) to select the [signed Syn 0.10.1 release](https://github.com/Synsphere/syn/releases/tag/v0.10.1). Both policies pin the release authority, manifest and source independently and preserve the required debugger pub/sub and directed Context RPC capabilities. Syn 0.10.1 fixes a relay deadline that could cancel processing of an already dequeued message.
 
-The signed-release acceptance ran an installed Potbot wheel on managed WSL and a separate Linux host with two enrolled Agents, Linux Secret Service keystores and a disposable PostgreSQL schema. Stack, scope and variable inspection succeeded before and after reconnect. After the fixture dropped the `continue` reply, the caller recorded an indeterminate outcome and the owner observed that the target stayed alive. The fresh Syn session rejected the old signed reply. The target observed the old command and the same invocation ID submitted in the new session. PostgreSQL retained exactly one completed execution and the original receipt digest. The test used disposable services and an authored debugpy process. Permanent service integration and wider T07.3 qualification are separate gates.
+The first signed-release acceptance ran an installed Potbot wheel on managed WSL and a separate Linux host with two enrolled Agents, Linux Secret Service keystores and a disposable PostgreSQL schema. Stack, scope and variable inspection succeeded before and after reconnect. After the fixture dropped the `continue` reply, the caller recorded an indeterminate outcome and the owner observed that the target stayed alive. The fresh Syn session rejected the old signed reply. The target observed the old command and the same invocation ID submitted in the new session. PostgreSQL retained exactly one completed execution and the original receipt digest.
+
+## Run forwarding under the installed Linux service
+
+The Potbot user service can supervise debugger forwarding for an existing, operator-owned Python target. Prepare the dedicated two-Agent Syn group and the target's DAP socket before starting the service. The bridge runs under the administrator account, verifies the signed Syn 0.10.1 Agent package against the installed release policy, and checks the connecting Potbot account using Unix peer credentials. Its permissions are limited to debugger publications in the selected group. The Potbot service resolves its existing vault profile under systemd and records the Cogs through the workspace's PostgreSQL connection and artifact store.
+
+```mermaid
+flowchart LR
+    Caller[Enrolled caller] <-->|Private debugger group| Agent[Local Syn Agent]
+    Agent <-->|Signed and verified messages| Bridge[Administrator-owned bridge]
+    Bridge <-->|Unix peer credentials| Potbot[Potbot user service]
+    Potbot -->|Admitted operations| Target[Owned Python debugger]
+    Potbot -->|Execution events| Database[(PostgreSQL)]
+    Potbot -->|Invocation claims and session history| State[Private service directory]
+```
+
+Start the [bridge module](../../src/potbot/debugging/bridge.py) with the installed Potbot interpreter using `python -I -m potbot.debugging.bridge /etc/potbot/bridge/debugger.json`. Its private registration uses profile `potbot.debugger-bridge/1` and selects the installed Agent, signed release policy, two-Agent scope, caller boot, local socket and Potbot service UID/GID. The administrator must supply and supervise this bridge.
+
+Add `--debugger-forwarding /etc/potbot/debugger-session.json` to the normal `potbot service install` command for the workspace. Use `--replace` when updating an existing service configuration. The administrator-owned [service registration](../../src/potbot/debugging/service.py) uses profile `potbot.debugger-service/1` and selects the same scope, active task and repository revision, candidate lease, sealed Cog catalog, allowed operations, DAP peer and target process lifetimes, and source hashes. Keep the registration, bridge and DAP paths outside the workspace sandbox. The service checks the registration and lease before each operation. The allowed operations apply to a target the operator has already prepared.
+
+If forwarding stops, the supervisor records `service.debugger_stopped` and waits for explicit recovery while continuing to supervise the API and job worker. Before restarting, reconcile the previous target and receipt, then supply a fresh Syn session and approved target registration. Preserve the service directory across restarts so an old session or previously claimed invocation cannot dispatch again. The [recorded debugger walkthrough](media/python-debugger-cogs.webm) shows the underlying Python inspection operations.
+
+The service qualification used managed WSL as the target owner and a separate Linux host as the caller. It used an installed candidate wheel, a disposable systemd user unit generated by `potbot service install`, two enrolled Syn 0.10.1 Agents with Linux Secret Service custody, and a disposable schema on external PostgreSQL over TLS. After dropping one `continue` reply, the fixture restarted the installed service and both Agents, then inspected the new target session from the same caller. The caller rejected the old signed reply. Resubmitting the old command and binding the same invocation ID to the fresh session produced zero further executions. PostgreSQL retained one completion with its original receipt digest. Broader T07.3 device and profiler qualification remains open.
 
 ## Source-preview publication
 

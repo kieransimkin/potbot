@@ -7,6 +7,7 @@ import pytest
 
 from potbot.cogs.contracts import CogReceipt, CogRunContext, TypedCogValue
 from potbot.cogs.debugger import cog_ref, signature
+from potbot.debugging.bridge import _bridge_call
 from potbot.debugging.syn_forwarding import (
     TOPIC,
     DebuggerInvocationClaims,
@@ -35,13 +36,42 @@ class Endpoint:
         self.messages = messages
         self.sent = []
 
-    def call(self, op, payload):
+    def call(self, op, payload=None):
         if op == "publish":
             self.sent.append(payload)
             return {"relay_accepted": True}
         if self.messages is None:
             raise OSError("relay dropped")
         return {"messages": self.messages.pop(0) if self.messages else []}
+
+
+def test_service_bridge_restricts_direction_topic_destination_and_session():
+    session = uuid4().hex
+    signed_debugger_message = {"envelope": {"header": {"topic": TOPIC}}}
+    other_message = {"envelope": {"header": {"topic": "unrelated"}}}
+    endpoint = Endpoint(uuid4(), session, [[signed_debugger_message, other_message]])
+    assert _bridge_call(endpoint, {"op": "receive"}, SERVER, "target") == {
+        "messages": [signed_debugger_message]
+    }
+    value = {"kind": "reply", "to": SERVER, "session": session}
+    for topic, body in (
+        ("unrelated", value),
+        (TOPIC, value | {"kind": "request"}),
+        (TOPIC, value | {"to": CLIENT}),
+        (TOPIC, value | {"session": uuid4().hex}),
+    ):
+        with pytest.raises(ScopeDeniedError):
+            _bridge_call(
+                endpoint,
+                {"op": "publish", "payload": {"topic": topic, "value": body}},
+                SERVER,
+                "target",
+            )
+    allowed = {"topic": TOPIC, "value": value}
+    assert _bridge_call(endpoint, {"op": "publish", "payload": allowed}, SERVER, "target") == {
+        "relay_accepted": True
+    }
+    assert endpoint.sent == [allowed]
 
 
 def test_forwarding_discards_old_signed_reply_and_does_not_resend():

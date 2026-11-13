@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from potbot.cogs.contracts import CogOutcome, CogReceipt, CogRunContext, CogSignature, TypedCogValue
@@ -20,7 +20,6 @@ from potbot.domain.errors import (
     StateMismatchError,
 )
 from potbot.syn_release.contracts import canonical, digest, document, fields
-from potbot.syn_release.pubsub_endpoint import SynPubSubEndpoint
 from potbot.syn_release.store import _directory, _sync_directory, _write_new
 
 TOPIC = "syn://type/potbot-debugger-forwarding-v1"
@@ -104,10 +103,20 @@ def _context(raw: object) -> CogRunContext:
     )
 
 
+class DebuggerEndpoint(Protocol):
+    @property
+    def node(self) -> str: ...
+
+    @property
+    def scope(self) -> dict[str, Any]: ...
+
+    def call(self, operation: str, payload: object = None) -> dict[str, Any]: ...
+
+
 class SynDebuggerRoute:
     """One controller-owned consumer for a dedicated two-Agent debugger group."""
 
-    def __init__(self, endpoint: SynPubSubEndpoint, *, operator: str, peer: str, peer_boot: str):
+    def __init__(self, endpoint: DebuggerEndpoint, *, operator: str, peer: str, peer_boot: str):
         scope = endpoint.scope
         self.workspace_id = UUID(scope["workspace_id"])
         self.session = scope["session_id"]
