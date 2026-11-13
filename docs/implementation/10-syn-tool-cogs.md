@@ -64,6 +64,8 @@ flowchart TD
 
 The execution journal records the policy digest and effective capabilities on admission. A denial records a fixed reason code. Invocation data remains in the existing scoped artifact store. Existing callers can continue using their configured authorizer. This milestone covers the installed sandbox Cog path, with the existing native Syn identity check. It leaves durable operator grant management, wallet delegation, device grants and broader gateway rollout to later stages.
 
+The managed WSL fixture exercised the policy using the signed Syn 0.10.0 release, the signed worker image and two disposable enrolled Agents. The granted gRPC operation reached the provider and settled in disposable PostgreSQL. The same installation with an empty grant list recorded a denial and sent zero requests. Repeated recovery after a dropped reply also sent zero requests. The PostgreSQL regression additionally covers parent capability limits and a grant that expires before provider dispatch.
+
 ## Stateful debugger, terminal and device Cogs
 
 Each operation is a separate typed Cog. Persistent state lives in the controller-owned session service and durable receipts, not a hidden global variable in a supposedly pure handler. Output session references are opaque, tenant/workspace/target/lease scoped, expiring and revision bound; possession alone grants no authority. Never serialize a live Python frame, socket, credential, OS handle or unrestricted device shell into a Cog value.

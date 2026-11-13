@@ -63462,7 +63462,7 @@
     },
     {
       "path": "docs/implementation/10-syn-tool-cogs.md",
-      "sha256": "0b6fec9711dd9a45fade166c2dc70441710db0a634038105167bbe412ba7d8f7",
+      "sha256": "ed9b9c766f58ffe30e8efa4c68757447370d5bcc54449fedbfe3a6f5ac6a069b",
       "families": [
         "identity",
         "journal",
@@ -63508,8 +63508,8 @@
           ]
         },
         {
-          "locator": "line:47-66",
-          "sha256": "3f4cf871905c8aba172be738e95a2f93f88f5956bd115b95d92cf67341245889",
+          "locator": "line:47-68",
+          "sha256": "b54d8a1dcbcd64b9fc6394bab8a3cce2a6bd9b79d50c2afb6122b1326225227d",
           "families": [
             "identity",
             "journal",
@@ -63517,7 +63517,7 @@
           ]
         },
         {
-          "locator": "line:67-84",
+          "locator": "line:69-86",
           "sha256": "9bc79c00123f55ad8c7d2ff1c3f58605b28e04a5f60c92f17bbc48b5e8ac7433",
           "families": [
             "identity",
@@ -63526,7 +63526,7 @@
           ]
         },
         {
-          "locator": "line:85-99",
+          "locator": "line:87-101",
           "sha256": "da006eb2bf72b378f831d5360e0cfa8d092b3091242c26b82fd59d7398902259",
           "families": [
             "identity",
@@ -63535,7 +63535,7 @@
           ]
         },
         {
-          "locator": "line:100-112",
+          "locator": "line:102-114",
           "sha256": "1e45889fa371d999995f4ba37eb242f4e24e88175858308e63381a108aecdb46",
           "families": [
             "identity",
@@ -63544,7 +63544,7 @@
           ]
         },
         {
-          "locator": "line:113-124",
+          "locator": "line:115-126",
           "sha256": "eb4bdcf7aaa398c048313ce964727632d95396bf2b1231cfa42c6a4a6b8f245d",
           "families": [
             "identity",
@@ -80845,7 +80845,7 @@
         "identity"
       ],
       "status": "partial",
-      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage.",
+      "assessment": "Requirement: Capability permission and risk policy. Existing action intents, durable receipts, recovery claims, at-least-once outbox and generation fences already cover the local supervised-tool path. This is not exactly-once execution across arbitrary remote producers. Linux/WSL shared-workspace and isolated-worker source contracts exist. Docker builds system images; Bubblewrap executes admitted work. An OCI identity does not certify unpacked rootfs content or host isolation. Public Agent/Credential/Ember contracts and a native broker exist. Historical hardware/temporary-key and standalone service descriptions are superseded in deployment by the official Syn-owned runtime contracts. The sandbox Cog path has an optional operator capability policy with bounded denial evidence and PostgreSQL fixture coverage. A managed WSL fixture verified allowed and denied gRPC dispatch on the released Syn worker.",
       "next_action": "Connect scoped Cog capability grants to durable operator management, wallet delegation and target-specific device and gateway checks."
     },
     {
