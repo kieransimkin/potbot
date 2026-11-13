@@ -177,6 +177,11 @@ class DebugSession:
             raise ScopeDeniedError("Debugger attach requires a controller-owned target")
         self._attach_target.authorize(configuration)
 
+    def require_owned_attach_target(self) -> None:
+        if self._attach_target is None:
+            raise ScopeDeniedError("Forwarded debugger requires a controller-owned target")
+        self._attach_target.require_current(None)
+
     def _remote_target(self) -> RemoteDebugTarget | None:
         return self._attach_target.remote if self._attached and self._attach_target else None
 

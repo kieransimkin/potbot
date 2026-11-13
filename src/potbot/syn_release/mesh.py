@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from potbot.domain.errors import ScopeDeniedError, StateMismatchError
 
@@ -28,6 +28,7 @@ from .agent import AgentSession, SynAgentDeployment
 from .cog_enrollment import cog_enrollment_sha256
 from .commands import SynPublicCommands
 from .contracts import canonical
+from .pubsub_endpoint import SynPubSubEndpoint
 from .store import _directory, _write_new
 
 
@@ -224,33 +225,17 @@ class SynPrivateMesh(SynPublicCommands):
         if not lock.acquire(timeout=6):
             raise StateMismatchError("Native Syn command capacity deadline exceeded")
         try:
-            path = self.root / ("public-request-" + uuid4().hex + ".json")
-            _write_new(
-                path, canonical({"scope": self.scope, "operation": operation, "payload": payload})
+            endpoint = SynPubSubEndpoint(
+                self.root,
+                python=selected.python,
+                socket_path=selected.deployment.root / agent_id.hex / "home/syn/agent.sock",
+                owner_uid=selected.deployment.uid,
+                node=selected.selected_hash,
+                boot=body["boot_id"],
+                configuration_sha256=body["configuration_sha256"],
+                scope=self.scope,
             )
-            try:
-                value = self._public_command(
-                    selected.python,
-                    [
-                        "-m",
-                        "syn_client.pubsub_client",
-                        "--socket",
-                        str(selected.deployment.root / agent_id.hex / "home/syn/agent.sock"),
-                        "--owner-uid",
-                        str(selected.deployment.uid),
-                        "--expected-key",
-                        selected.selected_hash,
-                        "--configuration-sha256",
-                        body["configuration_sha256"],
-                        "--expected-boot",
-                        body["boot_id"],
-                        "--request",
-                        str(path),
-                    ],
-                    timeout=6,
-                )
-            finally:
-                path.unlink()
+            value = endpoint.packet(operation, payload)
         finally:
             lock.release()
         if (
