@@ -10,7 +10,7 @@
 | Stage | Implementation | Tests | Outstanding |
 |---|---|---|---|
 | T02.1 | Bounded JSON-RPC framing; both lifecycle eras; stdio streams supplied by an already-approved supervisor; duplicate/invalid/remote-schema rejection; paginated `tools/list` with fingerprint; strict argument/result validation; pinned call admission; unverified Phase 1 observations. | Real modern and legacy subprocess fixtures, calculator call, tool-side errors, strict schemas, changed catalog, duplicate names, circular cursor, child crash, overflow, timeout, unsolicited server request, cancellation-safe poisoned stream. | Production interactive child supervision in the qualified workspace sandbox, SDK-wide interop tests, dynamic subscriptions and richer MCP primitives. |
-| T02.2 | Streamable HTTP POST, JSON or bounded SSE, modern per-request metadata and required headers, optional legacy session handshake, bearer supplier callback, no redirects, explicit network approval hook, no automatic replay, 401/403 handling, conservative error classification. | `httpx.MockTransport` end-to-end fixture: modern and legacy, HTTP headers, token handling, SSE, malicious redirect, body cap, schema validation and no-authority denial. | **Public deployment qualification, broader provider compatibility, session restart recovery and MRTR handling.** |
+| T02.2 | Streamable HTTP POST, JSON or bounded SSE, modern per-request metadata and required headers, optional legacy session handshake, bearer supplier callback, no redirects, explicit network approval hook, no automatic replay, 401/403 handling, conservative error classification. | `httpx.MockTransport` end-to-end fixture: modern and legacy, HTTP headers, token handling, SSE, malicious redirect, body cap, schema validation and no-authority denial. | **Public deployment qualification, broader provider compatibility, session restart recovery and managed confirmation.** |
 | T02.3 | Not implemented by this increment. | N/A | Extend existing `ProcessSupervisor` with a safely confined *interactive* stdio lifecycle; do not spawn unsandboxed child processes inside application adapters. |
 | T02.4 | Not implemented by this increment. | N/A | General REST/GraphQL/gRPC adapter contracts and live API benchmarks. |
 
@@ -60,7 +60,7 @@ sequenceDiagram
 - The modern MCP revision is stateless: do **not** synthesize session IDs. Legacy session IDs are recognized only after the legacy initialize response.
 - Writes are never automatically replayed after disconnect, timeout, cancellation, ambiguous SSE endings or server crashes. The gateway must persist intent/dispatch/result and reconcile any uncertain side effect before issuing a new action.
 - Modern Streamable HTTP mirrors approved `x-mcp-header` arguments from the pinned tool schema into `Mcp-Param-*` request headers. The controller derives them from the same admitted arguments sent in the body. It excludes tools with invalid routing annotations and emits headers only for an installed HTTP tool whose fingerprint matches the live catalogue. Use `McpToolInfo.from_wire(..., allow_http_headers=True)` when preparing the operator's pinned definition. Approve only values intended for visibility to network intermediaries. [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http#custom-headers-from-tool-parameters)
-- Modern MRTR `input_required`, dynamic subscriptions and remote JSON Schema references fail explicitly in this subset.
+- Modern multi-round-trip tool calls can request one boolean confirmation when controller code supplies a read-only `McpConfirmation` policy for the installed tool. Other input request types and dynamic subscriptions remain outside this profile.
 - `McpCallResult.to_observation` creates an **unverified** result record; persistent artifacts, execution admission, identity checks and independent verification are duties of the existing Potbot gateway and ledgers.
 
 
@@ -102,6 +102,27 @@ sequenceDiagram
 
 The worker uses its existing bounded pipes and private network namespace. The controller reads the OAuth token from its native vault and attaches it only to the registered HTTPS request. Completion requires the directed Syn reply and an audited worker exit. A lost acknowledgement, fenced lease or unconfirmed result leaves an indeterminate action in the durable gateway. Recovery uses the stored receipt when available and refuses to replay an uncertain call.
 
+### One confirmation on a modern HTTP call
+
+Controller code can pass a `McpConfirmation` to `McpClient.call_tool` for a pinned read-only tool. The policy selects one boolean field and supplies an operator approval callback. The callback receives the tool and plain-text form prompt. The client holds the server's opaque state for this invocation. It checks the pinned catalogue and the controller's admission again before sending the approved response with a fresh request ID and the original arguments. Refused approval ends the invocation before a second request. A second form ends the invocation without a third request. [MCP input-required tool results](https://modelcontextprotocol.io/specification/2026-07-28/server/tools#input-required-tool-results)
+
+```mermaid
+sequenceDiagram
+    participant C as Controller client
+    participant R as MCP resource
+    participant O as Operator approval
+    C->>R: Admitted tool call
+    R-->>C: Boolean form and opaque state
+    C->>O: Request approval for the pinned field
+    O-->>C: Approve or decline
+    opt Approved and still admitted
+        C->>R: New request ID, same arguments and approved answer
+        R-->>C: Final tool result
+    end
+```
+
+This is an in-process client profile. The installed TASKSTATS gateway uses the existing single-request path. Managed confirmation requires durable approval and accounting for both requests.
+
 ## How to run
 
 From an existing repository checkout containing this patch:
@@ -126,7 +147,7 @@ PYTHONPATH=src uv run --no-project --python 3.12 --with mcp==2.3.0 \
   --with httpx==0.28.1 --with jsonschema==4.26.0 python scripts/check_mcp_sdk.py
 ```
 
-The local probe exercises the common tool protocol and verifies an encoded routing argument against the official SDK server. Multi-round-trip requests, subscriptions and public deployment qualification remain open.
+The local probe exercises both protocol eras, an encoded routing argument and an explicitly approved confirmation against the official SDK server. Managed confirmation, subscriptions and public deployment qualification remain open.
 
 ## Next engineering steps, in order
 
@@ -134,7 +155,7 @@ The local probe exercises the common tool protocol and verifies an encoded routi
 2. **T02.3.2:** Bind the session to a durable `ToolInstallationDescriptor` and `ToolInvocationIntent` retrieved by the existing `ToolGateway` after checked workspace authorization, reservation, policy revision and lease fencing. Model data must never construct or approve the authority callback.
 3. **T02.3.3:** Test a calculator MCP server inside qualified sandbox; no read/write outside workspace, no network, bounded stdout/stderr, 100 crash/restart fixtures without repeated writes.
 4. **T02.2.1:** Add a qualified HTTP egress proxy (DNS rebinding/IP/localhost/metadata controls), exact recipient/audience-scoped credential broker, OIDC discovery/issuer validation and explicit consent. Do not persist access tokens in artifacts.
-5. **T02.2.2:** Adopt or conformance-check the official MCP Python SDK v2 on both protocol eras; extend compatibility for MRTR and subscriptions behind explicit capabilities.
+5. **T02.2.2:** Adopt or conformance-check the official MCP Python SDK v2 on both protocol eras; extend confirmation into managed execution with durable admission for both requests, then qualify subscriptions.
 6. **T02.4:** Add typed, versioned API adapters with no direct service authorization in the advertised metadata.
 
 ## References

@@ -30,6 +30,7 @@ TESTS = {
 }
 SOURCES = [
     "src/potbot/tools/mcp_protocol.py",
+    "src/potbot/tools/mcp_confirmation.py",
     "src/potbot/tools/mcp_stdio.py",
     "src/potbot/tools/mcp_http.py",
     "src/potbot/tools/mcp_headers.py",
